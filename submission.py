@@ -113,6 +113,39 @@ def _norm_rope(ptr, off, ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr
 
 
 @triton.jit
+def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, MASKED: tl.constexpr,
+          PAGE: tl.constexpr, ROW_W: tl.constexpr, D: tl.constexpr, WINDOW: tl.constexpr, QK8: tl.constexpr,
+          DOT: tl.constexpr):
+    """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi."""
+    if MASKED:
+        t_ok = t < hi
+        page = tl.load(pt_row + t // PAGE, mask=t_ok, other=0)
+    else:
+        page = tl.load(pt_row + t // PAGE)
+    row = (page.to(tl.int64) * PAGE + t % PAGE) * ROW_W + hp0 * D
+    if MASKED:
+        k = tl.load(kc_ptr + row[:, None] + c[None, :], mask=t_ok[:, None], other=0.0)
+        v = tl.load(vc_ptr + row[:, None] + c[None, :], mask=t_ok[:, None], other=0.0)
+    else:
+        k = tl.load(kc_ptr + row[:, None] + c[None, :])
+        v = tl.load(vc_ptr + row[:, None] + c[None, :])
+    s = tl.dot(q, tl.trans(k if QK8 else k.to(DOT))) * scale
+    if MASKED:
+        ok = t_ok[None, :]
+        if WINDOW > 0:
+            ok = ok & (t[None, :] > pos[:, None] - WINDOW)
+        s = tl.where(ok, s, float("-inf"))
+    elif WINDOW > 0:
+        s = tl.where(t[None, :] > pos[:, None] - WINDOW, s, float("-inf"))
+    m_new = tl.maximum(m_i, tl.max(s, 1))
+    alpha = tl.exp2(m_i - m_new)
+    p = tl.exp2(s - m_new[:, None])
+    l_i = l_i * alpha + tl.sum(p, 1)
+    acc = acc * alpha[:, None] + tl.dot(p.to(DOT), v.to(DOT))
+    return m_new, l_i, acc
+
+
+@triton.jit
 def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr,
                 pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale,
                 HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr, G: tl.constexpr, L: tl.constexpr,
@@ -162,24 +195,18 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     hi = tl.minimum(lo + CHUNK, seq)
     pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
     n = tl.arange(0, BLOCK_N)
-    for start in tl.range(lo, hi, BLOCK_N, num_stages=STAGES):
-        t = start + n
-        t_ok = t < hi
-        page = tl.load(pt_row + t // PAGE, mask=t_ok, other=0)
-        row = (page.to(tl.int64) * PAGE + t % PAGE) * ROW_W + hp0 * D
-        k = tl.load(kc_ptr + row[:, None] + c[None, :], mask=t_ok[:, None], other=0.0)
-        v = tl.load(vc_ptr + row[:, None] + c[None, :], mask=t_ok[:, None], other=0.0)
-        s = tl.dot(q, tl.trans(k if QK8 else k.to(DOT))) * scale
-        ok = t_ok[None, :]
-        if WINDOW > 0:
-            ok = ok & (t[None, :] > pos[:, None] - WINDOW)
-        s = tl.where(ok, s, float("-inf"))
-        m_new = tl.maximum(m_i, tl.max(s, 1))
-        alpha = tl.exp2(m_i - m_new)
-        p = tl.exp2(s - m_new[:, None])
-        l_i = l_i * alpha + tl.sum(p, 1)
-        acc = acc * alpha[:, None] + tl.dot(p.to(DOT), v.to(DOT))
-        m_i = m_new
+    # Whole tiles need no bounds masks; full layers need no masks at all there. The tail is masked.
+    # Only for single-token decode: with a verify block's 64 rows the second copy costs registers.
+    if L == 1:
+        full_end = lo + tl.maximum(hi - lo, 0) // BLOCK_N * BLOCK_N
+    else:
+        full_end = lo
+    for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
+        m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
+                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+    for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
+        m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
+                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
 
     if split == 0:
         # The block's own tokens: normalize, store as FP8, attend causally.
