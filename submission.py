@@ -331,16 +331,18 @@ def _plan(cfg, max_pages, device):
         # Large batches: smaller, deeply pipelined programs.
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
                     qk8=length == 1)
-    if heads <= 4:
+    if heads <= (2 if length == 1 else 4):
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
     if length == 1:
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
                     fuse=False, qk8=True)
-    # Verify blocks' 64-row programs are few per SM; deep pipelines keep their reads in flight.
+    # Verify blocks' 64-row programs are few per SM; deep pipelines keep their reads in flight, and
+    # about 512 of them fill the GPU.
+    splits = max(16, 512 // heads)
     if heads <= 32:
-        return dict(splits=16, block_n=32, warps=4, stages=5, hpp=1, fuse=False, qk8=True)
-    return dict(splits=16, block_n=64, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
+        return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=1, fuse=False, qk8=True)
+    return dict(splits=splits, block_n=64, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:
