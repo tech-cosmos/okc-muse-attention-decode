@@ -79,13 +79,17 @@ the invalid results solely to document the bug. `merge-valid-pairs.txt`,
   shared memory and cluster barriers. Correct on the swept scored cases, but
   best times ~13.4/16.8/23.5 us. `cluster_driver.py` reproduces.
 - `cuda_verify_cluster.py`: WGMMA sliding verify adapted from session 1 with
-  producer/consumer warps. **NOT CORRECT / NOT A CANDIDATE**: intermittent NaNs at
-  multiple splits. Separate partial storage and CUDA atomic flag access did not
-  resolve it. Debugging shows the global partials themselves can be NaN, so the
-  issue precedes the cluster reduction. The first racecheck reported hazards in
-  the staging pipeline and flags; no clean racecheck was obtained for this path.
-  `cuda_verify_debug.py` and `verify_debug_parts.py` preserve the isolation probe.
-  Do not infer valid performance or reuse this kernel without fixing and validating.
+  producer/consumer warps. initially failed with intermittent NaNs at multiple splits. Separate partial
+  storage, atomic flags, and even synchronous cooperative gathers did not fix it.
+  The cause was the WGMMA descriptor: `cvta.to.shared` can include cluster rank bits;
+  encoding the matrix address requires `(address & 0x3ffff) >> 4`, not `address >> 4`.
+  Adding the mask fixed all eight cooperative diagnostic cases (S=1/2/4/8,
+  stages=2/3). All 24 scored shape/plan checks then passed; best times were still slow:
+  ~24.4/30.4/39.6 us at B=1/16/32 (`verify-cluster-masked.txt`).
+  `cuda_verify_debug.py` and `verify_debug_parts.py` preserve the earlier failing
+  isolation probe. Earlier unmasked measurements/errors do not describe the fix.
+  Six extra small/DP/page/scale cases at splits 4 and 8 also passed
+  (`verify-fixed-cases.txt`). No version of this attention kernel was submitted.
 - `cuda_merge.py`: corrected serial-weight merge, variable warps per CTA.
 - `cuda_merge_constants.py`: additionally specializes head count and query length;
   removes runtime divisions but did not materially improve end-to-end timing.
@@ -95,3 +99,6 @@ the invalid results solely to document the bug. `merge-valid-pairs.txt`,
 The full native attention prototypes were not submitted. All caches/partials are
 computed inside the timed call; the production candidate only builds its extension
 at import time and caches no input-derived values.
+
+WGMMA descriptor encoding reference:
+https://docs.nvidia.com/cuda/parallel-thread-execution/#asynchronous-warpgroup-level-matrix-descriptor-format

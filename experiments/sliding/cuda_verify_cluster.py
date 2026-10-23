@@ -180,7 +180,7 @@ __global__ __launch_bounds__(160,4) void verify(const __nv_bfloat16* __restrict_
    asm volatile("wgmma.fence.sync.aligned;":::"memory");
    #pragma unroll
    for(int d=0;d<2;d++) {
-     unsigned long desc=((unsigned long)__cvta_generic_to_shared(raw[stage][0]+d*256)>>4)
+     unsigned long desc=(((unsigned long)__cvta_generic_to_shared(raw[stage][0]+d*256)&0x3ffffull)>>4)
                         | (8ull<<16) | (32ull<<32);
      asm volatile("wgmma.mma_async.sync.aligned.m64n32k32.f32.e4m3.e4m3 {%0,%1,%2,%3,%4,%5,%6,%7,%8,%9,%10,%11,%12,%13,%14,%15}, {%16,%17,%18,%19}, %20, 1, 1, 1;"
        : "+f"(score[0].x[0]), "+f"(score[0].x[1]), "+f"(score[0].x[2]), "+f"(score[0].x[3]), "+f"(score[0].x[4]), "+f"(score[0].x[5]), "+f"(score[0].x[6]), "+f"(score[0].x[7]), "+f"(score[1].x[0]), "+f"(score[1].x[1]), "+f"(score[1].x[2]), "+f"(score[1].x[3]), "+f"(score[1].x[4]), "+f"(score[1].x[5]), "+f"(score[1].x[6]), "+f"(score[1].x[7])
