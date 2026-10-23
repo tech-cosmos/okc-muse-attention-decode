@@ -307,7 +307,7 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
 
 def _plan(cfg, max_pages, device):
     """Launch parameters from shapes only, tuned on an H100 over the scored shapes: splits per
-    (request, KV head group), tile size, warps, pipeline stages, KV heads per program (hpp) and
+    (request, KV head group), tile size, warps, pipeline stages, KV heads per program (hpp),
     whether the last program merges the splits (fuse), and whether QK^T runs in FP8 (qk8:
     queries rounded to E4M3, as FA3 does with an FP8 cache)."""
     batch, length, hkv = cfg["batch"], cfg["q_len"], cfg["num_kv_heads"]
@@ -315,17 +315,19 @@ def _plan(cfg, max_pages, device):
     if cfg["window"]:
         # Sliding layers: at most 2,047 cached keys; latency-bound.
         splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
-        # Verify blocks' 64-row programs are few per SM; deep pipelines keep their reads in flight.
-        deep = length > 1 and heads > 4
-        return dict(splits=splits, block_n=32 if deep and heads > 32 else 64, warps=4, stages=5 if deep else 2,
-                    hpp=1, fuse=False, qk8=not (length > 1 and heads > 32))
-    if length == 1:
-        if heads <= 4:
-            return dict(splits=256, block_n=64, warps=4, stages=3, hpp=1, fuse=False, qk8=True)
-        # Many small one-warp programs keep the most scattered row reads in flight.
-        return dict(splits=max(8, 2048 // heads), block_n=32, warps=1, stages=3, hpp=2, fuse=False, qk8=True)
+        if heads <= 32:
+            return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
+                        hpp=1, fuse=False, qk8=True)
+        # Large batches: smaller, deeply pipelined programs.
+        return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
+                    qk8=length == 1)
     if heads <= 4:
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
+    if length == 1:
+        # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
+        return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
+                    fuse=False, qk8=True)
+    # Verify blocks' 64-row programs are few per SM; deep pipelines keep their reads in flight.
     if heads <= 32:
         return dict(splits=16, block_n=32, warps=4, stages=5, hpp=1, fuse=False, qk8=True)
     return dict(splits=16, block_n=64, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
