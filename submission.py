@@ -371,5 +371,6 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     _combine[(batch * length, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=splits, S_PAD=triton.next_power_of_2(splits),
-        SB=min(32, triton.next_power_of_2(splits)), num_warps=2)
+        # Up to 128 splits in one pass, so every partial's load is in flight at once.
+        SB=min(128, triton.next_power_of_2(splits)), num_warps=4 if splits > 32 else 2)
     return out
