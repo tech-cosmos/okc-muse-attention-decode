@@ -145,3 +145,128 @@ in Codex's own handoff instead.
    costs are the remaining opportunity there. Preserve the existing Triton plans.
 4. Merge origin/main before new work, read ~/COORD.md, and claim only the native lane.
    /home/daytona/.okc/bin/okc is the CLI path (not on the non-login shell's PATH).
+
+## Session 2 — 2026-10-23, 20:56–21:38 UTC (scored run still pending)
+
+### Candidate and branch state
+
+Native CUDA output reduction for small sliding batches, built on main 0495b16.
+Candidate commit **881df62**, now promoted to `codex`. Experiment source/results
+are on `codex-exp/cuda-sliding` through **5169be7**; they are not imported by production.
+The native function merges exactly 32 FP32 splits, one warp per query head.
+Each lane computes a split's max/sum weight, the warp reduces the global max and
+normalizer, and shuffles distribute weights to the two FP32 output dimensions
+owned by each lane. RMSNorm/gate/output BF16 remain inside the timed call.
+Dispatch is by shape only: sliding, S=32, B*Hkv <=4. All other shapes keep main's
+latest Triton kernel and plans, including `_combine_hb` from 0495b16.
+
+Five paired local H100 graph medians (cold L2, shared GPU flock):
+
+| batch | q_len | main 0495b16 | native |
+|---|---|---:|---:|
+| 1 | 1 | 6.224 us | 5.664 us |
+| 1 | 8 | 7.376 us | 6.928 us |
+| 2 | 1 | 7.056 us | 6.496 us |
+| 2 | 8 | 8.224 us | 7.760 us |
+
+Final local full bench **1.838x** vs fixed SGLang/H200 reference. Entry baseline
+before main's merge update was 1.812x; the gain includes both main's batched
+Triton merge and our small-batch native path. Do not attribute the entire aggregate
+gain to native code. Native timing benefit against the same-process latest-main
+comparison is shown above. Files: `experiments/sliding/results/final-*`.
+
+### Validation and a compiler-ordering bug caught locally
+
+- Final production candidate: full reference suite 16/16 pass.
+- Selected native B=1/2, L=1/8: four scored/nearby reference comparisons and 48 CUDA
+  graph replays with changed QKV all passed.
+- 80 additional graph replays changed every tensor (including cache contents,
+  page tables, sequence lengths, positions, cache locations, scales), using
+  mixed lengths, soft/edge distributions, pages 1/64, scales 1 and 1/64: all pass.
+- Memcheck and synccheck: zero errors on four native cases, three changed-QKV
+  calls each, pages 1/64, L=1/8, scales 1 and 1/64.
+- Before narrowing dispatch, the corrected broader native merge passed 20 nearby
+  sliding shapes (B=2–64, contexts 40K–120K) and four short-context DP cases. Larger
+  verify shapes did not beat main's newer merge, so final dispatch retains main.
+
+The first merge used const/restrict partial pointers. NVCC moved read-only
+`LDG.E.64.CONSTANT` loads before `griddepcontrol.wait` (`ACQBULK` in SASS), despite
+an asm memory clobber. Replaying identical inputs concealed the stale reads;
+nearby B=48 and repeated eager calls exposed NaNs/large errors with PDL enabled.
+Turning PDL off avoided the failure. Volatile inline `ld.global.cg.v2.f32` after
+the dependency wait fixes the ordering; final SASS confirms wait-before-partials.
+The fresh-value and fresh-routing graph tests above validate the fix.
+
+**Discard early native merge timings** (~4.9 us decode-1, 1.879x aggregate).
+They came from the incorrect version. That code never reached a judge check or
+scored run. All judge work uses the corrected cooperative merge. Nothing needed
+withdrawing. The archived invalid results are explicitly labeled in the README.
+
+### Native attention experiments that did not win
+
+1. Warp-local CUDA sliding decode: cp.async gather ring, FP16 QK/PV MMA,
+   fused norm/RoPE/new-FP8-cache writes, FP32 split partials. Swept S=2/4/8/16,
+   W=1/2/4, stages=2/3, fused last-CTA or separate Triton merge.
+   Best valid two-launch times ~11.1/15.9/20.8 us for B=1/16/32 (slower than main).
+   Fused last-CTA reduction lost. All swept scored cases passed comparisons.
+2. Hopper cluster/DSM reduction of those warp-local partials: correct on scored
+   sweeps but best ~13.4/16.8/23.5 us. Eliminating global partial traffic alone
+   does not fix the slow attention loop.
+3. WGMMA sliding verify adapted from session 1, with cluster reduction: initially
+   failed with intermittent NaNs. Separate shared partial storage, atomic flags,
+   and synchronous cooperative gathers did not resolve it. The actual issue was
+   descriptor encoding: the matrix address must be `(address & 0x3ffff) >> 4`.
+   Omitting the mask can let cluster address bits corrupt the descriptor. The fix
+   passed all 24 scored shape/plan comparisons and eight cooperative diagnostics.
+   Best correct times ~24.4/30.4/39.6 us at B=1/16/32, still much slower than main.
+   An early racecheck on the unmasked pipeline reported hazards; no clean
+   racecheck has been claimed for this prototype. Never dispatched or submitted.
+4. Native merge with compile-time head/length constants: no material improvement.
+   Cooperative per-warp weights beat repeated per-lane exponentials for small
+   verify batches; neither merge design reliably beat main on large verify grids.
+
+Native decode profile (B32, S8, W4, stages2): 96 regs, 37.3 KB shared memory/CTA,
+5 theoretical CTAs/SM but only 0.78 grid waves, 21.6% achieved occupancy,
+26% DRAM utilization, ~0.30 issued warps/scheduler. No spills. Latency/occupancy,
+not a raw HBM ceiling, is the issue. Full text profile and reproducer retained.
+
+### Judge budget and result
+
+Codex UTC-day 2026-10-23: **1/8 checks**, **1/3 scored runs**.
+Check **2d178f1df3544c27**, code 881df62, submitted 21:17 UTC: **16/16 pass,
+1.942450x**, 95% CI **[1.913313, 1.971587]**, no flags or static-check rejections.
+The check completed at about 21:37 UTC after ~13 minutes queued and 6 minutes running.
+Scored run **033117b46b6f42ba** submitted 21:37 UTC, identical checked code: **pending**.
+Immediately before submission the board best was 1.9207x, rank 32, so the required
+same-code/check-beats-current-board condition was satisfied. This is Codex's first
+scored run today; the human's/Claude's earlier runs are separate agent shares.
+Before it, account usage was 7/20 checks and 3/10 scored; the eighth account check
+is ours. Claude's main-merge check 944b20a9 was running concurrently.
+
+Read `profiles/submission.2d178f1df3544c27.txt`. The native-path shape times
+were decode-1 sliding **7.185 us** and verify-1 sliding **7.951 us**. Main 0495b16's
+check 944b20a9 measured **7.482 / 8.430 us** on those shapes and **1.934634x**
+[1.905615,1.969061] overall. These are separate judge runs, so treat the small
+aggregate difference cautiously; the confidence intervals overlap. The paired
+H100 comparisons and both H200 target shapes favor the native path.
+
+The native merge itself was profiled at **1.6 / 1.9 us** for decode/verify batch 1;
+the attention kernels cost 4.6 / 4.3 us. Large full-verify attention remains the
+largest weakness (156.7 / 306.1 us for B16/32 in this check). PDL profile rows for
+full shapes overlap and include waiting; do not add them to estimate total time.
+
+Neither ~/STOP nor ~/STOP-codex existed at the last read. No withdrawals: the
+incorrect early prototypes were never checked or submitted. Read the scored
+run's result and update this entry when it completes.
+
+### Next cycle
+
+- Start from the final production branch and merge any newer main before tuning.
+- Do not repeat tiny warp/stage sweeps of the current full native attention
+  prototypes: they are substantially slower. Their source/measurements are on
+  codex-exp/cuda-sliding under experiments/sliding, with explicit correctness labels.
+- Native merge gains are small. Future larger wins need a different gather/
+  attention topology; the pipeline/full-row-load idea from session 1 remains
+  structurally more promising than another small merge parameter sweep.
+- For any native kernel synchronized with a concurrent predecessor, inspect SASS
+  for data loads before waits, and validate fresh data/routing across graph replays.
