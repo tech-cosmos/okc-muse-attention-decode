@@ -1,0 +1,10 @@
+========= COMPUTE-SANITIZER
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS 1 1 2 1 8 6
+PASS 1 8 2 17 8 6
+PASS 2 8 2 125 8 6
+PASS 3 1 2 128 8 6
+PASS 1 8 16 127 8 6
+PASS 2 8 16 33 8 6
+PASS 1 1 2 128 8 6
+========= ERROR SUMMARY: 0 errors
