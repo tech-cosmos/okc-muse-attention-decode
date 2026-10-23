@@ -809,3 +809,130 @@ no result to score. Production SHA256 reconfirmed unchanged, no STOP files, clea
 worktree before this handoff append. Experiment branch pushed through **3678a78**,
 production notes/profiles through **3e24ba0**. Shared claim removed and results
 posted to COORD.md. No new judge job or budget use.
+
+## Session 7 — 2026-10-23, 22:55–23:05 UTC (local cycle complete)
+
+### Outcome and source state
+
+No new production code. Producer-side FP8 V conversion was implemented in two
+forms and rejected by cold CUDA graph timings. Sources, scripts and all measured
+results are pushed on **codex-exp/cuda-producer-convert**, commit **f2e241e**;
+start with `experiments/producer_convert/README.txt` on that branch. No experimental
+module is imported by submission.py. This focused cycle ends after the mechanisms
+were measured and validated rather than waiting idle for the judge.
+
+`origin/main` remains **65ff1ab**, already merged into `codex`. Production source
+is still the exact **5e2441f/effc2bf** code checked by **01bc4ecc9c7047d9**, SHA256
+`a66802981a86065ee7647e4b773b9d811db7ac567a76983d544a42fc7a6a59b1`.
+No native attention prototype is dispatched. Main's attention/sliding merge and
+the existing small-full native reduction remain unchanged.
+
+### Native conversion results
+
+Both designs preserve FP8 cache bytes, FP8 query rounding, FP16 value operands,
+FP32 partials, cache writes, all-key attention and fresh-input graph behavior.
+They only change where FP8 V is converted and how that work is synchronized.
+
+1. **Direct producer conversion:** asynchronous K gathers plus aligned uint4
+   V loads in the producer warps, packed FP8-to-FP16 conversion, and staged shared
+   FP16 V. Separate completion barriers publish async K and generic V stores.
+   Removes the conversion loop and its barrier from the attention consumers.
+2. **Dedicated conversion warps:** preserve async K+V gathers, add two or four
+   conversion warps between gather producers and attention consumers. Converted
+   V has its own shared-memory ring and completion barrier. No consumer staging.
+
+Same-process H100 cold-L2 CUDA graph medians, stage4, empty-replay subtraction,
+shared GPU timing lock. The tables are separate sequential comparisons, not a
+balanced paired estimator; gaps are large enough to reject the designs.
+
+| direct conversion run | verify B1 | verify B16 | verify B32 |
+|---|---:|---:|---:|
+| production | 18.480 us | 156.544 us | 306.368 us |
+| original paired native | 34.736 | 230.672 | 442.080 |
+| two direct producers | 47.104 | 396.368 | 773.024 |
+| four direct producers | 36.192 | 241.488 | 467.808 |
+
+| async conversion run | verify B1 | verify B16 | verify B32 |
+|---|---:|---:|---:|
+| production | 18.400 us | 154.704 us | 304.432 us |
+| original paired native | 34.736 | 230.640 | 442.208 |
+| two conversion warps | 39.648 | 269.856 | 522.752 |
+| four conversion warps | 45.648 | 363.408 | 719.824 |
+
+Direct producers swept 2/4 warps and 2/3/4/5 stages. Dedicated conversion swept
+2/3/4 stages with two warps, then 3/4 with four warps. None approaches production.
+Full native/fallback benches after reference validation were **1.592x / 1.515x**
+for retained direct4 / async2 respectively, against fixed SGLang/H200 reference
+numbers. These are rejected local experiments, not production regressions.
+
+Resource changes at stage4/page1:
+
+- Original native: 94 registers/thread, 62,528 shared bytes, 320 threads.
+- Direct4: 80 registers, 69,728 shared bytes, 384 threads, no spills.
+- Async2: 80 registers, 90,208 shared bytes, 384 threads, no spills.
+- Async4: 72-register cap for 448 threads introduces spills and is much slower.
+
+Final isolated NCU profiles: original/direct4/async2 achieve **29.00 / 35.76 /
+33.88%** occupancy, but issue rates stay **0.56 / 0.55 / 0.56** instructions per
+scheduler cycle. Barrier stalls fall **9.16 -> 5.50/6.12%**, short-scoreboard stalls
+**16.19 -> 8.64/9.75%**, while long-scoreboard stalls rise **13.93 -> 31.87/31.10%**.
+These whole-kernel counters do not identify the exact stalled load. The changes
+reduce consumer work without sufficiently reducing total work/dependencies.
+Do not use NCU durations as graph timings.
+
+The first profile collection could overlap unlocked benchmark warmups/captures,
+even though all timed loops and profiling drivers hold the GPU lock. It is
+explicitly excluded and archived under `preliminary/`. All three final profiles
+were recollected sequentially after every benchmark, correctness and sanitizer
+process completed. Scored comparisons in compare*.json preceded all profiling.
+
+### Validation
+
+- **45 native scored-shape reference comparisons:** 24 direct, 9 initial async,
+  12 current async (some repeated configurations).
+- Retained direct4/stage4 and async2/stage4 each passed **16/16** full reference
+  tests, with five native cases and eleven production fallback cases apiece.
+- **84 all-native fresh graph replays**, 42 per retained variant across seven
+  nearby shapes: TP8/DP, pages1/64, scales 1 and 1/64, contexts 10–120K, soft/coherent/edge
+  distributions, changed cache bytes/QKV/routing/lengths/positions/cache slots,
+  including empty contexts.
+- Both retained kernels isolated under Compute Sanitizer: **memcheck 0 errors;
+  synccheck 0 errors; racecheck 0 hazards/errors/warnings**. Each tool ran 24
+  native calls (eight variant/page/scale cases, three changed-QKV calls each).
+  The sanitizer driver now also reduces FP32 partials independently in torch
+  and checks final output against reference, rather than checking only finiteness.
+- Deterministic source-generation scripts reproduce the archived variant files.
+  All subprocesses completed; no experimental code was checked or scored.
+
+### Judge progress, budget and next cycle
+
+At **23:02 UTC**, exact-current-source check **01bc4ecc9c7047d9** had changed from
+queued to **running**. At the 23:04 read it was still running. No result or profile
+for that job yet; do not resubmit it. The older 40e1aa41415a4c87 result is resolved
+in session 6 and cannot qualify this newer source for scoring.
+
+Read Claude's completed main65 check **254b1d40063f429c**: **16/16**, **2.041433x**,
+CI **[2.010811, 2.072054]**, no flags/error. Its JSON is saved in
+`profiles/session7-main-check.json`. COORD.md now records a pending Claude scored
+run for that same source (ID not recorded there), so refresh the actual board
+before any Codex submission; don't assume the older 1.945619x remains the best.
+
+Codex UTC-day usage remains **3/8 checks, 1/3 scored**. Session 7 used **0 checks,
+0 scored**, no withdrawals. Shared account at 23:02 had **12/20 checks, 6/10
+scored**, leaving 8/4. Last board read still **1.945619x**, rank **33**, job
+**033117b46b6f42ba**. Session status/board/budget snapshots are in profiles/.
+
+1. Resolve running **01bc4ecc9c7047d9** and read its passing profile. If it beats
+   the then-current account best and budget permits, score the identical source.
+   Existing production already has local full-reference/fresh/sanitizer coverage.
+2. Fetch/merge main before new code; further source changes require a new exact-
+   source check. Do not treat main's 254b result as a check of the native variant.
+3. Close producer conversion as another measured dead end. More resident warps
+   and fewer consumer barriers alone do not fix the native attention gap. Do not
+   repeat its stage/warp sweeps, direct-register V, whole-cache packing or prior
+   gather/merge families without a concrete new reduction in total work.
+4. Keep the experimental branch separate. Production source is unchanged while
+   its exact combined-code H200 confirmation is running.
+
+Neither STOP file existed at the last read. Local work is complete; final judge
+status and commit/coordination handoff follow below if they change while wrapping up.
