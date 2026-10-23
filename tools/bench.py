@@ -165,12 +165,13 @@ if __name__ == "__main__":
               it.product((32, 64), (2, 4), (8, 16, 32), (1, 2), (False, True))]
         fu = [dict(block_n=n, warps=w, stages=3, splits=sp, hpp=h, fuse=f) for n, w, sp, h, f in
               it.product((32, 64), (1, 2, 4), (16, 32, 64), (1, 2), (False, True))]
-        fu1 = [dict(block_n=n, warps=w, stages=3, splits=sp, hpp=h, fuse=f) for n, w, sp, h, f in
-               it.product((32, 64), (1, 2, 4), (64, 128, 256), (1, 2), (False, True))]
-        loads = sys.argv[2].split(",") if len(sys.argv) > 2 else [
-            "decode 1", "decode 16", "decode 32", "verify 1", "verify 16", "verify 32"]
-        for load in loads:
-            sweep({load + " sliding": sl})
-            sweep({load + " full": fu1 if load.endswith(" 1") else fu})
+        # The fused merge unrolls over splits: only with few of them (it loses at batch 1 anyway).
+        fu1 = [dict(block_n=n, warps=w, stages=3, splits=sp, hpp=h, fuse=False) for n, w, sp, h in
+               it.product((32, 64), (1, 2, 4), (64, 128, 256), (1, 2))]
+        shapes = sys.argv[2].split(",") if len(sys.argv) > 2 else [
+            f"{load} {layer}" for load in ("decode 1", "decode 16", "decode 32", "verify 1", "verify 16", "verify 32")
+            for layer in ("sliding", "full")]
+        for shape in shapes:
+            sweep({shape: sl if shape.endswith("sliding") else fu1 if shape.endswith(" 1 full") else fu})
     else:
         sweep(json.loads(sys.argv[2]))

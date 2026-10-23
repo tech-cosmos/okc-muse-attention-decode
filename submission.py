@@ -309,7 +309,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     pacc = torch.empty((batch, hkv, splits, rows, d), dtype=torch.float32, device=device)
     pml = torch.empty((batch, hkv, splits, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
-    fuse = plan["fuse"]
+    fuse = plan["fuse"] and splits <= 64  # the fused merge unrolls over splits
     _attn_split[(splits, batch, hkv // hpp)](
         qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
         data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
