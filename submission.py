@@ -117,7 +117,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 MG: tl.constexpr, M_PAD: tl.constexpr, L_PAD: tl.constexpr, D: tl.constexpr,
                 PAGE: tl.constexpr, MAX_PAGES: tl.constexpr, WINDOW: tl.constexpr, ROPE: tl.constexpr,
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
-                FUSE: tl.constexpr, S_PAD: tl.constexpr, DOT: tl.constexpr):
+                FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -139,7 +139,12 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     pos = seq + j
     q_off = (b * L + j)[:, None] * QKV_W + ((hp0 + hp) * G + rr % G)[:, None] * D + (c % D)[None, :]
     q_ok = r_ok[:, None] & ((c // D)[None, :] == hp[:, None])
-    q = _norm_rope(qkv_ptr, q_off, q_ok, c, pos, cs_ptr, ROPE, D, HPP).to(tl.bfloat16).to(DOT)
+    q = _norm_rope(qkv_ptr, q_off, q_ok, c, pos, cs_ptr, ROPE, D, HPP)
+    if QK8:
+        # Queries rounded to E4M3 (as FA3 does with an FP8 cache): QK^T runs on the FP8 cache as is.
+        q = q.to(tl.float8e4nv)
+    else:
+        q = q.to(tl.bfloat16).to(DOT)
     k_scale = tl.load(ks_ptr)
     scale = qk_scale * k_scale  # log2 units, applied to q . k_fp8
 
@@ -162,7 +167,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         row = (page.to(tl.int64) * PAGE + t % PAGE) * ROW_W + hp0 * D
         k = tl.load(kc_ptr + row[:, None] + c[None, :], mask=t_ok[:, None], other=0.0)
         v = tl.load(vc_ptr + row[:, None] + c[None, :], mask=t_ok[:, None], other=0.0)
-        s = tl.dot(q, tl.trans(k.to(DOT))) * scale
+        s = tl.dot(q, tl.trans(k if QK8 else k.to(DOT))) * scale
         ok = t_ok[None, :]
         if WINDOW > 0:
             ok = ok & (t[None, :] > pos[:, None] - WINDOW)
@@ -187,7 +192,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         slot = tl.load(loc_ptr + tok, mask=jn_ok, other=0) * ROW_W + hp0 * D
         tl.store(kc_ptr + slot[:, None] + c[None, :], kq, mask=jn_ok[:, None])
         tl.store(vc_ptr + slot[:, None] + c[None, :], vq, mask=jn_ok[:, None])
-        s = tl.dot(q, tl.trans(kq.to(DOT))) * scale
+        s = tl.dot(q, tl.trans(kq if QK8 else kq.to(DOT))) * scale
         ok = jn_ok[None, :] & (jn[None, :] <= j[:, None])
         s = tl.where(ok, s, float("-inf"))
         m_new = tl.maximum(m_i, tl.max(s, 1))
@@ -274,21 +279,23 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
 def _plan(cfg, max_pages, device):
     """Launch parameters from shapes only, tuned on an H100 over the scored shapes: splits per
     (request, KV head group), tile size, warps, pipeline stages, KV heads per program (hpp) and
-    whether the last program merges the splits (fuse)."""
+    whether the last program merges the splits (fuse), and whether QK^T runs in FP8 (qk8:
+    queries rounded to E4M3, as FA3 does with an FP8 cache)."""
     batch, length, hkv = cfg["batch"], cfg["q_len"], cfg["num_kv_heads"]
     heads = batch * hkv
     if cfg["window"]:
         # Sliding layers: at most 2,047 cached keys; latency-bound.
         splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
-        return dict(splits=splits, block_n=64, warps=4, stages=2, hpp=1, fuse=False)
+        return dict(splits=splits, block_n=64, warps=4, stages=2, hpp=1, fuse=False,
+                    qk8=not (length > 1 and heads > 32))
     if length == 1:
         if heads <= 4:
-            return dict(splits=256, block_n=64, warps=4, stages=3, hpp=1, fuse=False)
+            return dict(splits=256, block_n=64, warps=4, stages=3, hpp=1, fuse=False, qk8=True)
         # Many small one-warp programs keep the most scattered row reads in flight.
-        return dict(splits=max(8, 2048 // heads), block_n=32, warps=1, stages=3, hpp=2, fuse=False)
+        return dict(splits=max(8, 2048 // heads), block_n=32, warps=1, stages=3, hpp=2, fuse=False, qk8=True)
     if heads <= 4:
-        return dict(splits=128, block_n=64, warps=4, stages=3, hpp=1, fuse=False)
-    return dict(splits=max(16, heads // 2), block_n=64, warps=4, stages=3, hpp=1, fuse=False)
+        return dict(splits=128, block_n=64, warps=4, stages=3, hpp=1, fuse=False, qk8=True)
+    return dict(splits=max(16, heads // 2), block_n=64, warps=4, stages=3, hpp=1, fuse=False, qk8=True)
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:
@@ -323,7 +330,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), DOT=DOT_DTYPE, num_warps=plan["warps"])
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], DOT=DOT_DTYPE, num_warps=plan["warps"])
     if fuse:
         return out
     _combine[(batch * length, hq)](
