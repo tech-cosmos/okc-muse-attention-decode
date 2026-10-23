@@ -1,0 +1,42 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+START verify 1 production
+{"shape": "verify 1", "variant": "production", "us": 18.479999620467424, "reference": true}
+START verify 1 native_baseline
+{"shape": "verify 1", "variant": "native_baseline", "us": 34.799999091774225, "reference": true}
+START verify 1 pool2_s4
+{"shape": "verify 1", "variant": "pool2_s4", "us": 57.07200104370713, "reference": true}
+START verify 1 static2_s4
+{"shape": "verify 1", "variant": "static2_s4", "us": 36.70399868860841, "reference": true}
+START verify 1 late2_s4
+{"shape": "verify 1", "variant": "late2_s4", "us": 37.75999927893281, "reference": true}
+START verify 1 late3_s4
+{"shape": "verify 1", "variant": "late3_s4", "us": 39.29599979892373, "reference": true}
+START verify 16 production
+{"shape": "verify 16", "variant": "production", "us": 155.55199468508363, "reference": true}
+START verify 16 native_baseline
+{"shape": "verify 16", "variant": "native_baseline", "us": 230.08000338450074, "reference": true}
+START verify 16 pool2_s4
+{"shape": "verify 16", "variant": "pool2_s4", "us": 513.8239809311926, "reference": true}
+START verify 16 static2_s4
+{"shape": "verify 16", "variant": "static2_s4", "us": 238.08000469580293, "reference": true}
+START verify 16 late2_s4
+{"shape": "verify 16", "variant": "late2_s4", "us": 247.1840032376349, "reference": true}
+START verify 16 late3_s4
+{"shape": "verify 16", "variant": "late3_s4", "us": 236.2560057081282, "reference": true}
+START verify 32 production
+{"shape": "verify 32", "variant": "production", "us": 304.35201013460755, "reference": true}
+START verify 32 native_baseline
+{"shape": "verify 32", "variant": "native_baseline", "us": 442.11199367418885, "reference": true}
+START verify 32 pool2_s4
+{"shape": "verify 32", "variant": "pool2_s4", "us": 1003.8399645127356, "reference": true}
+START verify 32 static2_s4
+{"shape": "verify 32", "variant": "static2_s4", "us": 465.2799912728369, "reference": true}
+START verify 32 late2_s4
+{"shape": "verify 32", "variant": "late2_s4", "us": 486.0800006426871, "reference": true}
+START verify 32 late3_s4
+{"shape": "verify 32", "variant": "late3_s4", "us": 455.4400094784796, "reference": true}

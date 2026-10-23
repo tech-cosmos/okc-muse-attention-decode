@@ -1,0 +1,77 @@
+==PROF== Connected to process 58976 (/home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/bin/python3.12)
+ninja: no work to do.
+==PROF== Profiling "verify": 0%....50%....100% - 9 passes
+==PROF== Disconnected from process 58976
+[58976] python3.12@127.0.0.1
+  void verify<4, 1>(const __nv_bfloat16 *, unsigned char *, unsigned char *, const int *, const int *, const long *, const float *, const float *, float *, float *, int, int, int, int, float) (24, 16, 1)x(384, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Scheduler Statistics
+    ---------------------------- ----------- ------------
+    Metric Name                  Metric Unit Metric Value
+    ---------------------------- ----------- ------------
+    One or More Eligible                   %        62.05
+    Issued Warp Per Scheduler                        0.62
+    No Eligible                            %        37.95
+    Active Warps Per Scheduler          warp         7.53
+    Eligible Warps Per Scheduler        warp         1.74
+    ---------------------------- ----------- ------------
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle        12.13
+    Warp Cycles Per Executed Instruction           cycle        12.14
+    Avg. Active Threads Per Warp                                31.98
+    Avg. Not Predicated Off Threads Per Warp                    30.70
+    ---------------------------------------- ----------- ------------
+
+    WRN   The optional metric smsp__pcsamp_sample_count could not be found. Collecting it as an additional metric could
+          enable the rule to provide more guidance.
+
+    Section: Launch Statistics
+    -------------------------------- --------------- ---------------
+    Metric Name                          Metric Unit    Metric Value
+    -------------------------------- --------------- ---------------
+    Block Size                                                   384
+    Cluster Scheduling Policy                           PolicySpread
+    Cluster Size                                                   0
+    Function Cache Configuration                     CachePreferNone
+    Grid Size                                                    384
+    Registers Per Thread             register/thread              56
+    Shared Memory Configuration Size           Kbyte          200.70
+    Driver Shared Memory Per Block       Kbyte/block            1.02
+    Dynamic Shared Memory Per Block       byte/block               0
+    Static Shared Memory Per Block       Kbyte/block           62.53
+    # SMs                                         SM             132
+    Stack Size                                                 1,024
+    Threads                                   thread         147,456
+    # TPCs                                                        66
+    Enabled TPC IDs                                              all
+    Uses Green Context                                             0
+    Waves Per SM                                                0.97
+    -------------------------------- --------------- ---------------
+
+    Section: Occupancy
+    ------------------------------- ----------- ------------
+    Metric Name                     Metric Unit Metric Value
+    ------------------------------- ----------- ------------
+    Max Active Clusters                 cluster            0
+    Max Cluster Size                      block            8
+    Overall GPU Occupancy                     %            0
+    Cluster Occupancy                         %            0
+    Block Limit Barriers                  block           16
+    Block Limit SM                        block           32
+    Block Limit Registers                 block            3
+    Block Limit Shared Mem                block            3
+    Block Limit Warps                     block            5
+    Theoretical Active Warps per SM        warp           36
+    Theoretical Occupancy                     %        56.25
+    Achieved Occupancy                        %        47.12
+    Achieved Active Warps Per SM           warp        30.16
+    ------------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 43.75%
+          The 9.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the
+          hardware maximum of 16. This kernel's theoretical occupancy (56.2%) is limited by the number of required
+          registers, and the required amount of shared memory.
+
