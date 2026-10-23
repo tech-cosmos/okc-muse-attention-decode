@@ -397,14 +397,15 @@ def _plan(cfg, max_pages, device):
     heads = batch * hkv
     if cfg["window"]:
         # Sliding layers: at most 2,047 cached keys; latency-bound.
-        # The merge takes 2 query heads per one-warp program (hb, cw), 8 splits per pass (sb).
+        # The merge takes 2 query heads per one-warp program (hb, cw) and every split in one pass (sb):
+        # each further pass is another serial L2 round trip on the critical path.
         splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
         if heads <= 32:
             return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
-                        hpp=1, fuse=False, qk8=True, hb=2, sb=8, cw=1)
+                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1)
         # Large batches: smaller, deeply pipelined programs.
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
-                    qk8=True, peel=length > 1, hb=2, sb=8, cw=1)
+                    qk8=True, peel=length > 1, hb=2, sb=splits, cw=1)
     if heads <= (2 if length == 1 else 4):
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
     if length == 1:
