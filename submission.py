@@ -148,72 +148,14 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
 
 
 @triton.jit
-def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr,
-                pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale,
-                HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr, G: tl.constexpr, L: tl.constexpr,
-                MG: tl.constexpr, M_PAD: tl.constexpr, L_PAD: tl.constexpr, D: tl.constexpr,
-                PAGE: tl.constexpr, MAX_PAGES: tl.constexpr, WINDOW: tl.constexpr, ROPE: tl.constexpr,
-                S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
-                FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
-                DOT: tl.constexpr, PEEL: tl.constexpr = False):
-    """One program: a split of request b's context for HPP adjacent KV heads, which share each
-    cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
-    head hp = r // MG of the pair, and holds values only in that head's D columns), so one
-    [rows, HPP*D] x [HPP*D, N] product scores every head against its own keys."""
-    split = tl.program_id(0)
-    b = tl.program_id(1)
-    hp0 = tl.program_id(2) * HPP
-    if PDL:
-        # Let the merge kernel launch now; it waits on-device for this grid to finish.
-        gdc_launch_dependents()
+def _finish(split, b, seq, j, q, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
+            vc_ptr, vs_ptr, loc_ptr, pacc_ptr, pml_ptr, HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr,
+            L: tl.constexpr, L_PAD: tl.constexpr, MG: tl.constexpr, D: tl.constexpr, ROPE: tl.constexpr,
+            S: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr):
+    """Split 0 attends the block's own tokens (and stores them in the cache); every split then
+    writes its partial (max, sum, accumulator) for KV heads hp0 .. hp0 + HPP - 1."""
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
     ROW_W: tl.constexpr = HKV * D
-    C: tl.constexpr = HPP * D
-
-    seq = tl.load(seq_ptr + b)
-    c = tl.arange(0, C)
-    r = tl.arange(0, M_PAD)
-    hp = r // MG
-    rr = r % MG  # token rr // G, query head (hp0 + hp) * G + rr % G
-    r_ok = r < HPP * MG
-    j = rr // G
-    pos = seq + j
-    q_off = (b * L + j)[:, None] * QKV_W + ((hp0 + hp) * G + rr % G)[:, None] * D + (c % D)[None, :]
-    q_ok = r_ok[:, None] & ((c // D)[None, :] == hp[:, None])
-    q = _norm_rope(qkv_ptr, q_off, q_ok, c, pos, cs_ptr, ROPE, D, HPP)
-    if QK8:
-        # Queries rounded to E4M3 (as FA3 does with an FP8 cache): QK^T runs on the FP8 cache as is.
-        q = q.to(tl.float8e4nv)
-    else:
-        q = q.to(DOT)
-    k_scale = tl.load(ks_ptr)
-    scale = qk_scale * k_scale  # log2 units, applied to q . k_fp8
-
-    m_i = tl.full([M_PAD], -1.0e30, tl.float32)
-    l_i = tl.zeros([M_PAD], tl.float32)
-    acc = tl.zeros([M_PAD, C], tl.float32)
-
-    if WINDOW > 0:
-        base = tl.maximum(seq - (WINDOW - 1), 0)
-    else:
-        base = seq * 0
-    lo = base + split * CHUNK
-    hi = tl.minimum(lo + CHUNK, seq)
-    pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
-    n = tl.arange(0, BLOCK_N)
-    # Whole tiles need no bounds masks; full layers need no masks at all there. The tail is masked.
-    # Only for single-token decode: with a verify block's 64 rows the second copy costs registers.
-    if L == 1 or PEEL:
-        full_end = lo + tl.maximum(hi - lo, 0) // BLOCK_N * BLOCK_N
-    else:
-        full_end = lo
-    for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
-        m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
-    for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
-        m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
-
     if split == 0:
         # The block's own tokens: normalize, store as FP8, attend causally.
         jn = tl.arange(0, L_PAD)
@@ -242,6 +184,98 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     tl.store(pml_ptr + part * 2, m_i, mask=r_ok)
     tl.store(pml_ptr + part * 2 + 1, l_i, mask=r_ok)
     tl.store(pacc_ptr + part[:, None] * D + (c % D)[None, :], acc, mask=q_ok)
+
+
+@triton.jit
+def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr,
+                pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale,
+                HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr, G: tl.constexpr, L: tl.constexpr,
+                MG: tl.constexpr, M_PAD: tl.constexpr, L_PAD: tl.constexpr, D: tl.constexpr,
+                PAGE: tl.constexpr, MAX_PAGES: tl.constexpr, WINDOW: tl.constexpr, ROPE: tl.constexpr,
+                S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
+                FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
+                DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
+                BALANCE: tl.constexpr = False):
+    """One program: a split of request b's context for HPP adjacent KV heads, which share each
+    cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
+    head hp = r // MG of the pair, and holds values only in that head's D columns), so one
+    [rows, HPP*D] x [HPP*D, N] product scores every head against its own keys."""
+    split = tl.program_id(0)
+    b = tl.program_id(1)
+    # DUAL (with HPP 1): the program also runs KV head hp0 + 1 as a second, independent chain.
+    hp0 = tl.program_id(2) * (2 if DUAL else HPP)
+    if PDL:
+        # Let the merge kernel launch now; it waits on-device for this grid to finish.
+        gdc_launch_dependents()
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    ROW_W: tl.constexpr = HKV * D
+    C: tl.constexpr = HPP * D
+
+    seq = tl.load(seq_ptr + b)
+    c = tl.arange(0, C)
+    r = tl.arange(0, M_PAD)
+    hp = r // MG
+    rr = r % MG  # token rr // G, query head (hp0 + hp) * G + rr % G
+    r_ok = r < HPP * MG
+    j = rr // G
+    pos = seq + j
+    q_off = (b * L + j)[:, None] * QKV_W + ((hp0 + hp) * G + rr % G)[:, None] * D + (c % D)[None, :]
+    q_ok = r_ok[:, None] & ((c // D)[None, :] == hp[:, None])
+    q = _norm_rope(qkv_ptr, q_off, q_ok, c, pos, cs_ptr, ROPE, D, HPP)
+    if QK8:
+        # Queries rounded to E4M3 (as FA3 does with an FP8 cache): QK^T runs on the FP8 cache as is.
+        q = q.to(tl.float8e4nv)
+    else:
+        q = q.to(DOT)
+    q1 = q
+    if DUAL:
+        q1 = _norm_rope(qkv_ptr, q_off + G * D, q_ok, c, pos, cs_ptr, ROPE, D, HPP)
+        q1 = q1.to(tl.float8e4nv) if QK8 else q1.to(DOT)
+    k_scale = tl.load(ks_ptr)
+    scale = qk_scale * k_scale  # log2 units, applied to q . k_fp8
+
+    m_i = tl.full([M_PAD], -1.0e30, tl.float32)
+    l_i = tl.zeros([M_PAD], tl.float32)
+    acc = tl.zeros([M_PAD, C], tl.float32)
+    m1, l1, acc1 = m_i, l_i, acc
+
+    if WINDOW > 0:
+        base = tl.maximum(seq - (WINDOW - 1), 0)
+    else:
+        base = seq * 0
+    if BALANCE:
+        # Each request's own context in S equal tile-aligned chunks: every program does the same work.
+        chunk = tl.cdiv(tl.cdiv(seq - base, S), BLOCK_N) * BLOCK_N
+    else:
+        chunk = CHUNK
+    lo = base + split * chunk
+    hi = tl.minimum(lo + chunk, seq)
+    pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
+    n = tl.arange(0, BLOCK_N)
+    # Whole tiles need no bounds masks; full layers need no masks at all there. The tail is masked.
+    # Only for single-token decode: with a verify block's 64 rows the second copy costs registers.
+    if L == 1 or PEEL:
+        full_end = lo + tl.maximum(hi - lo, 0) // BLOCK_N * BLOCK_N
+    else:
+        full_end = lo
+    for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
+        m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
+                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+        if DUAL:
+            m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
+                                 False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+    for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
+        m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
+                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+        if DUAL:
+            m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
+                                 True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+
+    _finish(split, b, seq, j, q, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
+            vc_ptr, vs_ptr, loc_ptr, pacc_ptr, pml_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+    if DUAL:
+        _finish(split, b, seq, j, q1, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, scale, k_scale, qkv_ptr, cs_ptr,
+                kc_ptr, vc_ptr, vs_ptr, loc_ptr, pacc_ptr, pml_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
 
     if FUSE:
         # The last of this (request, head pair)'s S programs to finish merges the partials and
@@ -357,24 +391,25 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         span = min(span, cfg["window"])
     block_n = plan["block_n"]
     chunk = triton.cdiv(triton.cdiv(span, plan["splits"]), block_n) * block_n
-    splits = triton.cdiv(span, chunk)
+    splits = plan["splits"] if plan.get("balance") else triton.cdiv(span, chunk)
     rows = length * group
     hpp = plan["hpp"] if hkv % plan["hpp"] == 0 else 1
+    dual = plan.get("dual", False) and hpp == 1 and hkv % 2 == 0
     rope = bool(cfg["rope_theta"])
     cs = _cos_sin(cfg["rope_theta"], d, device) if rope else qkv
 
     pacc = torch.empty((batch, hkv, splits, rows, d), dtype=torch.float32, device=device)
     pml = torch.empty((batch, hkv, splits, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
-    fuse = plan["fuse"] and splits <= 64  # the fused merge unrolls over splits
-    _attn_split[(splits, batch, hkv // hpp)](
+    fuse = plan["fuse"] and splits <= 64 and not dual  # the fused merge unrolls over splits
+    _attn_split[(splits, batch, hkv // (2 if dual else hpp))](
         qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
         data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
         cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), num_warps=plan["warps"],
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
