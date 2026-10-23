@@ -294,8 +294,8 @@ def _plan(cfg, max_pages, device):
         # Many small one-warp programs keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=32, warps=1, stages=3, hpp=2, fuse=False, qk8=True)
     if heads <= 4:
-        return dict(splits=128, block_n=64, warps=4, stages=3, hpp=1, fuse=False, qk8=True)
-    return dict(splits=max(16, heads // 2), block_n=64, warps=4, stages=3, hpp=1, fuse=False, qk8=True)
+        return dict(splits=128, block_n=128, warps=4, stages=3, hpp=1, fuse=False, qk8=True)
+    return dict(splits=16, block_n=64, warps=4, stages=3, hpp=1, fuse=False, qk8=True)
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:
