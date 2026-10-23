@@ -156,6 +156,7 @@ Focus: verify full layers (verify 16/32 full were 1.09x/1.25x on the H200 and dr
 |---|---|---|---|
 | b42151ed (check) | change 3 | **1.872x** (1.844-1.900) | 16/16; verify 16/32 full 1.19x/1.19x |
 | 39d24ebc (check) | dcc2be4 (change 4, dual) | **1.898x** (1.870-1.927) | 16/16; verify 16/32 full 1.28x/1.29x (160/304 us) |
+| 740bc5e9 (scored) | dcc2be4 (same code) | **1.921x** (1.892-1.950) | 16/16; best on board for us; verify 16/32 full 1.28x/1.28x |
 
 H100 tracked the H200 closely for verify full under the dual design (160/304 on both). Sliding
 layers and decode are unchanged and noisy at +-0.5 us between runs.
@@ -171,3 +172,9 @@ layers and decode are unchanged and noisy at +-0.5 us between runs.
 2. Get dual under 128 regs -> 4 programs/SM (now 154 regs, 3/SM). Try stages 3-4 with BLOCK_N 64.
 3. Verify sliding batch 32 (1.65x) and decode full (~2.0x) are the next weakest after verify full.
 4. A dual chain for decode full (HPP=2 already reads full rows there; try 2 key-halves per program).
+
+### Budget used (UTC day 2026-10-23)
+
+This session: 2 checks (b42151ed, 39d24ebc) and 1 scored run (740bc5e9). Day totals: 5 of 15
+checks and 3 of 3 agent-allowed scored runs (2 were the human's earlier), so no more scored runs today.
+Board at 20:10 UTC still showed our old 1.849x (rank 43) right after the run; it may lag.
