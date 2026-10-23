@@ -272,17 +272,23 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
 
 
 def _plan(cfg, max_pages, device):
-    """Launch parameters from shapes only: splits per (request, KV head), tokens per split, the
-    tile size, warps and pipeline stages."""
+    """Launch parameters from shapes only, tuned on an H100 over the scored shapes: splits per
+    (request, KV head group), tile size, warps, pipeline stages, KV heads per program (hpp) and
+    whether the last program merges the splits (fuse)."""
     batch, length, hkv = cfg["batch"], cfg["q_len"], cfg["num_kv_heads"]
-    span = max_pages * cfg["page_size"]
+    heads = batch * hkv
     if cfg["window"]:
-        span = min(span, cfg["window"])
-    block_n = 64
-    min_chunk = 128 if cfg["window"] else (256 if length == 1 else 512)
-    target = 2 * _num_sms(device)
-    splits = max(1, min(triton.cdiv(target, batch * hkv), triton.cdiv(span, min_chunk)))
-    return dict(splits=splits, block_n=block_n, warps=4, stages=3, hpp=2, fuse=False)
+        # Sliding layers: at most 2,047 cached keys; latency-bound.
+        splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
+        return dict(splits=splits, block_n=64, warps=4, stages=2, hpp=1, fuse=False)
+    if length == 1:
+        if heads <= 4:
+            return dict(splits=256, block_n=64, warps=4, stages=3, hpp=1, fuse=False)
+        # Many small one-warp programs keep the most scattered row reads in flight.
+        return dict(splits=max(8, 2048 // heads), block_n=32, warps=1, stages=3, hpp=2, fuse=False)
+    if heads <= 4:
+        return dict(splits=128, block_n=64, warps=4, stages=3, hpp=1, fuse=False)
+    return dict(splits=max(16, heads // 2), block_n=64, warps=4, stages=3, hpp=1, fuse=False)
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:

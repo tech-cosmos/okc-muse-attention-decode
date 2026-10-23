@@ -1,0 +1,79 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+== decode 1 full
+      25.02 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 256, 'hpp': 1, 'fuse': False}
+      25.70 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 256, 'hpp': 2, 'fuse': False}
+      27.04 us  {'block_n': 64, 'warps': 2, 'stages': 3, 'splits': 256, 'hpp': 1, 'fuse': False}
+      28.74 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 128, 'hpp': 1, 'fuse': False}
+      28.77 us  {'block_n': 32, 'warps': 4, 'stages': 3, 'splits': 256, 'hpp': 2, 'fuse': False}
+      29.68 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 128, 'hpp': 2, 'fuse': False}
+== decode 16 sliding
+      13.50 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 2, 'fuse': False}
+      13.66 us  {'block_n': 64, 'warps': 2, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+      13.74 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+      14.46 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': False}
+      14.51 us  {'block_n': 32, 'warps': 2, 'stages': 2, 'splits': 32, 'hpp': 2, 'fuse': False}
+      14.69 us  {'block_n': 32, 'warps': 2, 'stages': 2, 'splits': 32, 'hpp': 1, 'fuse': False}
+== decode 16 full
+     158.98 us  {'block_n': 32, 'warps': 1, 'stages': 3, 'splits': 64, 'hpp': 2, 'fuse': False}
+     176.64 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 64, 'hpp': 2, 'fuse': False}
+     181.18 us  {'block_n': 32, 'warps': 4, 'stages': 3, 'splits': 32, 'hpp': 2, 'fuse': False}
+     181.52 us  {'block_n': 32, 'warps': 2, 'stages': 3, 'splits': 32, 'hpp': 2, 'fuse': False}
+     182.30 us  {'block_n': 32, 'warps': 4, 'stages': 3, 'splits': 64, 'hpp': 2, 'fuse': False}
+     185.10 us  {'block_n': 32, 'warps': 2, 'stages': 3, 'splits': 64, 'hpp': 2, 'fuse': False}
+== decode 32 sliding
+      19.79 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': False}
+      19.82 us  {'block_n': 32, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 2, 'fuse': False}
+      19.86 us  {'block_n': 64, 'warps': 2, 'stages': 2, 'splits': 16, 'hpp': 2, 'fuse': False}
+      20.69 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 8, 'hpp': 2, 'fuse': False}
+      20.90 us  {'block_n': 32, 'warps': 2, 'stages': 2, 'splits': 16, 'hpp': 2, 'fuse': False}
+      21.02 us  {'block_n': 32, 'warps': 2, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+== decode 32 full
+     295.62 us  {'block_n': 32, 'warps': 1, 'stages': 3, 'splits': 32, 'hpp': 2, 'fuse': False}
+     307.97 us  {'block_n': 32, 'warps': 1, 'stages': 3, 'splits': 64, 'hpp': 2, 'fuse': False}
+     308.72 us  {'block_n': 32, 'warps': 1, 'stages': 3, 'splits': 32, 'hpp': 2, 'fuse': True}
+     316.59 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 64, 'hpp': 2, 'fuse': False}
+     328.96 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 64, 'hpp': 2, 'fuse': True}
+     343.25 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 32, 'hpp': 2, 'fuse': True}
+== verify 1 sliding
+       8.93 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 32, 'hpp': 1, 'fuse': False}
+       9.38 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+       9.76 us  {'block_n': 32, 'warps': 4, 'stages': 2, 'splits': 32, 'hpp': 1, 'fuse': False}
+      11.18 us  {'block_n': 64, 'warps': 2, 'stages': 2, 'splits': 32, 'hpp': 1, 'fuse': False}
+      11.52 us  {'block_n': 32, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+      12.02 us  {'block_n': 32, 'warps': 2, 'stages': 2, 'splits': 32, 'hpp': 1, 'fuse': False}
+== verify 1 full
+      32.18 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 128, 'hpp': 1, 'fuse': False}
+      34.70 us  {'block_n': 32, 'warps': 4, 'stages': 3, 'splits': 256, 'hpp': 1, 'fuse': False}
+      37.46 us  {'block_n': 64, 'warps': 2, 'stages': 3, 'splits': 256, 'hpp': 1, 'fuse': False}
+      37.84 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 256, 'hpp': 1, 'fuse': False}
+      39.84 us  {'block_n': 32, 'warps': 2, 'stages': 3, 'splits': 256, 'hpp': 1, 'fuse': False}
+      40.69 us  {'block_n': 32, 'warps': 4, 'stages': 3, 'splits': 128, 'hpp': 1, 'fuse': False}
+== verify 16 sliding
+      18.62 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': False}
+      18.64 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+      18.77 us  {'block_n': 32, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+      22.11 us  {'block_n': 64, 'warps': 2, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+      22.48 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': True}
+      23.01 us  {'block_n': 32, 'warps': 4, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': False}
+env: torch 2.14.1+cu130, triton 3.8.0
+== verify 16 full
+     266.37 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 16, 'hpp': 1, 'fuse': False}
+     268.10 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 32, 'hpp': 1, 'fuse': False}
+     273.89 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 64, 'hpp': 1, 'fuse': False}
+     278.18 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+     278.53 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 32, 'hpp': 1, 'fuse': False}
+     283.58 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 64, 'hpp': 1, 'fuse': False}
+== verify 32 sliding
+      27.68 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': False}
+      30.19 us  {'block_n': 32, 'warps': 4, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': False}
+      33.66 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+      33.98 us  {'block_n': 64, 'warps': 2, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': False}
+      35.18 us  {'block_n': 32, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+      38.91 us  {'block_n': 32, 'warps': 2, 'stages': 2, 'splits': 8, 'hpp': 1, 'fuse': False}
+== verify 32 full
+     501.23 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 32, 'hpp': 1, 'fuse': False}
+     517.34 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 32, 'hpp': 1, 'fuse': False}
+     519.62 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 16, 'hpp': 1, 'fuse': False}
+     529.63 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False}
+     533.62 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 64, 'hpp': 1, 'fuse': False}
+     557.54 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 64, 'hpp': 1, 'fuse': False}
