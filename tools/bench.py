@@ -5,7 +5,7 @@ timed as CUDA-graph replays with a cold L2 before each, median of reps, minus an
   python bench.py bench                # the scored shapes with submission._plan as is
   python bench.py sweep '<json>'       # {"shape filter": [plan override, ...]}: time each override
 """
-import importlib, json, math, statistics, sys, torch
+import fcntl, importlib, json, math, statistics, sys, torch
 
 sys.path.insert(0, ".")
 import reference
@@ -78,14 +78,17 @@ def time_graph(fn, reps=40):
     torch.cuda.current_stream().wait_stream(s)
     torch.cuda.synchronize()
     times = []
-    for _ in range(reps):
-        _FLUSH.zero_()
-        a, b = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-        a.record()
-        g.replay()
-        b.record()
-        torch.cuda.synchronize()
-        times.append(a.elapsed_time(b) * 1000)
+    # Two agents share this GPU: only one times at a time (compiles and captures run unlocked).
+    with open("/tmp/okc-gpu.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        for _ in range(reps):
+            _FLUSH.zero_()
+            a, b = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+            a.record()
+            g.replay()
+            b.record()
+            torch.cuda.synchronize()
+            times.append(a.elapsed_time(b) * 1000)
     return statistics.median(times)
 
 

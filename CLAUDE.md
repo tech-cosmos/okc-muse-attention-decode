@@ -25,12 +25,25 @@ layer + 16 x full layer). Leaders on the board are at about 2.37x. Real speedups
 
 ## Budget per UTC day (limits reset 00:00 UTC; check `okc problems --json` for what's left)
 
-- `okc check submission.py --json`: at most 15 per UTC day. Use them to confirm H100 wins on the
-  real H200, not to explore.
-- `okc submit submission.py --json`: at most 3 per UTC day, and only when the H100 tests pass
-  (`python tools/bench.py test`) AND a check run on the same code beat the best board result so far.
+The account allows 20 checks and 10 scored runs per UTC day, shared by everyone using it. Two agents
+work on this account (Claude on `main`, Codex on the `codex` branch; see CODEX.md), so each keeps to
+its own share and counts its own runs in its notes file:
+
+- `okc check submission.py --json`: at most 8 per UTC day per agent. Use them to confirm H100 wins on
+  the real H200, not to explore.
+- `okc submit submission.py --json`: at most 3 per UTC day per agent, and only when the H100 tests
+  pass (`python tools/bench.py test`) AND a check run on the same code beat the best board result
+  so far (`okc leaderboard muse_attention_decode` shows it; the other agent may have raised it).
   Leave the rest of the day's runs for the human.
-- Record every check/submit job id and its speedup in NOTES.md.
+- If `okc problems --json` shows fewer left than your share, the smaller number wins.
+- Record every check/submit job id and its speedup in your notes file.
+
+## Sharing the GPU
+
+The other agent uses the same H100. `tools/bench.py` takes a lock (/tmp/okc-gpu.lock) around each
+timed replay loop, so timings stay clean; anything you time outside bench.py must take the same lock
+(`fcntl.flock`). Expect benches to wait a little when the other agent is timing. Don't kill the other
+agent's processes, and keep long sweeps to what you need.
 
 ## Environment
 
