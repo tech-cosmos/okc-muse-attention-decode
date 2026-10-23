@@ -88,4 +88,3 @@ ninja: no work to do.
           The 6.00 theoretical warps per scheduler this kernel can issue according to its occupancy are below the
           hardware maximum of 16. This kernel's theoretical occupancy (37.5%) is limited by the number of required
           registers, and the required amount of shared memory.
-
