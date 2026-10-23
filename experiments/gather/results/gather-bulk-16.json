@@ -1,0 +1,86 @@
+[
+  {
+    "us": 134.9279978312552,
+    "splits": 66,
+    "heads": 2,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 135.63200319185853,
+    "splits": 66,
+    "heads": 2,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 155.47199780121446,
+    "splits": 99,
+    "heads": 2,
+    "stages": 4,
+    "producer": 1
+  },
+  {
+    "us": 165.32799834385514,
+    "splits": 99,
+    "heads": 2,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 166.12799698486924,
+    "splits": 99,
+    "heads": 2,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 207.1039997972548,
+    "splits": 33,
+    "heads": 2,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 207.135992590338,
+    "splits": 33,
+    "heads": 2,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 207.6640003360808,
+    "splits": 33,
+    "heads": 2,
+    "stages": 4,
+    "producer": 1
+  },
+  {
+    "us": 207.98400277271867,
+    "splits": 33,
+    "heads": 2,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 209.29599786177278,
+    "splits": 99,
+    "heads": 2,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 209.39199859276414,
+    "splits": 66,
+    "heads": 2,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 211.1199968494475,
+    "splits": 66,
+    "heads": 2,
+    "stages": 4,
+    "producer": 1
+  }
+]

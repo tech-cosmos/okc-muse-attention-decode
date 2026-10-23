@@ -1,0 +1,9 @@
+==PROF== Connected to process 31852 (/home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/bin/python3.12)
+ninja: no work to do.
+env: torch 2.14.1+cu130, triton 3.8.0
+==WARNING== Unable to access the following 6 metrics: ctc__rx_bytes_data_user.sum, ctc__rx_bytes_data_user.sum.pct_of_peak_sustained_elapsed, ctc__rx_bytes_data_user.sum.per_second, ctc__tx_bytes_data_user.sum, ctc__tx_bytes_data_user.sum.pct_of_peak_sustained_elapsed, ctc__tx_bytes_data_user.sum.per_second.
+
+
+==PROF== Profiling "verify": 0%....50%....100% - 38 passes
+==PROF== Disconnected from process 31852
+==PROF== Report: /home/daytona/codex-repo/experiments/gather/results/pair-p4-profile.ncu-rep

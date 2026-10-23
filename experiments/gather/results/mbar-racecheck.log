@@ -1,0 +1,5 @@
+========= COMPUTE-SANITIZER
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+sanitize calls complete
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

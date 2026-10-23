@@ -1,0 +1,209 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_gather3b -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -c /home/daytona/codex-repo/experiments/gather/.build-gather/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_gather3b -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/gather/.build-gather/cuda.cu -o cuda.cuda.o 
+/home/daytona/codex-repo/experiments/gather/.build-gather/cuda.cu(17): warning #177-D: variable "lane" was declared but never referenced
+   unsigned tid=threadIdx.x,lane=tid%32,pload=tid-128;
+                            ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi6ELi0EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi6ELi0EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 1 barriers, 49152 bytes smem
+ptxas info    : Compile time = 30.762 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi6ELi4EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi6ELi4EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 49176 bytes smem
+ptxas info    : Compile time = 25.041 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi6ELi2EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi6ELi2EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 49176 bytes smem
+ptxas info    : Compile time = 24.267 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi6ELi1EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi6ELi1EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 49176 bytes smem
+ptxas info    : Compile time = 24.111 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi4ELi0EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi4ELi0EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 44 registers, used 1 barriers, 32768 bytes smem
+ptxas info    : Compile time = 27.246 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi4ELi4EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi4ELi4EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 32784 bytes smem
+ptxas info    : Compile time = 23.930 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi4ELi2EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi4ELi2EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 47 registers, used 3 barriers, 32784 bytes smem
+ptxas info    : Compile time = 23.699 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi4ELi1EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi4ELi1EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 32784 bytes smem
+ptxas info    : Compile time = 23.756 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi3ELi0EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi3ELi0EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 1 barriers, 24576 bytes smem
+ptxas info    : Compile time = 29.999 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi3ELi4EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi3ELi4EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 24588 bytes smem
+ptxas info    : Compile time = 24.275 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi3ELi2EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi3ELi2EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 24588 bytes smem
+ptxas info    : Compile time = 24.035 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi3ELi1EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi3ELi1EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 24588 bytes smem
+ptxas info    : Compile time = 24.143 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi2ELi0EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi2ELi0EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 40 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 29.208 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi2ELi4EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi2ELi4EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 16392 bytes smem
+ptxas info    : Compile time = 23.840 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi2ELi2EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi2ELi2EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 47 registers, used 3 barriers, 16392 bytes smem
+ptxas info    : Compile time = 23.581 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi2ELi2ELi1EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi2ELi2ELi1EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 16392 bytes smem
+ptxas info    : Compile time = 23.731 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi6ELi0EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi6ELi0EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 46 registers, used 1 barriers, 24576 bytes smem
+ptxas info    : Compile time = 32.525 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi6ELi4EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi6ELi4EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 24600 bytes smem
+ptxas info    : Compile time = 24.290 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi6ELi2EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi6ELi2EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 24600 bytes smem
+ptxas info    : Compile time = 24.755 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi6ELi1EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi6ELi1EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 24600 bytes smem
+ptxas info    : Compile time = 29.706 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi4ELi0EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi4ELi0EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 46 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 22.124 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi4ELi4EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi4ELi4EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 16400 bytes smem
+ptxas info    : Compile time = 23.880 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi4ELi2EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi4ELi2EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 16400 bytes smem
+ptxas info    : Compile time = 23.750 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi4ELi1EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi4ELi1EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 16400 bytes smem
+ptxas info    : Compile time = 33.360 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi3ELi0EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi3ELi0EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 46 registers, used 1 barriers, 12288 bytes smem
+ptxas info    : Compile time = 21.861 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi3ELi4EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi3ELi4EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 12300 bytes smem
+ptxas info    : Compile time = 24.103 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi3ELi2EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi3ELi2EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 12300 bytes smem
+ptxas info    : Compile time = 24.135 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi3ELi1EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi3ELi1EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 12300 bytes smem
+ptxas info    : Compile time = 33.918 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi2ELi0EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi2ELi0EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 40 registers, used 1 barriers, 8192 bytes smem
+ptxas info    : Compile time = 22.224 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi2ELi4EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi2ELi4EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 8200 bytes smem
+ptxas info    : Compile time = 23.775 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi2ELi2EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi2ELi2EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 3 barriers, 8200 bytes smem
+ptxas info    : Compile time = 23.657 ms
+ptxas info    : Compiling entry function '_Z13gather_kernelILi1ELi2ELi1EEvPKhS1_PKiS3_Pjiiii' for 'sm_90a'
+ptxas info    : Function properties for _Z13gather_kernelILi1ELi2ELi1EEvPKhS1_PKiS3_Pjiiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 47 registers, used 3 barriers, 8200 bytes smem
+ptxas info    : Compile time = 32.878 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_gather3b.so
+16 180.336 {'splits': 33, 'heads': 2, 'stages': 2, 'producer': 2}
+16 186.112 {'splits': 66, 'heads': 2, 'stages': 2, 'producer': 2}
+16 150.016 {'splits': 99, 'heads': 2, 'stages': 2, 'producer': 2}
+16 151.632 {'splits': 33, 'heads': 2, 'stages': 3, 'producer': 2}
+16 159.52 {'splits': 66, 'heads': 2, 'stages': 3, 'producer': 2}
+16 134.512 {'splits': 99, 'heads': 2, 'stages': 3, 'producer': 2}
+16 151.936 {'splits': 33, 'heads': 2, 'stages': 4, 'producer': 2}
+16 158.896 {'splits': 66, 'heads': 2, 'stages': 4, 'producer': 2}
+16 135.2 {'splits': 99, 'heads': 2, 'stages': 4, 'producer': 2}
+16 178.336 {'splits': 33, 'heads': 2, 'stages': 2, 'producer': 4}
+16 181.408 {'splits': 66, 'heads': 2, 'stages': 2, 'producer': 4}
+16 182.656 {'splits': 99, 'heads': 2, 'stages': 2, 'producer': 4}
+16 152.784 {'splits': 33, 'heads': 2, 'stages': 3, 'producer': 4}
+16 155.648 {'splits': 66, 'heads': 2, 'stages': 3, 'producer': 4}
+16 156.848 {'splits': 99, 'heads': 2, 'stages': 3, 'producer': 4}
+16 152.72 {'splits': 33, 'heads': 2, 'stages': 4, 'producer': 4}
+16 156.192 {'splits': 66, 'heads': 2, 'stages': 4, 'producer': 4}
+16 157.136 {'splits': 99, 'heads': 2, 'stages': 4, 'producer': 4}
+BEST 16 [{'us': 134.51200630515814, 'splits': 99, 'heads': 2, 'stages': 3, 'producer': 2}, {'us': 135.20000036805868, 'splits': 99, 'heads': 2, 'stages': 4, 'producer': 2}, {'us': 150.0160014256835, 'splits': 99, 'heads': 2, 'stages': 2, 'producer': 2}, {'us': 151.6319951042533, 'splits': 33, 'heads': 2, 'stages': 3, 'producer': 2}, {'us': 151.93600114434958, 'splits': 33, 'heads': 2, 'stages': 4, 'producer': 2}, {'us': 152.71999593824148, 'splits': 33, 'heads': 2, 'stages': 4, 'producer': 4}, {'us': 152.78400387614965, 'splits': 33, 'heads': 2, 'stages': 3, 'producer': 4}, {'us': 155.64799960702658, 'splits': 66, 'heads': 2, 'stages': 3, 'producer': 4}]
+32 364.832 {'splits': 16, 'heads': 2, 'stages': 2, 'producer': 2}
+32 359.744 {'splits': 33, 'heads': 2, 'stages': 2, 'producer': 2}
+32 288.832 {'splits': 49, 'heads': 2, 'stages': 2, 'producer': 2}
+32 302.112 {'splits': 16, 'heads': 2, 'stages': 3, 'producer': 2}
+32 306.752 {'splits': 33, 'heads': 2, 'stages': 3, 'producer': 2}
+32 258.208 {'splits': 49, 'heads': 2, 'stages': 3, 'producer': 2}
+32 301.824 {'splits': 16, 'heads': 2, 'stages': 4, 'producer': 2}
+32 306.384 {'splits': 33, 'heads': 2, 'stages': 4, 'producer': 2}
+32 257.904 {'splits': 49, 'heads': 2, 'stages': 4, 'producer': 2}
+32 358.24 {'splits': 16, 'heads': 2, 'stages': 2, 'producer': 4}
+32 349.328 {'splits': 33, 'heads': 2, 'stages': 2, 'producer': 4}
+32 349.376 {'splits': 49, 'heads': 2, 'stages': 2, 'producer': 4}
+32 303.344 {'splits': 16, 'heads': 2, 'stages': 3, 'producer': 4}
+32 298.928 {'splits': 33, 'heads': 2, 'stages': 3, 'producer': 4}
+32 298.912 {'splits': 49, 'heads': 2, 'stages': 3, 'producer': 4}
+32 303.856 {'splits': 16, 'heads': 2, 'stages': 4, 'producer': 4}
+32 299.584 {'splits': 33, 'heads': 2, 'stages': 4, 'producer': 4}
+32 299.776 {'splits': 49, 'heads': 2, 'stages': 4, 'producer': 4}
+BEST 32 [{'us': 257.90400709956884, 'splits': 49, 'heads': 2, 'stages': 4, 'producer': 2}, {'us': 258.20800568908453, 'splits': 49, 'heads': 2, 'stages': 3, 'producer': 2}, {'us': 288.832007907331, 'splits': 49, 'heads': 2, 'stages': 2, 'producer': 2}, {'us': 298.9120027050376, 'splits': 49, 'heads': 2, 'stages': 3, 'producer': 4}, {'us': 298.9280065521598, 'splits': 33, 'heads': 2, 'stages': 3, 'producer': 4}, {'us': 299.58400037139654, 'splits': 33, 'heads': 2, 'stages': 4, 'producer': 4}, {'us': 299.77600183337927, 'splits': 49, 'heads': 2, 'stages': 4, 'producer': 4}, {'us': 301.8240025267005, 'splits': 16, 'heads': 2, 'stages': 4, 'producer': 2}]

@@ -1,0 +1,128 @@
+[
+  {
+    "us": 134.51200630515814,
+    "splits": 99,
+    "heads": 2,
+    "stages": 3,
+    "producer": 2
+  },
+  {
+    "us": 135.20000036805868,
+    "splits": 99,
+    "heads": 2,
+    "stages": 4,
+    "producer": 2
+  },
+  {
+    "us": 150.0160014256835,
+    "splits": 99,
+    "heads": 2,
+    "stages": 2,
+    "producer": 2
+  },
+  {
+    "us": 151.6319951042533,
+    "splits": 33,
+    "heads": 2,
+    "stages": 3,
+    "producer": 2
+  },
+  {
+    "us": 151.93600114434958,
+    "splits": 33,
+    "heads": 2,
+    "stages": 4,
+    "producer": 2
+  },
+  {
+    "us": 152.71999593824148,
+    "splits": 33,
+    "heads": 2,
+    "stages": 4,
+    "producer": 4
+  },
+  {
+    "us": 152.78400387614965,
+    "splits": 33,
+    "heads": 2,
+    "stages": 3,
+    "producer": 4
+  },
+  {
+    "us": 155.64799960702658,
+    "splits": 66,
+    "heads": 2,
+    "stages": 3,
+    "producer": 4
+  },
+  {
+    "us": 156.19199629873037,
+    "splits": 66,
+    "heads": 2,
+    "stages": 4,
+    "producer": 4
+  },
+  {
+    "us": 156.84799756854773,
+    "splits": 99,
+    "heads": 2,
+    "stages": 3,
+    "producer": 4
+  },
+  {
+    "us": 157.1360072121024,
+    "splits": 99,
+    "heads": 2,
+    "stages": 4,
+    "producer": 4
+  },
+  {
+    "us": 158.89599826186895,
+    "splits": 66,
+    "heads": 2,
+    "stages": 4,
+    "producer": 2
+  },
+  {
+    "us": 159.51999928802252,
+    "splits": 66,
+    "heads": 2,
+    "stages": 3,
+    "producer": 2
+  },
+  {
+    "us": 178.33600100129843,
+    "splits": 33,
+    "heads": 2,
+    "stages": 2,
+    "producer": 4
+  },
+  {
+    "us": 180.33600505441427,
+    "splits": 33,
+    "heads": 2,
+    "stages": 2,
+    "producer": 2
+  },
+  {
+    "us": 181.40800204128027,
+    "splits": 66,
+    "heads": 2,
+    "stages": 2,
+    "producer": 4
+  },
+  {
+    "us": 182.6559966430068,
+    "splits": 99,
+    "heads": 2,
+    "stages": 2,
+    "producer": 4
+  },
+  {
+    "us": 186.1120006069541,
+    "splits": 66,
+    "heads": 2,
+    "stages": 2,
+    "producer": 2
+  }
+]

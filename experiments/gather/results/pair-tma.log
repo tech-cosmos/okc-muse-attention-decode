@@ -1,0 +1,73 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_verify_pair3tma -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/gather/.build-pair-tma/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_pair3tma -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/gather/.build-pair-tma/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 3 barriers, 46128 bytes smem
+ptxas info    : Compile time = 42.466 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 3 barriers, 62544 bytes smem
+ptxas info    : Compile time = 42.326 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 3 barriers, 54336 bytes smem
+ptxas info    : Compile time = 41.034 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 3 barriers, 37920 bytes smem
+ptxas info    : Compile time = 42.211 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 3 barriers, 46128 bytes smem
+ptxas info    : Compile time = 41.221 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 3 barriers, 62544 bytes smem
+ptxas info    : Compile time = 41.096 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 3 barriers, 54336 bytes smem
+ptxas info    : Compile time = 41.560 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif14CUtensorMap_st
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 3 barriers, 37920 bytes smem
+ptxas info    : Compile time = 39.935 ms
+[3/3] c++ main.o cuda.cuda.o -shared -lcuda -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_pair3tma.so
+reference 16 (True, "relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]")
+16 820.992 0.00023694944684393704 {'splits': 8, 'stages': 2}
+16 443.808 0.00017996733367908746 {'splits': 16, 'stages': 2}
+16 440.224 0.0 {'splits': 33, 'stages': 2}
+16 464.592 0.00015346195141319185 {'splits': 66, 'stages': 2}
+16 808.368 0.00023694944684393704 {'splits': 8, 'stages': 3}
+16 434.704 0.00017996733367908746 {'splits': 16, 'stages': 3}
+16 434.672 0.0 {'splits': 33, 'stages': 3}
+16 458.064 0.00015346195141319185 {'splits': 66, 'stages': 3}
+16 792.688 0.00023694944684393704 {'splits': 8, 'stages': 4}
+16 429.808 0.00017996733367908746 {'splits': 16, 'stages': 4}
+16 430.544 0.0 {'splits': 33, 'stages': 4}
+16 454.992 0.00015346195141319185 {'splits': 66, 'stages': 4}
+triton 16 152.30399649590254
+reference 32 (True, "relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]")
+32 1613.088 0.00027656342717818916 {'splits': 4, 'stages': 2}
+32 869.504 0.00020259252050891519 {'splits': 8, 'stages': 2}
+32 860.4 0.00018559418094810098 {'splits': 16, 'stages': 2}
+32 859.696 0.00020366520038805902 {'splits': 33, 'stages': 2}
+32 1562.784 0.00027656342717818916 {'splits': 4, 'stages': 3}
+32 841.2 0.00020259252050891519 {'splits': 8, 'stages': 3}
+32 845.216 0.00018559418094810098 {'splits': 16, 'stages': 3}
+32 844.384 0.00020366520038805902 {'splits': 33, 'stages': 3}
+32 1565.632 0.00027656342717818916 {'splits': 4, 'stages': 4}
+32 843.088 0.00020259252050891519 {'splits': 8, 'stages': 4}
+32 847.376 0.00018559418094810098 {'splits': 16, 'stages': 4}
+32 846.32 0.00020366520038805902 {'splits': 33, 'stages': 4}
+triton 32 298.0960039421916

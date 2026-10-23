@@ -1,0 +1,338 @@
+[
+  {
+    "us": 246.00000213831663,
+    "splits": 33,
+    "heads": 2,
+    "stages": 3,
+    "producer": 0
+  },
+  {
+    "us": 262.12799083441496,
+    "splits": 33,
+    "heads": 2,
+    "stages": 2,
+    "producer": 0
+  },
+  {
+    "us": 299.119989387691,
+    "splits": 33,
+    "heads": 2,
+    "stages": 6,
+    "producer": 0
+  },
+  {
+    "us": 305.056001059711,
+    "splits": 16,
+    "heads": 2,
+    "stages": 6,
+    "producer": 0
+  },
+  {
+    "us": 305.071990005672,
+    "splits": 16,
+    "heads": 2,
+    "stages": 3,
+    "producer": 0
+  },
+  {
+    "us": 305.92000018805265,
+    "splits": 16,
+    "heads": 2,
+    "stages": 4,
+    "producer": 0
+  },
+  {
+    "us": 307.53600131720304,
+    "splits": 16,
+    "heads": 1,
+    "stages": 2,
+    "producer": 0
+  },
+  {
+    "us": 307.76001047343016,
+    "splits": 33,
+    "heads": 2,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 308.9279932901263,
+    "splits": 33,
+    "heads": 2,
+    "stages": 4,
+    "producer": 0
+  },
+  {
+    "us": 324.623997323215,
+    "splits": 8,
+    "heads": 1,
+    "stages": 3,
+    "producer": 0
+  },
+  {
+    "us": 324.8960031196475,
+    "splits": 8,
+    "heads": 1,
+    "stages": 4,
+    "producer": 0
+  },
+  {
+    "us": 325.4079921171069,
+    "splits": 8,
+    "heads": 1,
+    "stages": 6,
+    "producer": 0
+  },
+  {
+    "us": 327.47201155871153,
+    "splits": 16,
+    "heads": 1,
+    "stages": 3,
+    "producer": 0
+  },
+  {
+    "us": 327.71199475973845,
+    "splits": 16,
+    "heads": 1,
+    "stages": 4,
+    "producer": 0
+  },
+  {
+    "us": 329.4880045577884,
+    "splits": 16,
+    "heads": 1,
+    "stages": 6,
+    "producer": 0
+  },
+  {
+    "us": 333.55199825018644,
+    "splits": 33,
+    "heads": 2,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 365.0399995967746,
+    "splits": 16,
+    "heads": 2,
+    "stages": 2,
+    "producer": 0
+  },
+  {
+    "us": 373.04000090807676,
+    "splits": 16,
+    "heads": 1,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 448.5280020162463,
+    "splits": 16,
+    "heads": 1,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 463.1520016118884,
+    "splits": 16,
+    "heads": 1,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 463.4399963542819,
+    "splits": 16,
+    "heads": 1,
+    "stages": 4,
+    "producer": 1
+  },
+  {
+    "us": 465.8719999715686,
+    "splits": 33,
+    "heads": 2,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 466.0960091277957,
+    "splits": 33,
+    "heads": 2,
+    "stages": 4,
+    "producer": 1
+  },
+  {
+    "us": 466.6559947654605,
+    "splits": 8,
+    "heads": 1,
+    "stages": 2,
+    "producer": 0
+  },
+  {
+    "us": 482.4960036203265,
+    "splits": 16,
+    "heads": 2,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 482.5600041076541,
+    "splits": 16,
+    "heads": 2,
+    "stages": 4,
+    "producer": 1
+  },
+  {
+    "us": 483.6159897968173,
+    "splits": 16,
+    "heads": 2,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 488.30399941653013,
+    "splits": 8,
+    "heads": 2,
+    "stages": 3,
+    "producer": 0
+  },
+  {
+    "us": 488.9920009300113,
+    "splits": 8,
+    "heads": 2,
+    "stages": 6,
+    "producer": 0
+  },
+  {
+    "us": 492.1279950067401,
+    "splits": 8,
+    "heads": 2,
+    "stages": 4,
+    "producer": 0
+  },
+  {
+    "us": 527.9519958421588,
+    "splits": 4,
+    "heads": 1,
+    "stages": 3,
+    "producer": 0
+  },
+  {
+    "us": 528.3520026132464,
+    "splits": 4,
+    "heads": 1,
+    "stages": 4,
+    "producer": 0
+  },
+  {
+    "us": 528.6559863016009,
+    "splits": 4,
+    "heads": 1,
+    "stages": 6,
+    "producer": 0
+  },
+  {
+    "us": 548.9600105211139,
+    "splits": 16,
+    "heads": 2,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 614.3999798223376,
+    "splits": 8,
+    "heads": 1,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 636.1920041963458,
+    "splits": 8,
+    "heads": 2,
+    "stages": 2,
+    "producer": 0
+  },
+  {
+    "us": 770.3359825536609,
+    "splits": 8,
+    "heads": 1,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 802.3199839517474,
+    "splits": 8,
+    "heads": 1,
+    "stages": 4,
+    "producer": 1
+  },
+  {
+    "us": 803.3599955961108,
+    "splits": 8,
+    "heads": 1,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 853.9840085431933,
+    "splits": 4,
+    "heads": 1,
+    "stages": 2,
+    "producer": 0
+  },
+  {
+    "us": 883.4399981424212,
+    "splits": 8,
+    "heads": 2,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 884.1599924489856,
+    "splits": 8,
+    "heads": 2,
+    "stages": 4,
+    "producer": 1
+  },
+  {
+    "us": 885.8560128137469,
+    "splits": 8,
+    "heads": 2,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 1023.0720145627856,
+    "splits": 8,
+    "heads": 2,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 1140.8159835264087,
+    "splits": 4,
+    "heads": 1,
+    "stages": 3,
+    "producer": 1
+  },
+  {
+    "us": 1455.6639892980456,
+    "splits": 4,
+    "heads": 1,
+    "stages": 2,
+    "producer": 1
+  },
+  {
+    "us": 1517.3600418493152,
+    "splits": 4,
+    "heads": 1,
+    "stages": 6,
+    "producer": 1
+  },
+  {
+    "us": 1517.8079707548022,
+    "splits": 4,
+    "heads": 1,
+    "stages": 4,
+    "producer": 1
+  }
+]

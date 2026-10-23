@@ -1,0 +1,128 @@
+[
+  {
+    "us": 257.90400709956884,
+    "splits": 49,
+    "heads": 2,
+    "stages": 4,
+    "producer": 2
+  },
+  {
+    "us": 258.20800568908453,
+    "splits": 49,
+    "heads": 2,
+    "stages": 3,
+    "producer": 2
+  },
+  {
+    "us": 288.832007907331,
+    "splits": 49,
+    "heads": 2,
+    "stages": 2,
+    "producer": 2
+  },
+  {
+    "us": 298.9120027050376,
+    "splits": 49,
+    "heads": 2,
+    "stages": 3,
+    "producer": 4
+  },
+  {
+    "us": 298.9280065521598,
+    "splits": 33,
+    "heads": 2,
+    "stages": 3,
+    "producer": 4
+  },
+  {
+    "us": 299.58400037139654,
+    "splits": 33,
+    "heads": 2,
+    "stages": 4,
+    "producer": 4
+  },
+  {
+    "us": 299.77600183337927,
+    "splits": 49,
+    "heads": 2,
+    "stages": 4,
+    "producer": 4
+  },
+  {
+    "us": 301.8240025267005,
+    "splits": 16,
+    "heads": 2,
+    "stages": 4,
+    "producer": 2
+  },
+  {
+    "us": 302.111997269094,
+    "splits": 16,
+    "heads": 2,
+    "stages": 3,
+    "producer": 2
+  },
+  {
+    "us": 303.3439954742789,
+    "splits": 16,
+    "heads": 2,
+    "stages": 3,
+    "producer": 4
+  },
+  {
+    "us": 303.85599937289953,
+    "splits": 16,
+    "heads": 2,
+    "stages": 4,
+    "producer": 4
+  },
+  {
+    "us": 306.3840111717582,
+    "splits": 33,
+    "heads": 2,
+    "stages": 4,
+    "producer": 2
+  },
+  {
+    "us": 306.75201024860144,
+    "splits": 33,
+    "heads": 2,
+    "stages": 3,
+    "producer": 2
+  },
+  {
+    "us": 349.327995441854,
+    "splits": 33,
+    "heads": 2,
+    "stages": 2,
+    "producer": 4
+  },
+  {
+    "us": 349.3759920820594,
+    "splits": 49,
+    "heads": 2,
+    "stages": 2,
+    "producer": 4
+  },
+  {
+    "us": 358.23999252170324,
+    "splits": 16,
+    "heads": 2,
+    "stages": 2,
+    "producer": 4
+  },
+  {
+    "us": 359.7439965233207,
+    "splits": 33,
+    "heads": 2,
+    "stages": 2,
+    "producer": 2
+  },
+  {
+    "us": 364.83199801295996,
+    "splits": 16,
+    "heads": 2,
+    "stages": 2,
+    "producer": 2
+  }
+]

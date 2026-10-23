@@ -1,0 +1,83 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_verify_dual3 -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/gather/.build-dual/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_dual3 -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/gather/.build-dual/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 52236 bytes smem
+ptxas info    : Compile time = 89.408 ms
+ptxas info    : Compiling entry function '_Z6verifyILi6ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi6ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 82968 bytes smem
+ptxas info    : Compile time = 86.982 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 72724 bytes smem
+ptxas info    : Compile time = 86.877 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 62480 bytes smem
+ptxas info    : Compile time = 86.267 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 41992 bytes smem
+ptxas info    : Compile time = 87.970 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 52236 bytes smem
+ptxas info    : Compile time = 86.946 ms
+ptxas info    : Compiling entry function '_Z6verifyILi6ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi6ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 82968 bytes smem
+ptxas info    : Compile time = 85.532 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 72724 bytes smem
+ptxas info    : Compile time = 84.664 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 62480 bytes smem
+ptxas info    : Compile time = 83.547 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    8 bytes stack frame, 8 bytes spill stores, 12 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 8 bytes cumulative stack size, 41992 bytes smem
+ptxas info    : Compile time = 84.427 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_dual3.so
+reference 16 (True, "relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]")
+16 309.456 0.00017996733367908746 {'splits': 16, 'stages': 3}
+16 257.904 0.00016954817692749202 {'splits': 24, 'stages': 3}
+16 340.784 0.0 {'splits': 33, 'stages': 3}
+16 277.296 0.00013976116315461695 {'splits': 49, 'stages': 3}
+16 311.552 0.00017996733367908746 {'splits': 16, 'stages': 4}
+16 258.704 0.00016954817692749202 {'splits': 24, 'stages': 4}
+16 341.728 0.0 {'splits': 33, 'stages': 4}
+16 279.84 0.00013976116315461695 {'splits': 49, 'stages': 4}
+16 317.84 0.00017996733367908746 {'splits': 16, 'stages': 5}
+16 265.296 0.00016954817692749202 {'splits': 24, 'stages': 5}
+16 350.4 0.0 {'splits': 33, 'stages': 5}
+16 288.368 0.00013976116315461695 {'splits': 49, 'stages': 5}
+triton 16 157.2159994393587
+reference 32 (True, "relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]")
+32 604.976 0.00020259252050891519 {'splits': 8, 'stages': 3}
+32 497.6 1.7561112599651096e-06 {'splits': 12, 'stages': 3}
+32 657.936 0.00018559418094810098 {'splits': 16, 'stages': 3}
+32 499.424 0.00017869725706987083 {'splits': 24, 'stages': 3}
+32 598.576 0.00020259252050891519 {'splits': 8, 'stages': 4}
+32 496.656 1.7561112599651096e-06 {'splits': 12, 'stages': 4}
+32 671.552 0.00018559418094810098 {'splits': 16, 'stages': 4}
+32 511.648 0.00017869725706987083 {'splits': 24, 'stages': 4}
+32 609.984 0.00020259252050891519 {'splits': 8, 'stages': 5}
+32 502.928 1.7561112599651096e-06 {'splits': 12, 'stages': 5}
+32 676.0 0.00018559418094810098 {'splits': 16, 'stages': 5}
+32 518.592 0.00017869725706987083 {'splits': 24, 'stages': 5}
+triton 32 308.2560021430254

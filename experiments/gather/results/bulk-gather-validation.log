@@ -1,0 +1,5 @@
+ninja: no work to do.
+PASS native gather checksum 1 tp8 32 variants
+PASS native gather checksum 1 dp 32 variants
+PASS native gather checksum 64 tp8 32 variants
+PASS native gather checksum 64 dp 32 variants
