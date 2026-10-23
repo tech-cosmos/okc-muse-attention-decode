@@ -1,0 +1,162 @@
+[
+  {
+    "Address": "0x7bf2e68e9d30",
+    "Source": "      LDS.64 R12, [R12+0xa00]",
+    "Instructions Executed": "323144",
+    "L1 Conflicts Shared N-Way": "4",
+    "L1 Wavefronts Shared Excessive": "646288",
+    "L1 Wavefronts Shared": "1292576",
+    "L1 Wavefronts Shared Ideal": "646288",
+    "Warp Stall Sampling (All Samples)": "2192"
+  },
+  {
+    "Address": "0x7bf2e68e9e70",
+    "Source": "      STS.128 [R57], R12",
+    "Instructions Executed": "323144",
+    "L1 Conflicts Shared N-Way": "4",
+    "L1 Wavefronts Shared Excessive": "0",
+    "L1 Wavefronts Shared": "1292576",
+    "L1 Wavefronts Shared Ideal": "1292576",
+    "Warp Stall Sampling (All Samples)": "1036"
+  },
+  {
+    "Address": "0x7bf2e68e9e80",
+    "Source": "      LDS.64 R16, [R58+0xa00]",
+    "Instructions Executed": "323144",
+    "L1 Conflicts Shared N-Way": "4",
+    "L1 Wavefronts Shared Excessive": "646288",
+    "L1 Wavefronts Shared": "1292576",
+    "L1 Wavefronts Shared Ideal": "646288",
+    "Warp Stall Sampling (All Samples)": "751"
+  },
+  {
+    "Address": "0x7bf2e68e9ef0",
+    "Source": "      STS.128 [R56], R16",
+    "Instructions Executed": "323144",
+    "L1 Conflicts Shared N-Way": "4",
+    "L1 Wavefronts Shared Excessive": "0",
+    "L1 Wavefronts Shared": "1292576",
+    "L1 Wavefronts Shared Ideal": "1292576",
+    "Warp Stall Sampling (All Samples)": "1192"
+  },
+  {
+    "Address": "0x7bf2e68ea0a0",
+    "Source": "      QGMMA.64x32x32.F32.E4M3.E4M3 R56, R72, gdesc[UR16], RZ, !UPT",
+    "Instructions Executed": "323144",
+    "L1 Conflicts Shared N-Way": "2",
+    "L1 Wavefronts Shared Excessive": "0",
+    "L1 Wavefronts Shared": "646288",
+    "L1 Wavefronts Shared Ideal": "646288",
+    "Warp Stall Sampling (All Samples)": "1689"
+  },
+  {
+    "Address": "0x7bf2e68ea100",
+    "Source": "      QGMMA.64x32x32.F32.E4M3.E4M3 R56, R76, gdesc[UR16], R56, gsb0",
+    "Instructions Executed": "323144",
+    "L1 Conflicts Shared N-Way": "2",
+    "L1 Wavefronts Shared Excessive": "0",
+    "L1 Wavefronts Shared": "646288",
+    "L1 Wavefronts Shared Ideal": "646288",
+    "Warp Stall Sampling (All Samples)": "779"
+  },
+  {
+    "Address": "0x7bf2e68ead70",
+    "Source": "      HGMMA.64x64x16.F32 R24, R56, gdesc[UR16].tnspB, R24",
+    "Instructions Executed": "323144",
+    "L1 Conflicts Shared N-Way": "4",
+    "L1 Wavefronts Shared Excessive": "0",
+    "L1 Wavefronts Shared": "1292576",
+    "L1 Wavefronts Shared Ideal": "1292576",
+    "Warp Stall Sampling (All Samples)": "10955"
+  },
+  {
+    "Address": "0x7bf2e68eadc0",
+    "Source": "      HGMMA.64x64x16.F32 R24, R60, gdesc[UR16].tnspB, R24, gsb0",
+    "Instructions Executed": "323144",
+    "L1 Conflicts Shared N-Way": "4",
+    "L1 Wavefronts Shared Excessive": "0",
+    "L1 Wavefronts Shared": "1292576",
+    "L1 Wavefronts Shared Ideal": "1292576",
+    "Warp Stall Sampling (All Samples)": "1547"
+  },
+  {
+    "Address": "0x7bf2e68ec890",
+    "Source": "      LDGSTS.E.BYPASS.128 desc[UR8][R52.64], [R87]",
+    "Instructions Executed": "80754",
+    "L1 Conflicts Shared N-Way": "32",
+    "L1 Wavefronts Shared Excessive": "2261112",
+    "L1 Wavefronts Shared": "2584128",
+    "L1 Wavefronts Shared Ideal": "323016",
+    "Warp Stall Sampling (All Samples)": "174"
+  },
+  {
+    "Address": "0x7bf2e68ec8d0",
+    "Source": "      LDGSTS.E.BYPASS.128 desc[UR8][R48.64], [R85+0xa00]",
+    "Instructions Executed": "80754",
+    "L1 Conflicts Shared N-Way": "15",
+    "L1 Wavefronts Shared Excessive": "888294",
+    "L1 Wavefronts Shared": "1211310",
+    "L1 Wavefronts Shared Ideal": "323016",
+    "Warp Stall Sampling (All Samples)": "246"
+  },
+  {
+    "Address": "0x7bf2e68eca30",
+    "Source": "      LDGSTS.E.BYPASS.128 desc[UR8][R58.64], [R83]",
+    "Instructions Executed": "80754",
+    "L1 Conflicts Shared N-Way": "32",
+    "L1 Wavefronts Shared Excessive": "2261112",
+    "L1 Wavefronts Shared": "2584128",
+    "L1 Wavefronts Shared Ideal": "323016",
+    "Warp Stall Sampling (All Samples)": "37"
+  },
+  {
+    "Address": "0x7bf2e68eca60",
+    "Source": "      LDGSTS.E.BYPASS.128 desc[UR8][R54.64], [R71+0xa00]",
+    "Instructions Executed": "80754",
+    "L1 Conflicts Shared N-Way": "15",
+    "L1 Wavefronts Shared Excessive": "888294",
+    "L1 Wavefronts Shared": "1211310",
+    "L1 Wavefronts Shared Ideal": "323016",
+    "Warp Stall Sampling (All Samples)": "37"
+  },
+  {
+    "Address": "0x7bf2e68eca90",
+    "Source": "      LDGSTS.E.BYPASS.128 desc[UR8][R52.64], [R73]",
+    "Instructions Executed": "80754",
+    "L1 Conflicts Shared N-Way": "32",
+    "L1 Wavefronts Shared Excessive": "2261112",
+    "L1 Wavefronts Shared": "2584128",
+    "L1 Wavefronts Shared Ideal": "323016",
+    "Warp Stall Sampling (All Samples)": "44"
+  },
+  {
+    "Address": "0x7bf2e68ecac0",
+    "Source": "      LDGSTS.E.BYPASS.128 desc[UR8][R50.64], [R75+0xa00]",
+    "Instructions Executed": "80754",
+    "L1 Conflicts Shared N-Way": "15",
+    "L1 Wavefronts Shared Excessive": "888294",
+    "L1 Wavefronts Shared": "1211310",
+    "L1 Wavefronts Shared Ideal": "323016",
+    "Warp Stall Sampling (All Samples)": "37"
+  },
+  {
+    "Address": "0x7bf2e68ecae0",
+    "Source": "      LDGSTS.E.BYPASS.128 desc[UR8][R48.64], [R77]",
+    "Instructions Executed": "80754",
+    "L1 Conflicts Shared N-Way": "32",
+    "L1 Wavefronts Shared Excessive": "2261112",
+    "L1 Wavefronts Shared": "2584128",
+    "L1 Wavefronts Shared Ideal": "323016",
+    "Warp Stall Sampling (All Samples)": "240"
+  },
+  {
+    "Address": "0x7bf2e68ecaf0",
+    "Source": "      LDGSTS.E.BYPASS.128 desc[UR8][R56.64], [R79+0xa00]",
+    "Instructions Executed": "80754",
+    "L1 Conflicts Shared N-Way": "15",
+    "L1 Wavefronts Shared Excessive": "888294",
+    "L1 Wavefronts Shared": "1211310",
+    "L1 Wavefronts Shared Ideal": "323016",
+    "Warp Stall Sampling (All Samples)": "193"
+  }
+]

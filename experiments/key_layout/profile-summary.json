@@ -1,0 +1,107 @@
+{
+  "baseline": {
+    "v_loads": {
+      "L1 Wavefronts Shared": 2585152,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 1292576
+    },
+    "gathers": {
+      "L1 Wavefronts Shared": 15181752,
+      "L1 Wavefronts Shared Ideal": 2584128,
+      "L1 Wavefronts Shared Excessive": 12597624
+    },
+    "qk": {
+      "L1 Wavefronts Shared": 1292576,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 0
+    },
+    "hardware_load_conflicts": 1292621.0,
+    "hardware_store_conflicts": 1306878.0,
+    "occupancy_percent": 29.19,
+    "issue_per_scheduler": 0.54
+  },
+  "rawv": {
+    "v_loads": {
+      "L1 Wavefronts Shared": 1292576,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 0
+    },
+    "gathers": {
+      "L1 Wavefronts Shared": 12920640,
+      "L1 Wavefronts Shared Ideal": 2584128,
+      "L1 Wavefronts Shared Excessive": 10336512
+    },
+    "qk": {
+      "L1 Wavefronts Shared": 1292576,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 0
+    },
+    "hardware_load_conflicts": 31.0,
+    "hardware_store_conflicts": 1348653.0,
+    "occupancy_percent": 29.3,
+    "issue_per_scheduler": 0.56
+  },
+  "key64": {
+    "v_loads": {
+      "L1 Wavefronts Shared": 2585152,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 1292576
+    },
+    "gathers": {
+      "L1 Wavefronts Shared": 7429368,
+      "L1 Wavefronts Shared Ideal": 2584128,
+      "L1 Wavefronts Shared Excessive": 4845240
+    },
+    "qk": {
+      "L1 Wavefronts Shared": 1292576,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 0
+    },
+    "hardware_load_conflicts": 1292613.0,
+    "hardware_store_conflicts": 852156.0,
+    "occupancy_percent": 28.78,
+    "issue_per_scheduler": 0.59
+  },
+  "rawvk64": {
+    "v_loads": {
+      "L1 Wavefronts Shared": 1292576,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 0
+    },
+    "gathers": {
+      "L1 Wavefronts Shared": 5168256,
+      "L1 Wavefronts Shared Ideal": 2584128,
+      "L1 Wavefronts Shared Excessive": 2584128
+    },
+    "qk": {
+      "L1 Wavefronts Shared": 1292576,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 0
+    },
+    "hardware_load_conflicts": 39.0,
+    "hardware_store_conflicts": 760364.0,
+    "occupancy_percent": 28.97,
+    "issue_per_scheduler": 0.58
+  },
+  "paired128": {
+    "v_loads": {
+      "L1 Wavefronts Shared": 1292576,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 0
+    },
+    "gathers": {
+      "L1 Wavefronts Shared": 3876192,
+      "L1 Wavefronts Shared Ideal": 2584128,
+      "L1 Wavefronts Shared Excessive": 1292064
+    },
+    "qk": {
+      "L1 Wavefronts Shared": 1292576,
+      "L1 Wavefronts Shared Ideal": 1292576,
+      "L1 Wavefronts Shared Excessive": 0
+    },
+    "hardware_load_conflicts": 25.0,
+    "hardware_store_conflicts": 657703.0,
+    "occupancy_percent": 28.79,
+    "issue_per_scheduler": 0.59
+  }
+}

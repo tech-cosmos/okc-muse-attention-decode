@@ -1,0 +1,8 @@
+validate.py rawvk64 0
+bench_all.py rawvk64 0
+fresh.py rawvk64 0
+validate.py paired128 0
+bench_all.py paired128 0
+fresh.py paired128 0
+run_sanitizers.py rawvk64 0
+run_profiles.py rawvk64 0
