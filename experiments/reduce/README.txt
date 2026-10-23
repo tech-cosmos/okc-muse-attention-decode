@@ -106,3 +106,15 @@ No Triton attention plans were changed by Codex. Historical scripts' old
 wrapper path and removed native-sliding binding require their matching source
 commit; final scripts target production fddd5c1. Judge job/result and promotion
 status are recorded in NOTES-codex.md and the shared coordination board.
+
+Later main merge (65ff1ab)
+--------------------------
+Production source effc2bf merges main's new-token-before-cache change. Native
+code and dispatch are unchanged. main65-test.log: 16/16. main65-fresh.log: 72
+fresh routing/value/length replays. main65-bench.log: 1.909x. main65-confirm.json
+is the same-process comparison against the latest inherited Triton full merge.
+The final-* prefix above denotes the earlier fddd5c1 revision, not this later
+main merge; both revisions are explicitly recorded in NOTES-codex.md.
+Check 40e1aa41415a4c87 covers fddd5c1. Check 01bc4ecc9c7047d9 covers effc2bf.
+Both were queued at 22:28 UTC. Neither is a scored run. Do not resubmit either
+check, and do not score effc2bf using the result of the earlier source revision.
