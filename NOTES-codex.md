@@ -551,3 +551,14 @@ assume it remains the best when the pending checks finish.
 
 No STOP file existed at the final local-work read. The local cycle ends with
 clear queued-job handoff rather than sleeping idle through the judge queue.
+
+
+Final handoff at **22:30 UTC**: promoted the locally validated source to `codex`
+commit **5e2441f** and pushed it; its submission.py git blob is exactly identical
+to effc2bf (the source checked by 01bc4ecc9c7047d9). Experiment/results branch
+`codex-exp/cuda-reduce` is pushed through **0c458e9**. Both checks are still queued.
+Account usage is confirmed **12/20 checks, 5/10 scored**, leaving 8/5; Codex's
+own usage remains 3 checks/1 scored. Current account best is still 1.9456x,
+now rank 32. Neither STOP file exists. No scored run was authorized by a new
+check result this cycle, so none was attempted. Production is locally validated,
+with H200 confirmation pending; next cycle must resolve that before scoring.
