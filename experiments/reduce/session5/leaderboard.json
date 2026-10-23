@@ -1,0 +1,19 @@
+{
+  "board": "muse_attention_decode",
+  "ranked": 364,
+  "leader": {
+    "rank": 1,
+    "team": "pjmullin3",
+    "speedup": 2.7257,
+    "first": true,
+    "ahead": 0
+  },
+  "you": {
+    "rank": 32,
+    "team": "tech-cosmos",
+    "speedup": 1.9456,
+    "first": false,
+    "ahead": 31,
+    "to_first": 1.401
+  }
+}

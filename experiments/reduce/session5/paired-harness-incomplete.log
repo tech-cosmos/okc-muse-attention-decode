@@ -1,0 +1,6 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+Traceback (most recent call last):
+  File "/home/daytona/codex-repo/experiments/reduce/session5/paired.py", line 28, in <module>
+    assert all(torch.isfinite(out).all() for out in outputs.values()) and max(errors.values())<.001,errors
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'production': nan, 'cooperative': nan, 'address': nan, 'unmasked': nan}
