@@ -146,7 +146,7 @@ in Codex's own handoff instead.
 4. Merge origin/main before new work, read ~/COORD.md, and claim only the native lane.
    /home/daytona/.okc/bin/okc is the CLI path (not on the non-login shell's PATH).
 
-## Session 2 — 2026-10-23, 20:56–21:38 UTC (scored run still pending)
+## Session 2 — 2026-10-23, 20:56–21:40 UTC (cycle complete; scored run queued)
 
 ### Candidate and branch state
 
@@ -217,7 +217,8 @@ withdrawing. The archived invalid results are explicitly labeled in the README.
    and synchronous cooperative gathers did not resolve it. The actual issue was
    descriptor encoding: the matrix address must be `(address & 0x3ffff) >> 4`.
    Omitting the mask can let cluster address bits corrupt the descriptor. The fix
-   passed all 24 scored shape/plan comparisons and eight cooperative diagnostics.
+   passed all 24 scored shape/plan comparisons, eight cooperative diagnostics, and
+   six additional small/DP/page/scale cases at both splits 4 and 8.
    Best correct times ~24.4/30.4/39.6 us at B=1/16/32, still much slower than main.
    An early racecheck on the unmasked pipeline reported hazards; no clean
    racecheck has been claimed for this prototype. Never dispatched or submitted.
@@ -241,7 +242,9 @@ Immediately before submission the board best was 1.9207x, rank 32, so the requir
 same-code/check-beats-current-board condition was satisfied. This is Codex's first
 scored run today; the human's/Claude's earlier runs are separate agent shares.
 Before it, account usage was 7/20 checks and 3/10 scored; the eighth account check
-is ours. Claude's main-merge check 944b20a9 was running concurrently.
+is ours. Claude's main-merge check 944b20a9 was running concurrently. At session
+end the shared account had used **8/20 checks and 5/10 scored runs**, leaving
+12 checks and 5 scored runs; Codex's own usage remains 1 check and 1 scored run.
 
 Read `profiles/submission.2d178f1df3544c27.txt`. The native-path shape times
 were decode-1 sliding **7.185 us** and verify-1 sliding **7.951 us**. Main 0495b16's
@@ -257,10 +260,17 @@ full shapes overlap and include waiting; do not add them to estimate total time.
 
 Neither ~/STOP nor ~/STOP-codex existed at the last read. No withdrawals: the
 incorrect early prototypes were never checked or submitted. Read the scored
-run's result and update this entry when it completes.
+run's result and update this entry when it completes. The scored run was still
+queued at the final 21:40 UTC read. Local work, H200 validation, promotion, and
+submission are complete; the cycle ends without waiting idle through another queue.
+A final fetch confirmed origin/main was still 0495b16 and already merged. Both
+codex and codex-exp/cuda-sliding are pushed, with a clean production worktree.
 
 ### Next cycle
 
+- First read `okc status 033117b46b6f42ba --json` (or `--wait --json` once running),
+  read its profile if it passed, and update the job result/budget/board in these
+  notes and Codex's own COORD.md line. Do not submit the same code again.
 - Start from the final production branch and merge any newer main before tuning.
 - Do not repeat tiny warp/stage sweeps of the current full native attention
   prototypes: they are substantially slower. Their source/measurements are on
