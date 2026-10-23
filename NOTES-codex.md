@@ -1178,3 +1178,140 @@ Session9 uses **0 checks, 0 scored**, no withdrawals. Codex UTC-day totals remai
 
 Neither STOP file exists. Finish with the experiment and codex branches pushed,
 the shared claim removed, and the worktree clean on codex.
+
+## Session 10 — 2026-10-23, 23:30–23:40 UTC
+
+### Outcome and production source
+
+Resolved the previously pending scored run. Native FP16 warpgroup PV with a
+swizzled value layout improves the retained native attention prototype by about
+**2–3%** at large batches, but remains **29–33% slower than production**. No
+production source change or new judge job. Experiments live on
+**codex-exp/cuda-pv-warpgroup**, under `experiments/pv_warpgroup/README.txt`.
+Experiment source/results are pushed at **6dcfd46**; final validation is below.
+
+`origin/main` remains **468a53d**, already merged; fetched at session start and
+after the comparisons. Production source is still exact **5e2441f/effc2bf**,
+SHA256 `a66802981a86065ee7647e4b773b9d811db7ac567a76983d544a42fc7a6a59b1`.
+No Triton code/plans were tuned. Existing native small-full reduction remains.
+
+### Completed H200 scored run
+
+**a48b8c849e53426b** completed at **23:29:58 UTC**, read this session:
+**16/16 passed, 2.011402x**, CI **[1.981231,2.041573]**, no flags or errors.
+Read the full passing profile and saved text/JSON/log in `profiles/submission.a48*`.
+This is the identical source of check01bc **2.009167x**, not a new submission.
+
+H200 native-path decode1/verify1 full **14.922 / 16.670 us**; native reduction
+profile durations **1.8 / 2.4 us**. Full verify16/32 **155.205 / 304.462 us**.
+Main's scored0a2eec0f target times are **14.997 / 16.908 us**, but these are
+independent judge runs. Overall account best remains main's **2.020924x**, rank21
+at this session's first board read. Confidence intervals overlap; prior paired
+H100 comparisons are stronger evidence for the small native merge benefit.
+PDL profile durations overlap and include waits; do not sum them as latency.
+
+### Native PV experiment
+
+Base is session9 `forced.py`: paired-head full-row FP8 gathers, two producer
+warps, two consumer warpgroups, mbarrier ring, vectorized FP8-to-FP16 V staging.
+Use the same stages4/split heuristic, FP8 cache/query rounding, FP16 P/V operands,
+FP32 accumulators/partials, all-key attention and new-token/cache behavior.
+
+- **sync:** two register-input m64n64k16 FP16 WGMMA PV operations replace eight
+  LDSM.x4 and sixteen warp HMMA. V is blocked N-major, initially unswizzled.
+- **overlap:** alternate V buffers; defer PV completion to next QK wait. SASS
+  confirms removal of the in-loop end-PV wait, but throughput gets worse.
+- **swizzle:** N-major SW128 V storage,1024-byte alignment and matching matrix
+  descriptor. Vector conversion/store widths are preserved. This removes most
+  of the slowdown introduced by the unswizzled WGMMA layout.
+- **swizzle_overlap:** same layout with deferred PV; loses to synchronous swizzle.
+- **early_release:** publish the raw K/V ring slot after QK completion, before
+  softmax/PV; remove the end consumer barrier. Separate converted V stays live
+  until PV completion. Correct in initial tests but no timing gain.
+
+Three same-process H100 cold-L2 graph comparisons, with empty replay subtraction
+and shared GPU lock through captures, reference checks and timing. Sixty rounds
+rotate/reverse order; this is not the judge's balanced adjacent-pair estimator.
+Do not compare absolute values across runs to infer small effects.
+
+| full verify | production | native vector baseline | unswizzled WGMMA | deferred unswizzled |
+|---|---:|---:|---:|---:|
+| B1 |18.464 us|35.440 us|36.592 us|36.720 us|
+| B16|154.912|211.600|264.896|270.512|
+| B32|304.880|402.032|515.248|525.392|
+
+| full verify | production | native vector baseline | swizzled WGMMA | deferred swizzled |
+|---|---:|---:|---:|---:|
+| B1 |18.464 us|34.656 us|34.336 us|34.432 us|
+| B16|156.160|212.528|207.136|210.336|
+| B32|303.392|399.120|390.256|396.496|
+
+| full verify | production | native vector baseline | swizzled WGMMA | early raw release |
+|---|---:|---:|---:|---:|
+| B1 |18.432 us|34.544 us|34.208 us|34.288 us|
+| B16|154.928|211.056|205.552|206.272|
+| B32|302.464|397.584|388.768|391.040|
+
+Stage4/page1 resources: baseline94 registers/62528 shared bytes; sync94/61504;
+overlap95/69696; swizzle92/61504; early_release92/61504. No spills; still two
+resident CTAs/SM. Source generator, static SASS and operation counts archived.
+
+### Validation and next work
+
+- **36 variant/shape entries** across three comparison scripts, including repeated
+  controls; independent reference checks before and after graph capture.
+- Retained **swizzle and early_release each pass16/16** full-reference tests:
+  five native full-verify cases and eleven production fallback cases each.
+- Both full native/fallback benches report **1.657x** against fixed SGLang/H200
+  numbers. These are experimental local aggregates, not production regressions.
+- **84 all-native fresh graph replays**,42 per retained variant, across seven
+  nearby shapes: TP8/DP, pages1/64, scales1/1/64, contexts10–120K, soft/coherent/edge,
+  changed QKV/cache/routes/lengths/positions/cache slots and empty contexts.
+- Runtime validation is stages4. Discarded sync/overlap/swizzle_overlap have
+  scored reference/capture comparisons only, not full-suite/fresh/sanitizer coverage.
+- Generator reproduces all five sources. Duplicate initial build launcher was
+  terminated before any GPU work; completed-build lock files were cleaned up.
+  The retained comparison process completed normally, with no timing overlap.
+
+1. No pending Codex judge jobs remain; do not resubmit resolved a48b8c849e53426b.
+2. Fetch/merge main before further source changes. A new candidate needs its own
+   exact-source check beating the then-current account best before scoring.
+3. Keep swizzle.py as the best native building block. Close deferred PV and
+   early-release variants; neither hides enough useful work to beat it.
+4. A distinct future hypothesis is the untouched producer/raw-K QK shared layout:
+   investigate bank conflicts first, then consider a matching K-major swizzle.
+   Do not assume it wins; avoid further stage/register sweeps of this topology.
+
+Session10 uses **0 checks,0 scored**, no withdrawals. Codex UTC-day totals remain
+**3/8 checks,2/3 scored**. Shared initial usage **12/20 checks,7/10 scored**, leaving
+8 checks/3 scored account-wide. No STOP file existed at the last read. Finish with
+experiment/source reports pushed separately, clean codex, and claim removed.
+
+Final validation/profile results: swizzle and early_release isolated native
+memcheck **0 errors**, synccheck **0 errors**, racecheck **0 hazards/errors/warnings**.
+Each tool checks24 native calls (two variants, four page/scale cases, three changed
+QKV calls each), reducing FP32 partials independently in torch and checking output
+and cache against reference. All local subprocesses have completed.
+
+Isolated NCU baseline/sync/swizzle/early_release measured shared-store bank
+conflicts **1.107M / 19.087M / 1.320M / 1.398M**; shared-load conflicts are about
+**1.293M** for each. These are whole-kernel hardware counters, not per-instruction
+attribution. They support the unswizzled-value store-conflict diagnosis. Achieved
+occupancy **29.40 / 30.04 / 29.18 / 28.97%**, issued warps per scheduler cycle
+**0.55 / 0.38 / 0.54 / 0.54**. Swizzling restores issue throughput, but does not
+materially improve occupancy or close the gap to production. Profiles ran after
+all correctness/timing/sanitizer work; profiler durations are not graph timings.
+
+Final fetch found main **f65dfa4**, notes/profile scripts only, with unchanged
+submission.py. Read its session6 notes: measured sliding dependent-memory trips
+and unsuccessful early-load Triton experiments. A native first-gather/prologue
+overlap is another future direction, but would need a new efficient attention
+kernel rather than reusing the rejected session2 sliding prototype unchanged.
+Final board/budget read: rank21, best2.020924x, account12 checks/7 scored;
+Codex3 checks/2 scored. No new jobs or pending Codex jobs.
+
+Final handoff: experiment **6dcfd46** pushed. Main **f65dfa4** merged into codex
+as **23bf400**; only notes/profile scripts changed. No redundant production GPU
+rerun was needed for this merge. Source SHA256 remains unchanged. Neither STOP
+file exists, and all local subprocesses completed. Production notes/profiles are
+committed and pushed, with claim removal/results posted to COORD.md.
