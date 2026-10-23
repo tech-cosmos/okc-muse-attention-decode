@@ -1,0 +1,12 @@
+========= COMPUTE-SANITIZER
+ninja: no work to do.
+ninja: no work to do.
+PASS native-only reference experiments.pv_warpgroup.swizzle 1 1.0
+PASS native-only reference experiments.pv_warpgroup.swizzle 1 0.015625
+PASS native-only reference experiments.pv_warpgroup.swizzle 64 1.0
+PASS native-only reference experiments.pv_warpgroup.swizzle 64 0.015625
+PASS native-only reference experiments.pv_warpgroup.early_release 1 1.0
+PASS native-only reference experiments.pv_warpgroup.early_release 1 0.015625
+PASS native-only reference experiments.pv_warpgroup.early_release 64 1.0
+PASS native-only reference experiments.pv_warpgroup.early_release 64 0.015625
+========= ERROR SUMMARY: 0 errors

@@ -1,0 +1,9 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+PASS fresh graph {'batch': 1, 'ctx': 10, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds including empty contexts
+PASS fresh graph {'batch': 2, 'ctx': 1024, 'heads': 'tp8', 'layer': 'full', 'page': 64, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'edges'} 6 seeds including empty contexts
+PASS fresh graph {'batch': 3, 'ctx': 4000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'coherent'} 6 seeds including empty contexts
+PASS fresh graph {'batch': 4, 'ctx': 12345, 'heads': 'tp8', 'layer': 'full', 'page': 64, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds including empty contexts
+PASS fresh graph {'batch': 8, 'ctx': 40000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'coherent'} 6 seeds including empty contexts
+PASS fresh graph {'batch': 12, 'ctx': 120000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds including empty contexts
+PASS fresh graph {'batch': 1, 'ctx': 2048, 'heads': 'dp', 'layer': 'full', 'page': 64, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'coherent'} 6 seeds including empty contexts

@@ -1,0 +1,134 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_pv_swizzle -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/pv_warpgroup/.build-swizzle/main.cpp -o main.o
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_pv_swizzle -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/pv_warpgroup/.build-swizzle/cuda.cu -o cuda.cuda.o
+/home/daytona/codex-repo/experiments/pv_warpgroup/.build-swizzle/cuda.cu(143): warning #177-D: variable "vr" was declared but never referenced
+       unsigned vr=i/D, vc=i%D;
+                ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/home/daytona/codex-repo/experiments/pv_warpgroup/.build-swizzle/cuda.cu(143): warning #177-D: variable "vc" was declared but never referenced
+       unsigned vr=i/D, vc=i%D;
+                        ^
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 89 registers, used 4 barriers, 51248 bytes smem
+ptxas info    : Compile time = 50.389 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 89 registers, used 4 barriers, 71760 bytes smem
+ptxas info    : Compile time = 48.055 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 89 registers, used 4 barriers, 61504 bytes smem
+ptxas info    : Compile time = 47.559 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 89 registers, used 4 barriers, 40992 bytes smem
+ptxas info    : Compile time = 47.716 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 4 barriers, 51248 bytes smem
+ptxas info    : Compile time = 53.946 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 4 barriers, 71760 bytes smem
+ptxas info    : Compile time = 53.851 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 4 barriers, 61504 bytes smem
+ptxas info    : Compile time = 53.819 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 4 barriers, 40992 bytes smem
+ptxas info    : Compile time = 52.925 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_pv_swizzle.so
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_pv_swizzle_overlap -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/pv_warpgroup/.build-swizzle_overlap/main.cpp -o main.o
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_pv_swizzle_overlap -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/pv_warpgroup/.build-swizzle_overlap/cuda.cu -o cuda.cuda.o
+/home/daytona/codex-repo/experiments/pv_warpgroup/.build-swizzle_overlap/cuda.cu(143): warning #177-D: variable "vr" was declared but never referenced
+       unsigned vr=i/D, vc=i%D;
+                ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/home/daytona/codex-repo/experiments/pv_warpgroup/.build-swizzle_overlap/cuda.cu(143): warning #177-D: variable "vc" was declared but never referenced
+       unsigned vr=i/D, vc=i%D;
+                        ^
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 59440 bytes smem
+ptxas info    : Compile time = 51.667 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 79952 bytes smem
+ptxas info    : Compile time = 49.225 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 69696 bytes smem
+ptxas info    : Compile time = 48.496 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 49184 bytes smem
+ptxas info    : Compile time = 48.396 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 59440 bytes smem
+ptxas info    : Compile time = 54.527 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 79952 bytes smem
+ptxas info    : Compile time = 54.960 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 69696 bytes smem
+ptxas info    : Compile time = 54.657 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 49184 bytes smem
+ptxas info    : Compile time = 53.446 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_pv_swizzle_overlap.so
+REFERENCE verify 1 production True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 baseline True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 swizzle True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 swizzle_overlap True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+{"shape": "verify 1", "variant": "production", "us": 18.46400019712746, "delta_native": -16.143999993801117, "empty_us": 5.296000046655536}
+{"shape": "verify 1", "variant": "baseline", "us": 34.65599869377911, "delta_native": 0.0, "empty_us": 5.296000046655536}
+{"shape": "verify 1", "variant": "swizzle", "us": 34.33599998243153, "delta_native": -0.27200207114219666, "empty_us": 5.296000046655536}
+{"shape": "verify 1", "variant": "swizzle_overlap", "us": 34.432000713422894, "delta_native": -0.4960000514984131, "empty_us": 5.296000046655536}
+REFERENCE verify 16 production True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 baseline True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 swizzle True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 swizzle_overlap True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+{"shape": "verify 16", "variant": "production", "us": 156.16000723093748, "delta_native": -56.73599988222122, "empty_us": 5.247999913990498}
+{"shape": "verify 16", "variant": "baseline", "us": 212.52800058573484, "delta_native": 0.0, "empty_us": 5.247999913990498}
+{"shape": "verify 16", "variant": "swizzle", "us": 207.13600050657988, "delta_native": -5.3599923849105835, "empty_us": 5.247999913990498}
+{"shape": "verify 16", "variant": "swizzle_overlap", "us": 210.33600252121687, "delta_native": -2.5280043482780457, "empty_us": 5.247999913990498}
+REFERENCE verify 32 production True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 baseline True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 swizzle True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 swizzle_overlap True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+{"shape": "verify 32", "variant": "production", "us": 303.3920107409358, "delta_native": -95.87199985980988, "empty_us": 5.280000157654285}
+{"shape": "verify 32", "variant": "baseline", "us": 399.11999087780714, "delta_native": 0.0, "empty_us": 5.280000157654285}
+{"shape": "verify 32", "variant": "swizzle", "us": 390.2559904381633, "delta_native": -8.671998977661133, "empty_us": 5.280000157654285}
+{"shape": "verify 32", "variant": "swizzle_overlap", "us": 396.4960006996989, "delta_native": -3.135994076728821, "empty_us": 5.280000157654285}

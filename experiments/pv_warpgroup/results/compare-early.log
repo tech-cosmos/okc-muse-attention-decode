@@ -1,0 +1,81 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+ninja: no work to do.
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_pv_early_release -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/pv_warpgroup/.build-early_release/main.cpp -o main.o
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_pv_early_release -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/pv_warpgroup/.build-early_release/cuda.cu -o cuda.cuda.o
+/home/daytona/codex-repo/experiments/pv_warpgroup/.build-early_release/cuda.cu(143): warning #177-D: variable "vr" was declared but never referenced
+       unsigned vr=i/D, vc=i%D;
+                ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/home/daytona/codex-repo/experiments/pv_warpgroup/.build-early_release/cuda.cu(143): warning #177-D: variable "vc" was declared but never referenced
+       unsigned vr=i/D, vc=i%D;
+                        ^
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 89 registers, used 4 barriers, 51248 bytes smem
+ptxas info    : Compile time = 50.758 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 89 registers, used 4 barriers, 71760 bytes smem
+ptxas info    : Compile time = 48.046 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 89 registers, used 4 barriers, 61504 bytes smem
+ptxas info    : Compile time = 47.283 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 89 registers, used 4 barriers, 40992 bytes smem
+ptxas info    : Compile time = 47.121 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 4 barriers, 51248 bytes smem
+ptxas info    : Compile time = 53.374 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 4 barriers, 71760 bytes smem
+ptxas info    : Compile time = 53.378 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 4 barriers, 61504 bytes smem
+ptxas info    : Compile time = 53.342 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 92 registers, used 4 barriers, 40992 bytes smem
+ptxas info    : Compile time = 52.519 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_pv_early_release.so
+REFERENCE verify 1 production True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 baseline True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 swizzle True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 early_release True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+{"shape": "verify 1", "variant": "production", "us": 18.431999254971743, "delta_native": -16.128001734614372, "empty_us": 5.216000135987997}
+{"shape": "verify 1", "variant": "baseline", "us": 34.54400086775422, "delta_native": 0.0, "empty_us": 5.216000135987997}
+{"shape": "verify 1", "variant": "swizzle", "us": 34.20799830928445, "delta_native": -0.2400018274784088, "empty_us": 5.216000135987997}
+{"shape": "verify 1", "variant": "early_release", "us": 34.28799891844392, "delta_native": -0.4319995641708374, "empty_us": 5.216000135987997}
+REFERENCE verify 16 production True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 baseline True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 swizzle True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 early_release True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+{"shape": "verify 16", "variant": "production", "us": 154.92800157517195, "delta_native": -56.07999861240387, "empty_us": 5.247999913990498}
+{"shape": "verify 16", "variant": "baseline", "us": 211.0559968277812, "delta_native": 0.0, "empty_us": 5.247999913990498}
+{"shape": "verify 16", "variant": "swizzle", "us": 205.55199962109327, "delta_native": -5.1679909229278564, "empty_us": 5.247999913990498}
+{"shape": "verify 16", "variant": "early_release", "us": 206.2720013782382, "delta_native": -4.799999296665192, "empty_us": 5.247999913990498}
+REFERENCE verify 32 production True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 baseline True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 swizzle True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 early_release True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+{"shape": "verify 32", "variant": "production", "us": 302.46399622410536, "delta_native": -94.92799639701843, "empty_us": 5.280000157654285}
+{"shape": "verify 32", "variant": "baseline", "us": 397.5840089842677, "delta_native": 0.0, "empty_us": 5.280000157654285}
+{"shape": "verify 32", "variant": "swizzle", "us": 388.76800518482924, "delta_native": -8.399993181228638, "empty_us": 5.280000157654285}
+{"shape": "verify 32", "variant": "early_release", "us": 391.0400001332164, "delta_native": -6.2400102615356445, "empty_us": 5.280000157654285}

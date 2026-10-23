@@ -1,0 +1,8 @@
+validate.py swizzle 0
+bench_all.py swizzle 0
+fresh.py swizzle 0
+validate.py early_release 0
+bench_all.py early_release 0
+fresh.py early_release 0
+run_sanitizers.py early_release 0
+run_profiles.py early_release 0
