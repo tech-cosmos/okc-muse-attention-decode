@@ -82,23 +82,32 @@ __global__ __launch_bounds__(W*32) void combine_kernel(const __nv_bfloat16* __re
  __nv_bfloat162 gate2=*(const __nv_bfloat162*)(qkv+tok*width+(HQ+2*HKV)*64+head*64+2*lane);
  float2 gate=__bfloat1622float2(gate2);
  float vscale=*vs;
+ // Partial reads must stay after this wait. Volatile PTX loads below prevent nvcc
+ // from hoisting read-only loads across the dependency barrier.
  if(PDL)asm volatile("griddepcontrol.wait;":::"memory");
- float2 ml[S];float2 a[S];float m=-1e30f;
- #pragma unroll
- for(int s=0;s<S;s++) {
-   // These are produced by the concurrently launched predecessor. Force coherent loads
-   // after the dependency wait; read-only loads may be hoisted across inline assembly.
-   const float* mp=(const float*)(pm+base+s*MG);
-   const float* ap=pa+(base+s*MG)*64+2*lane;
-   asm volatile("ld.global.cg.v2.f32 {%0,%1}, [%2];" : "=f"(ml[s].x), "=f"(ml[s].y) : "l"(mp) : "memory");
-   asm volatile("ld.global.cg.v2.f32 {%0,%1}, [%2];" : "=f"(a[s].x), "=f"(a[s].y) : "l"(ap) : "memory");
-   m=fmaxf(m,ml[s].x);
+ float2 ml={-1e30f,0};
+ if(lane<S) {
+   const float* mp=(const float*)(pm+base+lane*MG);
+   asm volatile("ld.global.cg.v2.f32 {%0,%1}, [%2];" : "=f"(ml.x), "=f"(ml.y) : "l"(mp) : "memory");
  }
- float den=0,x=0,y=0;
+ float m=ml.x;
+ #pragma unroll
+ for(int d=16;d;d/=2)m=fmaxf(m,__shfl_xor_sync(0xffffffff,m,d));
+ float weight=lane<S?exp2f(ml.x-m):0.f;
+ float den=weight*ml.y;
+ #pragma unroll
+ for(int d=16;d;d/=2)den+=__shfl_xor_sync(0xffffffff,den,d);
+ float2 a[S];
  #pragma unroll
  for(int s=0;s<S;s++) {
-   float w=exp2f(ml[s].x-m);
-   den=fmaf(w,ml[s].y,den);x=fmaf(w,a[s].x,x);y=fmaf(w,a[s].y,y);
+   const float* ap=pa+(base+s*MG)*64+2*lane;
+   asm volatile("ld.global.cg.v2.f32 {%0,%1}, [%2];" : "=f"(a[s].x), "=f"(a[s].y) : "l"(ap) : "memory");
+ }
+ float x=0,y=0;
+ #pragma unroll
+ for(int s=0;s<S;s++) {
+   float w=__shfl_sync(0xffffffff,weight,s);
+   x=fmaf(w,a[s].x,x);y=fmaf(w,a[s].y,y);
  }
  x=x/den*vscale;y=y/den*vscale;
  float sq=x*x+y*y;
@@ -109,16 +118,13 @@ __global__ __launch_bounds__(W*32) void combine_kernel(const __nv_bfloat16* __re
  *(__nv_bfloat162*)(out+row*64+2*lane)=__floats2bfloat162_rn(x,y);
 }
 void combine(at::Tensor qkv,at::Tensor pa,at::Tensor pm,at::Tensor vs,at::Tensor out,int hq,int hkv,int length,int splits,bool pdl) {
- auto stream=c10::cuda::getCurrentCUDAStream();int b=qkv.size(0);constexpr int warps=4;
+ auto stream=c10::cuda::getCurrentCUDAStream();int b=qkv.size(0);constexpr int warps=1;
  cudaLaunchConfig_t config={};config.gridDim=dim3((b*length*hq+warps-1)/warps);config.blockDim=dim3(warps*32);config.stream=stream;
  cudaLaunchAttribute attr={};attr.id=cudaLaunchAttributeProgrammaticStreamSerialization;attr.val.programmaticStreamSerializationAllowed=pdl;
  config.attrs=&attr;config.numAttrs=1;
  #define RUN(S,W,P) C10_CUDA_CHECK(cudaLaunchKernelEx(&config,combine_kernel<S,W,P>,(const __nv_bfloat16*)qkv.data_ptr(),pa.data_ptr<float>(),(const float2*)pm.data_ptr<float>(),vs.data_ptr<float>(),(__nv_bfloat16*)out.data_ptr(),hq,hkv,length,b))
  #define PP(S,W) if(pdl){RUN(S,W,true);}else{RUN(S,W,false);}
- #define WW(S) PP(S,4)
- switch(splits){
- case 4:{WW(4);break;}case 8:{WW(8);break;}case 16:{WW(16);break;}case 32:{WW(32);break;}
- default:TORCH_CHECK(false,"unsupported splits");}
+ PP(32,1);
  C10_CUDA_KERNEL_LAUNCH_CHECK();
 }
 ''',
@@ -539,9 +545,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
-    # Small sliding reductions benefit from batching four query heads in one CUDA CTA.
-    # Larger verify grids retain the existing parallel reduction.
-    if cfg["window"] and splits in (4, 8, 16, 32) and (length == 1 or batch * length * hq <= 2048):
+    # A warp cooperates across the 32 splits and emits one query head. This helps
+    # small batches; larger grids use main's batched Triton reduction.
+    if cfg["window"] and splits == 32 and batch * hkv <= 4:
         _NATIVE_MERGE.combine(qkv, pacc, pml, data["v_scale"], out,
                               hq, hkv, length, splits, USE_PDL)
         return out
