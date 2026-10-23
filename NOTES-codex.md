@@ -944,3 +944,123 @@ usage remains **12 checks / 6 scored**, Codex **3 checks / 1 scored**. Main rema
 finished. Experiment branch is pushed at **f2e241e**, production notes/profiles at
 **474b7c4** plus this final snapshot. Shared claim removed and result posted to
 COORD.md. Next cycle starts by resolving the running check, without resubmitting.
+
+## Session 8 — 2026-10-23, 23:07–23:17 UTC
+
+### Outcome and production state
+
+Resolved the current-source H200 check and submitted its exact source. A new
+native register-pool experiment increased occupancy but lost on throughput, so
+**no production kernel change** was made. The focused cycle closes with all local
+work complete, without waiting idle through the scored job's queue.
+
+`origin/main` remains **65ff1ab**, already merged. Production submission.py is
+unchanged from **5e2441f/effc2bf**, SHA256
+`a66802981a86065ee7647e4b773b9d811db7ac567a76983d544a42fc7a6a59b1`.
+The existing small-full native reduction remains; no experimental native attention
+is dispatched. Experiments are pushed on **codex-exp/cuda-register-pool** through
+**21abcaf**, source/results commit **4923527**. Read
+`experiments/register_pool/README.txt` on that branch for source and reproduction.
+
+### Exact-source check and scored submission
+
+**01bc4ecc9c7047d9 completed at 23:06 UTC** and was read at session start:
+**16/16 passed, 2.009167x**, CI **[1.979029, 2.039304]**, no flags or rejections.
+Read its passing profile; JSON/log/text are saved in `profiles/submission.01bc*`.
+H200 times: decode1 full **14.953 us**, verify1 full **16.322 us**, full verify16/32
+**155.649 / 305.298 us**. Native reduction profile durations are **1.8 / 2.4 us**.
+PDL profile rows overlap/include waiting; do not sum them to estimate runtime.
+
+At **23:08:05 UTC**, submitted **a48b8c849e53426b**, byte-identical production source.
+The current board was **1.945619x**, rank **34**, so the exact-code/check-beats-board
+condition was satisfied. Local full-reference/fresh/sanitizer validation already
+covered this unchanged source in sessions4/5; it was not redundantly repeated.
+Submission creation/status, check, board and budget snapshots are in
+`profiles/session8-*.json`. Do not resubmit this source.
+
+Main65's separate check254b was **2.041433x**, versus native **2.009167x**, with
+overlapping confidence intervals. Native H200 decode1 full essentially ties
+main (**14.953 vs 14.939 us**); verify1 full is slightly faster (**16.322 vs
+16.548 us**). All ten unchanged shapes ran slower in the native check, so this
+cross-run aggregate does not isolate a regression or benefit from the native
+merge. Keep the prior same-process H100 comparisons as the stronger component
+measurement. Claude's scored main run was still pending in COORD.md; refresh the
+actual board next session.
+
+### Register-pool experiment
+
+Hypothesis: donate producer registers to consumer warpgroups, allowing three
+resident native CTAs instead of two without shrinking the attention tile. Pad
+producers to one complete four-warp group; adjust gather strides/barrier counts.
+Preserve every key, FP8 cache/query precision, FP16 PV operands, FP32 partials,
+new-token writes and fresh-input graph behavior. This stays in the native lane.
+
+Two retained designs place repartition after the common prologue barrier:
+
+- **late2:** initial80 registers, consumer96/96 + producer48; two blocks/SM.
+- **late3:** initial56 registers, consumer72/72 + producer24; three blocks/SM.
+
+Same-process H100 cold-L2 CUDA graph medians, empty replay subtraction, shared
+GPU timing lock; sequential comparisons, not a balanced paired estimator:
+
+| full verify | B1 | B16 | B32 |
+|---|---:|---:|---:|
+| production | 18.480 us | 155.552 us | 304.352 us |
+| old native | 34.800 | 230.080 | 442.112 |
+| static four-producer control, two blocks | 36.704 | 238.080 | 465.280 |
+| late2 | 37.760 | 247.184 | 486.080 |
+| late3 | 39.296 | 236.256 | 455.440 |
+
+Both lose; no dispatch change or experimental judge check. After full correctness,
+native/fallback full benches were **1.548x / 1.565x** against fixed SGLang/H200
+reference times, not production regressions or judge results.
+
+Placement matters: early24/72 and early40/64 hints were discarded by ptxas C7507,
+leaving a spilled56-register kernel. Volatile query rematerialization did not
+preserve those early hints. Early48/96 survives but heavily spills and takes
+**514 / 1004 us** at B16/32. Moving24/72 after the common prologue makes real
+USETMAXREG instructions survive. Stage4/page1 late3 still has104-byte compiler
+spill-store/load counts; late2 has32 bytes each. Those are static compiler
+counts, not measured dynamic traffic. SASS excerpts and all build logs archived.
+
+Final isolated NCU confirms the intended mechanism: original/late2/late3 achieve
+**29.02 / 35.60 / 47.12% occupancy**, issue **0.56 / 0.59 / 0.62** warps per scheduler
+cycle, and take **8.24 / 9.57 / 12.13** warp cycles per issued instruction. Higher
+occupancy is insufficient here. All benchmark/reference/fresh processes exited
+before profiling; NCU waited for the sanitizer's GPU lock and then ran sequentially.
+Do not treat NCU durations as graph timings.
+
+Validation:
+
+- **36** independent reference comparisons in the two timing drivers, including
+  baseline/production/control repetitions (not 36 distinct native configurations).
+- late2 and late3 each pass **16/16** full tests: five native, eleven fallback cases.
+- **84 all-native fresh graph replays**, 42 per variant on seven nearby shapes;
+  TP8/DP, pages1/64, scales1/1/64, contexts10–120K, soft/coherent/edge inputs;
+  changed cache/QKV/routes/lengths/positions/cache locations, including empty context.
+- Each sanitizer runs 24 native calls across both variants. **Memcheck 0 errors;
+  synccheck 0 errors; racecheck 0 hazards/errors/warnings**. Independent torch
+  reduction of native FP32 partials is checked against reference, including caches.
+- pool3/reload3 are compile-only, with no output-correctness or timing claim.
+  Generation script reproduces the archived sources. All subprocesses completed.
+
+### Budget and next cycle
+
+Session8: **0 checks, 1 scored run**, no withdrawals. Codex UTC-day totals:
+**3/8 checks, 2/3 scored**. Shared account at 23:16: **12/20 checks, 7/10 scored**, so
+8 checks and 3 scored remain account-wide. Last account best is **1.945619x**,
+rank 34. **a48b8c849e53426b remains queued** at the final read.
+
+1. Read a48b8c849e53426b without resubmitting. Read its passing profile when ready;
+   compare with the latest account best/Claude's pending main score.
+2. Fetch/merge main before any new source work. The current source is already
+   checked and submitted; changes require their own exact-source qualifying check.
+3. Close this register-repartition family: the mechanism works, but increased
+   occupancy plus the larger producer group/spills does not beat the old native
+   kernel, much less production. Avoid more register/stage/grid sweeps absent a
+   distinct reduction in work/dependencies. Earlier gather/conversion/packing
+   families remain closed too.
+4. Keep rejected experiments on their branch; end on clean, pushed `codex`.
+
+Neither STOP file exists. Shared claim removal, results entry and final push are
+part of this handoff. No outstanding local GPU work remains.
