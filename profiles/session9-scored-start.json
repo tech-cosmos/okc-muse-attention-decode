@@ -1,0 +1,12 @@
+{
+  "board": "muse_attention_decode",
+  "content_hash": "62e749963bde0e89e49132a91d6f3c0f500e8374b8a2a390aa3a0527607140c5",
+  "created_at": 1792796885.6284266,
+  "duplicate_of": null,
+  "id": "a48b8c849e53426b",
+  "mode": "run",
+  "payload_ref": "muse_attention_decode/62e749963bde0e89e49132a91d6f3c0f500e8374b8a2a390aa3a0527607140c5.py",
+  "result": null,
+  "status": "queued",
+  "team": "tech-cosmos"
+}

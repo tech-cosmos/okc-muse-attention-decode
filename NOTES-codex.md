@@ -1064,3 +1064,117 @@ rank 34. **a48b8c849e53426b remains queued** at the final read.
 
 Neither STOP file exists. Shared claim removal, results entry and final push are
 part of this handoff. No outstanding local GPU work remains.
+
+## Session 9 — 2026-10-23, 23:18–23:29 UTC
+
+### Outcome and source state
+
+Native shared-memory instruction reduction improves the old native attention
+prototype by **8–9%** on large full-verify shapes, but it remains **32–36% slower
+than production**. No production kernel change or new judge job. The focused
+cycle ends with all local experiments/validation complete.
+
+Experiment branch **codex-exp/cuda-matrix-loads**, pushed at **37a785b**. Start with
+`experiments/matrix_loads/README.txt`; `forced.py` is the best retained native
+variant. It is not imported or dispatched by production.
+
+Merged **origin/main 468a53d** into codex as **e56d174**. Main changed notes and
+profiles only. The add/add conflict in profile254b retained main's complete
+report, which contains the same kernel measurements plus summary/shape timings.
+Submission source remains byte-identical to **5e2441f/effc2bf**, SHA256
+`a66802981a86065ee7647e4b773b9d811db7ac567a76983d544a42fc7a6a59b1`.
+No Triton code or plans were tuned. Existing native small-full reduction remains.
+
+### Instruction changes and results
+
+This cycle targets a concrete reduction in per-tile shared-memory instructions,
+without changing the previous producer/consumer topology, stages4, split plan,
+cache precision, FP8 query rounding, FP16 PV operands, FP32 partials or all-key
+attention. New-token/cache writes and fresh-input graph behavior are preserved.
+
+1. **x4 matrix loads:** replace two ldmatrix.x2.trans operations with one x4.
+   Stage4/page1 SASS has **8 LDSM instead of 16**, with no new conversion/shuffle
+   step. Runtime changes are marginal: B16/32 **229.0/438.3 us** versus old native
+   **229.8/439.4**, production **155.0/303.9** in that comparison.
+2. **First-write QK scores:** explicit output-only WGMMA plus scale-d=false.
+   Baseline already emits a first QGMMA with RZ/!UPT. The full stage4/page1 SASS
+   for baseline and this variant is byte-identical. Close this no-op direction.
+3. **Vector V conversion:** each consumer loads eight contiguous FP8 bytes,
+   converts all four pairs exactly to FP16, and stores a uint4. This replaces
+   eight narrow shared loads with two 64-bit loads. nvcc scalarizes one of the
+   two uint4 stores into four scalar stores; the other remains 128-bit.
+4. **Forced vector stores:** inline st.shared.v4.u32 preserves both 128-bit stores.
+   Combined with x4 matrix loads, this is the best new native building block.
+
+Final same-process H100 cold-L2 graph medians, empty replay subtracted:
+
+| full verify | production | old native | vector + x4 | explicit vector stores + x4 |
+|---|---:|---:|---:|---:|
+| B1 | 18.224 us | 34.640 us | 34.912 us | 34.944 us |
+| B16 | 154.816 | 230.432 | 218.208 | 210.976 |
+| B32 | 305.120 | 442.832 | 415.600 | 402.000 |
+
+The driver holds the shared GPU lock through captures, reference checks and
+timings. Sixty rounds rotate/reverse order, with within-round deltas archived.
+This is **not** the judge's balanced adjacent-pair estimator; do not interpret
+sub-percent differences as established wins. The native improvement and remaining
+gap to production are much larger. Three comparison runs are archived separately.
+
+Resources remain **94 registers/thread, 62,528 shared bytes, no spills**, two
+CTAs/SM. Final native-only NCU baseline/vector+x4/forced occupancy is
+**29.01/29.70/29.37%**, issue **0.56/0.53/0.55** warps per scheduler cycle, warp
+cycles per issued instruction **8.22/8.91/8.56**. The improvement comes without
+more occupancy or fewer FP8 conversions. Static SASS is archived; no dynamic
+per-instruction counts are claimed. Optional PC sampling is absent, so no detailed
+stall attribution is claimed. Profiles ran sequentially after all other GPU work;
+do not use profiler durations as graph timings.
+
+### Validation
+
+- **39 variant/shape entries** across comparison drivers, including repeated
+  controls; independent reference checks before and after graph capture.
+- Retained vector+x4 and forced-store variants each pass **16/16** full tests:
+  five native cases, eleven fallback cases each. Runtime validation is stages4;
+  other compiled stages have no new runtime-validation claim.
+- Full native/fallback benches after tests: **1.635x / 1.645x** respectively,
+  against fixed SGLang/H200 reference numbers. These are experimental local
+  aggregates, not production regressions or judge results.
+- **84 all-native fresh graph replays**, 42 per variant across seven nearby
+  shapes: TP8/DP, pages1/64, scales1/1/64, contexts10–120K, soft/coherent/edge
+  inputs, changed QKV/cache/routes/lengths/positions/cache slots, empty contexts.
+- Native-only Compute Sanitizer: **memcheck 0 errors, synccheck 0 errors,
+  racecheck 0 hazards/errors/warnings**. Each tool executes 24 calls across both
+  variants, four page/scale cases and three changed-QKV calls each. Independent
+  torch partial reduction/output transform is checked against reference/cache.
+- Generator reproduces all six variants. All local subprocesses exited cleanly.
+  Build/profile logs have trailing whitespace stripped only for git hygiene.
+
+### Judge progress, budget and next cycle
+
+Scored job **a48b8c849e53426b** was queued at session start and changed to
+**running at the final 23:28 UTC read**. No result/profile yet. Do not resubmit it.
+This is still the unchanged exact source of passing check01bc **2.009167x**.
+
+Claude's scored **0a2eec0fdfad40af** has completed: **16/16, 2.020924x**,
+CI **[1.990611,2.051238]**. Account best is now that result, **rank21**, rather
+than the older 1.945619x. The current-source check is below this new board best;
+it does not justify another score. The existing pending score was legitimately
+submitted in session8 when the board was still 1.945619x.
+
+Session9 uses **0 checks, 0 scored**, no withdrawals. Codex UTC-day totals remain
+**3/8 checks, 2/3 scored**; shared account **12/20 checks, 7/10 scored**, leaving
+8 checks/3 scored account-wide. Status/board/budget snapshots: profiles/session9-*.
+
+1. Resolve running **a48b8c849e53426b** without resubmission. Read its passing
+   profile when available, compare with latest board/main shape measurements.
+2. Fetch/merge main before new source work. Further source changes require their
+   own exact-source check before a scored run; preserve the daily budget rules.
+3. If a distinct native architecture warrants more work, use `forced.py` as the
+   better building block. Avoid further small stage/register/load-width sweeps.
+   Vectorized V staging reduced per-tile work, but alone cannot close the gap.
+   The x4-only change is marginal and first-write initialization is a compiler no-op.
+4. Keep the rejected native attention experiment separate; production dispatch
+   is unchanged. This session does not wait idle through the scored run.
+
+Neither STOP file exists. Finish with the experiment and codex branches pushed,
+the shared claim removed, and the worktree clean on codex.
