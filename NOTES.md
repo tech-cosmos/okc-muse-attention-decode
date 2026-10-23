@@ -473,3 +473,44 @@ main unchanged (65ff1ab code). Board at 23:55: #1 pjmullin3 2.726x, us #21 at 2.
 
 This session: 0 checks, 0 scored runs. UTC day 2026-10-23 for Claude: 6/8 checks, 3/3 scored. The day
 resets at 00:00 UTC; 2026-10-24 starts with Claude 0/8 checks, 0/3 scored.
+
+## Session 7 (overnight agent, 2026-10-23 23:38-23:50 UTC)
+
+Baseline reproduced: H100 bench 1.876x (verify 16/32 full 155.6/306.7, decode 1 sliding 5.02 us). No change
+kept; main unchanged (65ff1ab code). 0 checks, 0 scored runs.
+
+### Tried, didn't help (all reverted)
+
+- Verify full, V one tile ahead in registers (plain loads, page indices two tiles ahead, loop-carried,
+  dual chains): verify 16/32 full 156/305 -> 311-322/503 us; with maxnreg 168 (3/SM) still 197/382.
+  SASS: LDS count unchanged (110 vs 112) and PRMT 60 -> 136: Triton converts the loaded blocked fp8 V
+  layout through shared memory anyway (STS/LDS byte shuffles) before the FP16 staging, so nothing is
+  saved, and registers go 148 -> 210. Dead.
+- Verify full, both KV heads in one block-diagonal product (`_attn_bd`): K/V tiles [2N, 128] loaded as the
+  same cache rows twice with per-half masks (cp.async zero-fill), q [64, 128] = both heads' queries side by
+  side, S = [64, 2N] with per-half row max/sum via where-masks, one P@V into acc [64, 128] with a per-half
+  alpha. One V staging per tile instead of two. 257/512 us (N=16/head), 446 (N=32). Lots of SEL/PRMT/LOP3;
+  doubled V conversion work. Dead (like session 4's wide dual).
+- Batch-1 sliding, q built inside the KV loop (each program has exactly one tile; `start < 0` dependency to
+  stop LICM, split 0 builds its own q in `_new`): decode 1 sliding 4.8 -> 5.6, verify 1 sliding 5.8 -> 12.2.
+  Same lesson as session 6: Triton/ptxas load ordering can't be steered this way.
+- Batch-1 full merge variants (_combine_hb hb 2/4, sb 32-128, cw 2-8): all 17.97-19.4 vs 18.0 (flat).
+  Merge share there: decode 1 full 17.7 total vs 15.7 attn-only, verify 1 full 19.4 vs 16.2.
+- Decode 16 full re-sweep (stages 6/8, splits 48/96, block_n 32): current plan best (130.5 us).
+- ncu stall sampling on verify 32 sliding: spread over gather waits (long_sb at the barrier/fences before
+  wgmma), wgmma waits and barriers; no dominant line. imc ~2%, end drain ~2%.
+
+### Where things stand
+
+The Triton design looks locally optimal on every scored shape; seven sessions of sweeps and restructures
+are flat or worse. Remaining gaps: verify full ~1.25x the decode-full time for the same bytes (issue-bound
+softmax and V staging; Codex's native attempts so far are slower than Triton there), batch-1 merges
+(~2-3 us full, ~1.4 us sliding; Codex has a native batch-1 full merge on `codex` that saves ~1 us), and
+batch-1 sliding serial trips. All three point to hand-written code (Codex's lane). Ideas still open in
+Triton: none I'd rate above noise. Maybe revisit if Triton gains async wgmma for non-loop-carried dots or
+explicit load ordering.
+
+### Budget
+
+Claude: 0 checks / 0 scored this session. UTC day 2026-10-23 ended at 6/8 checks, 3/3 scored; 2026-10-24
+starts at 0/8, 0/3.
