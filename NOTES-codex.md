@@ -1315,3 +1315,131 @@ as **23bf400**; only notes/profile scripts changed. No redundant production GPU
 rerun was needed for this merge. Source SHA256 remains unchanged. Neither STOP
 file exists, and all local subprocesses completed. Production notes/profiles are
 committed and pushed, with claim removal/results posted to COORD.md.
+
+## Session 11 — 2026-10-23, 23:41–23:51 UTC
+
+### Outcome and source state
+
+Native raw-cache layout changes improve the prior best native attention prototype
+by **7–8%** on large full-verify shapes, but it remains **18–23% slower than
+production**. No production kernel change or new judge job. Completed one focused
+layout cycle with reference, fresh-graph, sanitizer and instruction-level profiling.
+
+Experiment **codex-exp/cuda-key-layout**, pushed at **157c4d0**. Start with
+`experiments/key_layout/README.txt`; **rawvk64.py** is the best retained building
+block. The other retained structural variant is paired128.py. Neither is imported
+or dispatched by production. The experiment includes reproducible source generation,
+comparison/validation scripts, static SASS, compiler resources and complete profiles.
+
+Fetched main at start and before finishing. Latest **origin/main 89f8df9** was
+merged into codex as **fc28537**; only NOTES.md changed. Read its session7 results:
+Triton V register prefetch, block-diagonal paired heads, q-in-loop sliding and
+other sweeps lose. No redundant production GPU rerun was needed for this notes-only
+merge. Production source remains exact **5e2441f/effc2bf**, SHA256
+`a66802981a86065ee7647e4b773b9d811db7ac567a76983d544a42fc7a6a59b1`.
+No Triton code or plans were tuned. Existing native small-full reduction remains.
+
+### Measured mechanism and implementations
+
+Baseline is session10 swizzle.py: synchronous FP16 WGMMA PV with SW128 converted V,
+paired FP8 gathers, two producers, two consumer warpgroups. Initial NCU
+instruction-level SourceCounters exposed two independent shared-memory issues:
+
+- Each of the two raw-V LDS.64 loads uses four wavefronts where two suffice.
+  Together they have **1,292,576 excess shared wavefronts** at B16/S16.
+- QK WGMMA itself has **zero excess wavefronts**. The producer K gather stores,
+  rather than the QK consumer reads, motivate changing the raw-K layout. Aggregate
+  cache-gather excess wavefronts are **12,597,624**, versus ideal **2,584,128**.
+
+Variants preserve the same stages4/split rule, every-key attention, FP8 cache and
+query rounding, FP16 P/V operands, FP32 partials, new-token/cache behavior and
+fresh-input graph operation:
+
+1. **rawv:** remove raw FP8 V row padding; retain allocation sizes and PV layout.
+2. **key64:** K-major SW64 raw K; 512-byte alignment/stride across eight rows,
+   matching descriptor, second K32 starts at +32. Padded raw V unchanged.
+3. **rawvk64:** combine those changes; same allocation sizes as baseline.
+4. **paired128:** both K heads in one SW128 tile, with 128-byte physical rows and
+   per-head descriptor offsets. Separate compact V arrays reduce scratch space.
+
+Same-process H100 cold-L2 CUDA graph medians, empty replay subtracted. Sixty
+rounds rotate/reverse order and retain within-round deltas. This is not the
+judge's balanced adjacent-pair estimator. GPU lock covers data generation,
+reference checks, captures and timed loops. Do not infer small effects across runs.
+
+| first comparison | B1 full verify | B16 | B32 |
+|---|---:|---:|---:|
+| production | 18.304 us | 155.056 | 306.512 |
+| prior native | 34.768 | 205.616 | 394.096 |
+| rawv | 33.920 | 197.744 | 377.088 |
+| key64 | 33.472 | 195.168 | 371.152 |
+| rawvk64 | 33.248 | 190.704 | 362.848 |
+
+| second comparison | B1 full verify | B16 | B32 |
+|---|---:|---:|---:|
+| production | 18.432 us | 154.336 | 308.112 |
+| prior native | 34.768 | 205.760 | 395.216 |
+| rawvk64 | 32.640 | 190.384 | 362.688 |
+| paired128 | 32.880 | 192.016 | 366.592 |
+
+The paired layout reduces conflicts and scratch further but is slightly slower.
+No experimental H200 check is justified while both still lose to production.
+
+Stage4/page1 compiled registers: baseline92, rawv90, key6494, rawvk6489,
+paired12888. cuobjdump shared allocations are **62,528 bytes** for the first four
+and **54,336** for paired128. ptxas reports 1,024 fewer bytes (61,504/53,312);
+this distinction is archived explicitly. Zero stack/local allocations and spills;
+all remain at two resident CTAs/SM. Conversion/matrix/vector load-store instruction
+counts do not change. This is a layout improvement, not an instruction-count claim.
+
+### Validation and final profiles
+
+- **27 variant/shape entries** across the two comparison drivers, including repeated
+  controls; independent output/cache reference checks before and after capture.
+- **rawvk64 and paired128 each pass 16/16** full tests: five native, eleven fallback.
+- Their full native/fallback benches report **1.717x / 1.706x** against fixed
+  SGLang/H200 times. These are experimental local aggregates, not production results.
+- **84 all-native fresh graph replays**, 42 each across seven nearby cases:
+  TP8/DP, pages1/64, scales1/1/64, contexts10–120K, soft/coherent/edge data,
+  changed cache/QKV/routes/lengths/positions/cache slots, including empty contexts.
+- Isolated native **memcheck 0 errors; synccheck 0 errors; racecheck 0 hazards,
+  0 errors, 0 warnings**. Each tool executes24 calls across both variants, four
+  page/scale cases and three changed-QKV calls; torch independently reduces FP32
+  partials and checks output/cache against reference. No Triton loader involved.
+- rawv/key64 isolated-component controls have scored reference/capture comparisons
+  only, not full-suite/fresh/sanitizer coverage. Runtime validation is stages4.
+- Generator reproduces all four sources. All local subprocesses completed.
+
+Final NCU hardware baseline/rawv/key64/rawvk64/paired128 load conflicts:
+**1,292,621 / 31 / 1,292,613 / 39 / 25**; store conflicts:
+**1,306,878 / 1,348,653 / 852,156 / 760,364 / 657,703**.
+Occupancy stays around29%; issue per scheduler rises **0.54 -> 0.58/0.59**.
+Source-attributed raw-V excess wavefronts fall to zero with compact V, while
+aggregate gather excess falls to **2,584,128** with rawvk64 and **1,292,064**
+with paired128. QK remains at zero excess. profile-summary.json distinguishes
+source-attributed wavefronts from whole-kernel hardware conflict counters.
+
+The diagnostic baseline source profile ran before experiments. All final profiles
+ran sequentially after this session's correctness/timing/sanitizer work, under the
+shared GPU lock. No profile duration is used as graph timing. Fewer conflicts alone
+do not close the remaining gap, as the paired128 graph results demonstrate.
+
+### Budget and next cycle
+
+Session11: **0 checks, 0 scored**, no withdrawals. Codex UTC-day2026-10-23 totals
+remain **3/8 checks, 2/3 scored**. Shared account at final read: **12/20 checks,
+7/10 scored**, leaving8 checks/3 scored. Account best remains **2.020924x**, now
+**rank22**. No pending Codex jobs. Snapshots: profiles/session11-*.json.
+
+1. Fetch/merge main and read the shared board before further source work. Any new
+   production source needs its own qualifying exact-source check before scoring.
+2. Use rawvk64.py if pursuing another native architecture. Close further simple
+   raw-layout sweeps; the best measured layout is still slower than production.
+3. A distinct unimplemented dependency hypothesis: issue QK before independent V
+   conversion/staging, then wait before consuming scores. Current code converts V,
+   launches QK, and immediately waits. Verify async/generic ordering for new-token
+   K and warpgroup convergence; this differs from rejected deferred PV/early raw
+   release. No speedup is claimed for this idea.
+4. Keep experiments separate and finish on clean, pushed codex. No production
+   attention prototype is promoted. Neither STOP file exists. Claim removal and
+   shared result posting are part of this handoff.
