@@ -1,0 +1,28 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+REFERENCE verify 1 production True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 baseline True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 vector True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 all True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+{"shape": "verify 1", "variant": "production", "us": 18.511999864131212, "delta_native": -15.792000107467175, "empty_us": 5.344000179320574}
+{"shape": "verify 1", "variant": "baseline", "us": 34.52799981459975, "delta_native": 0.0, "empty_us": 5.344000179320574}
+{"shape": "verify 1", "variant": "vector", "us": 34.40000070258975, "delta_native": 0.01600012183189392, "empty_us": 5.344000179320574}
+{"shape": "verify 1", "variant": "all", "us": 34.63999880477786, "delta_native": 0.03200024366378784, "empty_us": 5.344000179320574}
+REFERENCE verify 16 production True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 baseline True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 vector True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 all True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+{"shape": "verify 16", "variant": "production", "us": 155.61599959619343, "delta_native": -75.16800612211227, "empty_us": 5.296000046655536}
+{"shape": "verify 16", "variant": "baseline", "us": 231.055996613577, "delta_native": 0.0, "empty_us": 5.296000046655536}
+{"shape": "verify 16", "variant": "vector", "us": 219.77599640376866, "delta_native": -11.424005031585693, "empty_us": 5.296000046655536}
+{"shape": "verify 16", "variant": "all", "us": 218.44800491817296, "delta_native": -13.167999684810638, "empty_us": 5.296000046655536}
+REFERENCE verify 32 production True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 baseline True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 vector True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 all True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+{"shape": "verify 32", "variant": "production", "us": 304.9280005507171, "delta_native": -138.57600092887878, "empty_us": 5.311999935656786}
+{"shape": "verify 32", "variant": "baseline", "us": 443.39200435206294, "delta_native": 0.0, "empty_us": 5.311999935656786}
+{"shape": "verify 32", "variant": "vector", "us": 418.7839883379638, "delta_native": -24.320006370544434, "empty_us": 5.311999935656786}
+{"shape": "verify 32", "variant": "all", "us": 415.50400434061885, "delta_native": -27.439996600151062, "empty_us": 5.311999935656786}

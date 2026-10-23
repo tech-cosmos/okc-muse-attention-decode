@@ -1,0 +1,12 @@
+========= COMPUTE-SANITIZER
+ninja: no work to do.
+ninja: no work to do.
+PASS native-only reference experiments.matrix_loads.all 1 1.0
+PASS native-only reference experiments.matrix_loads.all 1 0.015625
+PASS native-only reference experiments.matrix_loads.all 64 1.0
+PASS native-only reference experiments.matrix_loads.all 64 0.015625
+PASS native-only reference experiments.matrix_loads.forced 1 1.0
+PASS native-only reference experiments.matrix_loads.forced 1 0.015625
+PASS native-only reference experiments.matrix_loads.forced 64 1.0
+PASS native-only reference experiments.matrix_loads.forced 64 0.015625
+========= ERROR SUMMARY: 0 errors
