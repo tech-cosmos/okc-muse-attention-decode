@@ -1,0 +1,8 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+verify 1 264 PASS relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+verify 1 splits 264 stages 3 native_us 34.128 triton_us 18.832
+verify 16 16 PASS relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+verify 16 splits 16 stages 3 native_us 235.968 triton_us 161.088
+verify 32 8 PASS relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+verify 32 splits 8 stages 3 native_us 449.056 triton_us 304.896

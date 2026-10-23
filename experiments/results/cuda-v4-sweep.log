@@ -1,0 +1,50 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+verify 1 264 PASS relative L2 error 2.311e-02 (worst row 2.840e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+verify 1 splits 132 stages 2 native_us 44.848 triton_us 18.96
+verify 1 splits 132 stages 3 native_us 35.616 triton_us 18.96
+verify 1 splits 132 stages 4 native_us 37.056 triton_us 18.96
+verify 1 splits 198 stages 2 native_us 56.912 triton_us 18.96
+verify 1 splits 198 stages 3 native_us 34.352 triton_us 18.96
+verify 1 splits 198 stages 4 native_us 50.656 triton_us 18.96
+verify 1 splits 264 stages 2 native_us 53.296 triton_us 18.96
+verify 1 splits 264 stages 3 native_us 46.048 triton_us 18.96
+verify 1 splits 264 stages 4 native_us 47.28 triton_us 18.96
+verify 1 splits 396 stages 2 native_us 61.616 triton_us 18.96
+verify 1 splits 396 stages 3 native_us 45.088 triton_us 18.96
+verify 1 splits 396 stages 4 native_us 58.144 triton_us 18.96
+verify 1 splits 528 stages 2 native_us 65.36 triton_us 18.96
+verify 1 splits 528 stages 3 native_us 56.208 triton_us 18.96
+verify 1 splits 528 stages 4 native_us 63.248 triton_us 18.96
+verify 16 16 PASS relative L2 error 2.952e-02 (worst row 4.975e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+verify 16 splits 8 stages 2 native_us 479.904 triton_us 159.696
+verify 16 splits 8 stages 3 native_us 363.136 triton_us 159.696
+verify 16 splits 8 stages 4 native_us 373.856 triton_us 159.696
+verify 16 splits 12 stages 2 native_us 617.904 triton_us 159.696
+verify 16 splits 12 stages 3 native_us 321.44 triton_us 159.696
+verify 16 splits 12 stages 4 native_us 475.104 triton_us 159.696
+verify 16 splits 16 stages 2 native_us 495.216 triton_us 159.696
+verify 16 splits 16 stages 3 native_us 402.032 triton_us 159.696
+verify 16 splits 16 stages 4 native_us 379.952 triton_us 159.696
+verify 16 splits 24 stages 2 native_us 506.896 triton_us 159.696
+verify 16 splits 24 stages 3 native_us 325.776 triton_us 159.696
+verify 16 splits 24 stages 4 native_us 387.296 triton_us 159.696
+verify 16 splits 33 stages 2 native_us 506.384 triton_us 159.696
+verify 16 splits 33 stages 3 native_us 342.752 triton_us 159.696
+verify 16 splits 33 stages 4 native_us 387.264 triton_us 159.696
+verify 32 8 PASS relative L2 error 2.859e-02 (worst row 6.579e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+verify 32 splits 4 stages 2 native_us 950.912 triton_us 307.328
+verify 32 splits 4 stages 3 native_us 726.352 triton_us 307.328
+verify 32 splits 4 stages 4 native_us 743.088 triton_us 307.328
+verify 32 splits 6 stages 2 native_us 1219.936 triton_us 307.328
+verify 32 splits 6 stages 3 native_us 611.52 triton_us 307.328
+verify 32 splits 6 stages 4 native_us 918.208 triton_us 307.328
+verify 32 splits 8 stages 2 native_us 974.64 triton_us 307.328
+verify 32 splits 8 stages 3 native_us 781.744 triton_us 307.328
+verify 32 splits 8 stages 4 native_us 739.12 triton_us 307.328
+verify 32 splits 12 stages 2 native_us 971.344 triton_us 307.328
+verify 32 splits 12 stages 3 native_us 628.544 triton_us 307.328
+verify 32 splits 12 stages 4 native_us 733.456 triton_us 307.328
+verify 32 splits 16 stages 2 native_us 965.408 triton_us 307.328
+verify 32 splits 16 stages 3 native_us 628.944 triton_us 307.328
+verify 32 splits 16 stages 4 native_us 715.648 triton_us 307.328

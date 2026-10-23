@@ -1,0 +1,31 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/2] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr -gencode=arch=compute_90,code=sm_90 --compiler-options '-fPIC' -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/.cache/torch_extensions/py312_cu130/codex_verify_exp/cuda.cu -o cuda.cuda.o 
+/home/daytona/.cache/torch_extensions/py312_cu130/codex_verify_exp/cuda.cu(157): warning #177-D: variable "row" was declared but never referenced
+         int r=(i&2)/2, row=warp*16+lane/4+r*8;
+                        ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif' for 'sm_90'
+ptxas info    : Function properties for _Z6verifyILi3EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 128 registers, used 2 barriers, 36876 bytes smem
+ptxas info    : Compile time = 58.306 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif' for 'sm_90'
+ptxas info    : Function properties for _Z6verifyILi4EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 135 registers, used 2 barriers, 40976 bytes smem
+ptxas info    : Compile time = 56.044 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif' for 'sm_90'
+ptxas info    : Function properties for _Z6verifyILi2EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 135 registers, used 2 barriers, 32776 bytes smem
+ptxas info    : Compile time = 55.737 ms
+[2/2] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_exp.so
+verify 1 264 PASS relative L2 error 2.311e-02 (worst row 2.840e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+verify 1 splits 264 stages 3 native_us 45.68 triton_us 18.992
+verify 16 16 PASS relative L2 error 2.952e-02 (worst row 4.975e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+verify 16 splits 16 stages 3 native_us 400.8 triton_us 161.104
+verify 32 8 PASS relative L2 error 2.859e-02 (worst row 6.579e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+verify 32 splits 8 stages 3 native_us 774.4 triton_us 303.952

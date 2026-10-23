@@ -1,0 +1,127 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/2] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/.build/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 26124 bytes smem
+ptxas info    : Compile time = 43.946 ms
+ptxas info    : Compiling entry function '_Z6verifyILi7ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi7ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 46620 bytes smem
+ptxas info    : Compile time = 42.465 ms
+ptxas info    : Compiling entry function '_Z6verifyILi6ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi6ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 41496 bytes smem
+ptxas info    : Compile time = 41.887 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 36372 bytes smem
+ptxas info    : Compile time = 41.791 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 31248 bytes smem
+ptxas info    : Compile time = 41.354 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 21000 bytes smem
+ptxas info    : Compile time = 41.350 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 26124 bytes smem
+ptxas info    : Compile time = 41.524 ms
+ptxas info    : Compiling entry function '_Z6verifyILi7ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi7ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 46620 bytes smem
+ptxas info    : Compile time = 40.411 ms
+ptxas info    : Compiling entry function '_Z6verifyILi6ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi6ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 41496 bytes smem
+ptxas info    : Compile time = 39.694 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 36372 bytes smem
+ptxas info    : Compile time = 39.592 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 31248 bytes smem
+ptxas info    : Compile time = 39.247 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 2 barriers, 21000 bytes smem
+ptxas info    : Compile time = 39.235 ms
+[2/2] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_exp.so
+verify 1 264 PASS relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+verify 1 splits 198 stages 3 native_us 34.688 triton_us 19.104
+verify 1 splits 198 stages 4 native_us 35.616 triton_us 19.104
+verify 1 splits 198 stages 5 native_us 36.816 triton_us 19.104
+verify 1 splits 198 stages 6 native_us 37.44 triton_us 19.104
+verify 1 splits 198 stages 7 native_us 38.72 triton_us 19.104
+verify 1 splits 264 stages 3 native_us 34.528 triton_us 19.104
+verify 1 splits 264 stages 4 native_us 35.456 triton_us 19.104
+verify 1 splits 264 stages 5 native_us 36.416 triton_us 19.104
+verify 1 splits 264 stages 6 native_us 37.184 triton_us 19.104
+verify 1 splits 264 stages 7 native_us 38.432 triton_us 19.104
+verify 1 splits 330 stages 3 native_us 43.264 triton_us 19.104
+verify 1 splits 330 stages 4 native_us 45.088 triton_us 19.104
+verify 1 splits 330 stages 5 native_us 47.088 triton_us 19.104
+verify 1 splits 330 stages 6 native_us 49.168 triton_us 19.104
+verify 1 splits 330 stages 7 native_us 50.752 triton_us 19.104
+verify 1 splits 396 stages 3 native_us 43.584 triton_us 19.104
+verify 1 splits 396 stages 4 native_us 45.184 triton_us 19.104
+verify 1 splits 396 stages 5 native_us 46.688 triton_us 19.104
+verify 1 splits 396 stages 6 native_us 49.536 triton_us 19.104
+verify 1 splits 396 stages 7 native_us 51.552 triton_us 19.104
+verify 16 16 PASS relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+verify 16 splits 12 stages 3 native_us 255.696 triton_us 160.224
+verify 16 splits 12 stages 4 native_us 257.12 triton_us 160.224
+verify 16 splits 12 stages 5 native_us 257.808 triton_us 160.224
+verify 16 splits 12 stages 6 native_us 258.64 triton_us 160.224
+verify 16 splits 12 stages 7 native_us 261.824 triton_us 160.224
+verify 16 splits 16 stages 3 native_us 234.48 triton_us 160.224
+verify 16 splits 16 stages 4 native_us 233.392 triton_us 160.224
+verify 16 splits 16 stages 5 native_us 234.72 triton_us 160.224
+verify 16 splits 16 stages 6 native_us 235.632 triton_us 160.224
+verify 16 splits 16 stages 7 native_us 238.912 triton_us 160.224
+verify 16 splits 20 stages 3 native_us 311.888 triton_us 160.224
+verify 16 splits 20 stages 4 native_us 315.168 triton_us 160.224
+verify 16 splits 20 stages 5 native_us 318.16 triton_us 160.224
+verify 16 splits 20 stages 6 native_us 316.768 triton_us 160.224
+verify 16 splits 20 stages 7 native_us 319.104 triton_us 160.224
+verify 16 splits 24 stages 3 native_us 290.384 triton_us 160.224
+verify 16 splits 24 stages 4 native_us 293.104 triton_us 160.224
+verify 16 splits 24 stages 5 native_us 293.776 triton_us 160.224
+verify 16 splits 24 stages 6 native_us 295.024 triton_us 160.224
+verify 16 splits 24 stages 7 native_us 300.048 triton_us 160.224
+verify 32 8 PASS relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+verify 32 splits 6 stages 3 native_us 490.608 triton_us 308.304
+verify 32 splits 6 stages 4 native_us 491.36 triton_us 308.304
+verify 32 splits 6 stages 5 native_us 483.536 triton_us 308.304
+verify 32 splits 6 stages 6 native_us 483.744 triton_us 308.304
+verify 32 splits 6 stages 7 native_us 489.392 triton_us 308.304
+verify 32 splits 8 stages 3 native_us 449.824 triton_us 308.304
+verify 32 splits 8 stages 4 native_us 450.992 triton_us 308.304
+verify 32 splits 8 stages 5 native_us 451.52 triton_us 308.304
+verify 32 splits 8 stages 6 native_us 452.304 triton_us 308.304
+verify 32 splits 8 stages 7 native_us 458.752 triton_us 308.304
+verify 32 splits 10 stages 3 native_us 595.92 triton_us 308.304
+verify 32 splits 10 stages 4 native_us 595.376 triton_us 308.304
+verify 32 splits 10 stages 5 native_us 592.544 triton_us 308.304
+verify 32 splits 10 stages 6 native_us 600.784 triton_us 308.304
+verify 32 splits 10 stages 7 native_us 595.536 triton_us 308.304
+verify 32 splits 12 stages 3 native_us 525.264 triton_us 308.304
+verify 32 splits 12 stages 4 native_us 526.912 triton_us 308.304
+verify 32 splits 12 stages 5 native_us 527.648 triton_us 308.304
+verify 32 splits 12 stages 6 native_us 528.464 triton_us 308.304
+verify 32 splits 12 stages 7 native_us 533.952 triton_us 308.304

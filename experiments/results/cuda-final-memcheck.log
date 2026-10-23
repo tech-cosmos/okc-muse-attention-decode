@@ -1,0 +1,10 @@
+========= COMPUTE-SANITIZER
+ninja: no work to do.
+env: torch 2.14.1+cu130, triton 3.8.0
+completed 1 1 10
+completed 1 1 257
+completed 1 1 1024
+completed 64 0.015625 10
+completed 64 0.015625 257
+completed 64 0.015625 1024
+========= ERROR SUMMARY: 0 errors

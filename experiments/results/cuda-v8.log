@@ -1,0 +1,54 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/2] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr -gencode=arch=compute_90a,code=sm_90a --compiler-options '-fPIC' -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/.cache/torch_extensions/py312_cu130/codex_verify_exp/cuda.cu -o cuda.cuda.o 
+/home/daytona/.cache/torch_extensions/py312_cu130/codex_verify_exp/cuda.cu(163): warning #177-D: variable "row" was declared but never referenced
+         int r=(i&2)/2, row=warp*16+lane/4+r*8;
+                        ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/home/daytona/.cache/torch_extensions/py312_cu130/codex_verify_exp/cuda.cu(183): warning #177-D: variable "row" was declared but never referenced
+         int r=(i&2)/2, row=warp*16+lane/4+r*8;
+                        ^
+
+/home/daytona/.cache/torch_extensions/py312_cu130/codex_verify_exp/cuda.cu(184): warning #177-D: variable "col" was declared but never referenced
+         int col=n*16+(lane%4)*2+(i&1)+(i&4)*2;
+             ^
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 26124 bytes smem
+ptxas info    : Compile time = 45.119 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 31248 bytes smem
+ptxas info    : Compile time = 41.178 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 21000 bytes smem
+ptxas info    : Compile time = 41.612 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 26124 bytes smem
+ptxas info    : Compile time = 41.297 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 31248 bytes smem
+ptxas info    : Compile time = 40.873 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 21000 bytes smem
+ptxas info    : Compile time = 40.816 ms
+[2/2] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_exp.so
+verify 1 264 PASS relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+verify 1 splits 264 stages 3 native_us 34.016 triton_us 18.752
+verify 16 16 PASS relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+verify 16 splits 16 stages 3 native_us 255.472 triton_us 160.192
+verify 32 8 PASS relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+verify 32 splits 8 stages 3 native_us 489.872 triton_us 303.824

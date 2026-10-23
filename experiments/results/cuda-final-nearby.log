@@ -1,0 +1,16 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+verify 1 264 PASS relative L2 error 6.233e-02 (worst row 7.820e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+verify 1 splits 264 stages 3 native_us 20.672 triton_us 5.216
+verify 2 132 PASS relative L2 error 7.282e-02 (worst row 9.444e-02) [bound 0.150: 2.5 x the reference's 0.073 with FP8 E4M3 queries + 0.015]
+verify 2 splits 132 stages 3 native_us 21.664 triton_us 14.848
+verify 4 66 PASS relative L2 error 6.600e-02 (worst row 1.053e-01) [bound 0.150: 2.5 x the reference's 0.066 with FP8 E4M3 queries + 0.015]
+verify 4 splits 66 stages 3 native_us 32.416 triton_us 21.632
+verify 8 33 PASS relative L2 error 4.353e-02 (worst row 7.426e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+verify 8 splits 33 stages 3 native_us 70.368 triton_us 53.616
+verify 12 22 PASS relative L2 error 3.475e-02 (worst row 8.472e-02) [bound 0.102: 2.5 x the reference's 0.035 with FP8 E4M3 queries + 0.015]
+verify 12 splits 22 stages 3 native_us 195.552 triton_us 126.896
+verify 24 11 PASS relative L2 error 3.324e-02 (worst row 7.261e-02) [bound 0.098: 2.5 x the reference's 0.033 with FP8 E4M3 queries + 0.015]
+verify 24 splits 11 stages 3 native_us 1148.08 triton_us 722.112
+verify 48 5 PASS relative L2 error 3.390e-02 (worst row 6.864e-02) [bound 0.100: 2.5 x the reference's 0.034 with FP8 E4M3 queries + 0.015]
+verify 48 splits 5 stages 3 native_us 1664.16 triton_us 1180.272

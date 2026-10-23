@@ -1,0 +1,68 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_verify_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/.cache/torch_extensions/py312_cu130/codex_verify_exp/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr -gencode=arch=compute_90,code=sm_90 --compiler-options '-fPIC' -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/.cache/torch_extensions/py312_cu130/codex_verify_exp/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif' for 'sm_90'
+ptxas info    : Function properties for _Z6verifyILi3EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 119 registers, used 2 barriers, 36876 bytes smem
+ptxas info    : Compile time = 106.273 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif' for 'sm_90'
+ptxas info    : Function properties for _Z6verifyILi4EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 119 registers, used 2 barriers, 40976 bytes smem
+ptxas info    : Compile time = 99.078 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif' for 'sm_90'
+ptxas info    : Function properties for _Z6verifyILi2EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 119 registers, used 2 barriers, 32776 bytes smem
+ptxas info    : Compile time = 98.425 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_exp.so
+verify 1 264 PASS relative L2 error 2.311e-02 (worst row 2.840e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+verify 1 splits 132 stages 2 native_us 59.968 triton_us 18.816
+verify 1 splits 132 stages 3 native_us 60.192 triton_us 18.816
+verify 1 splits 132 stages 4 native_us 61.648 triton_us 18.816
+verify 1 splits 198 stages 2 native_us 51.648 triton_us 18.816
+verify 1 splits 198 stages 3 native_us 52.24 triton_us 18.816
+verify 1 splits 198 stages 4 native_us 52.752 triton_us 18.816
+verify 1 splits 264 stages 2 native_us 68.576 triton_us 18.816
+verify 1 splits 264 stages 3 native_us 68.592 triton_us 18.816
+verify 1 splits 264 stages 4 native_us 70.384 triton_us 18.816
+verify 1 splits 396 stages 2 native_us 61.568 triton_us 18.816
+verify 1 splits 396 stages 3 native_us 61.904 triton_us 18.816
+verify 1 splits 396 stages 4 native_us 63.536 triton_us 18.816
+verify 1 splits 528 stages 2 native_us 72.704 triton_us 18.816
+verify 1 splits 528 stages 3 native_us 73.408 triton_us 18.816
+verify 1 splits 528 stages 4 native_us 76.624 triton_us 18.816
+verify 16 16 PASS relative L2 error 2.952e-02 (worst row 4.975e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+verify 16 splits 8 stages 2 native_us 775.888 triton_us 161.024
+verify 16 splits 8 stages 3 native_us 778.496 triton_us 161.024
+verify 16 splits 8 stages 4 native_us 777.248 triton_us 161.024
+verify 16 splits 12 stages 2 native_us 596.688 triton_us 161.024
+verify 16 splits 12 stages 3 native_us 598.928 triton_us 161.024
+verify 16 splits 12 stages 4 native_us 599.472 triton_us 161.024
+verify 16 splits 16 stages 2 native_us 784.288 triton_us 161.024
+verify 16 splits 16 stages 3 native_us 784.224 triton_us 161.024
+verify 16 splits 16 stages 4 native_us 768.848 triton_us 161.024
+verify 16 splits 24 stages 2 native_us 587.696 triton_us 161.024
+verify 16 splits 24 stages 3 native_us 589.648 triton_us 161.024
+verify 16 splits 24 stages 4 native_us 591.408 triton_us 161.024
+verify 16 splits 33 stages 2 native_us 638.128 triton_us 161.024
+verify 16 splits 33 stages 3 native_us 639.984 triton_us 161.024
+verify 16 splits 33 stages 4 native_us 642.4 triton_us 161.024
+verify 32 8 PASS relative L2 error 2.859e-02 (worst row 6.579e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+verify 32 splits 4 stages 2 native_us 1550.4 triton_us 307.776
+verify 32 splits 4 stages 3 native_us 1536.112 triton_us 307.776
+verify 32 splits 4 stages 4 native_us 1505.92 triton_us 307.776
+verify 32 splits 6 stages 2 native_us 1179.616 triton_us 307.776
+verify 32 splits 6 stages 3 native_us 1176.96 triton_us 307.776
+verify 32 splits 6 stages 4 native_us 1165.024 triton_us 307.776
+verify 32 splits 8 stages 2 native_us 1556.048 triton_us 307.776
+verify 32 splits 8 stages 3 native_us 1561.824 triton_us 307.776
+verify 32 splits 8 stages 4 native_us 1556.64 triton_us 307.776
+verify 32 splits 12 stages 2 native_us 1146.4 triton_us 307.776
+verify 32 splits 12 stages 3 native_us 1150.656 triton_us 307.776
+verify 32 splits 12 stages 4 native_us 1151.696 triton_us 307.776
+verify 32 splits 16 stages 2 native_us 1234.464 triton_us 307.776
+verify 32 splits 16 stages 3 native_us 1224.88 triton_us 307.776
+verify 32 splits 16 stages 4 native_us 1225.088 triton_us 307.776

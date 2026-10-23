@@ -1,0 +1,393 @@
+[
+  {
+    "log": "cuda-v10.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 34.592,
+        "triton_us": 18.8
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 281.296,
+        "triton_us": 160.112
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 540.56,
+        "triton_us": 304.928
+      }
+    }
+  },
+  {
+    "log": "cuda-v11.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 198,
+        "stages": 3,
+        "native_us": 40.096,
+        "triton_us": 18.96
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 12,
+        "stages": 4,
+        "native_us": 244.192,
+        "triton_us": 160.112
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 6,
+        "stages": 3,
+        "native_us": 460.16,
+        "triton_us": 305.92
+      }
+    }
+  },
+  {
+    "log": "cuda-v12.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 2,
+        "native_us": 35.104,
+        "triton_us": 18.784
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 2,
+        "native_us": 263.904,
+        "triton_us": 160.864
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 2,
+        "native_us": 509.936,
+        "triton_us": 305.888
+      }
+    }
+  },
+  {
+    "log": "cuda-v13.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 198,
+        "stages": 3,
+        "native_us": 34.832,
+        "triton_us": 18.912
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 4,
+        "native_us": 233.808,
+        "triton_us": 160.784
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 446.08,
+        "triton_us": 308.208
+      }
+    }
+  },
+  {
+    "log": "cuda-v14.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 198,
+        "stages": 3,
+        "native_us": 35.456,
+        "triton_us": 18.8
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 12,
+        "stages": 4,
+        "native_us": 267.376,
+        "triton_us": 160.64
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 6,
+        "stages": 4,
+        "native_us": 501.92,
+        "triton_us": 307.968
+      }
+    }
+  },
+  {
+    "log": "cuda-v2.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 66.88,
+        "triton_us": 19.024
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 796.384,
+        "triton_us": 160.16
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 2356.336,
+        "triton_us": 371.04
+      }
+    },
+    "warning": "Overlapped Nsight profiling; discard these timings. Profiling later used the shared GPU lock."
+  },
+  {
+    "log": "cuda-v3.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 198,
+        "stages": 2,
+        "native_us": 51.648,
+        "triton_us": 18.816
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 24,
+        "stages": 2,
+        "native_us": 587.696,
+        "triton_us": 161.024
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 12,
+        "stages": 2,
+        "native_us": 1146.4,
+        "triton_us": 307.776
+      }
+    }
+  },
+  {
+    "log": "cuda-v4-sweep.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 198,
+        "stages": 3,
+        "native_us": 34.352,
+        "triton_us": 18.96
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 12,
+        "stages": 3,
+        "native_us": 321.44,
+        "triton_us": 159.696
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 6,
+        "stages": 3,
+        "native_us": 611.52,
+        "triton_us": 307.328
+      }
+    }
+  },
+  {
+    "log": "cuda-v4.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 45.68,
+        "triton_us": 18.992
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 400.8,
+        "triton_us": 161.104
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 774.4,
+        "triton_us": 303.952
+      }
+    }
+  },
+  {
+    "log": "cuda-v5.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 46.528,
+        "triton_us": 18.8
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 438.048,
+        "triton_us": 161.6
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 801.712,
+        "triton_us": 304.016
+      }
+    }
+  },
+  {
+    "log": "cuda-v6.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 46.16,
+        "triton_us": 18.896
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 418.8,
+        "triton_us": 159.792
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 809.472,
+        "triton_us": 304.272
+      }
+    }
+  },
+  {
+    "log": "cuda-v7.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 33.808,
+        "triton_us": 18.88
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 295.456,
+        "triton_us": 160.544
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 577.84,
+        "triton_us": 307.984
+      }
+    }
+  },
+  {
+    "log": "cuda-v8.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 34.016,
+        "triton_us": 18.752
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 255.472,
+        "triton_us": 160.192
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 489.872,
+        "triton_us": 303.824
+      }
+    }
+  },
+  {
+    "log": "cuda-v9.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 34.608,
+        "triton_us": 19.232
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 3,
+        "native_us": 289.456,
+        "triton_us": 159.536
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 565.488,
+        "triton_us": 304.752
+      }
+    }
+  },
+  {
+    "log": "cuda-v15.log",
+    "best": {
+      "verify 1": {
+        "shape": "verify 1",
+        "splits": 264,
+        "stages": 3,
+        "native_us": 34.528,
+        "triton_us": 19.104
+      },
+      "verify 16": {
+        "shape": "verify 16",
+        "splits": 16,
+        "stages": 4,
+        "native_us": 233.392,
+        "triton_us": 160.224
+      },
+      "verify 32": {
+        "shape": "verify 32",
+        "splits": 8,
+        "stages": 3,
+        "native_us": 449.824,
+        "triton_us": 308.304
+      }
+    }
+  }
+]
