@@ -249,3 +249,55 @@ claimed a CUDA WMMA verify-full kernel with explicit gather prefetch). So "hand-
 producer/consumer kernel" in next idea 1 is Codex's lane now. Some of this session's early sweeps ran
 before bench.py's GPU lock existed and may have overlapped Codex's runs; the final bench numbers above
 were taken with the lock.
+
+## Session 3 (overnight agent, 2026-10-23 20:52-~21:40 UTC)
+
+Baseline reproduced: H100 bench 1.804x.
+
+### Change (main 0495b16): grouped merge on sliding layers
+
+`_combine_hb`: one program merges HB adjacent query heads of a KV head (their partial rows are
+contiguous per split, so each split is one [HB, D] read). Sliding layers use hb=2, sb=8 splits per
+pass, 1 warp; full layers keep `_combine` (no gain there, and worse at batch 1). Bench 1.804 -> 1.817:
+verify 32 sliding 22.4 -> 20.7 us, verify 16 sliding 14.2 -> 13.4, decode 32 sliding 16.6 -> 16.2,
+decode 1 sliding 6.3 -> 6.2. 16/16 tests, 48/48 nearby shapes (tools/nearby.py).
+
+### Measured
+
+- Merge share (total vs attn-only with `_combine` replaced by a no-op): decode 1 full 17.4/15.3,
+  verify 1 full 19.0/16.0, decode 1 sliding 6.4/4.1, decode 16 sliding 11.6/9.6, verify 32 sliding
+  22.7/17.4 (before the change), verify 16 full 156/149, decode 16 full 131/129. Script pattern:
+  /tmp/parts.py (monkeypatch submission._combine with an object whose [grid] returns a no-op).
+- Batch-1 full gather floor (80000 random 128B K+V rows from an 80K-row pool, under a graph, minus
+  empty replay): ~12 us. Our attn kernel is 15.3 us there, so batch-1 full has only ~3 us + merge.
+- Wide sweep of decode 1 full (splits 64-512, block_n 32-128, warps 2-8, stages 3/5, hpp 1/2): all
+  17.3-18+ us. Flat.
+
+### Tried, didn't help (reverted)
+
+- `DISABLE_MMA_V3=1` (mma.sync instead of wgmma) for verify full: 2-2.6x slower.
+- Interleaved dual tile (issue both heads' QK^T before either softmax): Triton still puts
+  `warp_group_dot_wait {pendings = 0}` right after every wgmma (only loop-carried accumulator chains
+  stay async), so no overlap; verify 16 full 156 -> 158-164, verify 32 305 -> 301 (noise).
+- "Seq-free" batch-1 full loop (constant trip count, gathers depend only on the page table, clamped,
+  page -1 -> row 0, scores masked by seq): no change (17.25 both). The seq-load trip is not the limiter.
+- Grouped merge on full layers: equal at batch 16/32, 2-3 us slower at batch 1.
+
+### Next ideas
+
+1. The remaining merge cost on full verify 16 (~7 us of 156) is mostly partial traffic
+   (17 MB of fp32 partials at 33 splits); fewer splits lose wave fill. Maybe hb>1 + PDL ordering.
+2. Verify full in Triton is stuck on wgmma waits being synchronous; Codex owns the hand-written path.
+3. Sliding prologue: the attn-only sliding times are still 2-3x the gather floor at batch 1.
+
+### Judge runs this session
+
+| job | commit | speedup (95% CI) | notes |
+|---|---|---|---|
+| 944b20a9 (check) | 0495b16 | **1.935x** (1.906-1.969) | 16/16; verify 32 sliding 19.2 us (1.80x), verify 16 sliding 2.16x; full verify 1.32x/1.28x unchanged |
+| 7d433848 (scored) | 0495b16 | **1.927x** (1.898-1.964) | 16/16; board best for us (was 1.921x, rank 32 before) |
+
+### Budget used (UTC day 2026-10-23)
+
+Claude today: 4 of 8 checks (b42151ed, 39d24ebc, 1985ba31, 944b20a9), 2 of 3 scored (740bc5e9, 7d433848).
+Account before this session's runs: 6/20 checks, 3/10 scored. The day resets 00:00 UTC.
