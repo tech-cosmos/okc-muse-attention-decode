@@ -1,0 +1,50 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+CHECK 1 1 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"batch": 1, "q_len": 1, "name": "parent", "rep": 0, "us": 6.175999995321035}
+{"batch": 1, "q_len": 1, "name": "native", "rep": 0, "us": 5.615999922156334}
+{"batch": 1, "q_len": 1, "name": "native", "rep": 1, "us": 5.648000165820122}
+{"batch": 1, "q_len": 1, "name": "parent", "rep": 1, "us": 6.127999629825354}
+{"batch": 1, "q_len": 1, "name": "parent", "rep": 2, "us": 6.22399989515543}
+{"batch": 1, "q_len": 1, "name": "native", "rep": 2, "us": 5.664000287652016}
+{"batch": 1, "q_len": 1, "name": "native", "rep": 3, "us": 5.872000008821487}
+{"batch": 1, "q_len": 1, "name": "parent", "rep": 3, "us": 6.559999659657478}
+{"batch": 1, "q_len": 1, "name": "parent", "rep": 4, "us": 6.384000182151794}
+{"batch": 1, "q_len": 1, "name": "native", "rep": 4, "us": 5.8399997651577}
+FRESH GRAPH PASS 1 1 12
+CHECK 1 8 True relative L2 error 6.440e-02 (worst row 7.648e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+{"batch": 1, "q_len": 8, "name": "parent", "rep": 0, "us": 7.535999640822411}
+{"batch": 1, "q_len": 8, "name": "native", "rep": 0, "us": 6.768000312149525}
+{"batch": 1, "q_len": 8, "name": "native", "rep": 1, "us": 6.927999667823315}
+{"batch": 1, "q_len": 8, "name": "parent", "rep": 1, "us": 7.407999597489834}
+{"batch": 1, "q_len": 8, "name": "parent", "rep": 2, "us": 7.344000041484833}
+{"batch": 1, "q_len": 8, "name": "native", "rep": 2, "us": 6.927999667823315}
+{"batch": 1, "q_len": 8, "name": "native", "rep": 3, "us": 6.927999667823315}
+{"batch": 1, "q_len": 8, "name": "parent", "rep": 3, "us": 7.376000285148621}
+{"batch": 1, "q_len": 8, "name": "parent", "rep": 4, "us": 7.215999998152256}
+{"batch": 1, "q_len": 8, "name": "native", "rep": 4, "us": 6.912000011652708}
+FRESH GRAPH PASS 1 8 12
+CHECK 2 1 True relative L2 error 6.892e-02 (worst row 7.170e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"batch": 2, "q_len": 1, "name": "parent", "rep": 0, "us": 6.976000033318996}
+{"batch": 2, "q_len": 1, "name": "native", "rep": 0, "us": 6.60800002515316}
+{"batch": 2, "q_len": 1, "name": "native", "rep": 1, "us": 6.49599963799119}
+{"batch": 2, "q_len": 1, "name": "parent", "rep": 1, "us": 6.912000011652708}
+{"batch": 2, "q_len": 1, "name": "parent", "rep": 2, "us": 7.087999954819679}
+{"batch": 2, "q_len": 1, "name": "native", "rep": 2, "us": 6.479999981820583}
+{"batch": 2, "q_len": 1, "name": "native", "rep": 3, "us": 6.400000303983688}
+{"batch": 2, "q_len": 1, "name": "parent", "rep": 3, "us": 7.087999954819679}
+{"batch": 2, "q_len": 1, "name": "parent", "rep": 4, "us": 7.055999711155891}
+{"batch": 2, "q_len": 1, "name": "native", "rep": 4, "us": 6.543999537825584}
+FRESH GRAPH PASS 2 1 12
+CHECK 2 8 True relative L2 error 6.773e-02 (worst row 9.026e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+{"batch": 2, "q_len": 8, "name": "parent", "rep": 0, "us": 8.144000079482794}
+{"batch": 2, "q_len": 8, "name": "native", "rep": 0, "us": 7.840000092983246}
+{"batch": 2, "q_len": 8, "name": "native", "rep": 1, "us": 7.728000171482563}
+{"batch": 2, "q_len": 8, "name": "parent", "rep": 1, "us": 8.143999613821507}
+{"batch": 2, "q_len": 8, "name": "parent", "rep": 2, "us": 8.24000034481287}
+{"batch": 2, "q_len": 8, "name": "native", "rep": 2, "us": 7.7760000713169575}
+{"batch": 2, "q_len": 8, "name": "native", "rep": 3, "us": 7.679999805986881}
+{"batch": 2, "q_len": 8, "name": "parent", "rep": 3, "us": 8.351999800652266}
+{"batch": 2, "q_len": 8, "name": "parent", "rep": 4, "us": 8.224000222980976}
+{"batch": 2, "q_len": 8, "name": "native", "rep": 4, "us": 7.760000415146351}
+FRESH GRAPH PASS 2 8 12

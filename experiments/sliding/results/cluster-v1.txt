@@ -1,0 +1,206 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_sliding_cluster -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/sliding/.build_cluster/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_sliding_cluster -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/sliding/.build_cluster/cuda.cu -o cuda.cuda.o 
+/home/daytona/codex-repo/experiments/sliding/.build_cluster/cuda.cu(47): warning #177-D: variable "last" was declared but never referenced
+             int last;
+                 ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 128 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 66.057 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 50.904 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 45.553 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 43.777 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 128 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 62.799 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 49.699 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 45.371 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 43.164 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 49.401 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 44.818 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 42.680 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 41.813 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 48.522 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 45.181 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 42.894 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 41.931 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 45.279 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 42.875 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 41.544 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 49.178 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 44.431 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 43.161 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 42.675 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 46.879 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_sliding_cluster.so
+BASE decode 1 6.175999995321035
+CHECK decode 1 1 1 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 1, "warps": 1, "us": 207.68000511452556}
+CHECK decode 1 1 2 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 1, "warps": 2, "us": 107.37600130960345}
+CHECK decode 1 1 4 True relative L2 error 7.008e-02 (worst row 7.008e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 1, "warps": 4, "us": 54.239999037235975}
+CHECK decode 1 2 1 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 2, "warps": 1, "us": 109.29600102826953}
+CHECK decode 1 2 2 True relative L2 error 7.008e-02 (worst row 7.008e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 2, "warps": 2, "us": 53.520001005381346}
+CHECK decode 1 2 4 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 2, "warps": 4, "us": 28.992000501602888}
+CHECK decode 1 4 1 True relative L2 error 7.008e-02 (worst row 7.008e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 4, "warps": 1, "us": 55.95200089737773}
+CHECK decode 1 4 2 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 4, "warps": 2, "us": 30.36799980327487}
+CHECK decode 1 4 4 True relative L2 error 7.008e-02 (worst row 7.008e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 4, "warps": 4, "us": 18.751998897641897}
+CHECK decode 1 8 1 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 8, "warps": 1, "us": 32.719999086111784}
+CHECK decode 1 8 2 True relative L2 error 7.008e-02 (worst row 7.008e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 8, "warps": 2, "us": 19.85599985346198}
+CHECK decode 1 8 4 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "splits": 8, "warps": 4, "us": 13.375998940318823}
+BASE decode 16 11.824000161141157
+CHECK decode 16 1 1 True relative L2 error 6.874e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 1, "warps": 1, "us": 201.82399777695537}
+CHECK decode 16 1 2 True relative L2 error 6.874e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 1, "warps": 2, "us": 105.47200171276927}
+CHECK decode 16 1 4 True relative L2 error 6.874e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 1, "warps": 4, "us": 55.90400053188205}
+CHECK decode 16 2 1 True relative L2 error 6.874e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 2, "warps": 1, "us": 110.1760002784431}
+CHECK decode 16 2 2 True relative L2 error 6.874e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 2, "warps": 2, "us": 56.92800087854266}
+CHECK decode 16 2 4 True relative L2 error 6.875e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 2, "warps": 4, "us": 31.647998373955488}
+CHECK decode 16 4 1 True relative L2 error 6.874e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 4, "warps": 1, "us": 60.06399868056178}
+CHECK decode 16 4 2 True relative L2 error 6.875e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 4, "warps": 2, "us": 32.35200000926852}
+CHECK decode 16 4 4 True relative L2 error 6.875e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 4, "warps": 4, "us": 20.351999904960394}
+CHECK decode 16 8 1 True relative L2 error 6.875e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 8, "warps": 1, "us": 35.135998856276274}
+CHECK decode 16 8 2 True relative L2 error 6.875e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 8, "warps": 2, "us": 21.775999572128057}
+CHECK decode 16 8 4 True relative L2 error 6.875e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "splits": 8, "warps": 4, "us": 16.768000554293394}
+BASE decode 32 16.335999127477407
+CHECK decode 32 1 1 True relative L2 error 6.877e-02 (worst row 9.561e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 1, "warps": 1, "us": 204.43199900910258}
+CHECK decode 32 1 2 True relative L2 error 6.876e-02 (worst row 9.561e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 1, "warps": 2, "us": 106.15999950096011}
+CHECK decode 32 1 4 True relative L2 error 6.877e-02 (worst row 9.560e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 1, "warps": 4, "us": 56.735999416559935}
+CHECK decode 32 2 1 True relative L2 error 6.876e-02 (worst row 9.561e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 2, "warps": 1, "us": 108.8319974951446}
+CHECK decode 32 2 2 True relative L2 error 6.877e-02 (worst row 9.560e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 2, "warps": 2, "us": 57.48800141736865}
+CHECK decode 32 2 4 True relative L2 error 6.877e-02 (worst row 9.562e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 2, "warps": 4, "us": 32.75199932977557}
+CHECK decode 32 4 1 True relative L2 error 6.877e-02 (worst row 9.560e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 4, "warps": 1, "us": 60.288000386208296}
+CHECK decode 32 4 2 True relative L2 error 6.877e-02 (worst row 9.562e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 4, "warps": 2, "us": 33.936000894755125}
+CHECK decode 32 4 4 True relative L2 error 6.877e-02 (worst row 9.563e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 4, "warps": 4, "us": 23.487999569624662}
+CHECK decode 32 8 1 True relative L2 error 6.877e-02 (worst row 9.562e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 8, "warps": 1, "us": 36.54399840161204}
+CHECK decode 32 8 2 True relative L2 error 6.877e-02 (worst row 9.563e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 8, "warps": 2, "us": 24.864000733941793}
+CHECK decode 32 8 4 True relative L2 error 6.877e-02 (worst row 9.562e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "splits": 8, "warps": 4, "us": 32.03200129792094}

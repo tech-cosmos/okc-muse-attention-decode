@@ -1,0 +1,15 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+{"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 5.216000135987997, "parent": 6.800000090152025}
+{"batch": 4, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 6.848000455647707, "parent": 7.7760000713169575}
+{"batch": 8, "ctx": 40000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 8.223999757319689, "parent": 8.959999773651361}
+{"batch": 8, "ctx": 120000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 8.288000244647264, "parent": 9.008000139147043}
+{"batch": 12, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 9.536000434309244, "parent": 10.304000694304705}
+{"batch": 20, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 13.02400091663003, "parent": 13.408000115305185}
+{"batch": 24, "ctx": 40000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 14.208000618964434, "parent": 14.59199981763959}
+{"batch": 24, "ctx": 120000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 14.272000174969435, "parent": 14.783999416977167}
+Traceback (most recent call last):
+  File "/home/daytona/codex-repo/experiments/sliding/nearby_merge.py", line 13, in <module>
+    if not ok:raise RuntimeError((c,msg))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: ({'batch': 48, 'ctx': 80000, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 1, 'spread': 'agentic', 'dist': 'soft'}, "output contains NaN or Inf [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]")

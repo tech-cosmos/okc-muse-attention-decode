@@ -1,0 +1,137 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_sliding_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/sliding/.build/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_sliding_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/sliding/.build/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi4ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi4ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 45440 bytes smem
+ptxas info    : Compile time = 40.872 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi4ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi4ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 45444 bytes smem
+ptxas info    : Compile time = 57.824 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi4ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi4ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 45440 bytes smem
+ptxas info    : Compile time = 37.974 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi4ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi4ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 45444 bytes smem
+ptxas info    : Compile time = 54.182 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi2ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi2ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 23936 bytes smem
+ptxas info    : Compile time = 37.627 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi2ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi2ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 23940 bytes smem
+ptxas info    : Compile time = 58.142 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi2ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi2ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 23936 bytes smem
+ptxas info    : Compile time = 37.176 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi2ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi2ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 23940 bytes smem
+ptxas info    : Compile time = 54.227 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi1ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi1ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 103 registers, used 1 barriers, 13184 bytes smem
+ptxas info    : Compile time = 36.681 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi1ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi1ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 105 registers, used 1 barriers, 13188 bytes smem
+ptxas info    : Compile time = 54.412 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi1ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi1ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 105 registers, used 1 barriers, 13184 bytes smem
+ptxas info    : Compile time = 36.121 ms
+ptxas info    : Compiling entry function '_Z7slidingILi3ELi1ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi3ELi1ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 103 registers, used 1 barriers, 13188 bytes smem
+ptxas info    : Compile time = 54.375 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 37.449 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 1 barriers, 37252 bytes smem
+ptxas info    : Compile time = 53.693 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 37248 bytes smem
+ptxas info    : Compile time = 35.516 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi4ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi4ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 93 registers, used 1 barriers, 37252 bytes smem
+ptxas info    : Compile time = 127.079 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 37.385 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 1 barriers, 19844 bytes smem
+ptxas info    : Compile time = 55.263 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 19840 bytes smem
+ptxas info    : Compile time = 35.587 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi2ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi2ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 93 registers, used 1 barriers, 19844 bytes smem
+ptxas info    : Compile time = 55.362 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 37.550 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11140 bytes smem
+ptxas info    : Compile time = 54.176 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11136 bytes smem
+ptxas info    : Compile time = 35.531 ms
+ptxas info    : Compiling entry function '_Z7slidingILi2ELi1ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi2ELi1ELi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 1 barriers, 11140 bytes smem
+ptxas info    : Compile time = 53.154 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_sliding_exp.so
+CHECK decode 1 True relative L2 error 7.008e-02 (worst row 7.008e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+BASE decode 1 6.160000339150429
+{"load": "decode 1", "splits": 4, "warps": 4, "stages": 3, "fused": true, "us": 20.15999983996153, "err": 0.0}
+{"load": "decode 1", "splits": 4, "warps": 4, "stages": 3, "fused": false, "us": 18.32000073045492, "err": 0.0}
+CHECK decode 16 True relative L2 error 6.875e-02 (worst row 8.742e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+BASE decode 16 11.58399973064661
+{"load": "decode 16", "splits": 4, "warps": 4, "stages": 3, "fused": true, "us": 22.720000706613064, "err": 0.0}
+{"load": "decode 16", "splits": 4, "warps": 4, "stages": 3, "fused": false, "us": 21.151999942958355, "err": 8.61503424154364e-10}
+CHECK decode 32 True relative L2 error 6.877e-02 (worst row 9.563e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+BASE decode 32 16.81600045412779
+{"load": "decode 32", "splits": 4, "warps": 4, "stages": 3, "fused": true, "us": 25.88800061494112, "err": 0.0}
+{"load": "decode 32", "splits": 4, "warps": 4, "stages": 3, "fused": false, "us": 24.16000049561262, "err": 1.2499182275860221e-06}

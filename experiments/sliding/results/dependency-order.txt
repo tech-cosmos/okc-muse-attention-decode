@@ -1,0 +1,10 @@
+Final kernel: dependency wait precedes all coherent partial loads.
+_Z14combine_kernelILi32ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+        /*07e0*/                   LDG.E R2, desc[UR4][R8.64] ;                      /* 0x0000000408027981 */
+        /*07f0*/                   ACQBULK ;                                         /* 0x000000000000782e */
+        /*0800*/                   LDG.E.64.STRONG.GPU R4, desc[UR4][R4.64] ;        /* 0x0000000404047981 */
+        /*08b0*/                   LDG.E.64.STRONG.GPU R24, desc[UR4][R24.64] ;      /* 0x0000000418187981 */
+        /*08c0*/                   LDG.E.64.STRONG.GPU R22, desc[UR4][R6.64] ;       /* 0x0000000406167981 */
+        /*08e0*/                   LDG.E.64.STRONG.GPU R20, desc[UR4][R30.64] ;      /* 0x000000041e147981 */
+        /*0900*/                   LDG.E.64.STRONG.GPU R18, desc[UR4][R32.64] ;      /* 0x0000000420127981 */
+        /*0920*/                   LDG.E.64.STRONG.GPU R14, desc[UR4][R34.64] ;      /* 0x00000004220e7981 */

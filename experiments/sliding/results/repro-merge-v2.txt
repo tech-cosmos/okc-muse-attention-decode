@@ -1,0 +1,14 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+parent True 0 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+parent True 1 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+parent True 2 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+new True 0 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+new True 1 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+new True 2 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+parent False 0 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+parent False 1 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+parent False 2 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+new False 0 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+new False 1 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+new False 2 True relative L2 error 6.892e-02 (worst row 9.846e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]

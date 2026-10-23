@@ -1,0 +1,5 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS {'batch': 1, 'ctx': 3000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 1, 'page': 1, 'kv_scale': 1, 'spread': 'mixed', 'dist': 'soft'} 20 fresh routing/value replays
+PASS {'batch': 2, 'ctx': 3000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 1, 'page': 64, 'kv_scale': 0.015625, 'spread': 'mixed', 'dist': 'edges'} 20 fresh routing/value replays
+PASS {'batch': 1, 'ctx': 3000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 8, 'page': 1, 'kv_scale': 1, 'spread': 'mixed', 'dist': 'edges'} 20 fresh routing/value replays
+PASS {'batch': 2, 'ctx': 3000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 8, 'page': 64, 'kv_scale': 0.015625, 'spread': 'mixed', 'dist': 'soft'} 20 fresh routing/value replays

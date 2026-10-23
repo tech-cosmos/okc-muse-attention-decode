@@ -1,0 +1,26 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+{"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 6.49599963799119, "parent": 6.831999868154526}
+{"batch": 4, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 8.080000057816505, "parent": 8.191999513655901}
+{"batch": 8, "ctx": 40000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 9.05599957332015, "parent": 9.183999616652727}
+{"batch": 8, "ctx": 120000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 9.248000103980303, "parent": 9.13600018247962}
+{"batch": 12, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 10.239999741315842, "parent": 10.399999562650919}
+{"batch": 20, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 13.951999600976706, "parent": 13.455999549478292}
+{"batch": 24, "ctx": 40000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 14.911999460309744, "parent": 14.959999825805426}
+{"batch": 24, "ctx": 120000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 15.455999877303839, "parent": 15.183999668806791}
+{"batch": 48, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 24.415999185293913, "parent": 24.127999786287546}
+{"batch": 64, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "spread": "agentic", "dist": "soft", "passed": true, "native": 32.03199943527579, "parent": 32.94399892911315}
+{"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 8.095999713987112, "parent": 8.36799992248416}
+{"batch": 4, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 9.807999711483717, "parent": 9.791999589651823}
+{"batch": 8, "ctx": 40000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 10.78399969264865, "parent": 10.832000058144331}
+{"batch": 8, "ctx": 120000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 11.023999657481909, "parent": 11.104000266641378}
+{"batch": 12, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 12.95999949797988, "parent": 13.391999993473291}
+{"batch": 20, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 17.504000570625067, "parent": 17.327999230474234}
+{"batch": 24, "ctx": 40000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 18.912000115960836, "parent": 18.912000115960836}
+{"batch": 24, "ctx": 120000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 19.200000446289778, "parent": 19.135999958962202}
+{"batch": 48, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 36.671999376267195, "parent": 36.62400087341666}
+{"batch": 64, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 8, "spread": "agentic", "dist": "soft", "passed": true, "native": 45.40800070390105, "parent": 45.32800009474158}
+EXTRA {'batch': 1, 'ctx': 1, 'heads': 'dp', 'layer': 'sliding', 'page': 1, 'q_len': 1, 'kv_scale': 1, 'dist': 'soft'} True relative L2 error 3.602e-02 (worst row 3.602e-02) [bound 0.105: 2.5 x the reference's 0.036 with FP8 E4M3 queries + 0.015]
+EXTRA {'batch': 3, 'ctx': 100, 'heads': 'dp', 'layer': 'sliding', 'page': 64, 'q_len': 8, 'kv_scale': 1, 'dist': 'soft'} True relative L2 error 5.893e-02 (worst row 6.718e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+EXTRA {'batch': 4, 'ctx': 257, 'heads': 'dp', 'layer': 'sliding', 'page': 1, 'q_len': 1, 'kv_scale': 0.015625, 'dist': 'soft'} True relative L2 error 6.396e-02 (worst row 6.921e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+EXTRA {'batch': 2, 'ctx': 1024, 'heads': 'dp', 'layer': 'sliding', 'page': 64, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'soft'} True relative L2 error 6.425e-02 (worst row 7.505e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]

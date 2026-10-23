@@ -1,0 +1,256 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_warp_merge -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/sliding/.build_warp_merge/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_warp_merge -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/sliding/.build_warp_merge/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 15.404 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 13.728 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 13.344 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 13.230 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 13.290 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 13.235 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 64 registers, used 0 barriers
+ptxas info    : Compile time = 13.476 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 64 registers, used 0 barriers
+ptxas info    : Compile time = 13.491 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 11.035 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 11.045 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 11.033 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 11.084 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 11.026 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 11.373 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 51 registers, used 0 barriers
+ptxas info    : Compile time = 10.891 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 50 registers, used 0 barriers
+ptxas info    : Compile time = 10.867 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 9.550 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 9.586 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 9.531 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 9.584 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 9.532 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 32 registers, used 0 barriers
+ptxas info    : Compile time = 9.577 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 36 registers, used 0 barriers
+ptxas info    : Compile time = 9.498 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 35 registers, used 0 barriers
+ptxas info    : Compile time = 9.513 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 26 registers, used 0 barriers
+ptxas info    : Compile time = 8.904 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 26 registers, used 0 barriers
+ptxas info    : Compile time = 8.901 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 26 registers, used 0 barriers
+ptxas info    : Compile time = 8.867 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 26 registers, used 0 barriers
+ptxas info    : Compile time = 8.970 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 26 registers, used 0 barriers
+ptxas info    : Compile time = 8.922 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 26 registers, used 0 barriers
+ptxas info    : Compile time = 9.364 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 28 registers, used 0 barriers
+ptxas info    : Compile time = 9.092 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 25 registers, used 0 barriers
+ptxas info    : Compile time = 8.916 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_warp_merge.so
+env: torch 2.14.1+cu130, triton 3.8.0
+{"load": "decode 1", "rep": 0, "warps": 0, "us": 6.3040005043148994}
+{"load": "decode 1", "rep": 0, "warps": 1, "us": 5.664000287652016}
+{"load": "decode 1", "rep": 0, "warps": 2, "us": 6.272000260651112}
+{"load": "decode 1", "rep": 0, "warps": 4, "us": 6.335999816656113}
+{"load": "decode 1", "rep": 0, "warps": 8, "us": 6.2880003824830055}
+{"load": "decode 1", "rep": 1, "warps": 8, "us": 6.111999973654747}
+{"load": "decode 1", "rep": 1, "warps": 4, "us": 6.752000190317631}
+{"load": "decode 1", "rep": 1, "warps": 2, "us": 6.687999702990055}
+{"load": "decode 1", "rep": 1, "warps": 1, "us": 6.240000016987324}
+{"load": "decode 1", "rep": 1, "warps": 0, "us": 6.448000203818083}
+{"load": "decode 1", "rep": 2, "warps": 0, "us": 6.512000225484371}
+{"load": "decode 1", "rep": 2, "warps": 1, "us": 6.175999995321035}
+{"load": "decode 1", "rep": 2, "warps": 2, "us": 6.559999659657478}
+{"load": "decode 1", "rep": 2, "warps": 4, "us": 6.463999859988689}
+{"load": "decode 1", "rep": 2, "warps": 8, "us": 6.687999702990055}
+{"load": "decode 16", "rep": 0, "warps": 0, "us": 12.095999903976917}
+{"load": "decode 16", "rep": 0, "warps": 1, "us": 11.839999817311764}
+{"load": "decode 16", "rep": 0, "warps": 2, "us": 12.287999503314495}
+{"load": "decode 16", "rep": 0, "warps": 4, "us": 12.271999381482601}
+{"load": "decode 16", "rep": 0, "warps": 8, "us": 12.031999416649342}
+{"load": "decode 16", "rep": 1, "warps": 8, "us": 12.240000069141388}
+{"load": "decode 16", "rep": 1, "warps": 4, "us": 12.287999503314495}
+{"load": "decode 16", "rep": 1, "warps": 2, "us": 12.095999903976917}
+{"load": "decode 16", "rep": 1, "warps": 1, "us": 11.872000060975552}
+{"load": "decode 16", "rep": 1, "warps": 0, "us": 12.240000069141388}
+{"load": "decode 16", "rep": 2, "warps": 0, "us": 12.160000391304493}
+{"load": "decode 16", "rep": 2, "warps": 1, "us": 11.74400094896555}
+{"load": "decode 16", "rep": 2, "warps": 2, "us": 12.287999503314495}
+{"load": "decode 16", "rep": 2, "warps": 4, "us": 12.128000147640705}
+{"load": "decode 16", "rep": 2, "warps": 8, "us": 12.079999782145023}
+{"load": "decode 32", "rep": 0, "warps": 0, "us": 16.81600045412779}
+{"load": "decode 32", "rep": 0, "warps": 1, "us": 18.000000156462193}
+{"load": "decode 32", "rep": 0, "warps": 2, "us": 16.959999687969685}
+{"load": "decode 32", "rep": 0, "warps": 4, "us": 16.88000001013279}
+{"load": "decode 32", "rep": 0, "warps": 8, "us": 16.784000210464}
+{"load": "decode 32", "rep": 1, "warps": 8, "us": 17.056000418961048}
+{"load": "decode 32", "rep": 1, "warps": 4, "us": 17.583999782800674}
+{"load": "decode 32", "rep": 1, "warps": 2, "us": 16.848000697791576}
+{"load": "decode 32", "rep": 1, "warps": 1, "us": 17.151999287307262}
+{"load": "decode 32", "rep": 1, "warps": 0, "us": 16.751999966800213}
+{"load": "decode 32", "rep": 2, "warps": 0, "us": 17.58400071412325}
+{"load": "decode 32", "rep": 2, "warps": 1, "us": 17.80799962580204}
+{"load": "decode 32", "rep": 2, "warps": 2, "us": 17.02400017529726}
+{"load": "decode 32", "rep": 2, "warps": 4, "us": 17.776000313460827}
+{"load": "decode 32", "rep": 2, "warps": 8, "us": 17.088000662624836}
+{"load": "verify 1", "rep": 0, "warps": 0, "us": 7.439999841153622}
+{"load": "verify 1", "rep": 0, "warps": 1, "us": 6.912000477313995}
+{"load": "verify 1", "rep": 0, "warps": 2, "us": 7.423999719321728}
+{"load": "verify 1", "rep": 0, "warps": 4, "us": 7.679999805986881}
+{"load": "verify 1", "rep": 0, "warps": 8, "us": 7.439999841153622}
+{"load": "verify 1", "rep": 1, "warps": 8, "us": 7.567999884486198}
+{"load": "verify 1", "rep": 1, "warps": 4, "us": 7.648000493645668}
+{"load": "verify 1", "rep": 1, "warps": 2, "us": 7.423999719321728}
+{"load": "verify 1", "rep": 1, "warps": 1, "us": 6.768000312149525}
+{"load": "verify 1", "rep": 1, "warps": 0, "us": 7.439999841153622}
+{"load": "verify 1", "rep": 2, "warps": 0, "us": 7.423999719321728}
+{"load": "verify 1", "rep": 2, "warps": 1, "us": 6.784000433981419}
+{"load": "verify 1", "rep": 2, "warps": 2, "us": 7.600000128149986}
+{"load": "verify 1", "rep": 2, "warps": 4, "us": 7.61600024998188}
+{"load": "verify 1", "rep": 2, "warps": 8, "us": 7.664000149816275}
+{"load": "verify 16", "rep": 0, "warps": 0, "us": 13.503999449312687}
+{"load": "verify 16", "rep": 0, "warps": 1, "us": 14.23999946564436}
+{"load": "verify 16", "rep": 0, "warps": 2, "us": 13.791999779641628}
+{"load": "verify 16", "rep": 0, "warps": 4, "us": 13.584000058472157}
+{"load": "verify 16", "rep": 0, "warps": 8, "us": 13.535999692976475}
+{"load": "verify 16", "rep": 1, "warps": 8, "us": 13.68000078946352}
+{"load": "verify 16", "rep": 1, "warps": 4, "us": 13.664000667631626}
+{"load": "verify 16", "rep": 1, "warps": 2, "us": 13.712000101804733}
+{"load": "verify 16", "rep": 1, "warps": 1, "us": 14.368000440299511}
+{"load": "verify 16", "rep": 1, "warps": 0, "us": 13.664000667631626}
+{"load": "verify 16", "rep": 2, "warps": 0, "us": 13.471999205648899}
+{"load": "verify 16", "rep": 2, "warps": 1, "us": 14.368000440299511}
+{"load": "verify 16", "rep": 2, "warps": 2, "us": 13.856000266969204}
+{"load": "verify 16", "rep": 2, "warps": 4, "us": 13.567999936640263}
+{"load": "verify 16", "rep": 2, "warps": 8, "us": 13.503999449312687}
+{"load": "verify 32", "rep": 0, "warps": 0, "us": 20.8959998562932}
+{"load": "verify 32", "rep": 0, "warps": 1, "us": 20.752000622451305}
+{"load": "verify 32", "rep": 0, "warps": 2, "us": 20.92800009995699}
+{"load": "verify 32", "rep": 0, "warps": 4, "us": 20.8959998562932}
+{"load": "verify 32", "rep": 0, "warps": 8, "us": 20.816000178456306}
+{"load": "verify 32", "rep": 1, "warps": 8, "us": 20.704000256955624}
+{"load": "verify 32", "rep": 1, "warps": 4, "us": 20.960000343620777}
+{"load": "verify 32", "rep": 1, "warps": 2, "us": 20.960000343620777}
+{"load": "verify 32", "rep": 1, "warps": 1, "us": 20.672000013291836}
+{"load": "verify 32", "rep": 1, "warps": 0, "us": 20.7680007442832}
+{"load": "verify 32", "rep": 2, "warps": 0, "us": 20.639999769628048}
+{"load": "verify 32", "rep": 2, "warps": 1, "us": 20.97600046545267}
+{"load": "verify 32", "rep": 2, "warps": 2, "us": 20.863999612629414}
+{"load": "verify 32", "rep": 2, "warps": 4, "us": 20.720000378787518}
+{"load": "verify 32", "rep": 2, "warps": 8, "us": 20.84799949079752}

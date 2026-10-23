@@ -1,0 +1,433 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_merge_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/sliding/.build_merge/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_merge_exp -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/sliding/.build_merge/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z14combine_kernelILi128ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi128ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    472 bytes stack frame, 444 bytes spill stores, 444 bytes spill loads
+ptxas info    : Used 255 registers, used 0 barriers, 472 bytes cumulative stack size
+ptxas info    : Compile time = 132.810 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi128ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi128ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    472 bytes stack frame, 444 bytes spill stores, 444 bytes spill loads
+ptxas info    : Used 255 registers, used 0 barriers, 472 bytes cumulative stack size
+ptxas info    : Compile time = 129.861 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi128ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi128ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    472 bytes stack frame, 444 bytes spill stores, 444 bytes spill loads
+ptxas info    : Used 255 registers, used 0 barriers, 472 bytes cumulative stack size
+ptxas info    : Compile time = 127.074 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi128ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi128ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    472 bytes stack frame, 444 bytes spill stores, 444 bytes spill loads
+ptxas info    : Used 255 registers, used 0 barriers, 472 bytes cumulative stack size
+ptxas info    : Compile time = 205.580 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi128ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi128ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    472 bytes stack frame, 444 bytes spill stores, 444 bytes spill loads
+ptxas info    : Used 255 registers, used 0 barriers, 472 bytes cumulative stack size
+ptxas info    : Compile time = 125.159 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi128ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi128ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    472 bytes stack frame, 444 bytes spill stores, 444 bytes spill loads
+ptxas info    : Used 255 registers, used 0 barriers, 472 bytes cumulative stack size
+ptxas info    : Compile time = 127.924 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi128ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi128ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    480 bytes stack frame, 440 bytes spill stores, 440 bytes spill loads
+ptxas info    : Used 255 registers, used 0 barriers, 480 bytes cumulative stack size
+ptxas info    : Compile time = 128.450 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi128ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi128ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    480 bytes stack frame, 440 bytes spill stores, 440 bytes spill loads
+ptxas info    : Used 255 registers, used 0 barriers, 480 bytes cumulative stack size
+ptxas info    : Compile time = 129.357 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi64ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi64ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 246 registers, used 0 barriers
+ptxas info    : Compile time = 42.788 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi64ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi64ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 246 registers, used 0 barriers
+ptxas info    : Compile time = 41.826 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi64ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi64ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 246 registers, used 0 barriers
+ptxas info    : Compile time = 41.657 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi64ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi64ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 246 registers, used 0 barriers
+ptxas info    : Compile time = 41.964 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi64ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi64ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 246 registers, used 0 barriers
+ptxas info    : Compile time = 41.720 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi64ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi64ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 246 registers, used 0 barriers
+ptxas info    : Compile time = 41.718 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi64ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi64ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 246 registers, used 0 barriers
+ptxas info    : Compile time = 41.828 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi64ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi64ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 246 registers, used 0 barriers
+ptxas info    : Compile time = 41.849 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 102 registers, used 0 barriers
+ptxas info    : Compile time = 19.066 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 102 registers, used 0 barriers
+ptxas info    : Compile time = 19.194 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 0 barriers
+ptxas info    : Compile time = 19.092 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 0 barriers
+ptxas info    : Compile time = 19.079 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 0 barriers
+ptxas info    : Compile time = 18.977 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 0 barriers
+ptxas info    : Compile time = 19.074 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 0 barriers
+ptxas info    : Compile time = 17.228 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi32ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi32ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 0 barriers
+ptxas info    : Compile time = 17.294 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi24ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi24ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 0 barriers
+ptxas info    : Compile time = 15.594 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi24ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi24ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 0 barriers
+ptxas info    : Compile time = 15.644 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi24ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi24ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 0 barriers
+ptxas info    : Compile time = 15.669 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi24ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi24ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 0 barriers
+ptxas info    : Compile time = 15.682 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi24ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi24ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 0 barriers
+ptxas info    : Compile time = 15.668 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi24ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi24ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 0 barriers
+ptxas info    : Compile time = 15.729 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi24ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi24ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 0 barriers
+ptxas info    : Compile time = 14.430 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi24ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi24ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 0 barriers
+ptxas info    : Compile time = 14.466 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 58 registers, used 0 barriers
+ptxas info    : Compile time = 11.650 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 58 registers, used 0 barriers
+ptxas info    : Compile time = 11.670 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 56 registers, used 0 barriers
+ptxas info    : Compile time = 11.804 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 56 registers, used 0 barriers
+ptxas info    : Compile time = 11.816 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 56 registers, used 0 barriers
+ptxas info    : Compile time = 11.787 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 56 registers, used 0 barriers
+ptxas info    : Compile time = 11.785 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 63 registers, used 0 barriers
+ptxas info    : Compile time = 11.775 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi16ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi16ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 63 registers, used 0 barriers
+ptxas info    : Compile time = 11.949 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi12ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi12ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 0 barriers
+ptxas info    : Compile time = 10.447 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi12ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi12ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 0 barriers
+ptxas info    : Compile time = 10.475 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi12ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi12ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 0 barriers
+ptxas info    : Compile time = 10.504 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi12ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi12ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 0 barriers
+ptxas info    : Compile time = 10.548 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi12ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi12ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 0 barriers
+ptxas info    : Compile time = 10.725 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi12ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi12ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 48 registers, used 0 barriers
+ptxas info    : Compile time = 10.577 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi12ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi12ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 60 registers, used 0 barriers
+ptxas info    : Compile time = 10.237 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi12ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi12ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 60 registers, used 0 barriers
+ptxas info    : Compile time = 10.301 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 34 registers, used 0 barriers
+ptxas info    : Compile time = 9.406 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 34 registers, used 0 barriers
+ptxas info    : Compile time = 9.450 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 34 registers, used 0 barriers
+ptxas info    : Compile time = 9.397 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 34 registers, used 0 barriers
+ptxas info    : Compile time = 10.081 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 34 registers, used 0 barriers
+ptxas info    : Compile time = 9.398 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 34 registers, used 0 barriers
+ptxas info    : Compile time = 9.444 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 45 registers, used 0 barriers
+ptxas info    : Compile time = 9.039 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi8ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi8ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 45 registers, used 0 barriers
+ptxas info    : Compile time = 9.078 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi8ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 30 registers, used 0 barriers
+ptxas info    : Compile time = 7.993 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi8ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 30 registers, used 0 barriers
+ptxas info    : Compile time = 8.046 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi4ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 30 registers, used 0 barriers
+ptxas info    : Compile time = 8.037 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi4ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 30 registers, used 0 barriers
+ptxas info    : Compile time = 8.065 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi2ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 30 registers, used 0 barriers
+ptxas info    : Compile time = 8.007 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi2ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 30 registers, used 0 barriers
+ptxas info    : Compile time = 8.051 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi1ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 29 registers, used 0 barriers
+ptxas info    : Compile time = 8.030 ms
+ptxas info    : Compiling entry function '_Z14combine_kernelILi4ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii' for 'sm_90a'
+ptxas info    : Function properties for _Z14combine_kernelILi4ELi1ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiii
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 29 registers, used 0 barriers
+ptxas info    : Compile time = 8.068 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_merge_exp.so
+BASE decode 1 sliding 6.112000439316034
+CHECK decode 1 sliding 1 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "layer": "sliding", "warps": 1, "us": 4.70399996265769}
+CHECK decode 1 sliding 2 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "layer": "sliding", "warps": 2, "us": 4.736000206321478}
+CHECK decode 1 sliding 4 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "layer": "sliding", "warps": 4, "us": 4.768000449985266}
+CHECK decode 1 sliding 8 True relative L2 error 7.009e-02 (worst row 7.009e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "layer": "sliding", "warps": 8, "us": 4.640000406652689}
+BASE decode 1 full 17.392000649124384
+CHECK decode 1 full 1 True relative L2 error 3.359e-02 (worst row 3.359e-02) [bound 0.099: 2.5 x the reference's 0.034 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "layer": "full", "warps": 1, "us": 17.74399960413575}
+CHECK decode 1 full 2 True relative L2 error 3.359e-02 (worst row 3.359e-02) [bound 0.099: 2.5 x the reference's 0.034 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "layer": "full", "warps": 2, "us": 17.920000944286585}
+CHECK decode 1 full 4 True relative L2 error 3.359e-02 (worst row 3.359e-02) [bound 0.099: 2.5 x the reference's 0.034 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "layer": "full", "warps": 4, "us": 18.176000099629164}
+CHECK decode 1 full 8 True relative L2 error 3.359e-02 (worst row 3.359e-02) [bound 0.099: 2.5 x the reference's 0.034 with FP8 E4M3 queries + 0.015]
+{"load": "decode 1", "layer": "full", "warps": 8, "us": 17.519999761134386}
+BASE decode 16 sliding 11.871999595314264
+CHECK decode 16 sliding 1 True relative L2 error 6.875e-02 (worst row 8.743e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "layer": "sliding", "warps": 1, "us": 11.248000431805849}
+CHECK decode 16 sliding 2 True relative L2 error 6.875e-02 (worst row 8.743e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "layer": "sliding", "warps": 2, "us": 11.183999944478273}
+CHECK decode 16 sliding 4 True relative L2 error 6.875e-02 (worst row 8.743e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "layer": "sliding", "warps": 4, "us": 11.16799982264638}
+CHECK decode 16 sliding 8 True relative L2 error 6.875e-02 (worst row 8.743e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "layer": "sliding", "warps": 8, "us": 11.040000710636377}
+BASE decode 16 full 131.0560000129044
+CHECK decode 16 full 1 True relative L2 error 4.298e-02 (worst row 5.015e-02) [bound 0.122: 2.5 x the reference's 0.043 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "layer": "full", "warps": 1, "us": 130.20799728110433}
+CHECK decode 16 full 2 True relative L2 error 4.298e-02 (worst row 5.015e-02) [bound 0.122: 2.5 x the reference's 0.043 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "layer": "full", "warps": 2, "us": 129.9840030260384}
+CHECK decode 16 full 4 True relative L2 error 4.298e-02 (worst row 5.015e-02) [bound 0.122: 2.5 x the reference's 0.043 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "layer": "full", "warps": 4, "us": 129.67999698594213}
+CHECK decode 16 full 8 True relative L2 error 4.298e-02 (worst row 5.015e-02) [bound 0.122: 2.5 x the reference's 0.043 with FP8 E4M3 queries + 0.015]
+{"load": "decode 16", "layer": "full", "warps": 8, "us": 129.83999820426106}
+BASE decode 32 sliding 17.791999969631433
+CHECK decode 32 sliding 1 True relative L2 error 6.877e-02 (worst row 9.561e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "layer": "sliding", "warps": 1, "us": 16.8159999884665}
+CHECK decode 32 sliding 2 True relative L2 error 6.877e-02 (worst row 9.561e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "layer": "sliding", "warps": 2, "us": 16.480000223964453}
+CHECK decode 32 sliding 4 True relative L2 error 6.877e-02 (worst row 9.561e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "layer": "sliding", "warps": 4, "us": 16.640000510960817}
+CHECK decode 32 sliding 8 True relative L2 error 6.877e-02 (worst row 9.561e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "layer": "sliding", "warps": 8, "us": 16.41600066795945}
+BASE decode 32 full 245.00800343230367
+CHECK decode 32 full 1 True relative L2 error 4.012e-02 (worst row 6.303e-02) [bound 0.115: 2.5 x the reference's 0.040 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "layer": "full", "warps": 1, "us": 244.46399929001927}
+CHECK decode 32 full 2 True relative L2 error 4.012e-02 (worst row 6.303e-02) [bound 0.115: 2.5 x the reference's 0.040 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "layer": "full", "warps": 2, "us": 244.22400118783116}
+CHECK decode 32 full 4 True relative L2 error 4.012e-02 (worst row 6.303e-02) [bound 0.115: 2.5 x the reference's 0.040 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "layer": "full", "warps": 4, "us": 244.07999636605382}
+CHECK decode 32 full 8 True relative L2 error 4.012e-02 (worst row 6.303e-02) [bound 0.115: 2.5 x the reference's 0.040 with FP8 E4M3 queries + 0.015]
+{"load": "decode 32", "layer": "full", "warps": 8, "us": 243.20000084117055}
+BASE verify 1 sliding 7.487999740988016
+CHECK verify 1 sliding 1 True relative L2 error 6.440e-02 (worst row 7.648e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "layer": "sliding", "warps": 1, "us": 5.95200015231967}
+CHECK verify 1 sliding 2 True relative L2 error 6.440e-02 (worst row 7.648e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "layer": "sliding", "warps": 2, "us": 5.95200015231967}
+CHECK verify 1 sliding 4 True relative L2 error 6.440e-02 (worst row 7.648e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "layer": "sliding", "warps": 4, "us": 5.919999908655882}
+CHECK verify 1 sliding 8 True relative L2 error 6.440e-02 (worst row 7.648e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "layer": "sliding", "warps": 8, "us": 6.175999995321035}
+BASE verify 1 full 18.975999671965837
+CHECK verify 1 full 1 True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "layer": "full", "warps": 1, "us": 18.895999994128942}
+CHECK verify 1 full 2 True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "layer": "full", "warps": 2, "us": 19.120000768452883}
+CHECK verify 1 full 4 True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "layer": "full", "warps": 4, "us": 19.120000768452883}
+CHECK verify 1 full 8 True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "layer": "full", "warps": 8, "us": 18.959999550133944}
+BASE verify 16 sliding 14.335999730974436
+CHECK verify 16 sliding 1 True relative L2 error 6.662e-02 (worst row 1.002e-01) [bound 0.150: 2.5 x the reference's 0.067 with FP8 E4M3 queries + 0.015]
+{"load": "verify 16", "layer": "sliding", "warps": 1, "us": 14.783999416977167}
+CHECK verify 16 sliding 2 True relative L2 error 6.662e-02 (worst row 1.002e-01) [bound 0.150: 2.5 x the reference's 0.067 with FP8 E4M3 queries + 0.015]
+{"load": "verify 16", "layer": "sliding", "warps": 2, "us": 14.144000131636858}
+CHECK verify 16 sliding 4 True relative L2 error 6.662e-02 (worst row 1.002e-01) [bound 0.150: 2.5 x the reference's 0.067 with FP8 E4M3 queries + 0.015]
+{"load": "verify 16", "layer": "sliding", "warps": 4, "us": 13.823999557644129}
+CHECK verify 16 sliding 8 True relative L2 error 6.662e-02 (worst row 1.002e-01) [bound 0.150: 2.5 x the reference's 0.067 with FP8 E4M3 queries + 0.015]
+{"load": "verify 16", "layer": "sliding", "warps": 8, "us": 13.823999557644129}
+BASE verify 16 full 156.2559944577515
+CHECK verify 16 full 1 True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+{"load": "verify 16", "layer": "full", "warps": 1, "us": 155.7600018568337}
+CHECK verify 16 full 2 True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+{"load": "verify 16", "layer": "full", "warps": 2, "us": 155.66400112584233}
+CHECK verify 16 full 4 True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+{"load": "verify 16", "layer": "full", "warps": 4, "us": 155.519996304065}
+CHECK verify 16 full 8 True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8 E4M3 queries + 0.015]
+{"load": "verify 16", "layer": "full", "warps": 8, "us": 155.68000497296453}
+BASE verify 32 sliding 22.639999631792307
+CHECK verify 32 sliding 1 True relative L2 error 6.695e-02 (worst row 1.010e-01) [bound 0.150: 2.5 x the reference's 0.067 with FP8 E4M3 queries + 0.015]
+{"load": "verify 32", "layer": "sliding", "warps": 1, "us": 24.960000533610582}
+CHECK verify 32 sliding 2 True relative L2 error 6.695e-02 (worst row 1.010e-01) [bound 0.150: 2.5 x the reference's 0.067 with FP8 E4M3 queries + 0.015]
+{"load": "verify 32", "layer": "sliding", "warps": 2, "us": 24.176000151783228}
+CHECK verify 32 sliding 4 True relative L2 error 6.695e-02 (worst row 1.010e-01) [bound 0.150: 2.5 x the reference's 0.067 with FP8 E4M3 queries + 0.015]
+{"load": "verify 32", "layer": "sliding", "warps": 4, "us": 23.391999769955873}
+CHECK verify 32 sliding 8 True relative L2 error 6.695e-02 (worst row 1.010e-01) [bound 0.150: 2.5 x the reference's 0.067 with FP8 E4M3 queries + 0.015]
+{"load": "verify 32", "layer": "sliding", "warps": 8, "us": 23.21600029245019}
+BASE verify 32 full 303.98399801924825
+CHECK verify 32 full 1 True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+{"load": "verify 32", "layer": "full", "warps": 1, "us": 302.94398637488484}
+CHECK verify 32 full 2 True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+{"load": "verify 32", "layer": "full", "warps": 2, "us": 301.59999104216695}
+CHECK verify 32 full 4 True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+{"load": "verify 32", "layer": "full", "warps": 4, "us": 301.05600925162435}
+CHECK verify 32 full 8 True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8 E4M3 queries + 0.015]
+{"load": "verify 32", "layer": "full", "warps": 8, "us": 300.73600681498647}

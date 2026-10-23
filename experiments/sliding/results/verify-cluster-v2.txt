@@ -1,0 +1,90 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/2] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_sliding_verify -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/sliding/.build_verify/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 43020 bytes smem
+ptxas info    : Compile time = 58.872 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 43020 bytes smem
+ptxas info    : Compile time = 53.357 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 43020 bytes smem
+ptxas info    : Compile time = 51.531 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 43020 bytes smem
+ptxas info    : Compile time = 50.735 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 43020 bytes smem
+ptxas info    : Compile time = 54.124 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 43020 bytes smem
+ptxas info    : Compile time = 52.094 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 43020 bytes smem
+ptxas info    : Compile time = 50.017 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 43020 bytes smem
+ptxas info    : Compile time = 48.865 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 37896 bytes smem
+ptxas info    : Compile time = 53.660 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 37896 bytes smem
+ptxas info    : Compile time = 51.468 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 37896 bytes smem
+ptxas info    : Compile time = 50.578 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 37896 bytes smem
+ptxas info    : Compile time = 49.460 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1ELi8EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 37896 bytes smem
+ptxas info    : Compile time = 52.870 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1ELi4EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 37896 bytes smem
+ptxas info    : Compile time = 50.773 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 37896 bytes smem
+ptxas info    : Compile time = 49.828 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 2 barriers, 37896 bytes smem
+ptxas info    : Compile time = 48.785 ms
+[2/2] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_sliding_verify.so
+BASE verify 1 7.263999432325363
+CHECK verify 1 1 2 True relative L2 error 6.439e-02 (worst row 7.645e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "splits": 1, "stages": 2, "us": 109.31200068444014}
+CHECK verify 1 1 3 True relative L2 error 6.439e-02 (worst row 7.645e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+{"load": "verify 1", "splits": 1, "stages": 3, "us": 72.03199993818998}
+CHECK verify 1 2 2 False output contains NaN or Inf [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
