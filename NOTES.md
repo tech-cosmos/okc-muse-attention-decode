@@ -46,7 +46,7 @@ Triton 3.8's CPU interpreter computes bf16 dots on raw bits and rounds fp32->e4m
 
 ### Budget
 
-UTC day 2026-10-23: 1 check used (6ffea83d), 0 submissions.
+UTC day 2026-10-23: 3 checks and 2 scored runs used (17 checks, 8 runs left at 11:00 UTC).
 
 ## 2026-10-23 night (interactive session, continued alone on the H100)
 
@@ -58,6 +58,7 @@ UTC day 2026-10-23: 1 check used (6ffea83d), 0 submissions.
 | 8e51de3d | c0b75f0 (tuned plan, bf16) | **1.328x** (1.308-1.353) | 16/16; sliding 1.3-2.5x, verify-16/32 full 0.77-0.80x |
 | 7037681c | e97cf37 (FP8 QK, FP16 PV, peel) | **1.652x** (1.627-1.677) | 16/16; H100 said 1.52x (H200 bandwidth helps full layers) |
 | 0ae03dbe | 957e662 (scored run) | **1.807x** (1.780-1.834) | 16/16; verify 16/32 full 1.10x/1.25x, all else 1.44-2.43x |
+| a9bf56a8 | e0378de (scored run) | **1.849x** (1.822-1.885) | 16/16; rank 18; sliding 1.49-2.86x, verify 16/32 full 1.09x/1.25x |
 
 The H100 bench predicted 1.31x for c0b75f0, so it tracks the judge within a few %.
 
