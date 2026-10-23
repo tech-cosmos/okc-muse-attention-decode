@@ -2,6 +2,7 @@ import sys, time, torch
 sys.path.insert(0, "/work")
 import reference, submission, triton.language as tl
 submission.DOT_DTYPE = tl.float32
+submission.USE_PDL = False
 _plan0 = submission._plan  # nor FP8 dots: run QK^T in the DOT dtype
 submission._plan = lambda *a: {**_plan0(*a), "qk8": False}
 reference.CACHE_TOL = 0.15  # the interpreter rounds fp32->e4m3 wrongly; the GPU judge checks 8%

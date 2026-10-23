@@ -15,6 +15,7 @@ from typing import TypedDict
 import torch
 import triton
 import triton.language as tl
+from triton.language.extra.cuda import gdc_launch_dependents, gdc_wait
 
 
 class Config(TypedDict):
@@ -60,6 +61,8 @@ _COUNTERS = {}
 # converts from it in one instruction (BF16 takes two); P in [0, 1] keeps more bits than in BF16.
 # A test hook too: Triton's CPU interpreter can't multiply 16-bit floats.
 DOT_DTYPE = tl.float16
+# Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
+USE_PDL = True
 print(f"env: torch {torch.__version__}, triton {triton.__version__}", flush=True)
 
 
@@ -152,7 +155,8 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 MG: tl.constexpr, M_PAD: tl.constexpr, L_PAD: tl.constexpr, D: tl.constexpr,
                 PAGE: tl.constexpr, MAX_PAGES: tl.constexpr, WINDOW: tl.constexpr, ROPE: tl.constexpr,
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
-                FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr):
+                FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
+                DOT: tl.constexpr):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -160,6 +164,9 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     split = tl.program_id(0)
     b = tl.program_id(1)
     hp0 = tl.program_id(2) * HPP
+    if PDL:
+        # Let the merge kernel launch now; it waits on-device for this grid to finish.
+        gdc_launch_dependents()
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
     ROW_W: tl.constexpr = HKV * D
     C: tl.constexpr = HPP * D
@@ -278,13 +285,17 @@ def _norm_gate_store(o, qkv_ptr, out_ptr, tok, head, c, ok, HQ: tl.constexpr, HK
 @triton.jit
 def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
              HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
-             D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr):
+             D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, PDL: tl.constexpr):
     tok = tl.program_id(0)
     head = tl.program_id(1)
     b = tok // L
     h = head // G
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
     d = tl.arange(0, D)
+    gate = tl.load(qkv_ptr + tok * QKV_W + (HQ + 2 * HKV) * D + head * D + d).to(tl.float32)
+    if PDL:
+        # Launched early (programmatic dependent launch): wait here for _attn_split's partials.
+        gdc_wait()
     # This head's row in each split's partial: [S] maxima and sums, [S, D] accumulators.
     row = (b * HKV + h) * S * M + (tok % L) * G + head % G
     s = tl.arange(0, S_PAD)
@@ -301,7 +312,6 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
         acc += tl.sum(w[:, None] * a, 0)
     o = acc / denom * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
-    gate = tl.load(qkv_ptr + tok * QKV_W + (HQ + 2 * HKV) * D + head * D + d).to(tl.float32)
     tl.store(out_ptr + tok * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
 
 
@@ -365,12 +375,13 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], DOT=DOT_DTYPE, num_warps=plan["warps"])
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, num_warps=plan["warps"])
     if fuse:
         return out
     _combine[(batch * length, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=splits, S_PAD=triton.next_power_of_2(splits),
         # Up to 128 splits in one pass, so every partial's load is in flight at once.
-        SB=min(128, triton.next_power_of_2(splits)), num_warps=4 if splits > 32 else 2)
+        SB=min(128, triton.next_power_of_2(splits)), PDL=USE_PDL, num_warps=4 if splits > 32 else 2,
+        launch_pdl=USE_PDL)
     return out
