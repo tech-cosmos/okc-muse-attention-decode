@@ -56,7 +56,8 @@ UTC day 2026-10-23: 1 check used (6ffea83d), 0 submissions.
 |---|---|---|---|
 | 6ffea83d | first kernel | 0.871x | 16/16; full layers 0.57-0.79x |
 | 8e51de3d | c0b75f0 (tuned plan, bf16) | **1.328x** (1.308-1.353) | 16/16; sliding 1.3-2.5x, verify-16/32 full 0.77-0.80x |
-| (queued) | e97cf37 (FP8 QK, FP16 PV, peel) | | H100 bench says 1.52x |
+| 7037681c | e97cf37 (FP8 QK, FP16 PV, peel) | **1.652x** (1.627-1.677) | 16/16; H100 said 1.52x (H200 bandwidth helps full layers) |
+| 0ae03dbe | 957e662 (scored run) | queued | H100 says 1.63x |
 
 The H100 bench predicted 1.31x for c0b75f0, so it tracks the judge within a few %.
 
@@ -85,3 +86,21 @@ same bytes in 251 us). Deeper pipelines help: 5 stages, 32-key tiles -> 188 us. 
    so more programs fit per SM; or prefetch the next tile's page indices one iteration early.
 2. Decode full is ~6% above the random-gather ceiling on H100 (251 vs 236 us): little left there.
 3. Sliding layers (weight 46): mostly launch + latency; check one-launch paths again at batch 32.
+
+### Later the same night (H100 bench geomean vs SGLang's H200 times)
+
+1.52x -> 1.56x deeper pipelines for verify (5-6 stages) -> 1.60x deeper pipelines for decode
+(16-key tiles, 5-6 stages; 128-key tiles for batch 1) -> 1.63x one-pass merge over up to 128 splits
+-> 1.68x programmatic dependent launch of the merge kernel (sliding layers 7-17% faster).
+Then smoothed the plan between scored batches (no change on scored shapes; see nearby scan).
+
+Dead ends: splitting a KV head's 8 query heads over 2 programs (duplicate K/V reads go to HBM, 2x
+slower); 128-key tiles or 8 warps for verify full (10-15% slower); warp specialization.
+
+Nearby-shape scan (batch 1-64, ctx 40K-120K, both layers, q_len 1/8): all correct, no cliffs after
+the smoothing commit. Script: tools/nearby.py.
+
+H200 per-shape (check 7037681c, e97cf37): verify 16 full 1.10x and verify 32 full ~1.04x are the
+weak spots; everything else 1.39-2.50x. Verify full is a local optimum for this Triton design (it
+is occupancy/latency-bound, see the ablation); the next step there is probably a hand-written
+kernel with explicit producer/consumer warps (CuTe DSL or CUDA via load_inline).
