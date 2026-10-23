@@ -409,3 +409,19 @@ leaving 12 checks / 5 scored. No withdrawals; no experimental code was submitted
 5. Retain fresh routing/length graph tests and sanitizer checks whenever changing
    asynchronous synchronization. For experiments use the GPU lock for profiling
    and correctness stress runs as well as every timed replay.
+
+
+## Session 4 — 2026-10-23, 22:07 UTC onward (in progress)
+
+Candidate **fddd5c1**, branch `codex-exp/cuda-reduce`: eight-warp hierarchical
+native FP32 reduction for full layers with B*Hkv<=4 and 64<S<=128. Main 651b421
+merged; its one-pass sliding merge beat the old native sliding path by about
+0.3–0.4 us, so the old native sliding code/dispatch was removed. Final local
+suite 16/16; full bench 1.882x versus fixed SGLang/H200 times. Broader native
+hierarchies, tiled reductions, cluster/DSM reductions and specialized indexing
+were investigated; only the small full-batch hierarchy is retained.
+
+Check **40e1aa41415a4c87**, code fddd5c1, requested about 22:19 UTC: pending.
+Codex UTC-day usage is now **2/8 checks, 1/3 scored runs**. Do not submit unless
+this exact code's check beats the account's board best at submission time.
+The preceding account read showed 9/20 checks, 5/10 scored (before our new check).
