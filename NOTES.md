@@ -474,7 +474,7 @@ main unchanged (65ff1ab code). Board at 23:55: #1 pjmullin3 2.726x, us #21 at 2.
 This session: 0 checks, 0 scored runs. UTC day 2026-10-23 for Claude: 6/8 checks, 3/3 scored. The day
 resets at 00:00 UTC; 2026-10-24 starts with Claude 0/8 checks, 0/3 scored.
 
-## Session 7 (overnight agent, 2026-10-23 23:42-~00:05 UTC)
+## Session 7 (overnight agent, 2026-10-23 23:38-23:50 UTC)
 
 Baseline reproduced: H100 bench 1.876x (verify 16/32 full 155.6/306.7, decode 1 sliding 5.02 us). No change
 kept; main unchanged (65ff1ab code). 0 checks, 0 scored runs.
