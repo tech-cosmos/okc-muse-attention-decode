@@ -803,3 +803,9 @@ Status/board/budget snapshots are in `profiles/session6-*.json`.
 
 Neither STOP file existed at the final work read. Notes, older passing profile,
 and experiment results are pushed separately; the cycle ends on `codex`.
+
+Final read **22:54 UTC**: current-source check **01bc4ecc9c7047d9** remains queued;
+no result to score. Production SHA256 reconfirmed unchanged, no STOP files, clean
+worktree before this handoff append. Experiment branch pushed through **3678a78**,
+production notes/profiles through **3e24ba0**. Shared claim removed and results
+posted to COORD.md. No new judge job or budget use.
