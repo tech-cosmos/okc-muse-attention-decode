@@ -120,3 +120,39 @@ env: torch 2.14.1+cu130, triton 3.8.0
      442.74 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 32, 'hpp': 1, 'fuse': False, 'qk8': True}
      456.22 us  {'block_n': 128, 'warps': 4, 'stages': 3, 'splits': 16, 'hpp': 1, 'fuse': False, 'qk8': True}
      468.08 us  {'block_n': 128, 'warps': 4, 'stages': 2, 'splits': 16, 'hpp': 1, 'fuse': False, 'qk8': True}
+env: torch 2.14.1+cu130, triton 3.8.0
+== verify 16 full
+     188.67 us  {'block_n': 32, 'warps': 4, 'stages': 5, 'splits': 16}
+     188.74 us  {'block_n': 32, 'warps': 4, 'stages': 6, 'splits': 16}
+     189.30 us  {'block_n': 32, 'warps': 4, 'stages': 8, 'splits': 16}
+     191.86 us  {'block_n': 64, 'warps': 4, 'stages': 6, 'splits': 16}
+     192.06 us  {'block_n': 64, 'warps': 4, 'stages': 5, 'splits': 16}
+     198.99 us  {'block_n': 64, 'warps': 4, 'stages': 8, 'splits': 16}
+== verify 32 full
+     382.69 us  {'block_n': 64, 'warps': 4, 'stages': 6, 'splits': 16}
+     382.96 us  {'block_n': 64, 'warps': 4, 'stages': 5, 'splits': 16}
+     386.58 us  {'block_n': 32, 'warps': 4, 'stages': 8, 'splits': 16}
+     389.66 us  {'block_n': 32, 'warps': 4, 'stages': 5, 'splits': 16}
+     390.45 us  {'block_n': 32, 'warps': 4, 'stages': 6, 'splits': 16}
+     392.34 us  {'block_n': 64, 'warps': 4, 'stages': 8, 'splits': 16}
+== verify 1 full
+      22.11 us  {'block_n': 128, 'warps': 4, 'stages': 6, 'splits': 128}
+      22.19 us  {'block_n': 128, 'warps': 4, 'stages': 5, 'splits': 128}
+      23.06 us  {'block_n': 64, 'warps': 4, 'stages': 6, 'splits': 128}
+      23.14 us  {'block_n': 64, 'warps': 4, 'stages': 5, 'splits': 128}
+      23.76 us  {'block_n': 128, 'warps': 4, 'stages': 6, 'splits': 64}
+      23.78 us  {'block_n': 128, 'warps': 4, 'stages': 5, 'splits': 64}
+== verify 16 sliding
+      15.23 us  {'block_n': 64, 'warps': 4, 'stages': 5, 'splits': 8}
+      15.84 us  {'block_n': 32, 'warps': 4, 'stages': 5, 'splits': 8}
+      16.64 us  {'block_n': 64, 'warps': 4, 'stages': 3, 'splits': 8}
+      16.70 us  {'block_n': 32, 'warps': 4, 'stages': 5, 'splits': 16}
+      16.88 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 16}
+      17.28 us  {'block_n': 64, 'warps': 4, 'stages': 4, 'splits': 8}
+== verify 32 sliding
+      24.34 us  {'block_n': 32, 'warps': 4, 'stages': 5, 'splits': 8}
+      25.98 us  {'block_n': 64, 'warps': 4, 'stages': 2, 'splits': 8}
+      27.39 us  {'block_n': 32, 'warps': 4, 'stages': 3, 'splits': 8}
+      27.89 us  {'block_n': 32, 'warps': 4, 'stages': 4, 'splits': 8}
+      28.22 us  {'block_n': 32, 'warps': 2, 'stages': 5, 'splits': 8}
+      28.27 us  {'block_n': 16, 'warps': 4, 'stages': 5, 'splits': 8}
