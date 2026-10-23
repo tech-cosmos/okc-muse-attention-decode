@@ -115,3 +115,59 @@ loads drag the geomean the most. Sliding layers (weight 46) are also worth re-ex
 launch/latency-bound, so shaving 1-2 us each there pays 46x.
 
 Overnight agent: Daytona sandbox `okc-night` (H100, TTL 24h), started by tools/night.sh.
+
+## Session 1 (overnight agent, 2026-10-23 19:10-~20:30 UTC)
+
+Focus: verify full layers (verify 16/32 full were 1.09x/1.25x on the H200 and dragged their loads).
+
+### Diagnosis (ncu on H100, verify 16 full, old kernel)
+
+- 512 programs x 4 warps, 99 regs -> 4 programs/SM (register-limited), one wave; 16 warps/SM.
+- Issue-active 62%, ~290 warp-instructions per 32-key tile; stalls spread over barrier/wait/
+  long+short scoreboard. Not DRAM-bound (46% DRAM throughput). With L=8 every tile took the
+  masked path (load masks + score masks).
+- More pipeline stages (8-20) don't help; `maxnreg` 64-80 spills and is 2x slower.
+- ncu works here: `/usr/local/cuda-13.0/bin/ncu` (scripts used: /tmp only; one-shot runner
+  pattern = generate data via tools/bench.data_for, call kernel_fn 3x, `--launch-skip 2`).
+
+### Changes (all on main, H100 bench geomean vs SGLang-on-H200)
+
+1. 1.671 -> 1.699: scale folded into row max + `tl.fma` in exp2 (no per-score FMUL); tail tiles
+   clamp the gather index to hi-1 instead of masking loads (only scores are masked).
+2. -> 1.736: peel the masked tail for verify full too (now cheap: no load masks), 512 programs.
+   (verify 32 full 379 -> 347 on H100, BUT on the H200 it went 311 -> 327: see check b42151ed.)
+3. -> 1.731 (noise): verify sliding at batch 32: FP8 QK + peel (23.2 -> 22.3 us); full-verify
+   splits floor 4 (batch 48/64 nearby shapes fill one wave).
+4. -> 1.798: `dual`: a verify program runs BOTH KV heads as two independent 64-row softmax chains
+   (two `_tile` calls per iteration; epilogue moved into `_finish`). 154 regs -> 3 programs/SM, but
+   the two chains give ILP. Plus `balance`: each request's context is split into S equal
+   tile-aligned chunks computed on device from its own seq_len (chunk = cdiv(cdiv(seq-base,S),N)*N),
+   so programs = S*B*Hkv/2 all do equal work; S = 3*SMs // (B*Hkv/2) = exactly one wave
+   (24 splits at batch 16, 12 at batch 32). verify 16/32 full: 179/347 -> 160/304 us on H100.
+   Without balance the best split count (26) depended on the data's seq lens (empty trailing
+   splits); with balance it's robust. Dual/balance lose on every other shape (tried decode full,
+   verify 1 full, all sliding) so they're only on for verify full with B*Hkv > 4.
+   Nearby scan (tools/nearby.py): all PASS, verify full now 116-129 ps/key from batch 8 to 64
+   (was 135-166), no cliffs.
+
+### Judge runs this session
+
+| job | commit | speedup (95% CI) | notes |
+|---|---|---|---|
+| b42151ed (check) | change 3 | **1.872x** (1.844-1.900) | 16/16; verify 16/32 full 1.19x/1.19x |
+| 39d24ebc (check) | dcc2be4 (change 4, dual) | **1.898x** (1.870-1.927) | 16/16; verify 16/32 full 1.28x/1.29x (160/304 us) |
+
+H100 tracked the H200 closely for verify full under the dual design (160/304 on both). Sliding
+layers and decode are unchanged and noisy at +-0.5 us between runs.
+
+### Next ideas
+
+1. Verify full is still ~2.5x the decode time for the same bytes (160 vs 101 us on the H200). Still
+   issue/latency-bound. Ideas: cut per-tile instructions further (CS2R zeroing of the QK
+   accumulator, V fp8->fp16 conversion going through smem with LDS/STS + fences each tile, 32 FMULs
+   to rescale acc: try lazy rescaling only when the max grows by > 8 in log2 units, which needs a
+   block-uniform branch); 3 chains per program (Hkv is only 2, so split keys within a program instead:
+   two key-halves of the same head as independent chains, merged at the end).
+2. Get dual under 128 regs -> 4 programs/SM (now 154 regs, 3/SM). Try stages 3-4 with BLOCK_N 64.
+3. Verify sliding batch 32 (1.65x) and decode full (~2.0x) are the next weakest after verify full.
+4. A dual chain for decode full (HPP=2 already reads full rows there; try 2 key-halves per program).
