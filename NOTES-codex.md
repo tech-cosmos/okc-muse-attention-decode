@@ -936,3 +936,11 @@ scored**, leaving 8/4. Last board read still **1.945619x**, rank **33**, job
 
 Neither STOP file existed at the last read. Local work is complete; final judge
 status and commit/coordination handoff follow below if they change while wrapping up.
+
+Final **23:06 UTC** read: **01bc4ecc9c7047d9 is still running**, so no new scored
+run is justified yet. Account best remains **1.945619x**, now rank **34**; shared
+usage remains **12 checks / 6 scored**, Codex **3 checks / 1 scored**. Main remains
+65ff1ab and production SHA256 is unchanged. No STOP files, all local subprocesses
+finished. Experiment branch is pushed at **f2e241e**, production notes/profiles at
+**474b7c4** plus this final snapshot. Shared claim removed and result posted to
+COORD.md. Next cycle starts by resolving the running check, without resubmitting.
