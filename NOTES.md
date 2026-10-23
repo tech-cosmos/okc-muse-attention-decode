@@ -420,3 +420,56 @@ H200 weak spots now: verify 16/32 full 1.33x/1.28x, verify 32 sliding 1.83x; eve
 
 Claude today: 6 of 8 checks (b42151ed, 39d24ebc, 1985ba31, 944b20a9, 55427759, 254b1d40), 3 of 3 scored
 (740bc5e9, 7d433848, this session's). Account before this session's submit: 12/20 checks, 5/10 scored.
+
+## Session 6 (overnight agent, 2026-10-23 23:19-~23:58 UTC)
+
+Baseline reproduced: H100 bench 1.893x (decode 1 sliding 4.90, verify 1 sliding 5.87 us). No change kept;
+main unchanged (65ff1ab code). Board at 23:55: #1 pjmullin3 2.726x, us #21 at 2.021x (#20 2.036x).
+
+### Measured (scripts in profiles/session6/)
+
+- One dependent HBM round trip (cold L2, pointer chase under a graph, 64 programs) = ~0.45 us; an empty
+  launch is ~0 after the empty-replay subtraction (trips.py).
+- ncu per-instruction stall sampling works and is the right tool for the latency-bound shapes:
+  `ncu --kernel-name _attn_split --launch-skip 2 --launch-count 1 --section SourceCounters
+  --warp-sampling-interval 0 --import-source no --page source --csv --print-source sass python one.py
+  "<shape>" '<plan json>'`, then `top.py <csv> 0.012` lists the hot SASS lines with their stall reason.
+- Decode 1 sliding _attn_split (main), share of stall samples: ~10% `imc` on the first ULDC (the kernel's
+  constant bank is a cold DRAM miss after the L2 flush, every kernel pays it, unavoidable), ~6% seq wait,
+  ~2% cos/sin wait, ~11% page-table wait (DEPBAR + barrier), ~15% K/V gather wait. SASS order on main:
+  seq -> q/cos loads -> q math -> split 0's `_new` (its loads and math) -> THEN the loop's page-table
+  LDGSTS. So the page trip does not overlap the cos/sin trip, and in split 0 not `_new`'s trip either.
+- Ablations (attn only, decode 1 sliding, us): all 3.58; no `_new` 3.17; no q RoPE 3.44; no KV loop
+  1.92; fixed seq 3.30. Removing the new-token cache stores alone: no change (so store/load aliasing is
+  not what holds the loop back).
+
+### Tried, didn't help (reverted; diff of the last variant in profiles/session6/first_tile.diff)
+
+- New-token FP8 stores moved after the KV loop (recomputed there): bench 1.893 -> 1.832.
+- Issuing the first tile's page + K/V loads before the q prologue (register loads, then the tile's
+  softmax by hand): decode 1 sliding attn-only 3.42 -> 3.97, worse on every shape. ncu: K/V landing in
+  registers and then staged to smem for the MMA (STS) waits about twice as long as the pipelined
+  cp.async gathers (847 vs 440 samples), and ptxas put the STS stall before the q math anyway.
+- Same, K/V loads after the q math: still worse (3.36 -> 3.68).
+- Only the first tile's page indices loaded early (fed into the cp.async loop through a masked in-loop
+  page load + where): decode 1 3.57 -> 3.52, verify 1 4.53 -> 4.45, decode 16 9.18 -> 9.71. ptxas then
+  ordered the cos/sin load behind the page load. Not worth it. Lesson: in Triton we can't pin the SASS
+  load order; overlapping the page trip with the cos/sin trip would need inline PTX or a hand-written
+  kernel (Codex's lane).
+- Sliding with few wide programs (splits 4-16, block_n 128/256, warps 4/8, stages 1/2): all slower
+  (decode 1 5.4+, verify 1 6.6+, decode 16 11.1+). Stages 1/2 at batch-1 sliding: stages 2 looked
+  0.2 us faster on verify 1 in one A/B, but 7-rep medians were equal (5.66 vs 5.63). Noise.
+
+### Next ideas
+
+1. Batch-1 sliding is a chain of ~5 serial trips (imc, seq, cos, page, KV, plus `_new` in split 0) at
+   ~0.45 us each, plus barriers. The only Triton-level way I see left to cut one is to take the q math
+   off the path before the loop (e.g. compute q inside the first loop iteration, after the pipeline
+   prologue has issued the page/K/V loads). That's untested and fiddly.
+2. Verify full (1.28-1.33x on H200) is still the biggest lever (80%+ of the verify 16/32 loads); see
+   sessions 2-5 for what has been ruled out in Triton.
+
+### Budget used
+
+This session: 0 checks, 0 scored runs. UTC day 2026-10-23 for Claude: 6/8 checks, 3/3 scored. The day
+resets at 00:00 UTC; 2026-10-24 starts with Claude 0/8 checks, 0/3 scored.
