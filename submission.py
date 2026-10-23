@@ -426,6 +426,46 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     tl.store(out_ptr + tok * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
 
 
+@triton.jit
+def _combine_hb(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
+                HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
+                D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, HB: tl.constexpr,
+                PDL: tl.constexpr):
+    """_combine for HB adjacent query heads of one KV head per program: their partial rows are
+    contiguous in every split, so each split's [HB, D] block is one contiguous read. Faster on
+    sliding layers (fewer, fuller programs); full layers keep _combine."""
+    tok = tl.program_id(0)
+    head0 = tl.program_id(1) * HB
+    b = tok // L
+    h = head0 // G
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    d = tl.arange(0, D)
+    hb = tl.arange(0, HB)
+    col = (head0 + hb)[:, None] * D + d[None, :]
+    gate = tl.load(qkv_ptr + tok * QKV_W + (HQ + 2 * HKV) * D + col).to(tl.float32)
+    if PDL:
+        gdc_wait()
+    row = (b * HKV + h) * S * M + (tok % L) * G + head0 % G + hb  # [HB] rows in split 0
+    s = tl.arange(0, S_PAD)
+    at = row[None, :] + (s * M)[:, None]
+    m = tl.load(pml_ptr + at * 2, mask=(s < S)[:, None], other=-1.0e30)
+    l = tl.load(pml_ptr + at * 2 + 1, mask=(s < S)[:, None], other=0.0)
+    m_max = tl.max(m, 0)
+    denom = tl.sum(tl.exp2(m - m_max[None, :]) * l, 0)
+    acc = tl.zeros([HB, D], tl.float32)
+    sb = tl.arange(0, SB)
+    for i in range(0, S, SB):
+        si = i + sb
+        at1 = row[None, :] + (si * M)[:, None]
+        ok = (si < S)[:, None]
+        w = tl.exp2(tl.load(pml_ptr + at1 * 2, mask=ok, other=-1.0e30) - m_max[None, :])
+        a = tl.load(pacc_ptr + at1[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0)
+        acc += tl.sum(w[:, :, None] * a, 0)
+    o = acc / denom[:, None] * tl.load(vs_ptr)
+    o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
+    tl.store(out_ptr + tok * HQ * D + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
+
+
 def _plan(cfg, max_pages, device):
     """Launch parameters from shapes only, tuned on an H100 over the scored shapes: splits per
     (request, KV head group), tile size, warps, pipeline stages, KV heads per program (hpp),
@@ -435,13 +475,14 @@ def _plan(cfg, max_pages, device):
     heads = batch * hkv
     if cfg["window"]:
         # Sliding layers: at most 2,047 cached keys; latency-bound.
+        # The merge takes 2 query heads per one-warp program (hb, cw), 8 splits per pass (sb).
         splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
         if heads <= 32:
             return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
-                        hpp=1, fuse=False, qk8=True)
+                        hpp=1, fuse=False, qk8=True, hb=2, sb=8, cw=1)
         # Large batches: smaller, deeply pipelined programs.
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
-                    qk8=True, peel=length > 1)
+                    qk8=True, peel=length > 1, hb=2, sb=8, cw=1)
     if heads <= (2 if length == 1 else 4):
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
     if length == 1:
@@ -503,6 +544,14 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     if cfg["window"] and splits in (4, 8, 16, 32) and (length == 1 or batch * length * hq <= 2048):
         _NATIVE_MERGE.combine(qkv, pacc, pml, data["v_scale"], out,
                               hq, hkv, length, splits, USE_PDL)
+        return out
+    hb = plan.get("hb", 1) if group % plan.get("hb", 1) == 0 else 1
+    if hb > 1:
+        sb = plan.get("sb", max(1, min(triton.next_power_of_2(splits), 32 // hb)))
+        _combine_hb[(batch * length, hq // hb)](
+            qkv, pacc, pml, data["v_scale"], out,
+            HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=splits, S_PAD=triton.next_power_of_2(splits),
+            SB=sb, HB=hb, PDL=USE_PDL, num_warps=plan.get("cw", 4), launch_pdl=USE_PDL)
         return out
     _combine[(batch * length, hq)](
         qkv, pacc, pml, data["v_scale"], out,
