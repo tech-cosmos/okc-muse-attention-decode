@@ -562,3 +562,108 @@ own usage remains 3 checks/1 scored. Current account best is still 1.9456x,
 now rank 32. Neither STOP file exists. No scored run was authorized by a new
 check result this cycle, so none was attempted. Production is locally validated,
 with H200 confirmation pending; next cycle must resolve that before scoring.
+
+## Session 5 — 2026-10-23, 22:31–22:42 UTC
+
+### Outcome
+
+No new production change or judge jobs. The small cooperative-weight follow-up
+from session 4 did not reproduce its apparent win. Six native reduction variants
+were compared, and all are retained as experiments only. The existing native
+hierarchy still wins against main in a tighter same-process paired comparison.
+This was a short focused follow-up: useful local work finished without a candidate,
+so the cycle does not wait idle for the judge queue.
+
+Experiment branch **codex-exp/cuda-reduce-coop**, source/results **0fb4c69**.
+Start at `experiments/reduce/session5/README.txt`. Session-4 experiment history
+was merged into that branch; the notes conflict retained this branch's newer
+session-4 handoff. Production submission.py is unchanged from **5e2441f**, exactly
+the source of **effc2bf** checked by 01bc4ecc9c7047d9. Its file SHA256 is
+`a66802981a86065ee7647e4b773b9d811db7ac567a76983d544a42fc7a6a59b1`
+(the judge content hash is a different identifier). Main remained **65ff1ab**
+at the last fetch and is already merged. Do not merge the experimental files
+into production imports.
+
+### Measurements and lessons
+
+All measurements are H100 cold-L2 CUDA graph replays with the shared GPU lock,
+empty-replay subtraction, and unchanged Triton attention/plans. The new paired
+runner captures each graph once, rotates/reverses execution order, and records
+100 rounds per case. Each variant also passes the independent reference on the
+six measured scored/nearby cases. Median paired deltas need not equal the
+difference between two independently computed medians.
+
+- **Cooperative final weights:** the old five-pair method gives production ->
+  candidate **17.216 -> 17.296 us** decode B1, **18.304 -> 18.432** verify B1,
+  **38.816 -> 38.992** verify B2. Tighter paired deltas are **+0.144 / +0.240 /
+  +0.208 us**. The earlier isolated ~0.4 us decode gain does not reproduce.
+- **64-bit address/stride calculation; unmasked complete warps:** generally
+  lose ~0.25–0.46 us on the small scored grids. One B2 verify win is insufficient
+  for a new dispatch. No precision or attention arithmetic changes.
+- **Gate sigmoid before PDL wait:** an empty volatile asm consuming the results
+  does not constrain ptxas scheduling enough. SASS still puts all eleven EX2
+  instructions after ACQBULK, none before it. This is not actual early arithmetic.
+- **Gate sigmoid through volatile shared storage:** genuinely moves two EX2 and
+  two STS before ACQBULK; all coherent partial loads remain after the wait. Paired
+  B1 decode/verify changes are only **-0.096 / +0.048 us**. Nearby results vary.
+  No convincing scored-load improvement; not promoted or submitted.
+- Existing production versus inherited main remains a clear local win:
+
+| full shape | main merge | existing native | paired native saving |
+|---|---:|---:|---:|
+| B1, L1, 80K, page1 | 16.928 us | 16.272 us | 0.656 us |
+| B1, L8, 80K, page1 | 18.464 us | 17.808 us | 0.672 us |
+| B2, L8, 80K agentic, page1 | 39.184 us | 38.496 us | 0.672 us |
+| B1, L1, 40K, page64 | 11.264 us | 10.704 us | 0.544 us |
+| B1, L8, 120K, page64 | 24.336 us | 23.840 us | 0.640 us |
+| B2, L1, 1500 agentic, page64 | 6.576 us | 6.224 us | 0.368 us |
+
+Do not infer an aggregate speedup from runs taken at different times. No new
+full production bench is claimed: production code is unchanged and the native
+contribution was isolated in the paired comparison above.
+
+### Validation
+
+The cooperative candidate passed **16/16** independent reference tests and
+**72 fresh-data/routing/length graph replays** across nine native/fallback cases,
+including shortened/empty contexts, pages 1/64 and scales 1 and 1/64. This does
+not mean 72 native-only calls. Other variants have six independent reference
+comparisons each and repeated graph timings, not full-suite/fresh-data/sanitizer
+coverage. No variants were submitted. The unchanged production code retains
+session 4's full validation and sanitizer results.
+
+The first new paired-driver attempt examined capture outputs before replaying
+the graphs, producing NaNs from uninitialized buffers, including the unchanged
+production baseline. The driver now replays every graph before checking its
+outputs. The incomplete log is labeled `paired-harness-incomplete.log`; no
+measurements from that attempt are used. It was a driver error, not a kernel
+correctness failure or a submitted implementation.
+
+### Judge status, budget and next cycle
+
+At **22:40 UTC**, older check **40e1aa41415a4c87** (fddd5c1) was **running**;
+current-source check **01bc4ecc9c7047d9** (effc2bf) was still **queued**. Both were
+read repeatedly, neither was resubmitted, and neither yet had a passing profile.
+Only 01bc4ecc9c7047d9 can qualify the current production source for scoring.
+
+Codex UTC-day 2026-10-23 usage remains **3/8 checks, 1/3 scored**. This cycle:
+**0 checks, 0 scored, no withdrawals**. Shared account at 22:40: **12/20 checks,
+5/10 scored**, leaving 8/5. Best scored result remains **1.945619x**, rank **32**,
+job 033117b46b6f42ba. Refresh the board and limits before taking any judge action.
+
+1. Read both pending jobs and passing profiles. If the latest exact-code check
+   beats the then-current account best, submit that identical production source
+   within the remaining budget. Otherwise retain/reassess its native dispatch
+   using H200 shape evidence; do not score using the older source's check.
+2. Fetch/merge main before any new code. A later source change requires its own
+   combined-code check before scoring.
+3. Close the cooperative-weight follow-up: it is correct but not faster. Avoid
+   further small native merge sweeps absent a new structural mechanism; the
+   remaining tenths of a microsecond are inconsistent and low payoff.
+4. Larger native attention work still needs a concrete reduction in per-tile
+   instruction/dependency cost. The previous gather/producers/TMA designs and
+   small merge variants have now been measured extensively; do not repeat them.
+
+Neither STOP file existed at the last read. Experiment results and production
+notes are pushed separately; the production kernel remains locally validated
+with its H200 confirmation pending.
