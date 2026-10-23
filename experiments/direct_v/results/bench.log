@@ -1,0 +1,125 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_verify_pair3mbar -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/direct_v/.build-pair-mbar/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_pair3mbar -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/direct_v/.build-pair-mbar/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 4 barriers, 52272 bytes smem
+ptxas info    : Compile time = 52.245 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 4 barriers, 72784 bytes smem
+ptxas info    : Compile time = 50.714 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 4 barriers, 62528 bytes smem
+ptxas info    : Compile time = 50.059 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 91 registers, used 4 barriers, 42016 bytes smem
+ptxas info    : Compile time = 50.307 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 4 barriers, 52272 bytes smem
+ptxas info    : Compile time = 56.374 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 4 barriers, 72784 bytes smem
+ptxas info    : Compile time = 58.837 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 4 barriers, 62528 bytes smem
+ptxas info    : Compile time = 56.037 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 94 registers, used 4 barriers, 42016 bytes smem
+ptxas info    : Compile time = 55.758 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_pair3mbar.so
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_verify_direct_v -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/direct_v/.build-direct/main.cpp -o main.o 
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_direct_v -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/direct_v/.build-direct/cuda.cu -o cuda.cuda.o 
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 43056 bytes smem
+ptxas info    : Compile time = 53.983 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 63568 bytes smem
+ptxas info    : Compile time = 51.455 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 53312 bytes smem
+ptxas info    : Compile time = 50.275 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 95 registers, used 4 barriers, 32800 bytes smem
+ptxas info    : Compile time = 49.866 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 4 barriers, 43056 bytes smem
+ptxas info    : Compile time = 56.833 ms
+ptxas info    : Compiling entry function '_Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi5ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 4 barriers, 63568 bytes smem
+ptxas info    : Compile time = 55.816 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 4 barriers, 53312 bytes smem
+ptxas info    : Compile time = 55.443 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 96 registers, used 4 barriers, 32800 bytes smem
+ptxas info    : Compile time = 56.073 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_direct_v.so
+PASS {'batch': 1, 'ctx': 257, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 3} relerr 0.000497646804433316
+PASS {'batch': 1, 'ctx': 257, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 4} relerr 0.000497646804433316
+PASS {'batch': 1, 'ctx': 257, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 5} relerr 0.000497646804433316
+PASS {'batch': 1, 'ctx': 512, 'heads': 'tp8', 'layer': 'full', 'page': 64, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 3} relerr 0.0003124107897747308
+PASS {'batch': 1, 'ctx': 512, 'heads': 'tp8', 'layer': 'full', 'page': 64, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 4} relerr 0.0003124107897747308
+PASS {'batch': 1, 'ctx': 512, 'heads': 'tp8', 'layer': 'full', 'page': 64, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 5} relerr 0.0003124107897747308
+PASS {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 3} relerr 0.0001352583640255034
+PASS {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 4} relerr 0.0001352583640255034
+PASS {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'} {'splits': 264, 'stages': 5} relerr 0.0001352583640255034
+{'case': {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'}, 'module': 'experiments.direct_v.baseline', 'splits': 264, 'stages': 3, 'us': 34.87999923527241}
+{'case': {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'}, 'module': 'experiments.direct_v.baseline', 'splits': 264, 'stages': 4, 'us': 34.57600064575672}
+{'case': {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'}, 'module': 'experiments.direct_v.baseline', 'splits': 264, 'stages': 5, 'us': 34.57600064575672}
+{'case': {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'}, 'module': 'experiments.direct_v.direct', 'splits': 264, 'stages': 3, 'us': 35.391999408602715}
+{'case': {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'}, 'module': 'experiments.direct_v.direct', 'splits': 264, 'stages': 4, 'us': 35.152001306414604}
+{'case': {'batch': 1, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent'}, 'module': 'experiments.direct_v.direct', 'splits': 264, 'stages': 5, 'us': 35.152001306414604}
+production 1 18.400000408291817
+PASS {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'} {'splits': 16, 'stages': 3} relerr 0.00017971302440855652
+PASS {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'} {'splits': 16, 'stages': 4} relerr 0.00017971302440855652
+PASS {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'} {'splits': 16, 'stages': 5} relerr 0.00017971302440855652
+{'case': {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.baseline', 'splits': 16, 'stages': 3, 'us': 232.5920034199953}
+{'case': {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.baseline', 'splits': 16, 'stages': 4, 'us': 231.15199990570545}
+{'case': {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.baseline', 'splits': 16, 'stages': 5, 'us': 230.30399717390537}
+{'case': {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.direct', 'splits': 16, 'stages': 3, 'us': 241.24800600111485}
+{'case': {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.direct', 'splits': 16, 'stages': 4, 'us': 239.87199552357197}
+{'case': {'batch': 16, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.direct', 'splits': 16, 'stages': 5, 'us': 238.4480033069849}
+production 16 155.07199801504612
+PASS {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'} {'splits': 8, 'stages': 3} relerr 0.00020397163461893797
+PASS {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'} {'splits': 8, 'stages': 4} relerr 0.00020397163461893797
+PASS {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'} {'splits': 8, 'stages': 5} relerr 0.00020397163461893797
+{'case': {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.baseline', 'splits': 8, 'stages': 3, 'us': 451.40800811350346}
+{'case': {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.baseline', 'splits': 8, 'stages': 4, 'us': 446.67200185358524}
+{'case': {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.baseline', 'splits': 8, 'stages': 5, 'us': 449.2159876972437}
+{'case': {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.direct', 'splits': 8, 'stages': 3, 'us': 468.19200552999973}
+{'case': {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.direct', 'splits': 8, 'stages': 4, 'us': 454.07999493181705}
+{'case': {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'dist': 'coherent', 'spread': 'agentic'}, 'module': 'experiments.direct_v.direct', 'splits': 8, 'stages': 5, 'us': 453.79200018942356}
+production 32 301.5520069748163

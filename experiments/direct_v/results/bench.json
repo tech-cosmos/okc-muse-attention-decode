@@ -1,0 +1,325 @@
+[
+  {
+    "case": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 264,
+    "stages": 3,
+    "us": 34.87999923527241
+  },
+  {
+    "case": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 264,
+    "stages": 4,
+    "us": 34.57600064575672
+  },
+  {
+    "case": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 264,
+    "stages": 5,
+    "us": 34.57600064575672
+  },
+  {
+    "case": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 264,
+    "stages": 3,
+    "us": 35.391999408602715
+  },
+  {
+    "case": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 264,
+    "stages": 4,
+    "us": 35.152001306414604
+  },
+  {
+    "case": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 264,
+    "stages": 5,
+    "us": 35.152001306414604
+  },
+  {
+    "case": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent"
+    },
+    "module": "production",
+    "us": 18.400000408291817
+  },
+  {
+    "case": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 16,
+    "stages": 3,
+    "us": 232.5920034199953
+  },
+  {
+    "case": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 16,
+    "stages": 4,
+    "us": 231.15199990570545
+  },
+  {
+    "case": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 16,
+    "stages": 5,
+    "us": 230.30399717390537
+  },
+  {
+    "case": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 16,
+    "stages": 3,
+    "us": 241.24800600111485
+  },
+  {
+    "case": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 16,
+    "stages": 4,
+    "us": 239.87199552357197
+  },
+  {
+    "case": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 16,
+    "stages": 5,
+    "us": 238.4480033069849
+  },
+  {
+    "case": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "production",
+    "us": 155.07199801504612
+  },
+  {
+    "case": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 8,
+    "stages": 3,
+    "us": 451.40800811350346
+  },
+  {
+    "case": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 8,
+    "stages": 4,
+    "us": 446.67200185358524
+  },
+  {
+    "case": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.baseline",
+    "splits": 8,
+    "stages": 5,
+    "us": 449.2159876972437
+  },
+  {
+    "case": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 8,
+    "stages": 3,
+    "us": 468.19200552999973
+  },
+  {
+    "case": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 8,
+    "stages": 4,
+    "us": 454.07999493181705
+  },
+  {
+    "case": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "experiments.direct_v.direct",
+    "splits": 8,
+    "stages": 5,
+    "us": 453.79200018942356
+  },
+  {
+    "case": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "page": 1,
+      "q_len": 8,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "module": "production",
+    "us": 301.5520069748163
+  }
+]

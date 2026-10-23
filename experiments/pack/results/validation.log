@@ -1,0 +1,9 @@
+PASS 1 1 tp8 1
+PASS 1 1 tp8 64
+PASS 3 257 tp8 1
+PASS 3 257 tp8 64
+PASS 2 2000 dp 1
+PASS 2 2000 dp 64
+PASS 4 6000 tp8 1
+PASS 4 6000 tp8 64
+fresh graph checks 288
