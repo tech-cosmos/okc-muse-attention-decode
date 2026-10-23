@@ -155,7 +155,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 PAGE: tl.constexpr, MAX_PAGES: tl.constexpr, WINDOW: tl.constexpr, ROPE: tl.constexpr,
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
-                DOT: tl.constexpr):
+                DOT: tl.constexpr, PEEL: tl.constexpr = False):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -203,7 +203,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     n = tl.arange(0, BLOCK_N)
     # Whole tiles need no bounds masks; full layers need no masks at all there. The tail is masked.
     # Only for single-token decode: with a verify block's 64 rows the second copy costs registers.
-    if L == 1:
+    if L == 1 or PEEL:
         full_end = lo + tl.maximum(hi - lo, 0) // BLOCK_N * BLOCK_N
     else:
         full_end = lo
@@ -336,12 +336,10 @@ def _plan(cfg, max_pages, device):
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
                     fuse=False, qk8=True)
-    # Verify blocks' 64-row programs are few per SM; deep pipelines keep their reads in flight, and
-    # about 512 of them fill the GPU.
-    splits = max(16, 512 // heads)
-    if heads <= 32:
-        return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=1, fuse=False, qk8=True)
-    return dict(splits=splits, block_n=64, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
+    # Verify blocks' 64-row programs: 4 fit per SM (registers), so about 512 of them fill the GPU in
+    # one wave; deep pipelines keep their reads in flight. Whole tiles skip the masks (peel).
+    return dict(splits=max(8, 512 // heads), block_n=32, warps=4, stages=5, hpp=1, fuse=False, qk8=True,
+                peel=True)
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:
@@ -376,7 +374,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, num_warps=plan["warps"],
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
