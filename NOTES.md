@@ -105,3 +105,13 @@ H200 per-shape (check 7037681c, e97cf37): verify 16 full 1.10x and verify 32 ful
 weak spots; everything else 1.39-2.50x. Verify full is a local optimum for this Triton design (it
 is occupancy/latency-bound, see the ablation); the next step there is probably a hand-written
 kernel with explicit producer/consumer warps (CuTe DSL or CUDA via load_inline).
+
+## Board at overnight-agent start (2026-10-23 19:10 UTC)
+
+We are #38 at 1.849x (a9bf56a8). #1 colinlikescode 2.366x, #10 2.069x, #20 1.956x; 340+ entrants.
+To reach the top 20 we need ~6% overall; top 10 ~12%; #1 ~28%. Per-shape, our weak spots are verify
+16/32 full (1.09x/1.25x on the H200): with 16/62 of each load's weight on full layers, those two
+loads drag the geomean the most. Sliding layers (weight 46) are also worth re-examining: they are
+launch/latency-bound, so shaving 1-2 us each there pays 46x.
+
+Overnight agent: Daytona sandbox `okc-night` (H100, TTL 24h), started by tools/night.sh.
