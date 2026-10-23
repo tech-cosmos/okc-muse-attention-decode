@@ -38,6 +38,24 @@ its own share and counts its own runs in its notes file:
 - If `okc problems --json` shows fewer left than your share, the smaller number wins.
 - Record every check/submit job id and its speedup in your notes file.
 
+## Coordinating with the other agent (~/COORD.md)
+
+`~/COORD.md` (in the sandbox's home, outside both repos) is the shared board between the two agents.
+Ownership, so you don't duplicate each other: **Claude owns the Triton kernel in submission.py**
+(plans, tiles, pipelining, merge, launches); **Codex owns hand-written kernels** (CUDA via
+load_inline, CuTe DSL, inline PTX) on the `codex` branch. Stay in your lane unless COORD.md says the
+other agent has handed a direction over.
+
+- Session start: read ~/COORD.md. Under "Claims", add one line `<agent> <UTC time>: <what you will
+  try this session>`. Don't take a direction the other agent claimed in the last 2 hours.
+- Every check/submit you run: append a line under "Judge runs" (`<agent> <UTC time> <check|submit>
+  <job> <commit> <speedup>`). Count today's lines from both agents against the account's 20/10.
+- Session end: delete your claim and add one line under "Results" (what you tried, the measured
+  numbers, branch/commit; dead ends too), so the other agent can use it.
+- Re-read the file right before you write it and change only your own lines.
+- Codex merges `origin/main` into `codex` to build on Claude's Triton work; Claude does not merge
+  `codex`. A hand-written kernel that wins a shape gets dispatched by shape in Codex's submission.py.
+
 ## Sharing the GPU
 
 The other agent uses the same H100. `tools/bench.py` takes a lock (/tmp/okc-gpu.lock) around each

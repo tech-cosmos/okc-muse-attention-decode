@@ -10,14 +10,23 @@ workflow): read it, then TASK.md and AGENTS.md, and follow them, with these diff
   to the Claude agent working in `~/repo` on the same machine; don't touch that directory.
 - Your log is `NOTES-codex.md` (newest at the bottom), not NOTES.md. Read NOTES.md too: it holds the
   history of this kernel, its measurements and its dead ends, so you don't repeat them.
-- You may `git merge origin/main` to pick up the Claude agent's wins, but your value is a different
-  angle, not a copy. Promising directions nobody here has tried yet:
-  - a hand-written kernel (CUDA via `torch.utils.cpp_extension.load_inline`, or CuTe DSL if it is
-    installed) with producer/consumer warps for the gathered FP8 rows, for the full-attention layers;
-  - cutting launch and latency overhead on the sliding layers (weight 46 per load), e.g. one launch
-    for attention and merge without the fused-merge's critical-path cost.
+- Ownership (see "Coordinating" in CLAUDE.md, and ~/COORD.md): you own **hand-written kernels**
+  (CUDA via `torch.utils.cpp_extension.load_inline`, CuTe DSL if installed, inline PTX); the Claude
+  agent owns the Triton kernel. Don't tune Triton plans; it does that. Merge `origin/main` into
+  `codex` regularly so you build on its latest Triton kernel, and dispatch your kernel by shape
+  where it wins, so `codex` is always at least as fast as `main`.
+- Directions, roughly in order of payoff:
+  - full-attention layers (verify 16/32 full are the weakest shapes, ~1.1-1.3x on the H200): a
+    gathered-FP8 flash-decode kernel with producer/consumer warps (cp.async or TMA gather into
+    shared memory, several pages in flight per warp), close to the ~236 us random-gather ceiling;
+  - sliding layers (weight 46 per load, launch/latency-bound): one launch for attention + merge.
   Whatever you build must keep within TASK.md's rules (graph-capturable, no host syncs, every key,
-  FP8 cache, shape-only branching, nothing cached from `data`).
+  FP8 cache, shape-only branching, nothing cached from `data`). Compiling at import time is setup,
+  not timed work, but keep it fast and robust (the judge must be able to build it).
+- The judge runs in `lmsysorg/sglang:dev-muse-spark-open`, which has PyTorch, Triton, FlashInfer,
+  DeepGEMM, TileLang, CuTe DSL and CUTLASS; native CUDA goes through `load_inline` (nvcc). A run has
+  15 minutes in all, compiling included. The sandbox has CUDA 13.0 at /usr/local/cuda-13.0; install
+  anything else you need into ~/okc only at versions matching that image.
 
 ## Judge budget
 
