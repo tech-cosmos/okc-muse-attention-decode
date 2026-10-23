@@ -370,10 +370,12 @@ def _plan(cfg, max_pages, device):
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
                     fuse=False, qk8=True)
-    # Verify blocks' 64-row programs: 4 fit per SM (registers), so about 512 of them fill the GPU in
-    # one wave; deep pipelines keep their reads in flight. Whole tiles skip the masks (peel).
-    return dict(splits=max(4, 512 // heads), block_n=32, warps=4, stages=5, hpp=1, fuse=False, qk8=True,
-                peel=True)
+    # Verify blocks: each program runs both KV heads as two independent 64-row chains (dual), which
+    # hides latency better than more programs; 3 fit per SM (registers), so the splits fill exactly
+    # one wave, and each request's context is cut into equal chunks (balance) so none idles.
+    pairs = batch * max(1, hkv // 2)
+    return dict(splits=max(4, 3 * _num_sms(device) // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
+                qk8=True, peel=True, dual=True, balance=True)
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:
