@@ -235,7 +235,7 @@ Baseline reproduced: H100 bench 1.798x, 16/16 tests.
 
 | job | commit | speedup | notes |
 |---|---|---|---|
-| 1985ba311f6b480a (check) | verify-4sm (maxnreg 128 rule) | pending: still queued at session end | read it with `okc status 1985ba311f6b480a --json` and fill in |
+| 1985ba311f6b480a (check) | eedd003 (maxnreg 128 rule) | **1.896x** (1.868-1.924) | 16/16; verify 16 full 1.32x (was 1.28x: the H200 agrees), verify 32 full 1.28x; overall within noise of 39d24ebc/740bc5e9, so not worth a scored run |
 
 ### Budget used (UTC day 2026-10-23)
 
