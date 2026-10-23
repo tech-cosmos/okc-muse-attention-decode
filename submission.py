@@ -1,5 +1,5 @@
 # okc: problem=muse_attention_decode
-"""Gated attention decode with Triton attention and a native CUDA merges for small batches.
+"""Gated attention decode with Triton attention and a a native CUDA full-layer merge for small batches.
 
 1. _attn_split: one program per (split of the context, request, KV head). It normalizes (and
    on sliding layers ropes) its group's queries straight from the fused projection output,
@@ -7,8 +7,8 @@
    (max, sum, accumulator). The split-0 program also normalizes/ropes the block's new keys,
    quantizes the new keys and values to FP8, stores them in the cache, and attends them
    causally from registers.
-2. _combine: one program per (token, KV head). It merges the splits, then applies the
-   per-head RMSNorm and sigmoid(gate)."""
+2. Merge kernels reduce the splits per query head, then apply RMSNorm and sigmoid(gate).
+   Small full-layer batches use an eight-warp native CUDA reduction."""
 
 from typing import TypedDict
 
@@ -51,7 +51,7 @@ class Inputs(TypedDict):
     config: Config
 
 
-# Native reductions merge each head's FP32 partials, then normalize and gate its output.
+# Eight native warps merge each head's FP32 full-layer partials, then normalize and gate.
 # Build once at import; input-derived data is read only inside the timed kernels.
 from torch.utils.cpp_extension import load_inline
 
@@ -60,7 +60,6 @@ _NATIVE_MERGE = load_inline(
     cpp_sources=r'''
 
 #include <torch/extension.h>
-void combine(torch::Tensor qkv,torch::Tensor pa,torch::Tensor pm,torch::Tensor vs,torch::Tensor out,int hq,int hkv,int length,int splits,bool pdl);
 void combine_full(torch::Tensor qkv,torch::Tensor pa,torch::Tensor pm,torch::Tensor vs,torch::Tensor out,int hq,int hkv,int length,int splits,bool pdl);
 ''',
     cuda_sources=r'''
@@ -70,6 +69,8 @@ void combine_full(torch::Tensor qkv,torch::Tensor pa,torch::Tensor pm,torch::Ten
 #include <c10/cuda/CUDAException.h>
 #include <cuda_runtime.h>
 #include <cuda_bf16.h>
+// Keep coherent partial loads after griddepcontrol.wait. Ordinary const loads
+// can be hoisted across that dependency wait by nvcc.
 __device__ __forceinline__ float2 read2(const float* p) {
  float2 v;
  asm volatile("ld.global.cg.v2.f32 {%0,%1}, [%2];" : "=f"(v.x), "=f"(v.y) : "l"(p) : "memory");
@@ -160,66 +161,8 @@ void combine_full(at::Tensor qkv,at::Tensor pa,at::Tensor pm,at::Tensor vs,at::T
  C10_CUDA_KERNEL_LAUNCH_CHECK();
 }
 
-template<int S,int W,bool PDL>
-__global__ __launch_bounds__(W*32) void combine_kernel(const __nv_bfloat16* __restrict__ qkv,
- const float* pa,const float2* pm,const float* vs,__nv_bfloat16* out,
- int HQ,int HKV,int L,int B) {
- unsigned lane=threadIdx.x%32,warp=threadIdx.x/32;
- int row=blockIdx.x*W+warp;
- if(row>=B*L*HQ)return;
- int tok=row/HQ,head=row%HQ,b=tok/L,g=HQ/HKV,h=head/g;
- int width=(2*HQ+2*HKV)*64,rr=(tok%L)*g+head%g,MG=L*g;
- int base=((b*HKV+h)*S)*MG+rr;
- __nv_bfloat162 gate2=*(const __nv_bfloat162*)(qkv+tok*width+(HQ+2*HKV)*64+head*64+2*lane);
- float2 gate=__bfloat1622float2(gate2);
- float vscale=*vs;
- // Partial reads must stay after this wait. Volatile PTX loads below prevent nvcc
- // from hoisting read-only loads across the dependency barrier.
- if(PDL)asm volatile("griddepcontrol.wait;":::"memory");
- float2 ml={-1e30f,0};
- if(lane<S) {
-   const float* mp=(const float*)(pm+base+lane*MG);
-   asm volatile("ld.global.cg.v2.f32 {%0,%1}, [%2];" : "=f"(ml.x), "=f"(ml.y) : "l"(mp) : "memory");
- }
- float m=ml.x;
- #pragma unroll
- for(int d=16;d;d/=2)m=fmaxf(m,__shfl_xor_sync(0xffffffff,m,d));
- float weight=lane<S?exp2f(ml.x-m):0.f;
- float den=weight*ml.y;
- #pragma unroll
- for(int d=16;d;d/=2)den+=__shfl_xor_sync(0xffffffff,den,d);
- float2 a[S];
- #pragma unroll
- for(int s=0;s<S;s++) {
-   const float* ap=pa+(base+s*MG)*64+2*lane;
-   asm volatile("ld.global.cg.v2.f32 {%0,%1}, [%2];" : "=f"(a[s].x), "=f"(a[s].y) : "l"(ap) : "memory");
- }
- float x=0,y=0;
- #pragma unroll
- for(int s=0;s<S;s++) {
-   float w=__shfl_sync(0xffffffff,weight,s);
-   x=fmaf(w,a[s].x,x);y=fmaf(w,a[s].y,y);
- }
- x=x/den*vscale;y=y/den*vscale;
- float sq=x*x+y*y;
- #pragma unroll
- for(int d=16;d;d/=2)sq+=__shfl_xor_sync(0xffffffff,sq,d);
- float r=rsqrtf(sq/64.f+1e-5f);
- x=x*r/(1.f+expf(-gate.x));y=y*r/(1.f+expf(-gate.y));
- *(__nv_bfloat162*)(out+row*64+2*lane)=__floats2bfloat162_rn(x,y);
-}
-void combine(at::Tensor qkv,at::Tensor pa,at::Tensor pm,at::Tensor vs,at::Tensor out,int hq,int hkv,int length,int splits,bool pdl) {
- auto stream=c10::cuda::getCurrentCUDAStream();int b=qkv.size(0);constexpr int warps=1;
- cudaLaunchConfig_t config={};config.gridDim=dim3((b*length*hq+warps-1)/warps);config.blockDim=dim3(warps*32);config.stream=stream;
- cudaLaunchAttribute attr={};attr.id=cudaLaunchAttributeProgrammaticStreamSerialization;attr.val.programmaticStreamSerializationAllowed=pdl;
- config.attrs=&attr;config.numAttrs=1;
- #define RUN(S,W,P) C10_CUDA_CHECK(cudaLaunchKernelEx(&config,combine_kernel<S,W,P>,(const __nv_bfloat16*)qkv.data_ptr(),pa.data_ptr<float>(),(const float2*)pm.data_ptr<float>(),vs.data_ptr<float>(),(__nv_bfloat16*)out.data_ptr(),hq,hkv,length,b))
- #define PP(S,W) if(pdl){RUN(S,W,true);}else{RUN(S,W,false);}
- PP(32,1);
- C10_CUDA_KERNEL_LAUNCH_CHECK();
-}
 ''',
-    functions=["combine", "combine_full"],
+    functions=["combine_full"],
     extra_cuda_cflags=["-gencode=arch=compute_90a,code=sm_90a", "-O3", "--use_fast_math"],
     extra_cflags=["-O3"],
     verbose=False,
@@ -636,12 +579,6 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
-        return out
-    # A warp cooperates across the 32 splits and emits one query head. This helps
-    # small batches; larger grids use main's batched Triton reduction.
-    if cfg["window"] and splits == 32 and batch * hkv <= 4:
-        _NATIVE_MERGE.combine(qkv, pacc, pml, data["v_scale"], out,
-                              hq, hkv, length, splits, USE_PDL)
         return out
     # Eight warps independently merge up to 16 FP32 splits, then combine their
     # partial results in shared memory. Larger batches retain the Triton merge.
