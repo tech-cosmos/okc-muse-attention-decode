@@ -672,3 +672,134 @@ Final 22:41 UTC read: 40e1aa41415a4c87 still running, 01bc4ecc9c7047d9 queued.
 Status snapshots are saved in profiles/session5-{older,current}-status.json.
 Experiment branch is pushed through b8246f7; production notes c9d4535 and
 this final snapshot commit are pushed. No source change, new job, or STOP file.
+
+## Session 6 — 2026-10-23, 22:42–22:54 UTC
+
+### Outcome and source state
+
+No production code change and no new judge jobs. Two concrete native ideas lost
+locally: separate whole-cache materialization, and direct FP8 V operands without
+shared FP16 staging. Both are archived on **codex-exp/cuda-pack**, source/results
+commit **ed5d2c9** plus a generated-log whitespace cleanup. Start with
+`experiments/pack/README.txt` and `experiments/direct_v/README.txt` on that branch.
+The experiments are not imported by production. This focused cycle ended after
+decisive measurements and validation, rather than waiting idle for the judge queue.
+
+`origin/main` remained **65ff1ab**, already merged. Production submission.py is
+unchanged from **5e2441f/effc2bf**, SHA256
+`a66802981a86065ee7647e4b773b9d811db7ac567a76983d544a42fc7a6a59b1`.
+No native attention prototype is dispatched. Existing small-full native reduction
+and main's Triton attention/sliding merge remain in use.
+
+### Pending-check progress and profile
+
+Older check **40e1aa41415a4c87**, source **fddd5c1** (main 651b421 plus native full
+reduction), completed and was read at 22:44 UTC:
+
+- **16/16 passed**, **1.984296x**, CI **[1.954532, 2.022082]**, no flags/rejections.
+- H200 small-full times: decode 1 **15.400 us**, verify 1 **16.459 us**; profiled
+  native reduction **1.8 / 2.4 us**. Full verify 16/32 **154.072 / 302.687 us**.
+- Read and saved `profiles/submission.40e1aa41415a4c87.txt`, with JSON/log alongside.
+  PDL rows overlap and include predecessor waiting; do not sum those kernel times.
+- This exceeds the current account best, but **cannot qualify the newer current
+  source for scoring**. Only current-source check **01bc4ecc9c7047d9** can do that.
+  It was still **queued at 22:52 UTC**, with no result or passing profile.
+
+No check was resubmitted and no scored run was attempted. The old check supports
+the native small-full reduction but does not isolate its contribution from main's
+sliding merge. Session 5's paired native/main comparison remains better evidence
+for that component than independent aggregate judge results.
+
+### Native whole-cache packing: reject before dense attention
+
+A native kernel gathers every historical K/V row into contiguous FP8 scratch,
+bit-for-bit. It changes no precision and copies fresh cache/routing on every call.
+This would be a necessary prefix of gather-then-dense attention; it does not yet
+compute attention or insert new tokens. At large batches, that prefix alone loses:
+
+| full verify batch | best copy-only | complete production call |
+|---|---:|---:|
+| 1 | 16.288 us | 18.272 us |
+| 16 | 246.816 us | 154.848 us |
+| 32 | 494.144 us | 305.488 us |
+
+All are local H100 cold-L2 CUDA graph medians, empty replay subtracted, shared GPU
+timing lock. Copy numbers are minima from 36 configurations per case, not paired
+speedup estimates. Vector widths 4/8/16 bytes, unroll 1/2/4/8, grids ~264/528/1056
+CTAs were measured. Source byte counts were 20.48 / 330.70 / 662.06 MB; the output
+adds another full-cache write. Installing/implementing dense FA3 was not justified
+once the copy alone cost ~60% more than the complete production large-batch call.
+
+Validation: all **108** swept configurations passed bit-exact cache comparisons;
+**288** fresh graph checks on eight small/nearby shapes passed, including TP8/DP,
+pages 1/64, changed cache bytes/page routes, zero lengths and unchanged output
+suffix sentinels. These are copy checks, not attention tests. No packing sanitizer
+coverage is claimed, and this experimental copy uses 32-bit offsets for the tested
+allocation sizes. No production dependency was added.
+
+### Direct FP8 V registers: correct, but more instructions
+
+Modified the session-3 paired-head/mbarrier prototype only. Load FP8 byte pairs
+with ldmatrix.trans, shuffle the required column pairs to each lane, permute their
+bytes, convert exactly to FP16 register operands and run the same PV MMA. This
+removes the shared FP16 V array, cooperative conversion and a consumer barrier.
+All keys, cache writes, query rounding, FP32 partials and softmax are preserved.
+No Triton source or plans were tuned.
+
+Same-process cold-L2 graph timings at four stages (sequential comparisons, not a
+balanced paired estimator):
+
+| full verify batch | prior native | direct V | production |
+|---|---:|---:|---:|
+| 1 | 34.576 us | 35.152 us | 18.400 us |
+| 16 | 231.152 us | 239.872 us | 155.072 us |
+| 32 | 446.672 us | 454.080 us | 301.552 us |
+
+Stages 3/5 do not rescue it. After the full reference suite, the complete
+native/fallback bench was **1.585x** against fixed SGLang/H200 reference times.
+That is an experimental local benchmark, not a production regression or judge run.
+
+S4/page1 SASS explains the failure: removing staging saves 8 LDS.U16, 8 STS and
+8 of 16 LDSM, but adds **32 SHFL.IDX + 32 PRMT** and raises FP8-to-FP16 conversions
+from **8 to 32** per tile. The shared-memory saving (62,528 -> 53,312 bytes) does
+not improve residency: registers rise **94 -> 96**, still two CTAs/SM. Static
+SASS counts and the two relevant function dumps are archived; no dynamic Nsight
+instruction-counter measurement is claimed. The byte-pair fragment mapping was
+checked against NVIDIA's PTX mma.m16n8k16 documentation (linked in the README).
+
+Validation:
+
+- 15 independent reference comparisons: five shapes at stages 3/4/5.
+- Full reference suite **16/16**; five native cases, eleven fallback cases.
+- **42 all-native fresh graph replays** across seven nearby shapes, including
+  pages 1/64, TP8/DP, scales 1 and 1/64, soft/coherent/edge data, contexts 10–120K.
+  Fresh cache/QKV/routing, changed lengths/positions/cache locations, and empty
+  contexts all passed independent reference checks.
+- Native attention isolated under Compute Sanitizer: **memcheck 0 errors,
+  synccheck 0 errors, racecheck 0 hazards/errors/warnings**. Four small page/scale
+  shapes, three changed-QKV calls each. The sanitizer driver checks finite
+  partials; full output correctness is covered by the reference runs above.
+- All run processes completed successfully. No experimental source was submitted.
+
+### Budget, next cycle, and stopping state
+
+Codex UTC-day usage remains **3/8 checks, 1/3 scored**. Session 6 used **0 checks,
+0 scored**, no withdrawals. Account at 22:52: **12/20 checks, 5/10 scored**, leaving
+8/5. Current account best **1.945619x**, rank **32**, job **033117b46b6f42ba**.
+Status/board/budget snapshots are in `profiles/session6-*.json`.
+
+1. Resolve **01bc4ecc9c7047d9**, without resubmitting it. Read its passing profile;
+   score the exact checked current source only if its result beats the then-current
+   account best and budget permits. Existing production already passed local
+   16/16 plus extensive fresh-graph/sanitizer validation in sessions 4/5.
+2. Fetch/merge main before new code. A later source change requires another
+   exact-source check before scoring; old **40e1aa41415a4c87** is not sufficient.
+3. Close both materialization and direct-register-V directions: the former pays
+   an entire extra cache write, the latter multiplies conversions and shuffles.
+   Avoid repeating the previous native pipelines or tiny merge sweeps without a
+   concrete change that reduces per-tile work or increases useful residency.
+4. Keep experiments on their branch. Production source is unchanged and locally
+   validated; its exact combined-code H200 confirmation is still pending.
+
+Neither STOP file existed at the final work read. Notes, older passing profile,
+and experiment results are pushed separately; the cycle ends on `codex`.
