@@ -47,3 +47,41 @@ Triton 3.8's CPU interpreter computes bf16 dots on raw bits and rounds fp32->e4m
 ### Budget
 
 UTC day 2026-10-23: 1 check used (6ffea83d), 0 submissions.
+
+## 2026-10-23 night (interactive session, continued alone on the H100)
+
+### H200 judge results
+
+| job | commit | speedup (95% CI) | notes |
+|---|---|---|---|
+| 6ffea83d | first kernel | 0.871x | 16/16; full layers 0.57-0.79x |
+| 8e51de3d | c0b75f0 (tuned plan, bf16) | **1.328x** (1.308-1.353) | 16/16; sliding 1.3-2.5x, verify-16/32 full 0.77-0.80x |
+| (queued) | e97cf37 (FP8 QK, FP16 PV, peel) | | H100 bench says 1.52x |
+
+The H100 bench predicted 1.31x for c0b75f0, so it tracks the judge within a few %.
+
+### What worked (H100 bench geomean vs SGLang's H200 times)
+
+1.31x tuned plan -> 1.46x FP8 QK^T (E4M3 queries) -> 1.47x verify-full tiles -> 1.51x FP16 P@V
+inputs (E4M3->FP16 is one cvt, BF16 needs two) -> 1.52x peeled tail tile (decode only).
+
+### What didn't
+
+- Fused last-program merge: never won in the sweep (on the critical path at batch 1).
+- FP8 P@V (P*256 in E4M3): slower on every verify shape, errors up to 0.105 of 0.15.
+- Peeling for verify blocks: +40% time (register pressure from two 64-row tile copies).
+- `tl.range(..., warp_specialize=True)`: no effect on these gathered loads.
+- HPP=2 for verify blocks: 128x128 fp32 accumulators, slow and slow to compile.
+
+### Where verify full time goes (ablation, H100, verify 16/32 full = 202/404 us)
+
+No exp: 193/390. No softmax at all: 187/382. So verify full is NOT ALU-bound; it is
+latency/occupancy-bound (fat 64-row 4-warp programs keep few gathers in flight; decode moves the
+same bytes in 251 us). Deeper pipelines help: 5 stages, 32-key tiles -> 188 us. Sweep running.
+
+### Ideas next
+
+1. Verify full: smaller programs (split the 8 query heads of a KV head across 2 programs, M=32)
+   so more programs fit per SM; or prefetch the next tile's page indices one iteration early.
+2. Decode full is ~6% above the random-gather ceiling on H100 (251 vs 236 us): little left there.
+3. Sliding layers (weight 46): mostly launch + latency; check one-launch paths again at batch 32.
