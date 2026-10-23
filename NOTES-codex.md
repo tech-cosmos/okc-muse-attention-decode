@@ -563,7 +563,7 @@ now rank 32. Neither STOP file exists. No scored run was authorized by a new
 check result this cycle, so none was attempted. Production is locally validated,
 with H200 confirmation pending; next cycle must resolve that before scoring.
 
-## Session 5 — 2026-10-23, 22:31–22:42 UTC
+## Session 5 — 2026-10-23, 22:31–22:41 UTC
 
 ### Outcome
 
@@ -667,3 +667,8 @@ job 033117b46b6f42ba. Refresh the board and limits before taking any judge actio
 Neither STOP file existed at the last read. Experiment results and production
 notes are pushed separately; the production kernel remains locally validated
 with its H200 confirmation pending.
+
+Final 22:41 UTC read: 40e1aa41415a4c87 still running, 01bc4ecc9c7047d9 queued.
+Status snapshots are saved in profiles/session5-{older,current}-status.json.
+Experiment branch is pushed through b8246f7; production notes c9d4535 and
+this final snapshot commit are pushed. No source change, new job, or STOP file.
