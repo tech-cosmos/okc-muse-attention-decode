@@ -1,0 +1,215 @@
+diff --git a/submission.py b/submission.py
+index 26fb441..8f2034d 100644
+--- a/submission.py
++++ b/submission.py
+@@ -96,7 +96,34 @@ def _num_sms(device):
+ def _norm_rope(ptr, off, ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr, HPP: tl.constexpr):
+     """[R, HPP*D] rows of HPP heads at ptr + off: per-head rmsnorm (no weight), then interleaved
+     RoPE at pos [R]. Masked-out entries are 0."""
+-    x = tl.load(ptr + off, mask=ok, other=0.0).to(tl.float32)
++    x, xp = _rope_x(ptr, off, ok, ROPE)
++    cos, sin = _rope_cs(ok, c, pos, cs_ptr, ROPE, D)
++    return _norm_rope_math(x, xp, cos, sin, c, ROPE, D, HPP)
++
++
++@triton.jit
++def _rope_x(ptr, off, ok, ROPE: tl.constexpr):
++    x = tl.load(ptr + off, mask=ok, other=0.0)
++    xp = x
++    if ROPE:
++        xp = tl.load(ptr + (off ^ 1), mask=ok, other=0.0)
++    return x, xp
++
++
++@triton.jit
++def _rope_cs(ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr):
++    cos = 1.0
++    sin = 0.0
++    if ROPE:
++        cs_off = pos[:, None] * D + ((c % D) // 2)[None, :]
++        cos = tl.load(cs_ptr + cs_off, mask=ok, other=1.0)
++        sin = tl.load(cs_ptr + cs_off + D // 2, mask=ok, other=0.0)
++    return cos, sin
++
++
++@triton.jit
++def _norm_rope_math(x, xp, cos, sin, c, ROPE: tl.constexpr, D: tl.constexpr, HPP: tl.constexpr):
++    x = x.to(tl.float32)
+     sq = x * x
+     if HPP == 1:
+         r = tl.rsqrt(tl.sum(sq, 1) / D + 1e-5)[:, None]
+@@ -106,33 +133,39 @@ def _norm_rope(ptr, off, ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr
+         r1 = tl.rsqrt(tl.sum(tl.where(first, 0.0, sq), 1) / D + 1e-5)
+         r = tl.where(first, r0[:, None], r1[:, None])
+     if ROPE:
+-        xp = tl.load(ptr + (off ^ 1), mask=ok, other=0.0).to(tl.float32)
+-        cs_off = pos[:, None] * D + ((c % D) // 2)[None, :]
+-        cos = tl.load(cs_ptr + cs_off, mask=ok, other=1.0)
+-        sin = tl.load(cs_ptr + cs_off + D // 2, mask=ok, other=0.0)
+         sign = tl.where(c % 2 == 0, -1.0, 1.0)
+-        x = x * cos + sign[None, :] * xp * sin
++        x = x * cos + sign[None, :] * xp.to(tl.float32) * sin
+     return x * r
+ 
+ 
+ @triton.jit
+-def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, MASKED: tl.constexpr,
+-          PAGE: tl.constexpr, ROW_W: tl.constexpr, D: tl.constexpr, WINDOW: tl.constexpr, QK8: tl.constexpr,
+-          DOT: tl.constexpr):
+-    """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi."""
++def _kv(start, t, hi, pt_row, kc_ptr, vc_ptr, c, hp0, lo, page0, MASKED: tl.constexpr, PAGE: tl.constexpr,
++        ROW_W: tl.constexpr, D: tl.constexpr, FIRST: tl.constexpr):
++    """Gather the cached key and value rows at positions t. MASKED: some t >= hi."""
+     if MASKED:
+         # Past the end, gather the last valid row again (no load masks); the scores are masked.
+-        t_ok = t < hi
+         t_ld = tl.minimum(t, hi - 1)
+     else:
+         t_ld = t
+-    page = tl.load(pt_row + t_ld // PAGE)
++    if FIRST:
++        # The first tile's page indices were loaded before the query prologue (see _attn_split).
++        page = tl.load(pt_row + t_ld // PAGE, mask=start != lo, other=0)
++        page = tl.where(start == lo, page0, page)
++    else:
++        page = tl.load(pt_row + t_ld // PAGE)
+     row = (page.to(tl.int64) * PAGE + t_ld % PAGE) * ROW_W + hp0 * D
+     k = tl.load(kc_ptr + row[:, None] + c[None, :])
+     v = tl.load(vc_ptr + row[:, None] + c[None, :])
++    return k, v
++
++
++@triton.jit
++def _scores(t, hi, k, v, q, pos, m_i, l_i, acc, scale, MASKED: tl.constexpr, WINDOW: tl.constexpr,
++            QK8: tl.constexpr, DOT: tl.constexpr):
++    """Gathered keys k and values v at positions t through the online softmax."""
+     s = tl.dot(q, tl.trans(k if QK8 else k.to(DOT)))
+     if MASKED:
+-        ok = t_ok[None, :]
++        ok = (t < hi)[None, :]
+         if WINDOW > 0:
+             ok = ok & (t[None, :] > pos[:, None] - WINDOW)
+         s = tl.where(ok, s, float("-inf"))
+@@ -147,6 +180,15 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
+     return m_new, l_i, acc
+ 
+ 
++@triton.jit
++def _tile(start, t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, lo, page0,
++          MASKED: tl.constexpr, PAGE: tl.constexpr, ROW_W: tl.constexpr, D: tl.constexpr, WINDOW: tl.constexpr,
++          QK8: tl.constexpr, DOT: tl.constexpr, FIRST: tl.constexpr):
++    """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi."""
++    k, v = _kv(start, t, hi, pt_row, kc_ptr, vc_ptr, c, hp0, lo, page0, MASKED, PAGE, ROW_W, D, FIRST)
++    return _scores(t, hi, k, v, q, pos, m_i, l_i, acc, scale, MASKED, WINDOW, QK8, DOT)
++
++
+ @triton.jit
+ def _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
+          vc_ptr, vs_ptr, loc_ptr, HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr,
+@@ -202,7 +244,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
+                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
+                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
+                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
+-                BALANCE: tl.constexpr = False):
++                BALANCE: tl.constexpr = False, FIRST: tl.constexpr = False):
+     """One program: a split of request b's context for HPP adjacent KV heads, which share each
+     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
+     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
+@@ -220,6 +262,19 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
+ 
+     seq = tl.load(seq_ptr + b)
+     c = tl.arange(0, C)
++    if WINDOW > 0:
++        base = tl.maximum(seq - (WINDOW - 1), 0)
++    else:
++        base = seq * 0
++    if BALANCE:
++        # Each request's own context in S equal tile-aligned chunks: every program does the same work.
++        chunk = tl.cdiv(tl.cdiv(seq - base, S), BLOCK_N) * BLOCK_N
++    else:
++        chunk = CHUNK
++    lo = base + split * chunk
++    hi = tl.minimum(lo + chunk, seq)
++    pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
++    n = tl.arange(0, BLOCK_N)
+     r = tl.arange(0, M_PAD)
+     hp = r // MG
+     rr = r % MG  # token rr // G, query head (hp0 + hp) * G + rr % G
+@@ -228,7 +283,20 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
+     pos = seq + j
+     q_off = (b * L + j)[:, None] * QKV_W + ((hp0 + hp) * G + rr % G)[:, None] * D + (c % D)[None, :]
+     q_ok = r_ok[:, None] & ((c // D)[None, :] == hp[:, None])
+-    q = _norm_rope(qkv_ptr, q_off, q_ok, c, pos, cs_ptr, ROPE, D, HPP)
++    page0 = n * 0
++    if FIRST:
++        # Warps issue in order, so loads go out in dependency order: the query rows (need nothing),
++        # then the first tile's page indices and the RoPE table (need seq), then the first tile's
++        # cache rows (need the page indices), and only then the math. An empty split reads page 0
++        # (its scores are all masked).
++        qx, qxp = _rope_x(qkv_ptr, q_off, q_ok, ROPE)
++        t0 = lo + n
++        t0_ld = tl.minimum(t0, hi - 1)
++        page0 = tl.load(pt_row + t0_ld // PAGE, mask=t0_ld >= lo, other=0)
++        cos, sin = _rope_cs(q_ok, c, pos, cs_ptr, ROPE, D)
++        q = _norm_rope_math(qx, qxp, cos, sin, c, ROPE, D, HPP)
++    else:
++        q = _norm_rope(qkv_ptr, q_off, q_ok, c, pos, cs_ptr, ROPE, D, HPP)
+     if QK8:
+         # Queries rounded to E4M3 (as FA3 does with an FP8 cache): QK^T runs on the FP8 cache as is.
+         q = q.to(tl.float8e4nv)
+@@ -251,19 +319,6 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
+         m1, l1, acc1 = _new(split, b, seq, j, q1, m1, l1, acc1, hp0 + 1, c, scale, k_scale, qkv_ptr, cs_ptr,
+                             kc_ptr, vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+ 
+-    if WINDOW > 0:
+-        base = tl.maximum(seq - (WINDOW - 1), 0)
+-    else:
+-        base = seq * 0
+-    if BALANCE:
+-        # Each request's own context in S equal tile-aligned chunks: every program does the same work.
+-        chunk = tl.cdiv(tl.cdiv(seq - base, S), BLOCK_N) * BLOCK_N
+-    else:
+-        chunk = CHUNK
+-    lo = base + split * chunk
+-    hi = tl.minimum(lo + chunk, seq)
+-    pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
+-    n = tl.arange(0, BLOCK_N)
+     # Whole tiles need no bounds masks; full layers need no masks at all there. The tail is masked.
+     # Only for single-token decode: with a verify block's 64 rows the second copy costs registers.
+     if L == 1 or PEEL:
+@@ -271,17 +326,17 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
+     else:
+         full_end = lo
+     for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
+-        m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
+-                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
++        m_i, l_i, acc = _tile(start, start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, lo, page0,
++                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT, FIRST)
+         if DUAL:
+-            m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
+-                                 False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
++            m1, l1, acc1 = _tile(start, start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1, lo, page0,
++                                 False, PAGE, ROW_W, D, WINDOW, QK8, DOT, FIRST)
+     for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
+-        m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
+-                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
++        m_i, l_i, acc = _tile(start, start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, lo, page0,
++                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT, FIRST)
+         if DUAL:
+-            m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
+-                                 True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
++            m1, l1, acc1 = _tile(start, start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1, lo, page0,
++                                 True, PAGE, ROW_W, D, WINDOW, QK8, DOT, FIRST)
+ 
+     _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
+     if DUAL:
+@@ -468,7 +523,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
+         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
+         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
+         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
+-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
++        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False),
++        FIRST=plan.get("first", False) and not dual, num_warps=plan["warps"],
+         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
+     if fuse:
+         return out
