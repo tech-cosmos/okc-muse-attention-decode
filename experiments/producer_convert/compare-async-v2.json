@@ -1,0 +1,110 @@
+[
+  {
+    "shape": "verify 1",
+    "variant": "production",
+    "us": 18.400000408291817,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "native_baseline",
+    "us": 34.73600186407566,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "async2_s3",
+    "us": 38.944000378251076,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "async2_s4",
+    "us": 39.64799828827381,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "async4_s3",
+    "us": 45.05600035190582,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "async4_s4",
+    "us": 45.64799927175045,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "production",
+    "us": 154.70399893820286,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "native_baseline",
+    "us": 230.64000345766544,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "async2_s3",
+    "us": 273.5039982944727,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "async2_s4",
+    "us": 269.85600031912327,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "async4_s3",
+    "us": 362.59199120104313,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "async4_s4",
+    "us": 363.4080085903406,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "production",
+    "us": 304.43199910223484,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "native_baseline",
+    "us": 442.2080013900995,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "async2_s3",
+    "us": 530.2399788051844,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "async2_s4",
+    "us": 522.7520260959864,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "async4_s3",
+    "us": 716.5440116077662,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "async4_s4",
+    "us": 719.8239956051111,
+    "reference": true
+  }
+]

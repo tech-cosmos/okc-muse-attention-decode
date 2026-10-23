@@ -1,0 +1,12 @@
+========= COMPUTE-SANITIZER
+ninja: no work to do.
+ninja: no work to do.
+PASS native-only reference experiments.producer_convert.producer 1 1.0
+PASS native-only reference experiments.producer_convert.producer 1 0.015625
+PASS native-only reference experiments.producer_convert.producer 64 1.0
+PASS native-only reference experiments.producer_convert.producer 64 0.015625
+PASS native-only reference experiments.producer_convert.async_convert 1 1.0
+PASS native-only reference experiments.producer_convert.async_convert 1 0.015625
+PASS native-only reference experiments.producer_convert.async_convert 64 1.0
+PASS native-only reference experiments.producer_convert.async_convert 64 0.015625
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

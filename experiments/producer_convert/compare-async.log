@@ -1,0 +1,18 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+ninja: no work to do.
+{"shape": "verify 1", "variant": "production", "us": 18.44800030812621, "reference": true}
+{"shape": "verify 1", "variant": "native_baseline", "us": 34.91199901327491, "reference": true}
+{"shape": "verify 1", "variant": "async_s2", "us": 41.50400077924132, "reference": true}
+{"shape": "verify 1", "variant": "async_s3", "us": 39.7119983099401, "reference": true}
+{"shape": "verify 1", "variant": "async_s4", "us": 39.23199838027358, "reference": true}
+{"shape": "verify 16", "variant": "production", "us": 155.74399521574378, "reference": true}
+{"shape": "verify 16", "variant": "native_baseline", "us": 231.0879989527166, "reference": true}
+{"shape": "verify 16", "variant": "async_s2", "us": 319.6320026181638, "reference": true}
+{"shape": "verify 16", "variant": "async_s3", "us": 273.96800508722663, "reference": true}
+{"shape": "verify 16", "variant": "async_s4", "us": 266.17600908502936, "reference": true}
+{"shape": "verify 32", "variant": "production", "us": 303.7280081771314, "reference": true}
+{"shape": "verify 32", "variant": "native_baseline", "us": 441.840001847595, "reference": true}
+{"shape": "verify 32", "variant": "async_s2", "us": 627.8400062583387, "reference": true}
+{"shape": "verify 32", "variant": "async_s3", "us": 530.991995241493, "reference": true}
+{"shape": "verify 32", "variant": "async_s4", "us": 521.3440000079572, "reference": true}

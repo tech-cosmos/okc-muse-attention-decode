@@ -1,0 +1,182 @@
+[
+  {
+    "shape": "verify 1",
+    "variant": "production",
+    "us": 18.479999853298068,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "native_baseline",
+    "us": 34.73599883727729,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "producer2_s2",
+    "us": 46.832001535221934,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "producer2_s3",
+    "us": 47.391998348757625,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "producer2_s4",
+    "us": 47.10399988107383,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "producer2_s5",
+    "us": 47.120000002905726,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "producer4_s2",
+    "us": 36.43200057558715,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "producer4_s3",
+    "us": 36.28799947910011,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "producer4_s4",
+    "us": 36.191998748108745,
+    "reference": true
+  },
+  {
+    "shape": "verify 1",
+    "variant": "producer4_s5",
+    "us": 36.33599984459579,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "production",
+    "us": 156.5439987462014,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "native_baseline",
+    "us": 230.67200067453086,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "producer2_s2",
+    "us": 396.4159998577088,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "producer2_s3",
+    "us": 396.6720018070191,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "producer2_s4",
+    "us": 396.36800321750343,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "producer2_s5",
+    "us": 396.54400083236396,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "producer4_s2",
+    "us": 251.66400405578315,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "producer4_s3",
+    "us": 242.32000741176307,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "producer4_s4",
+    "us": 241.487993625924,
+    "reference": true
+  },
+  {
+    "shape": "verify 16",
+    "variant": "producer4_s5",
+    "us": 241.59999820403755,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "production",
+    "us": 306.36799964122474,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "native_baseline",
+    "us": 442.079997388646,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "producer2_s2",
+    "us": 773.7439933698624,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "producer2_s3",
+    "us": 773.7760010641068,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "producer2_s4",
+    "us": 773.0239990632981,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "producer2_s5",
+    "us": 772.6079884450883,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "producer4_s2",
+    "us": 488.65599068813026,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "producer4_s3",
+    "us": 468.51200493983924,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "producer4_s4",
+    "us": 467.8079995792359,
+    "reference": true
+  },
+  {
+    "shape": "verify 32",
+    "variant": "producer4_s5",
+    "us": 467.0559975784272,
+    "reference": true
+  }
+]

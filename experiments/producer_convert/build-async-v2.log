@@ -1,0 +1,64 @@
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_verify_async_convert_v2 -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/producer_convert/.build-async-convert-v2/main.cpp -o main.o
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_verify_async_convert_v2 -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/producer_convert/.build-async-convert-v2/cuda.cu -o cuda.cuda.o
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    16 bytes stack frame, 12 bytes spill stores, 16 bytes spill loads
+ptxas info    : Used 72 registers, used 4 barriers, 16 bytes cumulative stack size, 90208 bytes smem
+ptxas info    : Compile time = 60.155 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    16 bytes stack frame, 12 bytes spill stores, 16 bytes spill loads
+ptxas info    : Used 72 registers, used 4 barriers, 16 bytes cumulative stack size, 70728 bytes smem
+ptxas info    : Compile time = 57.577 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    16 bytes stack frame, 12 bytes spill stores, 16 bytes spill loads
+ptxas info    : Used 72 registers, used 4 barriers, 16 bytes cumulative stack size, 51248 bytes smem
+ptxas info    : Compile time = 56.998 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi64ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi64ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 4 barriers, 90208 bytes smem
+ptxas info    : Compile time = 61.058 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi64ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi64ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 4 barriers, 70728 bytes smem
+ptxas info    : Compile time = 64.061 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi64ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi64ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 4 barriers, 51248 bytes smem
+ptxas info    : Compile time = 60.970 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    16 bytes stack frame, 12 bytes spill stores, 16 bytes spill loads
+ptxas info    : Used 72 registers, used 4 barriers, 16 bytes cumulative stack size, 90208 bytes smem
+ptxas info    : Compile time = 63.324 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    16 bytes stack frame, 12 bytes spill stores, 16 bytes spill loads
+ptxas info    : Used 72 registers, used 4 barriers, 16 bytes cumulative stack size, 70728 bytes smem
+ptxas info    : Compile time = 64.028 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1ELi128EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    16 bytes stack frame, 12 bytes spill stores, 16 bytes spill loads
+ptxas info    : Used 72 registers, used 4 barriers, 16 bytes cumulative stack size, 51248 bytes smem
+ptxas info    : Compile time = 62.434 ms
+ptxas info    : Compiling entry function '_Z6verifyILi4ELi1ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi4ELi1ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 4 barriers, 90208 bytes smem
+ptxas info    : Compile time = 65.851 ms
+ptxas info    : Compiling entry function '_Z6verifyILi3ELi1ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi3ELi1ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 4 barriers, 70728 bytes smem
+ptxas info    : Compile time = 67.595 ms
+ptxas info    : Compiling entry function '_Z6verifyILi2ELi1ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z6verifyILi2ELi1ELi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 80 registers, used 4 barriers, 51248 bytes smem
+ptxas info    : Compile time = 65.735 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_verify_async_convert_v2.so
