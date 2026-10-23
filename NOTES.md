@@ -346,3 +346,77 @@ geomean would be ~2.16x. On batch-1 loads the sliding layer is ~58% of the load 
 ### Budget used (UTC day 2026-10-23)
 
 This session: 0 checks, 0 scored runs (nothing beat main). Claude today: 4 of 8 checks, 2 of 3 scored.
+
+## Session 5 (overnight agent, 2026-10-23 22:01-~22:45 UTC)
+
+Baseline reproduced: H100 bench 1.802x. Two wins, both from the same lens: count the serial memory
+round trips on the critical path of the latency-bound shapes (batch-1 and sliding layers).
+
+### Changes (main)
+
+1. 651b421, one-pass sliding merge: `_combine_hb` took 8 splits per pass (`sb=8`), so batch-1 sliding
+   (32 splits) paid 4 serial L2 round trips. Now `sb = splits` (one pass, still 1 warp, hb=2).
+   H100 1.802 -> 1.861: decode 1 sliding 6.27 -> 5.23, verify 1 sliding 7.39 -> 6.43, decode 16
+   sliding 12.03 -> 11.41 us.
+2. 65ff1ab, new tokens first: split 0 used to attend the block's own tokens (qkv k/v loads, cos/sin,
+   cache_loc, FP8 store) AFTER its KV loop: one more serial HBM trip on the slowest program. Moved to
+   before the loop (`_new`; `_finish` now only writes partials). Online softmax is order-free.
+   H100 1.861 -> 1.911: decode 1 sliding 5.23 -> 4.77, verify 1 sliding 6.43 -> 5.55, decode 16
+   sliding 11.41 -> 10.29, verify 16 sliding 13.42 -> 12.61 us; full layers equal or slightly better.
+   A/B per shape (flag, since removed): new-first wins or ties everywhere; batch-1 full within 0.1 us.
+   16/16 tests, 48/48 nearby shapes (tools/nearby.py) after each change.
+
+### Measured (H100, after both changes)
+
+- Merge share (total vs attn-only, /tmp/c5/parts.py pattern = monkeypatch `_combine`/`_combine_hb`
+  with a no-op): decode 1 sliding 4.83/3.46, verify 1 sliding 5.82/4.32, decode 1 full 18.8/15.4,
+  verify 1 full 19.0/16.3, decode 16 sliding 10.35/8.74, decode 32 sliding 15.6/14.2, verify 16
+  sliding 12.6/10.5, verify 32 sliding 20.5/16.9 us.
+- Equal seq_lens experiment (all set to the min, time scaled to the mean): verify 16 full no gain,
+  verify 32 full 2.5%, decode full none. So per-request imbalance under `balance` costs <= 2.5%:
+  global (cross-request) load balancing is not worth building.
+- Verify-full SASS (dual, maxnreg 128): ~404 instructions per 2-chain 32-key iteration: 68 FMUL
+  (acc rescale), 40 FMNMX, 40 FADD, 36 MUFU, 36 FFMA, 32 F2FP, 5 BAR.SYNC, 3 MEMBAR.ALL.CTA + proxy
+  fences (V fp8 -> LDS -> F2FP -> STS fp16 -> fence -> bar -> HGMMA, both chains share ONE fp16 V
+  staging buffer, so they serialize there), Q re-read by LDSM every iteration (register cap). The
+  cp.async wait is DEPBAR.LE 5 with 5 groups/iteration (prefetch depth ~1 iteration, but an iteration
+  is ~2 us so that's not the limiter). ~45% issue utilization: stall-bound on bars/wgmma waits.
+
+### Tried, didn't help (reverted)
+
+- Token groups for verify full (block's 8 tokens split over adjacent programs so duplicate K/V gathers
+  meet in L2; 1-warp mma.sync programs like decode): 331-930 us vs 156. Dead.
+- hpp=2 for verify full with 8 warps (one warpgroup per head, one 128B row gather, one V conversion
+  per tile): 279 us (159 regs, 1 program/SM); maxnreg 128 -> 2/SM: 208 us at stages 5-8. Dead
+  (wasted half of the MMA columns and of the acc rescale).
+- Batch-1 sliding with 1-4 splits + fused merge (no merge launch): 11.5-29 us. One program can't
+  hide serial gather latency.
+- L2 prefetch of the whole page-table row (inline `prefetch.global.L2`) before the seq load, batch 1
+  sliding: no change (and slower at batch 16).
+- One-trip merge (load the accumulators together with the maxima when one pass covers all splits):
+  bench 1.895 vs 1.911, no gain (the compiler already overlaps them, or noise).
+- Re-sweeps after the changes (all flat or worse): sliding splits 8-64, block_n 32/64, warps 1-8,
+  stages 2-6, merge hb 1-8 / cw 1-4 at every batch.
+
+### Next ideas
+
+1. Same lens elsewhere: list every dependent memory trip per program (seq -> page -> KV; seq ->
+   cos/sin; partial store -> grid end -> merge loads) and look for ones that can be issued earlier.
+2. Sliding merge is still 1.4-3.5 us. Verify 32 sliding: 2048 one-warp merge programs over 8.4 MB of
+   partials.
+3. Verify full: stuck at ~156/305 us in Triton (see SASS above); Codex measured native variants slower.
+
+### Judge runs this session
+
+| job | commit | speedup (95% CI) | notes |
+|---|---|---|---|
+| 554277594e264b05 (check) | 651b421 | **1.960x** (1.931-1.998) | 16/16; decode 1 sliding 6.21 us (3.16x), verify 1 sliding 7.35 (2.99x) |
+| 254b1d40063f429c (check) | 65ff1ab | **2.041x** (2.011-2.072) | 16/16; decode 1 sliding 6.23 (3.33x), verify 1 sliding 7.04 (3.23x), decode 16 sliding 10.25 (2.62x), verify 16 sliding 12.51 (2.31x); full layers 1.28-2.17x |
+| 0a2eec0fdfad40af (scored) | 65ff1ab | **2.021x** (1.991-2.051) | 16/16; board best for us, rank 21 (was 33 at 1.9456x) |
+
+H200 weak spots now: verify 16/32 full 1.33x/1.28x, verify 32 sliding 1.83x; everything else 2.05-3.33x.
+
+### Budget used (UTC day 2026-10-23)
+
+Claude today: 6 of 8 checks (b42151ed, 39d24ebc, 1985ba31, 944b20a9, 55427759, 254b1d40), 3 of 3 scored
+(740bc5e9, 7d433848, this session's). Account before this session's submit: 12/20 checks, 5/10 scored.
