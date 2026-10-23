@@ -409,3 +409,145 @@ leaving 12 checks / 5 scored. No withdrawals; no experimental code was submitted
 5. Retain fresh routing/length graph tests and sanitizer checks whenever changing
    asynchronous synchronization. For experiments use the GPU lock for profiling
    and correctness stress runs as well as every timed replay.
+
+
+## Session 4 — 2026-10-23, 22:07–22:30 UTC (local cycle complete; checks queued)
+
+### Outcome and source state
+
+A new native hierarchical reduction wins on small full-attention batches.
+Production source matches **effc2bf** on `codex-exp/cuda-reduce`: full layers,
+B*Hkv<=4, and 64<actual splits<=128. Eight warps each merge up to 16 FP32 splits,
+then warp zero combines their local maxima, denominators and vectors from
+shared memory. RMSNorm, gate, BF16 output and every input-derived calculation
+remain inside kernel_fn. Native attention kernels are still not dispatched.
+
+Merged main **651b421** (one-pass sliding merge) and **65ff1ab** (new tokens
+before cached keys). All Triton changes/plans belong to main. The new sliding
+merge beats our session-2 native sliding path, so that old native code and
+binding were removed. Paired H100 improvements for main over the old native
+sliding path were B1 decode 5.568 -> 5.312 us, B1 verify 6.816 -> 6.368 us,
+B2 decode 6.176 -> 5.792 us, B2 verify 7.424 -> 7.088 us. Retain main here.
+
+The experiment source and results are on `codex-exp/cuda-reduce`, starting with
+`experiments/reduce/README.txt`. The source before the later main merge was
+**fddd5c1**; its result archive starts at **5930643**. Experiments are not imported
+by production. The final candidate is locally validated; its H200 confirmation
+is still pending. No scored run was requested during this cycle.
+
+### Local measurements
+
+All times are H100 CUDA graph replay, cold L2, empty-replay subtraction, shared
+GPU lock. The same-process comparisons alternate order and take medians of
+five paired measurements. The latest native-vs-main full-layer comparison:
+
+| batch | q_len | context | main 65ff1ab merge | native |
+|---|---|---|---:|---:|
+| 1 | 1 | 80000 | 17.904 us | 16.928 us |
+| 1 | 8 | 80000 | 19.136 us | 18.400 us |
+| 2 | 8 | 80000 agentic | 40.032 us | 38.912 us |
+| 2 | 1 | 1500, page 64 | 7.264 us | 6.656 us |
+
+The full local bench is **1.909x** versus fixed SGLang/H200 times. Earlier in
+the cycle, with main 651b421, it was 1.882x; before that main merge, 1.835x.
+These aggregate changes include main's improvements. Do not attribute them
+entirely to native code or compare them as if measured simultaneously. The
+paired table isolates the native reduction's contribution. Earlier paired
+small full-shape gains were generally ~0.3–0.8 us decode, ~0.7–0.9 us verify.
+
+The wider 14-case scan covered B1/B2/B3, contexts 4K–120K, pages 1/64 and both
+query lengths. No new slowdown appeared on nearby shapes. Short B2 decode
+at contexts 1024/1500 also uses this native path and passed independent reference
+checks; context 2000 agentic exceeds its split limit and retains Triton.
+The B2/B3 verify timing discontinuity already exists in main's attention plans;
+this change reduces B2 time and leaves B3 unchanged.
+
+### Experiments and lessons
+
+- A warp per head handling 64/128 splits needs many registers and loses several
+  microseconds. Four/eight cooperating warps reduce this pressure and win on
+  small grids. Native gains at large batches were small and inconsistent;
+  final dispatch keeps the inherited full-layer merge there.
+- Split/dimension tiles (8/16 lanes per row), with vectorized 16-byte partial
+  loads, lost to the simpler two-float-per-lane hierarchy.
+- CUDA cluster/DSM reduction spreads one head over SMs but loses to an ordinary
+  block. It has scored-shape comparisons only, not full-suite/sanitizer coverage.
+- Compile-time head/token indexing removes a substantial integer-divide prologue
+  but does not improve total time. PDL already overlaps that prologue with the
+  predecessor. Do not spend another cycle on this specialization alone.
+- A late cooperative-weight version of warp zero tied verify and appeared ~0.4 us
+  faster on decode in one small comparison. It is **not integrated or submitted**,
+  and is not established as a win. It only has six baseline comparisons, three
+  with independent reference checks. It could be reconsidered next cycle if a
+  small follow-up is worthwhile; do not claim full validation for it.
+- NCU standalone B1/L8/S126 reduction: native 48 registers/thread, 2176 shared
+  bytes, 11.79% achieved occupancy; Triton 80 registers/thread, 1024 dynamic
+  shared bytes, 6.22%. Cold standalone times 5.50/5.57 us are not production
+  PDL graph timings: partials are cold in this isolated profile. Use the paired
+  kernel_fn measurements for the end-to-end benefit.
+
+### Correctness and ordering
+
+- Generic hierarchy: 16/16 reference tests, 72 fresh-data/routing/length graph
+  replays, and 162 independent synthetic-partial comparisons with changing
+  weights, vectors, gates and scales.
+- Integrated fddd5c1: 16/16 and 72 fresh graph replays. After main 65ff1ab merge,
+  effc2bf separately passed 16/16 and another 72 fresh graph replays.
+- Final native merge isolated under Compute Sanitizer: **memcheck zero errors;
+  synccheck zero errors; racecheck zero hazards/errors/warnings**. Each run checks
+  42 fresh graph replays across seven shapes against torch, including DP heads,
+  unaligned split counts and 1/64 scales (some exercise the implementation beyond
+  its narrower dispatch).
+- Final PDL SASS shows ACQBULK before every coherent partial load. Volatile inline
+  PTX ld.global.cg.v2.f32 keeps nvcc from hoisting those reads. Gate and scale
+  loads before the wait are independent of the predecessor and safe.
+- The first all-kernel memcheck log reported two CUDA_ERROR_INVALID_VALUE calls
+  from Triton's loader, not memory accesses. Local driver.c lines 313–328 probes
+  the newer oversized-shared-memory attribute and intentionally falls back on
+  failure. Keep that log accurately labeled; it is not a zero-error log. The
+  isolated production-native sanitizer runs above avoid that unrelated loader
+  probe and retain full memory/sync/race checking.
+- The initial sweep tried an unsupported 256-split one-warp configuration and
+  caught a mismatch. Later experimental launchers explicitly check capacity and
+  the sweep skips unsupported configurations. Production handles at most 128
+  splits, with exactly 128 slots of capacity. No bad prototype was submitted.
+
+### Judge jobs and budget
+
+Both checks were still **queued at 22:28 UTC**:
+
+| job | requested | source | status |
+|---|---|---|---|
+| 40e1aa41415a4c87 | 22:19 UTC | fddd5c1, main 651b421 | queued |
+| 01bc4ecc9c7047d9 | 22:27 UTC | effc2bf, main 65ff1ab | queued |
+
+The second check is necessary because the later main merge changed the source.
+Only **01bc4ecc9c7047d9** can qualify the latest source for a scored run. Read the
+older result for evidence too, but do not score the new source using its result.
+Do not resubmit either check. No new scored runs, no withdrawals.
+
+Codex UTC-day 2026-10-23 usage: **3/8 checks, 1/3 scored runs**. This cycle used
+2 checks and 0 scored. Account was 11/20 checks, 5/10 scored immediately before
+the second check; it therefore had 8 checks and 5 scored left afterward, absent
+other concurrent jobs. Refresh limits before any further judge action.
+The last read board best was the prior **1.945619x** run 033117b46b6f42ba; do not
+assume it remains the best when the pending checks finish.
+
+### Next cycle
+
+1. Read both pending results and each passing profile. Latest source is effc2bf;
+   compare its check to the account's **current** best before any scored run.
+   A scored run is allowed only if this exact code's check beats that best.
+2. If the latest H200 check supports the local win, submit the identical source
+   (provided budget and current board permit). If H200 contradicts it, retain
+   main 65ff1ab improvements and remove/rework only the native full dispatch.
+3. Read COORD.md and fetch main. A further main code change means a further
+   combined-code check is needed before scoring; do not confuse source versions.
+4. Native hierarchical merge is a small improvement, not the large full-verify
+   breakthrough. Avoid repeating the earlier native attention/gather topologies
+   without a concrete reduction in per-tile instruction/dependency cost.
+5. If exploring cooperative.py, validate fresh PDL replays and repeat paired
+   timing before considering a candidate; its one decode result is inconclusive.
+
+No STOP file existed at the final local-work read. The local cycle ends with
+clear queued-job handoff rather than sleeping idle through the judge queue.
