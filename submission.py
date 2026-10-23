@@ -148,12 +148,12 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
 
 
 @triton.jit
-def _finish(split, b, seq, j, q, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
-            vc_ptr, vs_ptr, loc_ptr, pacc_ptr, pml_ptr, HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr,
-            L: tl.constexpr, L_PAD: tl.constexpr, MG: tl.constexpr, D: tl.constexpr, ROPE: tl.constexpr,
-            S: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr):
-    """Split 0 attends the block's own tokens (and stores them in the cache); every split then
-    writes its partial (max, sum, accumulator) for KV heads hp0 .. hp0 + HPP - 1."""
+def _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
+         vc_ptr, vs_ptr, loc_ptr, HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr,
+         L: tl.constexpr, L_PAD: tl.constexpr, MG: tl.constexpr, D: tl.constexpr, ROPE: tl.constexpr,
+         S: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr):
+    """Split 0 attends the block's own tokens (and stores them in the cache). Done before the
+    cached keys, so these loads overlap the page-table and cache trips instead of following them."""
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
     ROW_W: tl.constexpr = HKV * D
     if split == 0:
@@ -179,6 +179,13 @@ def _finish(split, b, seq, j, q, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, scal
         acc = acc * alpha[:, None] + tl.dot(p.to(DOT), vq.to(DOT))
         m_i = m_new
 
+    return m_i, l_i, acc
+
+
+@triton.jit
+def _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV: tl.constexpr,
+            MG: tl.constexpr, D: tl.constexpr, S: tl.constexpr):
+    """Every split writes its partial (max, sum, accumulator) for KV heads hp0 .. hp0 + HPP - 1."""
     # Partials [B, HKV, S, MG]: each row's own head's D columns of acc.
     part = ((b * HKV + hp0 + hp) * S + split) * MG + rr
     tl.store(pml_ptr + part * 2, m_i, mask=r_ok)
@@ -238,6 +245,11 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     l_i = tl.zeros([M_PAD], tl.float32)
     acc = tl.zeros([M_PAD, C], tl.float32)
     m1, l1, acc1 = m_i, l_i, acc
+    m_i, l_i, acc = _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
+                         vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+    if DUAL:
+        m1, l1, acc1 = _new(split, b, seq, j, q1, m1, l1, acc1, hp0 + 1, c, scale, k_scale, qkv_ptr, cs_ptr,
+                            kc_ptr, vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
 
     if WINDOW > 0:
         base = tl.maximum(seq - (WINDOW - 1), 0)
@@ -271,11 +283,9 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
                                  True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
 
-    _finish(split, b, seq, j, q, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
-            vc_ptr, vs_ptr, loc_ptr, pacc_ptr, pml_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+    _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
     if DUAL:
-        _finish(split, b, seq, j, q1, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, scale, k_scale, qkv_ptr, cs_ptr,
-                kc_ptr, vc_ptr, vs_ptr, loc_ptr, pacc_ptr, pml_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+        _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
 
     if FUSE:
         # The last of this (request, head pair)'s S programs to finish merges the partials and
