@@ -280,3 +280,132 @@ codex and codex-exp/cuda-sliding are pushed, with a clean production worktree.
   structurally more promising than another small merge parameter sweep.
 - For any native kernel synchronized with a concurrent predecessor, inspect SASS
   for data loads before waits, and validate fresh data/routing across graph replays.
+
+## Session 3 — 2026-10-23, 21:40–22:07 UTC
+
+### Outcome
+
+No production change from the new native full-attention experiments. A measured
+full-row gather ceiling is now established, and a correct Hopper mbarrier pipeline
+is retained, but attention still loses substantially to main. No new judge checks
+or scored runs were used. The prior session's scored run completed successfully:
+**033117b46b6f42ba, code 881df62: 16/16 pass, 1.945619x,
+95% CI [1.916435, 1.974803]**. No flags or static-check rejections. It is the account's
+new best, **rank 31**, at the 22:04 UTC leaderboard read; to_first=1.401.
+
+The experiment is `codex-exp/cuda-gather`, source/results commit **40b56db**.
+Start with `experiments/gather/README.txt`; `pair_mbar.py` is the strongest retained
+native prototype and `compare_final.py` reproduces its final comparison. All
+experiments remain outside production imports. `origin/main ac18ec3` was merged;
+its changes since 0495b16 are notes/profiles only, so the production kernel is
+byte-for-byte the same checked/scored 881df62 kernel. Codex's small sliding merge
+remains dispatched exactly as in session 2.
+
+### Gather-first measurements and native attention results
+
+All times below are local H100 cold-L2 CUDA graph replay times with the shared GPU
+lock and empty-replay subtraction. They are not judge H200 measurements.
+
+- A pure native checksum gather of both 128-byte K/V head rows reaches **128 / 246
+  us** at batches 16/32 (cooperative four-warp copies, 3 stages, ~1056 CTAs). This
+  reproduces the old ~236 us uniform-context gather floor reasonably closely on
+  the actual agentic scored inputs. A dedicated single producer warp gives about
+  **156 / 308 us** at that grid. Two producers can reach ~258 us at B32 with more
+  CTAs; four producers lose residency and bottom out around 299 us.
+- Two consumer warpgroups (one per KV head), with full-row gathers from 1/2/4
+  producer warps, give best B32 attention times **563 / 497 / 544 us**. Cooperative
+  8-warp loading is ~595 us. None transfers the gather-only advantage to attention.
+- Replacing software-ready flags and wait_group publication with Hopper
+  mbarriers improves the two-producer attention version to ~438 us in the initial
+  sweep. The retained version has 64 producer arrivals tracked by
+  cp.async.mbarrier.arrive.noinc and one empty-stage arrival from each consumer
+  group. New-token shared stores use release ordering and the async-proxy fence.
+- A single consumer group running both softmax chains still costs ~497 us.
+  WGMMA PV, cooperative loads, and page-index broadcasts do not rescue it;
+  hardware barriers on this dual-chain variant are ~495 us. Do not repeat this
+  family of small parameter sweeps without a new resource/issue-throughput idea.
+- Linear bulk asynchronous row-copy gather alone reaches ~260 us. Direct tensor-map
+  row gathers into a SW128 WGMMA K layout are correct, but attention is ~841 us at
+  B32. Linear bulk K/V plus explicit shared K rearrangement is ~872 us. These copy
+  engines need much more resident gather work than the attention kernel permits.
+
+Final alternating-order comparison, medians of three paired measurements:
+
+| batch, L=8 full | production | native mbarrier |
+|---|---:|---:|
+| 1 | 18.720 us | 34.864 us |
+| 8 | 88.080 us | 127.216 us |
+| 16 | 158.064 us | 231.296 us |
+| 24 | 226.944 us | 330.896 us |
+| 32 | 307.264 us | 447.072 us |
+
+The native version remains about 46% slower at the target large batches. Keep
+production. Its full local bench was **1.827x** against the fixed SGLang/H200 times,
+with verify 16/32 full **156.26 / 306.21 us**. This is timing variation in unchanged
+code, not a speedup or regression introduced in this cycle.
+
+NCU on the four-producer paired prototype: 80 registers/thread, ~52 KB shared
+memory, two resident CTAs/SM, 35.7% achieved occupancy, 32.4% DRAM throughput,
+0.53 issued warps/scheduler. Long-scoreboard, short-scoreboard and execution wait
+cost about 2.1 cycles each per issued instruction; barriers ~0.86. Full-row loads
+alone do not overcome the resource, dependency and instruction overhead. Profile
+text, CSV counters and the lock-taking reproducer are on the experiment branch.
+
+### Validation
+
+- Software-flag native/fallback dispatch passed 16/16; 35 extra fresh-data graph
+  replays passed on seven nearby shapes (B1/2/3/4/8/12, TP8/DP, pages 1/64,
+  contexts 10–120000, scales 1 and 1/64, soft/coherent/edge inputs).
+- Retained hardware-barrier dispatch separately passed 16/16 and those 35 fresh
+  graph replays. Another 35 replays also varied sequence lengths, positions,
+  cache locations and cache_seqlens on device, including empty contexts: all pass.
+- Hardware-barrier **memcheck and synccheck: 0 errors; racecheck: 0 hazards,
+  0 errors, 0 warnings**. Four small page/scale cases, three native calls each.
+- Direct and bulk checksum gathers independently matched PyTorch byte checksums
+  on 128 combinations each, including DP heads and page size 64. An early log
+  incorrectly printed 64 variants per shape; it ran 32 per shape (four shapes).
+  The script/README and later bulk log state the correct count.
+- Every attention sweep checked finite outputs and <2.5% difference against a
+  reference-validated production output (observed ~0.03% or less). Other
+  prototypes have only these scored comparisons; do not claim full-suite or
+  sanitizer validation for them.
+- Production separately passed 16/16. Main's later merge only changed prose and
+  profiles, so no redundant GPU test rerun was needed for that merge.
+
+### Prior scored run, profile and budget
+
+The run queued at 21:37 began at **21:57:36 UTC**, completed around 22:04, and was
+read during this cycle. It was not resubmitted. Its profile is saved at
+`profiles/submission.033117b46b6f42ba.txt` (with JSON/log alongside).
+
+H200 native-path sliding shape times: **decode 1 = 6.93 us; verify 1 = 8.26 us**.
+The native merge's profiled kernel durations are **1.7 / 2.0 us**, attention
+**3.5 / 4.2 us**. Full verify 16/32 remain the weak spots at **155.26 / 304.20 us**,
+1.316x / 1.277x. PDL profile rows overlap and include predecessor waiting; do not
+sum them. The aggregate 1.9456x is consistent with the same-code 1.94245x check.
+It is only ~1% above main's 1.927x board run, inside the confidence intervals;
+the earlier same-process native-vs-main measurements are stronger evidence for
+the small merge improvement than this difference between independent judge runs.
+
+Codex UTC-day 2026-10-23 usage remains **1/8 checks, 1/3 scored runs** (both session
+2). This cycle: **0 checks, 0 scored**. Account at 22:04: **8/20 checks, 5/10 scored**,
+leaving 12 checks / 5 scored. No withdrawals; no experimental code was submitted.
+
+### Next cycle
+
+1. Start from `codex`, fetch/merge main, and read the shared board. The pending
+   session-2 job is now resolved; do not poll or resubmit it again.
+2. Do not repeat the native full-row gather/producers/TMA sweeps: the gather
+   ceiling is good, but every attention topology tried here loses. The mbarrier
+   prototype is a useful correct building block, not a candidate.
+3. A larger native attention attempt needs to demonstrate reduced per-tile
+   instruction/dependency cost at the required register/shared-memory budget.
+   More gathered bytes in flight alone has not solved it. Claude currently owns
+   Triton per-tile instruction work and V FP8-to-FP16 staging; respect that claim.
+4. A smaller distinct direction is a native hierarchical reduction for the
+   batch-1 full layers' ~128 splits (their merge costs ~2–3 us). The current native
+   path handles only 32 splits on small sliding batches. Preserve FP32 partials,
+   correct PDL load ordering, and judge existing shape plans without changing them.
+5. Retain fresh routing/length graph tests and sanitizer checks whenever changing
+   asynchronous synchronization. For experiments use the GPU lock for profiling
+   and correctness stress runs as well as every timed replay.
