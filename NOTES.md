@@ -178,3 +178,66 @@ layers and decode are unchanged and noisy at +-0.5 us between runs.
 This session: 2 checks (b42151ed, 39d24ebc) and 1 scored run (740bc5e9). Day totals: 5 of 15
 checks and 3 of 3 agent-allowed scored runs (2 were the human's earlier), so no more scored runs today.
 Board at 20:10 UTC still showed our old 1.849x (rank 43) right after the run; it may lag.
+
+## Session 2 (overnight agent, 2026-10-23 20:15-~21:45 UTC)
+
+Baseline reproduced: H100 bench 1.798x, 16/16 tests.
+
+### Where the time goes now (H100 ablations, scripts were in /tmp; patterns described here)
+
+- Verify full (dual): taking out the whole softmax only gets 161 -> 143 us (verify 16) and 306 -> 269
+  (verify 32). Without exp: 152/289; without acc rescale: 155/296; without max update: 147/280.
+  So no single softmax piece dominates; ~90% of the time is the gather pipeline itself (decode
+  full moves the same bytes in 131 us on H100). Very sensitive to pipeline depth: stages 4 = 210 us,
+  5 = 160 us.
+- Sliding layers: a pure random 128B-row gather of 32 x 2048 rows (K+V, 16.8 MB) costs ~10 us on the
+  H100 under a graph (minus a tiny-graph cost), so decode 32 sliding (16.5 us total, ~11.5 us of it
+  in the KV loop) is already near the gather floor. Every decode-sliding config in a wide sweep
+  (hpp 1/2, splits 4-32, warps 1-4, block_n 16-64) lands at 16.3-17.5 us.
+- Sliding fixed costs (kernel with zero KV tiles): decode 3 us, verify 32 sliding 6.6 us (+4.8 us
+  combine). RoPE adds ~1.3-1.6 us to the zero-tile kernel, but with tiles present making RoPE free
+  (wrong-output ablation) only saves ~0.5-1 us on verify sliding and nothing on decode.
+- _combine adds 1.3-4 us on sliding shapes (verify 32 sliding: 22.7 total vs 18.6 attn only).
+
+### Tried, didn't help (all reverted)
+
+- Lazy softmax rescale (FA4-style, rescale only when some row max grows > 8 in log2): 160 -> 184 us.
+  The block-uniform branch needs a cross-warp max (smem + barrier) every tile.
+- ex2.approx.f16x2 for p (inline asm): 161 -> 166 (the fp32 row sum needs a convert back).
+- Window mask only on split 0's first tile (provably the only tile the window can cut for verify;
+  never needed for decode since base = seq - 2047): ~12% fewer loop instructions, 0 time change.
+  Sliding is latency-bound, not issue-bound (issue ~0.5/scheduler).
+- RoPE pairs rotated in registers (reshape/split/join, contiguous cos/sin loads, no x[c^1] u16
+  gathers): no change. Computing cos/sin in-kernel with libdevice (no 512 MB table load): far
+  slower (verify 32 sliding 22 -> 34 us; overall 1.67x).
+- Verify 32 sliding: fuse, splits 4/16, hpp 2, dual, block_n 64, 8 warps, maxnreg 128: all slower
+  than the current plan (22.3 us).
+- Verify full: warps 8, block_n 16/64, stages 3/4/6/8, maxnreg 96/104 (spills, 2.4x slower).
+
+### Change (main)
+
+- Verify full: `maxnreg=128` (no spills; the compiler used 160) lets 4 dual programs fit per SM.
+  It wins only where 4/SM fills the single wave better than 3/SM (batch 8-24, 48: 2-3% faster) and
+  loses where both leave the same 3% idle (batch 4, 32, 64), so `_plan` picks per/SM by wave fill.
+  verify 16 full 160 -> 157 us; bench 1.798 -> 1.804. Correct at batch 8 (40K/120K), 12, 16, 20.
+
+### Next ideas
+
+1. Verify full is gather-pipeline-bound: more bytes in flight per SM without more registers.
+   Options: K and V tiles for both heads as one 128-byte row load (dual reads 64B halves of the
+   same rows in two loads; decode's hpp=2 reads full rows and is near the gather ceiling); prefetch
+   the page-table slice of each split at program start; a hand-written producer/consumer kernel.
+2. Sliding: fixed costs (prologue ~3-6 us, combine 1.3-4 us) are now the bulk above the gather floor.
+   Ideas: issue the first page-table/KV loads before the q norm/RoPE (so the cos/sin trip overlaps
+   the page-table trip); a smaller partial format is NOT allowed (keep fp32 partials).
+
+### Judge runs this session
+
+| job | commit | speedup | notes |
+|---|---|---|---|
+| 1985ba311f6b480a (check) | verify-4sm (maxnreg 128 rule) | pending: still queued at session end | read it with `okc status 1985ba311f6b480a --json` and fill in |
+
+### Budget used (UTC day 2026-10-23)
+
+This session: 1 check (1985ba31), 0 scored runs. Day totals: 6 of 15 agent checks, 3 of 3 scored runs
+(no scored runs left today). The day resets at 00:00 UTC.
