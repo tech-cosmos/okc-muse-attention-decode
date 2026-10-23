@@ -239,5 +239,13 @@ Baseline reproduced: H100 bench 1.798x, 16/16 tests.
 
 ### Budget used (UTC day 2026-10-23)
 
-This session: 1 check (1985ba31), 0 scored runs. Day totals: 6 of 15 agent checks, 3 of 3 scored runs
-(no scored runs left today). The day resets at 00:00 UTC.
+This session: 1 check (1985ba31), 0 scored runs. Under the new per-agent rule (CLAUDE.md, added mid-session:
+8 checks + 3 scored per agent per UTC day, account 20/10 shared with the Codex agent; count both
+agents' lines in ~/COORD.md), Claude has used 3 agent checks today (b42151ed, 39d24ebc, 1985ba31) and
+1 scored run (740bc5e9); the human's earlier runs count against the account total. The day resets at 00:00 UTC.
+
+Lanes (new): Claude = Triton submission.py on main; Codex = hand-written kernels on `codex` (it has
+claimed a CUDA WMMA verify-full kernel with explicit gather prefetch). So "hand-written
+producer/consumer kernel" in next idea 1 is Codex's lane now. Some of this session's early sweeps ran
+before bench.py's GPU lock existed and may have overlapped Codex's runs; the final bench numbers above
+were taken with the lock.
