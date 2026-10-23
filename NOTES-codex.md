@@ -12,7 +12,7 @@ No native speedup to dispatch this cycle. Built and measured 15 native verify-fu
 variants, preserved the strongest working prototype, and kept submission.py on the
 latest inherited Triton implementation. No judge checks or scored runs were used.
 
-- Experiment: `codex-exp/cuda-verify`, pushed through **7e21611** (kernel/results
+- Experiment: `codex-exp/cuda-verify`, pushed through **42f8356** (kernel/results
   commit **6b3f03d**). Start with `experiments/README.txt` and
   `experiments/cuda_verify.py`. Historical source variants and measurements are
   retained there; they are deliberately not imported by submission.py.
@@ -78,7 +78,7 @@ Useful implementation findings:
   the final ~234 / 446 us. This still computes every key and value; it does not skip
   attention work based on weights.
 - The final module builds at import into experiments/.build, explicitly targets
-  sm_90a, and compiles comfortably within the judge's 15-minute allowance. CUDA
+  sm_90a, and locally compiles comfortably within the judge's 15-minute allowance. CUDA
   uses light ATen/c10 headers to avoid repeatedly compiling torch/extension.h.
 
 Dead ends to avoid repeating without a new structural idea:
@@ -111,7 +111,7 @@ https://docs.nvidia.com/cuda/parallel-thread-execution/#asynchronous-warpgroup-l
   contexts; pages 1/64; normal/soft/coherent/edge data; 1/64 cache scale.
 - The three scored full-verify cases passed repeatedly during tuning.
 - Compute Sanitizer memcheck and synccheck each reported **0 errors** on six small
-  native cases, pages 1/64, scales 1/1/64, contexts 10/257/1024, depths 3/5/7.
+  native cases, pages 1/64, scales 1 and 1/64, contexts 10/257/1024, depths 3/5/7.
 - Latest-main production kernel separately passed 16/16 after the final merge.
 - Native results and sanitizer logs live on codex-exp/cuda-verify under
   experiments/results; reproducibility instructions are in experiments/README.txt.
