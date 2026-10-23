@@ -371,11 +371,16 @@ def _plan(cfg, max_pages, device):
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
                     fuse=False, qk8=True)
     # Verify blocks: each program runs both KV heads as two independent 64-row chains (dual), which
-    # hides latency better than more programs; 3 fit per SM (registers), so the splits fill exactly
-    # one wave, and each request's context is cut into equal chunks (balance) so none idles.
+    # hides latency better than more programs; 3 fit per SM (160 registers), or 4 when capped at 128
+    # (no spills). The splits fill exactly one wave, and each request's context is cut into equal
+    # chunks (balance) so none idles. 4 per SM wins only where it fills that wave better than 3
+    # (batch 8-24 and 48; at 32 and 64 both leave the same 3% idle and 3 per SM is faster).
     pairs = batch * max(1, hkv // 2)
-    return dict(splits=max(4, 3 * _num_sms(device) // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
-                qk8=True, peel=True, dual=True, balance=True)
+    sms = _num_sms(device)
+    fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
+    per = 4 if fill[4] > fill[3] else 3
+    return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
+                qk8=True, peel=True, dual=True, balance=True, maxnreg=128 if per == 4 else None)
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:
