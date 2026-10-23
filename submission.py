@@ -56,8 +56,10 @@ ROPE_POSITIONS = 1 << 21
 _ROPE = {}
 _SMS = {}
 _COUNTERS = {}
-# The MMA input precision (a test hook: Triton's CPU interpreter can't multiply bfloat16).
-DOT_DTYPE = tl.bfloat16
+# The MMA input precision for P@V (and QK^T without qk8). FP16 holds every E4M3 value exactly and
+# converts from it in one instruction (BF16 takes two); P in [0, 1] keeps more bits than in BF16.
+# A test hook too: Triton's CPU interpreter can't multiply 16-bit floats.
+DOT_DTYPE = tl.float16
 print(f"env: torch {torch.__version__}, triton {triton.__version__}", flush=True)
 
 
@@ -144,7 +146,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         # Queries rounded to E4M3 (as FA3 does with an FP8 cache): QK^T runs on the FP8 cache as is.
         q = q.to(tl.float8e4nv)
     else:
-        q = q.to(tl.bfloat16).to(DOT)
+        q = q.to(DOT)
     k_scale = tl.load(ks_ptr)
     scale = qk_scale * k_scale  # log2 units, applied to q . k_fp8
 
