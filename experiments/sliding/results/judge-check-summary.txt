@@ -1,0 +1,16 @@
+2d178f1df3544c27 done
+passed: True speedup: 1.9424500812386327 95% interval: [1.913313330020053, 1.9715868324572121] error: None
+| load | layer | candidate us | baseline us | speedup |
+|---|---|---:|---:|---:|
+| decode 1 | sliding | 7.185 | 20.880 | 2.906 |
+| decode 1 | full | 15.614 | 31.392 | 2.010 |
+| decode 16 | sliding | 11.712 | 26.752 | 2.284 |
+| decode 16 | full | 101.852 | 201.056 | 1.974 |
+| decode 32 | sliding | 14.625 | 31.360 | 2.144 |
+| decode 32 | full | 192.743 | 385.136 | 1.998 |
+| verify 1 | sliding | 7.951 | 22.672 | 2.851 |
+| verify 1 | full | 16.925 | 35.904 | 2.121 |
+| verify 16 | sliding | 13.268 | 29.312 | 2.209 |
+| verify 16 | full | 156.704 | 206.160 | 1.316 |
+| verify 32 | sliding | 19.410 | 34.784 | 1.792 |
+| verify 32 | full | 306.133 | 390.512 | 1.276 |
