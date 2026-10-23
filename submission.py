@@ -329,7 +329,7 @@ def _plan(cfg, max_pages, device):
                         hpp=1, fuse=False, qk8=True)
         # Large batches: smaller, deeply pipelined programs.
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
-                    qk8=length == 1)
+                    qk8=True, peel=length > 1)
     if heads <= (2 if length == 1 else 4):
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
     if length == 1:
@@ -338,7 +338,7 @@ def _plan(cfg, max_pages, device):
                     fuse=False, qk8=True)
     # Verify blocks' 64-row programs: 4 fit per SM (registers), so about 512 of them fill the GPU in
     # one wave; deep pipelines keep their reads in flight. Whole tiles skip the masks (peel).
-    return dict(splits=max(8, 512 // heads), block_n=32, warps=4, stages=5, hpp=1, fuse=False, qk8=True,
+    return dict(splits=max(4, 512 // heads), block_n=32, warps=4, stages=5, hpp=1, fuse=False, qk8=True,
                 peel=True)
 
 
