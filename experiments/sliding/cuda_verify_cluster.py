@@ -1,9 +1,8 @@
-"""Hopper native attention experiment; slower than submission.py, never dispatched by it.
+"""Experimental sliding verify with FP8 WGMMA and cluster shared-memory reduction.
 
-The best session-1 variant uses a producer warp with cp.async and four consumer warps,
-FP8 WGMMA QK, FP16 register-to-shared MMA PV, and the existing Triton split reduction.
-Only full attention, eight query tokens, group size eight, D=64, pages 1/64 is supported.
-Build targets sm_90a (H100/H200), at import time. See NOTES-codex.md for measurements.
+Slower than production. Supports L=8, G=8, D=64, a 2048-token window, pages 1/64.
+The WGMMA descriptor masks the shared address before encoding it; see README.md.
+Builds for sm_90a at import. Never imported by submission.py.
 """
 import torch
 from pathlib import Path

@@ -1,9 +1,7 @@
-"""Hopper native attention experiment; slower than submission.py, never dispatched by it.
+"""Diagnostic synchronous-gather version of the sliding WGMMA cluster prototype.
 
-The best session-1 variant uses a producer warp with cp.async and four consumer warps,
-FP8 WGMMA QK, FP16 register-to-shared MMA PV, and the existing Triton split reduction.
-Only full attention, eight query tokens, group size eight, D=64, pages 1/64 is supported.
-Build targets sm_90a (H100/H200), at import time. See NOTES-codex.md for measurements.
+Returns (output, partial_accumulators, partial_max_and_sum). The masked descriptor
+is correct on the diagnostic cases. This is not a production candidate.
 """
 import torch
 from pathlib import Path
