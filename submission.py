@@ -121,18 +121,16 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
           DOT: tl.constexpr):
     """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi."""
     if MASKED:
+        # Past the end, gather the last valid row again (no load masks); the scores are masked.
         t_ok = t < hi
-        page = tl.load(pt_row + t // PAGE, mask=t_ok, other=0)
+        t_ld = tl.minimum(t, hi - 1)
     else:
-        page = tl.load(pt_row + t // PAGE)
-    row = (page.to(tl.int64) * PAGE + t % PAGE) * ROW_W + hp0 * D
-    if MASKED:
-        k = tl.load(kc_ptr + row[:, None] + c[None, :], mask=t_ok[:, None], other=0.0)
-        v = tl.load(vc_ptr + row[:, None] + c[None, :], mask=t_ok[:, None], other=0.0)
-    else:
-        k = tl.load(kc_ptr + row[:, None] + c[None, :])
-        v = tl.load(vc_ptr + row[:, None] + c[None, :])
-    s = tl.dot(q, tl.trans(k if QK8 else k.to(DOT))) * scale
+        t_ld = t
+    page = tl.load(pt_row + t_ld // PAGE)
+    row = (page.to(tl.int64) * PAGE + t_ld % PAGE) * ROW_W + hp0 * D
+    k = tl.load(kc_ptr + row[:, None] + c[None, :])
+    v = tl.load(vc_ptr + row[:, None] + c[None, :])
+    s = tl.dot(q, tl.trans(k if QK8 else k.to(DOT)))
     if MASKED:
         ok = t_ok[None, :]
         if WINDOW > 0:
@@ -140,9 +138,10 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
         s = tl.where(ok, s, float("-inf"))
     elif WINDOW > 0:
         s = tl.where(t[None, :] > pos[:, None] - WINDOW, s, float("-inf"))
-    m_new = tl.maximum(m_i, tl.max(s, 1))
+    # The scale (> 0) goes into the row maxima and the exponent's FMA, not every score.
+    m_new = tl.maximum(m_i, tl.max(s, 1) * scale)
     alpha = tl.exp2(m_i - m_new)
-    p = tl.exp2(s - m_new[:, None])
+    p = tl.exp2(tl.fma(s, scale, -m_new[:, None]))
     l_i = l_i * alpha + tl.sum(p, 1)
     acc = acc * alpha[:, None] + tl.dot(p.to(DOT), v.to(DOT))
     return m_new, l_i, acc
@@ -377,7 +376,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, num_warps=plan["warps"])
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, num_warps=plan["warps"],
+        **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
     _combine[(batch * length, hq)](
