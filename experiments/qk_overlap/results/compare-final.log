@@ -1,0 +1,42 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+REFERENCE verify 1 production True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 baseline True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 overlap True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 latebar True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 nobar True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+REFERENCE verify 1 latebar_nobar True relative L2 error 2.313e-02 (worst row 2.848e-02) [bound 0.073: 2.5 x the reference's 0.023 with FP8
+{"shape": "verify 1", "variant": "production", "us": 18.17599986679852, "delta_native": -14.943999238312244, "empty_us": 5.519999889656901}
+{"shape": "verify 1", "variant": "baseline", "us": 33.07199967093766, "delta_native": 0.0, "empty_us": 5.519999889656901}
+{"shape": "verify 1", "variant": "overlap", "us": 32.64000010676682, "delta_native": -0.38400106132030487, "empty_us": 5.519999889656901}
+{"shape": "verify 1", "variant": "latebar", "us": 32.9599988181144, "delta_native": -0.06400048732757568, "empty_us": 5.519999889656901}
+{"shape": "verify 1", "variant": "nobar", "us": 33.20000064559281, "delta_native": 0.0, "empty_us": 5.519999889656901}
+{"shape": "verify 1", "variant": "latebar_nobar", "us": 33.28000125475228, "delta_native": 0.09600073099136353, "empty_us": 5.519999889656901}
+REFERENCE verify 16 production True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 baseline True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 overlap True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 latebar True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 nobar True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+REFERENCE verify 16 latebar_nobar True relative L2 error 2.951e-02 (worst row 4.962e-02) [bound 0.089: 2.5 x the reference's 0.030 with FP8
+{"shape": "verify 16", "variant": "production", "us": 154.30400101467967, "delta_native": -35.535991191864014, "empty_us": 5.344000179320574}
+{"shape": "verify 16", "variant": "baseline", "us": 190.23999897763133, "delta_native": 0.0, "empty_us": 5.344000179320574}
+{"shape": "verify 16", "variant": "overlap", "us": 193.5039940290153, "delta_native": 3.3599957823753357, "empty_us": 5.344000179320574}
+{"shape": "verify 16", "variant": "latebar", "us": 195.9200012497604, "delta_native": 5.871996283531189, "empty_us": 5.344000179320574}
+{"shape": "verify 16", "variant": "nobar", "us": 191.15200219675899, "delta_native": 1.216001808643341, "empty_us": 5.344000179320574}
+{"shape": "verify 16", "variant": "latebar_nobar", "us": 193.90400080010295, "delta_native": 3.600001335144043, "empty_us": 5.344000179320574}
+REFERENCE verify 32 production True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 baseline True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 overlap True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 latebar True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 nobar True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+REFERENCE verify 32 latebar_nobar True relative L2 error 2.860e-02 (worst row 6.606e-02) [bound 0.086: 2.5 x the reference's 0.029 with FP8
+{"shape": "verify 32", "variant": "production", "us": 303.8559921551496, "delta_native": -54.59199845790863, "empty_us": 5.296000046655536}
+{"shape": "verify 32", "variant": "baseline", "us": 358.60799928195775, "delta_native": 0.0, "empty_us": 5.296000046655536}
+{"shape": "verify 32", "variant": "overlap", "us": 366.1279894877225, "delta_native": 7.392004132270813, "empty_us": 5.296000046655536}
+{"shape": "verify 32", "variant": "latebar", "us": 370.1440014410764, "delta_native": 11.840000748634338, "empty_us": 5.296000046655536}
+{"shape": "verify 32", "variant": "nobar", "us": 360.5759956408292, "delta_native": 2.240002155303955, "empty_us": 5.296000046655536}
+{"shape": "verify 32", "variant": "latebar_nobar", "us": 367.40799923427403, "delta_native": 8.96000862121582, "empty_us": 5.296000046655536}
