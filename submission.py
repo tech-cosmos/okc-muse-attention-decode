@@ -1170,8 +1170,11 @@ def _plan(cfg, max_pages, device):
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
             # Gluon one-warp programs (FP8 QK^T mma, new token in the last split): 1024 programs (one wave),
             # S + 1 partial slots a power of two for the merge, BF16 partials.
+            # Merge in one-warp programs up to 128 slots (H100 batch 8-48 -1.0..-2.1 us, decode 16/32 full
+            # -1.7/-1.7; 256-512 slots lose 0.7-1.0 us). Likely residency: 8 attention programs at 242 registers
+            # leave an SM 2048 registers for PDL-launched merge programs (capping the merge's registers loses).
             splits = max(4, 2048 // heads - 1)
-            return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="bf16")
+            return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="bf16", **({"cw": 1} if splits < 128 else {}))
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
                     fuse=False, qk8=True, pdt="bf16")
