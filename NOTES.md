@@ -782,7 +782,7 @@ Decode full deeper pipelines (more bytes in flight, in case the H200 needs them)
 Budget (UTC day 2026-10-24): Claude 3/8 checks, 1/3 scored (unchanged this session). Account at 03:45: 8/10 checks,
 4/10 scored.
 
-## Session 13 (overnight agent, 2026-10-24 03:50-~04:40 UTC)
+## Session 13 (overnight agent, 2026-10-24 03:50-04:20 UTC)
 
 ### Change (main 19b8ade): lighter merge on the Gluon verify-full path
 
