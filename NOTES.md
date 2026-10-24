@@ -681,3 +681,51 @@ Claude 2026-10-24: 2 checks (fdccc1c6, 82a996b1), 0 scored.
    8 heads x 8 ... (all query heads of a pair: G=8 rows per head -> M=16 for 2 heads, wgmma needs 64: waste). Hard.
 3. The merge costs ~8.7 us on the Gluon path vs ~6.5 on Triton's; the extra slot and the PDL chain may be the
    reason. Merge in the last-finishing program (atomic counter) was a loss before at small batch, maybe not here.
+
+## Session 11 (overnight agent, 2026-10-24 02:27-~03:20 UTC)
+
+### Changes on main
+
+1. a794ac6: Gluon verify full (`_gw_verify`) from **6 pairs up** (was > 16), with **one wave** of splits:
+   slots = 2 CTAs/SM x 132; splits = slots // pairs, or two waves only if they fill > 5% better (batch 40).
+   The old (4*sms-1)//pairs gave ~2 waves of half-size programs. H100 verify full, ctx 80K agentic
+   (old plan -> new): B4 52.4 -> 51.8 (stays Triton: pairs < 6), B6 69.4 -> 67.8, B8 86.6 -> 82.3,
+   B12 123.7 -> 116.3, B16 155.2 -> 144.7, B20 181.5 -> 175.5, B24 213.3 -> 206.4, B32 270.6 -> 266.7,
+   B40 332 (two waves kept), B48 398.5 -> ~400, B64 522 -> 513.
+2. 824e52a: consumer masks keys only on a chunk's last tile (`gpeel`, `if lo + (i+1)*BN > hi`):
+   verify 16 full 145 -> 139, verify 32 full 270 -> 259. Bench 1.939 -> **1.960**. 16/16 tests and 13
+   forced-Gluon cases (/tmp/s11/force.py pattern: page 64, kv_scale, dp, edges, ctx 1M, batch 2-64) pass.
+
+### Measured / dead ends
+
+- Ablations on the Gluon verify kernel (H100, verify 16 / 32 full; base 138.8 / 259.9):
+  no V fp8->fp16 conversion 137.1 / 254.5; no gathers (cp.async skipped, compute only) 106.2 / 201.9.
+  So verify full is now mostly gather-bound: verify 16 full (139) is close to decode 16 full (130.5),
+  which reads the same bytes. The full layers are all near the random-row gather floor now.
+- Row sums on the tensor cores (P @ ones [BN, 8] wgmma instead of gl.sum): 139.4 vs 139.4. Dead.
+- Cross-request balanced split (programs take equal slices of the batch's concatenated keys; segment
+  (p, b) -> slot p + b; merge `_combine_bal` from the same prefix sums), branch exp/gluon-bal: correct,
+  140.4 / 260.0 vs 139.3 / 258.9 (agentic seq max/mean is 1.06, but early finishers just leave
+  bandwidth to the rest). P 248-528 swept. Dead.
+- 1 CTA/SM with deep rings (splits 8, NS 5-6, LAG 1-2): 151-156 vs 139. BN 32 at one wave: 158. Dead.
+- Scored-case page tables are fully random (0% consecutive), so no locality to exploit.
+
+### Judge (UTC day 2026-10-24)
+
+| job | commit | speedup (95% CI) | notes |
+|---|---|---|---|
+| 2363a04971ab46b1 (check) | 824e52a | (pending at writing; see COORD) | |
+
+Codex's check 3e786669 (a794ac6 + their native small-batch kernels) was 2.107x. Claude 2026-10-24: 3 checks, 0 scored.
+Note: don't wrap `okc check` in `timeout 1100`; the queue can be > 15 min and the client then dies with
+no output (the job still runs: find it with `okc jobs` / `okc status <job>`).
+
+### Next ideas
+
+1. Full layers are near the gather floor (decode 32 full 244 vs ~236 floor on H100; verify 32 260).
+   What's left there is small: verify 16 full 139 vs decode 16 130.
+2. The biggest remaining gaps per load are now the verify loads' full layers on the H200 (compute share
+   is larger there since bandwidth is 1.4x) and the sliding layers (Codex's native lane at small batch).
+   On the H200 the verify kernel may be compute-bound again: the compute-only ablation (106 / 202 us on
+   H100) is the bound to attack (consumer issue rate: softmax ops/element; e.g. FA4-style conditional
+   rescale with a warp-uniform vote via inline asm, or exp2 emulation for part of the tile).
