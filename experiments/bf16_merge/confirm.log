@@ -1,0 +1,45 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS (0, 'merged', 'eager')
+PASS (0, 'merged', 'capture')
+PASS (0, 'previous', 'eager')
+PASS (0, 'previous', 'capture')
+PASS (0, 'merged', 'after')
+PASS (0, 'previous', 'after')
+{"index": 0, "shape": {"batch": 1, "ctx": 120000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "dist": "soft"}, "native_calls": {"merged": [{"dtype": "torch.bfloat16", "splits": 118}, {"dtype": "torch.bfloat16", "splits": 118}, {"dtype": "torch.bfloat16", "splits": 118}, {"dtype": "torch.bfloat16", "splits": 118}, {"dtype": "torch.bfloat16", "splits": 118}], "previous": [{"dtype": "torch.float32", "splits": 118}, {"dtype": "torch.float32", "splits": 118}, {"dtype": "torch.float32", "splits": 118}, {"dtype": "torch.float32", "splits": 118}, {"dtype": "torch.float32", "splits": 118}]}, "previous_us": 24.3839998729527, "merged_us": 24.656000081449747, "paired_delta_us": 0.2720002084970474}
+PASS (1, 'merged', 'eager')
+PASS (1, 'merged', 'capture')
+PASS (1, 'previous', 'eager')
+PASS (1, 'previous', 'capture')
+PASS (1, 'merged', 'after')
+PASS (1, 'previous', 'after')
+{"index": 1, "shape": {"batch": 2, "ctx": 20000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "kv_scale": 0.015625, "dist": "edges"}, "native_calls": {"merged": [{"dtype": "torch.bfloat16", "splits": 79}, {"dtype": "torch.bfloat16", "splits": 79}, {"dtype": "torch.bfloat16", "splits": 79}, {"dtype": "torch.bfloat16", "splits": 79}, {"dtype": "torch.bfloat16", "splits": 79}], "previous": [{"dtype": "torch.float32", "splits": 79}, {"dtype": "torch.float32", "splits": 79}, {"dtype": "torch.float32", "splits": 79}, {"dtype": "torch.float32", "splits": 79}, {"dtype": "torch.float32", "splits": 79}]}, "previous_us": 14.255999121814966, "merged_us": 16.303999815136194, "paired_delta_us": 2.047998830676079}
+PASS (2, 'merged', 'eager')
+PASS (2, 'merged', 'capture')
+PASS (2, 'previous', 'eager')
+PASS (2, 'previous', 'capture')
+PASS (2, 'merged', 'after')
+PASS (2, 'previous', 'after')
+{"index": 2, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 1, "dist": "coherent"}, "native_calls": {"merged": [{"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}], "previous": [{"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}]}, "previous_us": 17.167999874800444, "merged_us": 17.632000613957644, "paired_delta_us": 0.4479996860027313}
+PASS (3, 'merged', 'eager')
+PASS (3, 'merged', 'capture')
+PASS (3, 'previous', 'eager')
+PASS (3, 'previous', 'capture')
+PASS (3, 'merged', 'after')
+PASS (3, 'previous', 'after')
+{"index": 3, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "dist": "coherent"}, "native_calls": {"merged": [{"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}], "previous": [{"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}]}, "previous_us": 18.239999655634165, "merged_us": 18.639998976141214, "paired_delta_us": 0.3360006958246231}
+PASS (4, 'merged', 'eager')
+PASS (4, 'merged', 'capture')
+PASS (4, 'previous', 'eager')
+PASS (4, 'previous', 'capture')
+PASS (4, 'merged', 'after')
+PASS (4, 'previous', 'after')
+{"index": 4, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 64, "dist": "coherent"}, "native_calls": {"merged": [{"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}], "previous": [{"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}]}, "previous_us": 16.671998891979456, "merged_us": 16.799999866634607, "paired_delta_us": 0.09599979966878891}
+PASS (5, 'merged', 'eager')
+PASS (5, 'merged', 'capture')
+PASS (5, 'previous', 'eager')
+PASS (5, 'previous', 'capture')
+PASS (5, 'merged', 'after')
+PASS (5, 'previous', 'after')
+{"index": 5, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "dist": "coherent"}, "native_calls": {"merged": [{"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}, {"dtype": "torch.bfloat16", "splits": 126}], "previous": [{"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}, {"dtype": "torch.float32", "splits": 126}]}, "previous_us": 17.85600045695901, "merged_us": 18.048000056296587, "paired_delta_us": 0.2560000866651535}

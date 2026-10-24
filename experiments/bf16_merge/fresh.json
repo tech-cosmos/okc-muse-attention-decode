@@ -1,0 +1,988 @@
+[
+  {
+    "index": 0,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  },
+  {
+    "index": 1,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  },
+  {
+    "index": 2,
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [],
+      "merged": []
+    }
+  },
+  {
+    "index": 3,
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 94
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 94
+        }
+      ]
+    }
+  },
+  {
+    "index": 4,
+    "shape": {
+      "batch": 1,
+      "ctx": 8191,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        }
+      ]
+    }
+  },
+  {
+    "index": 5,
+    "shape": {
+      "batch": 1,
+      "ctx": 8185,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        }
+      ]
+    }
+  },
+  {
+    "index": 6,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  },
+  {
+    "index": 7,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  },
+  {
+    "index": 8,
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [],
+      "merged": []
+    }
+  },
+  {
+    "index": 9,
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 94
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 94
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 94
+        }
+      ]
+    }
+  },
+  {
+    "index": 10,
+    "shape": {
+      "batch": 1,
+      "ctx": 8191,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        }
+      ]
+    }
+  },
+  {
+    "index": 11,
+    "shape": {
+      "batch": 1,
+      "ctx": 8185,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 128
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 128
+        }
+      ]
+    }
+  },
+  {
+    "index": 12,
+    "shape": {
+      "batch": 1,
+      "ctx": 120000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "soft"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 118
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 118
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 118
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 118
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 118
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 118
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 118
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 118
+        }
+      ]
+    }
+  },
+  {
+    "index": 13,
+    "shape": {
+      "batch": 2,
+      "ctx": 20000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "edges"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 79
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 79
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 79
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 79
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 79
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 79
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 79
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 79
+        }
+      ]
+    }
+  },
+  {
+    "index": 14,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "soft"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  },
+  {
+    "index": 15,
+    "shape": {
+      "batch": 1,
+      "ctx": 4096,
+      "heads": "dp",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "edges"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [],
+      "merged": []
+    }
+  },
+  {
+    "index": 16,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "dist": "soft"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [],
+      "merged": []
+    }
+  },
+  {
+    "index": 17,
+    "shape": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "spread": "agentic",
+      "dist": "coherent"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [],
+      "merged": []
+    }
+  },
+  {
+    "index": 18,
+    "shape": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "spread": "agentic",
+      "dist": "coherent"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [],
+      "merged": []
+    }
+  },
+  {
+    "index": 19,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  },
+  {
+    "index": 20,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  },
+  {
+    "index": 21,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "dist": "coherent"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  },
+  {
+    "index": 22,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "coherent"
+    },
+    "replays_per_source": 4,
+    "native_calls": {
+      "previous": [
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.float32",
+          "splits": 126
+        }
+      ],
+      "merged": [
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        },
+        {
+          "dtype": "torch.bfloat16",
+          "splits": 126
+        }
+      ]
+    }
+  }
+]

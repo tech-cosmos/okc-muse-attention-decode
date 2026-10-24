@@ -1,0 +1,338 @@
+[
+  {
+    "dtype": "torch.float32",
+    "pdl": false,
+    "splits": 1,
+    "length": 1,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.001634848304092884,
+      0.001527321757748723,
+      0.001793320756405592
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": false,
+    "splits": 16,
+    "length": 8,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016599444206804037,
+      0.001746001304127276,
+      0.0016664155991747975
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": false,
+    "splits": 64,
+    "length": 1,
+    "batch": 2,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.001615789020434022,
+      0.0016434871358796954,
+      0.0016719176201149821
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": false,
+    "splits": 65,
+    "length": 8,
+    "batch": 2,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016404392663389444,
+      0.0016493502771481872,
+      0.001655355328693986
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": false,
+    "splits": 76,
+    "length": 8,
+    "batch": 1,
+    "hkv": 16,
+    "replays": 3,
+    "relative_l2": [
+      0.0016487016109749675,
+      0.00166931317653507,
+      0.0016559637151658535
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": false,
+    "splits": 128,
+    "length": 8,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.001666128053329885,
+      0.0017049956368282437,
+      0.0016494630835950375
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": true,
+    "splits": 1,
+    "length": 1,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.001634848304092884,
+      0.001527321757748723,
+      0.001793320756405592
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": true,
+    "splits": 16,
+    "length": 8,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016599444206804037,
+      0.001746001304127276,
+      0.0016664155991747975
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": true,
+    "splits": 64,
+    "length": 1,
+    "batch": 2,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.001615789020434022,
+      0.0016434871358796954,
+      0.0016719176201149821
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": true,
+    "splits": 65,
+    "length": 8,
+    "batch": 2,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016404392663389444,
+      0.0016493502771481872,
+      0.001655355328693986
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": true,
+    "splits": 76,
+    "length": 8,
+    "batch": 1,
+    "hkv": 16,
+    "replays": 3,
+    "relative_l2": [
+      0.0016487016109749675,
+      0.00166931317653507,
+      0.0016559637151658535
+    ]
+  },
+  {
+    "dtype": "torch.float32",
+    "pdl": true,
+    "splits": 128,
+    "length": 8,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.001666128053329885,
+      0.0017049956368282437,
+      0.0016494630835950375
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": false,
+    "splits": 1,
+    "length": 1,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0014624301111325622,
+      0.0017806717660278082,
+      0.0016194410854950547
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": false,
+    "splits": 16,
+    "length": 8,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016494356095790863,
+      0.001576115726493299,
+      0.0016482279170304537
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": false,
+    "splits": 64,
+    "length": 1,
+    "batch": 2,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016530302818864584,
+      0.0017286414513364434,
+      0.0016304252203553915
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": false,
+    "splits": 65,
+    "length": 8,
+    "batch": 2,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016370556550100446,
+      0.0017536479281261563,
+      0.0016576857306063175
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": false,
+    "splits": 76,
+    "length": 8,
+    "batch": 1,
+    "hkv": 16,
+    "replays": 3,
+    "relative_l2": [
+      0.0016745685134083033,
+      0.0016654437640681863,
+      0.001647678203880787
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": false,
+    "splits": 128,
+    "length": 8,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016559177311137319,
+      0.0016446871450170875,
+      0.0016847302904352546
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": true,
+    "splits": 1,
+    "length": 1,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0014624301111325622,
+      0.0017806717660278082,
+      0.0016194410854950547
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": true,
+    "splits": 16,
+    "length": 8,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016494356095790863,
+      0.001576115726493299,
+      0.0016482279170304537
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": true,
+    "splits": 64,
+    "length": 1,
+    "batch": 2,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016530302818864584,
+      0.0017286414513364434,
+      0.0016304252203553915
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": true,
+    "splits": 65,
+    "length": 8,
+    "batch": 2,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016370556550100446,
+      0.0017536479281261563,
+      0.0016576857306063175
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": true,
+    "splits": 76,
+    "length": 8,
+    "batch": 1,
+    "hkv": 16,
+    "replays": 3,
+    "relative_l2": [
+      0.0016745685134083033,
+      0.0016654437640681863,
+      0.001647678203880787
+    ]
+  },
+  {
+    "dtype": "torch.bfloat16",
+    "pdl": true,
+    "splits": 128,
+    "length": 8,
+    "batch": 1,
+    "hkv": 2,
+    "replays": 3,
+    "relative_l2": [
+      0.0016559177311137319,
+      0.0016446871450170875,
+      0.0016847302904352546
+    ]
+  }
+]

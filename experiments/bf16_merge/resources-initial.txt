@@ -1,0 +1,19 @@
+
+Fatbin elf code:
+================
+arch = sm_90a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+
+Resource usage:
+ Common:
+  GLOBAL:28 CONSTANT[4]:224
+ Function _Z13reduce_kernelILi8ELi16ELb0EfEvPK13__nv_bfloat16PKT2_PK6float2PKfPS0_iiiii:
+  REG:48 STACK:0 SHARED:3200 LOCAL:0 CONSTANT[0]:588 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z13reduce_kernelILi8ELi16ELb1EfEvPK13__nv_bfloat16PKT2_PK6float2PKfPS0_iiiii:
+  REG:48 STACK:0 SHARED:3200 LOCAL:0 CONSTANT[0]:588 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z13reduce_kernelILi8ELi16ELb0E13__nv_bfloat16EvPKS0_PKT2_PK6float2PKfPS0_iiiii:
+  REG:56 STACK:0 SHARED:3200 LOCAL:0 CONSTANT[0]:588 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z13reduce_kernelILi8ELi16ELb1E13__nv_bfloat16EvPKS0_PKT2_PK6float2PKfPS0_iiiii:
+  REG:57 STACK:0 SHARED:3200 LOCAL:0 CONSTANT[0]:588 TEXTURE:0 SURFACE:0 SAMPLER:0

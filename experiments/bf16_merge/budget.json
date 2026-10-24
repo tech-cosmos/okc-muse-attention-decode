@@ -1,0 +1,16 @@
+{
+  "name": "muse_attention_decode",
+  "title": "Gated attention decode",
+  "limits": {
+    "scored": {
+      "per_day": 10,
+      "used": 4,
+      "left": 6
+    },
+    "checks": {
+      "per_day": 10,
+      "used": 9,
+      "left": 1
+    }
+  }
+}

@@ -61,12 +61,12 @@ class Inputs(TypedDict):
     config: Config
 
 
-# Eight native warps merge each head's FP32 full-layer partials, then normalize and gate.
+# Eight native warps merge each head's full-layer partials in FP32, then normalize and gate.
 # Build once at import; input-derived data is read only inside the timed kernels.
 from torch.utils.cpp_extension import load_inline
 
 _NATIVE_MERGE = load_inline(
-    name="muse_native_merge",
+    name="muse_native_merge_bf16_packed",
     cpp_sources=r'''
 
 #include <torch/extension.h>
@@ -86,6 +86,16 @@ __device__ __forceinline__ float2 read2(const float* p) {
  asm volatile("ld.global.cg.v2.f32 {%0,%1}, [%2];" : "=f"(v.x), "=f"(v.y) : "l"(p) : "memory");
  return v;
 }
+__device__ __forceinline__ unsigned read_partial(const __nv_bfloat16* p) {
+ unsigned v;
+ asm volatile("ld.global.cg.b32 %0, [%1];" : "=r"(v) : "l"(p) : "memory");
+ return v;
+}
+__device__ __forceinline__ float2 read_partial(const float* p) { return read2(p); }
+__device__ __forceinline__ float2 widen(float2 v) { return v; }
+__device__ __forceinline__ float2 widen(unsigned v) {
+ return make_float2(__uint_as_float(v << 16), __uint_as_float(v & 0xffff0000u));
+}
 __device__ __forceinline__ float sum32(float x) {
  #pragma unroll
  for(int d=16;d;d/=2)x+=__shfl_xor_sync(0xffffffff,x,d);
@@ -96,9 +106,9 @@ __device__ __forceinline__ float max32(float x) {
  for(int d=16;d;d/=2)x=fmaxf(x,__shfl_xor_sync(0xffffffff,x,d));
  return x;
 }
-template<int W,int N,bool PDL>
+template<int W,int N,bool PDL,typename Partial>
 __global__ __launch_bounds__(W*32) void reduce_kernel(const __nv_bfloat16* qkv,
- const float* pa,const float2* pm,const float* vs,__nv_bfloat16* out,
+ const Partial* pa,const float2* pm,const float* vs,__nv_bfloat16* out,
  int HQ,int HKV,int L,int B,int S) {
  unsigned lane=threadIdx.x%32,warp=threadIdx.x/32;
  int row=blockIdx.x;
@@ -125,17 +135,19 @@ __global__ __launch_bounds__(W*32) void reduce_kernel(const __nv_bfloat16* qkv,
    den=fmaf(weight[i],ml[i].y,den);
  }
  den=sum32(den);
- float2 a[N];
+ using Pair=decltype(read_partial(pa));
+ Pair a[N];
  #pragma unroll
  for(int i=0;i<N;i++) {
    int s=warp*N+i;
-   a[i]=s<S?read2(pa+(base+s*MG)*64+2*lane):make_float2(0.f,0.f);
+   a[i]=s<S?read_partial(pa+(base+s*MG)*64+2*lane):Pair{};
  }
  float x=0,y=0;
  #pragma unroll
  for(int i=0;i<N;i++) {
    float w=__shfl_sync(0xffffffff,weight[i/32],i%32);
-   x=fmaf(w,a[i].x,x);y=fmaf(w,a[i].y,y);
+   float2 v=widen(a[i]);
+   x=fmaf(w,v.x,x);y=fmaf(w,v.y,y);
  }
  __shared__ float partial[W][68];
  if(W>1) {
@@ -165,8 +177,13 @@ void combine_full(at::Tensor qkv,at::Tensor pa,at::Tensor pm,at::Tensor vs,at::T
  cudaLaunchConfig_t config={};config.gridDim=dim3(b*length*hq);config.blockDim=dim3(256);config.stream=stream;
  cudaLaunchAttribute attr={};attr.id=cudaLaunchAttributeProgrammaticStreamSerialization;attr.val.programmaticStreamSerializationAllowed=pdl;
  config.attrs=&attr;config.numAttrs=1;
- #define FULL_RUN(P) C10_CUDA_CHECK(cudaLaunchKernelEx(&config,reduce_kernel<8,16,P>,(const __nv_bfloat16*)qkv.data_ptr(),pa.data_ptr<float>(),(const float2*)pm.data_ptr<float>(),vs.data_ptr<float>(),(__nv_bfloat16*)out.data_ptr(),hq,hkv,length,b,splits))
- if(pdl){FULL_RUN(true);}else{FULL_RUN(false);}
+ #define FULL_RUN(P,T) C10_CUDA_CHECK(cudaLaunchKernelEx(&config,reduce_kernel<8,16,P,T>,(const __nv_bfloat16*)qkv.data_ptr(),(const T*)pa.data_ptr(),(const float2*)pm.data_ptr<float>(),vs.data_ptr<float>(),(__nv_bfloat16*)out.data_ptr(),hq,hkv,length,b,splits))
+ if(pa.scalar_type()==at::kBFloat16) {
+   if(pdl){FULL_RUN(true,__nv_bfloat16);}else{FULL_RUN(false,__nv_bfloat16);}
+ } else {
+   TORCH_CHECK(pa.scalar_type()==at::kFloat,"partial accumulators must be float or bfloat16");
+   if(pdl){FULL_RUN(true,float);}else{FULL_RUN(false,float);}
+ }
  #undef FULL_RUN
  C10_CUDA_KERNEL_LAUNCH_CHECK();
 }
@@ -1074,10 +1091,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     rope = bool(cfg["rope_theta"])
     cs = _cos_sin(cfg["rope_theta"], d, device) if rope else qkv
 
-    # The native full merge consumes FP32 partials. Keep its producer/consumer
-    # interface unchanged while inheriting main's dtype policy on Triton paths.
+    # The native merger accepts either partial dtype selected by the inherited plan.
     native_full = not cfg["window"] and batch * hkv <= 4 and 64 < splits <= 128
-    partial_dtype = torch.float32 if native_full else _PDT[plan.get("pdt", "f32")]
+    partial_dtype = _PDT[plan.get("pdt", "f32")]
     pacc = torch.empty((batch, hkv, splits, rows, d), dtype=partial_dtype, device=device)
     pml = torch.empty((batch, hkv, splits, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
@@ -1093,7 +1109,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
-    # Eight warps independently merge up to 16 FP32 splits, then combine their
+    # Eight warps independently merge up to 16 splits in FP32, then combine their
     # partial results in shared memory. Larger batches retain the Triton merge.
     if native_full:
         _NATIVE_MERGE.combine_full(qkv, pacc, pml, data["v_scale"], out,
