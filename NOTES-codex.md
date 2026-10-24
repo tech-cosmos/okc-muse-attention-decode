@@ -3340,3 +3340,126 @@ The actual check cap is10/day. No withdrawals or STOP files.
    belongs to Claude's lane.
 4. Keep experiment7305b35 separate; finish clean on pushed codex, remove shared
    claim and post results. Do not wait idle for the remaining queued check.
+
+## Session 27 — 2026-10-24, 02:45–02:56 UTC
+
+### Outcome and production state
+
+Diagnosed the small-full native merge's page-dependent weakness. **No production
+change, dispatch cutoff, or new judge request.** Serializing the native merge
+fails to repair the weakness and slows both scored small-full shapes. Keep PDL.
+
+Experiment **a511b1f** is pushed separately on **codex-exp/native-merge-pdl**;
+start with `experiments/native_merge_pdl/README.md`. Complete frozen sources,
+raw graph pairs, fresh validation, Nsight Systems intervals, CUDA occupancy
+queries, SASS and a reproducible CPU audit are archived. Production evidence:
+`profiles/session27-native-audit.json`. No experimental import was introduced.
+
+Fetched main repeatedly; **origin/main824e52a** remains already merged. Final
+production SHA256 is unchanged:
+`1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548`.
+No native implementation/dispatch or Triton/Gluon source/plan changed. Existing
+session26 integrated16/16 and bench validation therefore still applies; no
+redundant unchanged production suite/bench or new sanitizer claim this cycle.
+
+### Complete-graph launch controls
+
+Four complete functions: main/native with existing PDL, plus serialized-merge
+controls for each. Native serialization selects its existing `pdl=False` kernel
+specialization; main serialization overrides only merge PDL/launch flags in an
+offline wrapper. Attention, every key, precision, cache writes and output remain
+inside timed calls. The main control is diagnostic, not a Triton plan change.
+
+20 distinct shapes,80 adjacent AB/BA pairs per contrast, four contrasts per shape;
+eight second-seed confirmations,120 pairs each. **10240 total adjacent pairs**.
+Shapes span pages1/64, B1 decode/verify80K, B2 verify agentic8192/9K/10K/16K/40K/
+80K, B2 fixed9K and B1 fixed9K. All use the actual native full-merge dispatch.
+
+H100 paired deltas in microseconds, initial / confirmation:
+
+| case | native minus main, PDL | serial native minus native PDL |
+|---|---:|---:|
+|B1 L1 80K page1 (scored)|-0.048/-0.064|+0.800/+0.608|
+|B1 L8 80K page1 (scored)|-0.464/-0.496|+0.656/+0.592|
+|B2 L8 8192 agentic page1|-0.912/-1.152|+0.416/+0.736|
+|B2 L8 9K agentic page1|-1.184/-1.088|+0.800/+0.672|
+|B2 L8 16K agentic page1|-0.880/-0.320|+0.192/+0.288|
+|B2 L8 8192 agentic page64|+0.096/-0.128|+0.512/+0.480|
+|B2 L8 9K agentic page64|+0.192/+0.128|+0.032/+0.144|
+|B2 L8 16K agentic page64|+0.416/+0.208|+0.224/+0.480|
+
+The9K/16K page64 weakness repeats, while8192 changes sign. Serialized main versus
+serialized native at9K differs only-0.096/-0.160us on page64 and+0.032/-0.064us on
+page1. Launch-chain behavior contributes to the difference; serializing native
+is not a useful remedy. PDL toggles change both launch behavior and compiled wait
+specialization, so this is not an isolated wait-cost or register-contention proof.
+No threshold was fitted. Paired deltas are not differences of separate medians;
+bootstrap intervals describe within-run variation, not H200 uncertainty. No
+aggregate speedup claim, and no claim Codex is always faster than main nearby.
+
+### Scheduling mechanism and validation
+
+For **B2/L8/9K/S76**, CUDA's `cuOccupancyMaxActiveBlocksPerMultiprocessor` gives:
+
+| attention page | registers/thread | shared bytes | max active CTAs/SM | grid/132SM slots |
+|---|---:|---:|---:|---:|
+|1|170|62464|2|304/264|
+|64|168|62464|3|304/396|
+
+These are theoretical residency limits, not measured achieved occupancy. Both
+sources and both launch controls have identical attention SASS within each page,
+verified from saved full disassembly, despite different compilation-cache hashes.
+Native merge uses256threads/48registers, main128threads/56registers; both launch
+256 output CTAs in this case. No attention kernel was edited to get these counts.
+
+Nsight Systems node tracing, three repetitions of each complete graph, shows
+main/native merge starting **6.368/6.272us** after attention starts on page1,
+but **0.864/0.960us** on page64. PDL overlap is3.840/3.648us versus7.520/8.032us.
+Serialized controls have zero overlap and merges around3.2us. These instrumented
+kernel durations are **not benchmark timings**, and rows include waits; do not
+sum them as graph latency. The grid-capacity difference supports the observed
+earlier page64 overlap, without proving an isolated hardware bottleneck or a
+universal dispatch rule. This explains why page and split count alone were poor
+cutoff candidates in the preceding two audits.
+
+- **336 independent output/cache checks** in the timing drivers (four modes,
+  three checkpoints,20 initial+8 confirmation entries).
+- **320 fresh graph replays**,20 cases x4 changed inputs x4 implementations,
+  including changed QKV/cache/routes/lengths/positions/cache slots and shortened/
+  empty contexts. Each is independently checked against output/cache reference.
+- **24 instrumented complete graph replays**,16 independent timeline checks;
+  final occupancy driver8 independent checks. Initial occupancy collection was
+  rerun while adding SASS evidence; these counts refer to final retained drivers.
+- Initial SASS hash parser expected cuobjdump address comments, whereas Triton
+  emits decoded lines; it hashed empty strings. Those fields are invalid in
+  archived `occupancy-invalid-hash-parser.*`. Actual occupancy/output observations
+  were unaffected. Final parser hashes full saved SASS after whitespace cleanup;
+  CPU audit verifies actual bytes/equality. No timing conclusion used bad hashes.
+- GPU lock covers generation/reference/capture/replay;512MB flush precedes every
+  timed graph, empty replay subtracted. Profiling/occupancy run after benchmarks
+  and fresh tests finish. All local processes completed. Audit verifies frozen
+  source identities, all20 shared helper ASTs, result counts and residency/SASS.
+
+### Judge jobs, budget and next cycle
+
+Existing **check3e786669e1bb41a8** moved from queued to **running**, starting
+**02:51:37UTC**. No result or passing profile yet; do not resubmit. It covers only
+**8c35564/SHA6f0f**, before main824e52a, and **cannot qualify current SHA1bcf42aa6edf**.
+Resolvedfe512/78b6/24414/b485 and earlier jobs need no further polling.
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 totals remain
+**5/8checks,3/3scored**. Official account **8/10checks,3/10scored**, leaving
+2checks/7scored account-wide. Actual check cap10/day. No more Codex scored runs
+today regardless of account balance. Board best **2.091142x,rank20**. No STOP files.
+
+1. Resolve running3e786 and read its passing profile without resubmission; preserve
+   exact-source identities. Current source has no exact qualifying H200 check.
+2. Read COORD/fetch main before work. Preserve remaining shared checks while main
+   is evolving; Claude is still working on Gluon verify-full. No other pending
+   Codex jobs exist.
+3. Close simple native small-full serialization as a remedy. The residency/PDL
+   observation is useful diagnostic evidence, not authorization to reopen the
+   closed reduction, tile, load-placement or native-sliding micro-sweeps. Any new
+   implementation needs a distinct mechanism and broad complete-graph evidence.
+4. Keep experimenta511b1f separate, finish clean on pushed codex, remove claim and
+   post results. Do not wait idle for the running judge job.
