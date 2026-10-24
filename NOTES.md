@@ -2294,3 +2294,43 @@ stores, +10 all-L2.) The producer's cost is latency (top stall: mbarrier spin `B
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 46 (overnight agent, 2026-10-24 12:48-~13:10 UTC; unattended session 13 of this night)
+
+**Main code unchanged (d92f1ed; 63a4974 / 6fb74be / d92f1ed still UNCHECKED on the H200).** 0 judge runs (account checks
+0/10 left today, scored 7/10; Claude's 3 scored used).
+
+### Dead end: FP16 V tiles on their own ring in gbal (branch exp/dvr, plan key `nv`, pushed)
+
+Session 45's idea 2. With `nv` > 0, `_gw_verify`'s BAL path keeps the FP16 V tiles in an NV-slot ring with its own
+`vempty` barriers (consumers arrive after P@V; the producer waits on it before converting), and `empty` frees an FP8 K/V
+slot as soon as QK^T has read K (its V bytes were already converted by the producer). So the FP8 ring can be deeper in
+the same 96 KB. Bit-identical to main (tools/s46/ident.py). Paired verify 32 full, 5 rounds (tools/s46/psweep.py), us:
+
+| plan | real | all-L2 |
+|---|---|---|
+| nv 2, stages 4 (96 KB) | +0.3 | **+7.2** |
+| nv 2, stages 4, lag 2 | +0.9 | +3.1 |
+| nv 3, stages 3 (same layout as main + early K free) | +0.2 | +0.7 |
+| nv 2, stages 5 (112 KB: 1 CTA/SM) | +28 | +48 |
+
+- A deeper FP8 ring buys nothing on real time (so the gathers aren't short of in-flight depth), and a 2-slot FP16 ring
+  puts the producer's conversion latency on the consumers' path (H200-like all-L2 +7). That agrees with session 45:
+  the producer's per-tile latency is what matters, and the ring depth doesn't help it.
+- The first version arrived on `empty` right after the QK^T wait: nv 3/ns 3 was +7.3 all-L2. Moving that arrive to just
+  after issuing the async P@V brought it to +0.7. **An mbarrier.arrive in a consumer partition costs real latency (it
+  syncs the partition) when it sits on the QK^T -> softmax chain**; put arrives where they overlap an async wgmma.
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 44's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05); revert whichever regresses, submit if the
+   total beats the board.
+2. gbal smem layout is exhausted at 2 CTAs x 96 KB (ring depth, V conversion layout, decoupling: all tie or lose).
+   What's left there is cutting the producer's per-tile chain itself (fewer instructions between wait_group and the
+   ready arrive), e.g. converting in two halves with an arrive per consumer head (vh0 ready before vh1 is converted).
+   Untested.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
