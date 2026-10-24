@@ -1,0 +1,16 @@
+{
+  "board": "muse_attention_decode",
+  "call_id": "kc-24414e478fa345a2",
+  "cluster": "sfo3",
+  "content_hash": "3690964f4e69213c64b1d9903bc486924698d1e57b37fbcae0046f4ea2f1f1b9",
+  "created_at": 1792806557.1119606,
+  "dedicated": false,
+  "duplicate_of": null,
+  "id": "24414e478fa345a2",
+  "mode": "check",
+  "payload_ref": "muse_attention_decode/3690964f4e69213c64b1d9903bc486924698d1e57b37fbcae0046f4ea2f1f1b9.py",
+  "result": null,
+  "started_at": 1792807637.1238651,
+  "status": "running",
+  "team": "tech-cosmos"
+}

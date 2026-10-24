@@ -2861,3 +2861,100 @@ Session **0checks,1scored**, no withdrawals. Codex2026-10-24 totals **4/8checks,
    cycle alone; require a distinct measured mechanism before implementing one.
 4. Experiment8cd75fa stays separate. Finish on clean pushed codex, shared claim
    removed/result posted; do not wait idle for either queued job.
+
+## Session 23 — 2026-10-24, 02:03–02:11 UTC
+
+### Outcome and production state
+
+Completed a focused native-sliding profiling cycle. **No production change,
+no new judge requests.** The remaining source-view shared-wavefront count does
+not establish a removable shared-memory bank-conflict bottleneck. A controlled
+copy probe reproduces the count by changing global source stride alone, so no
+layout candidate or parameter sweep was justified.
+
+Experiment **699f81e** is pushed on **codex-exp/cuda-sliding-conflicts**, starting
+at `experiments/sliding_conflicts/README.txt`. Source, nine controlled profiles,
+readable raw/source counters, byte checks, isolated diagnostic sanitizers and
+reproducible audit are archived. Production evidence copy is
+`profiles/session23-native-audit.json`. No experimental code is imported.
+
+Fetched main at start/end; **origin/main3daf4a4** remains already merged.
+Production SHA256 remains
+`6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf`.
+Native small-sliding attention and small-full merge, Triton/Gluon and all plans
+are unchanged. Existing session21 integrated16/16, bench and fresh validation
+therefore apply; no redundant unchanged-production suite or bench was run.
+
+### Counter attribution, not a speedup claim
+
+The native kernel's **4104 source-view excessive shared wavefronts** all belong
+to its **four LDGSTS** instructions. Ordinary shared loads/stores and matrix
+operations have zero source excess. Reprofiling the exact production native
+CUDA reproduces4104/4112 excess/ideal copy wavefronts and zero hardware bank
+conflicts for LDGSTS/LDS/STS/GMMA. Zero hardware LDGSTS alone is NOT a proof of
+conflict freedom: it also stays zero in the deliberate bad-layout control.
+
+The standalone byte-copy diagnostic varies global source geometry independently
+of shared destination mapping. 64CTAs,128threads,4096bytes each, two16-byte
+cp.async instructions/thread. Source rows are contiguous64B,64B halves of
+successive128B rows, or64B halves of permuted128B rows. Destinations are linear,
+production K SW64, or deliberately conflicting128B spacing per16B piece.
+
+| source | linear copy excess | SW64 copy excess | bad-spacing copy excess |
+|---|---:|---:|---:|
+| contiguous64B rows |0|0|14336|
+| 128B row stride |2048|2048|14336|
+| permuted128B rows |2048|2048|14336|
+
+Each has2048 ideal copy wavefronts. Bad spacing additionally causes8192 source
+LDS excess wavefronts and8192 LDS hardware conflicts. Thus global source geometry
+alone changes the derived LDGSTS metric with the destination layout fixed.
+The native4104 cannot be read as4104 independently removable shared-bank
+conflicts. This corrects a possible interpretation of prior source-counter
+totals; those recorded totals themselves remain valid. No precise hardware
+implementation, isolated copy latency or end-to-end speedup is inferred.
+
+The probe computes only copies and is never kernel_fn or a submitted candidate.
+No invalid/incomplete-output variant was timed against complete attention.
+No CUDA graph timing or profiler-duration speedup claim is made this cycle.
+Documentation links and metric caveats are in the experiment README.
+
+### Validation and limits
+
+- **27 fresh-data graph replays**,3 per source/destination combination.
+  Each independently compares all262144 output bytes against a CPU calculation.
+- Permuted-source/SW64 diagnostic only: **memcheck0 errors,synccheck0 errors,
+  racecheck0 hazards/errors/warnings**. Each tool executes3 fresh graph replays
+  plus one ordinary profile call. This is not new attention sanitizer coverage.
+- Every GPU driver holds the shared lock through allocation, generation, capture,
+  checks and profiling. Profiling/diagnostic runs are serialized. All processes
+  finished; executable and binary NCU reports remain ignored, readable reports
+  and reproduction source are committed.
+- Audit verifies exact native-source identity, all9 probe checks/counter
+  relationships and sanitizer summaries. Generated report whitespace was
+  normalized and the audit reran successfully. No native kernel edit occurred.
+
+### Pending judge work, budget and next cycle
+
+Current-source check **24414e478fa345a2** moved to **running** by02:08UTC.
+Older exact-source scored job **78b6db684e514dd6** remains **queued**. Neither
+was resubmitted; neither yet has a passing profile. Only24414 can qualify current
+SHA6b171beb8ed5 for the remaining Codex scored request. Older78b6 is exact45c56bc
+SHAe9a877984ef7 and was already legitimately submitted after passing b485.
+Do not poll/resubmit resolved b485 or earlier jobs.
+
+Account best remains **2.057970x,rank26**. Session **0checks,0scored**, no
+withdrawals. Codex2026-10-24 totals **4/8checks,2/3scored**. Official shared
+usage **6/10checks,2/10scored**, leaving4checks/8scored. Actual check cap is10.
+Snapshots: `profiles/session23-*`. Neither STOP file exists.
+
+1. Resolve running24414 and queued78b6 without resubmission; read complete
+   passing profiles. Refresh board and budget before scoring current source;
+   preserve exact source identity and the one remaining Codex scored allowance.
+2. Fetch/read main and COORD. No new native architecture is supported by this
+   diagnostic alone. Do not reopen shared-layout sweeps based on4104, or the
+   closed small-L1 instruction/merge families. Future native topology changes
+   need complete graph measurements and a concrete reason to beat production;
+   earlier paired-head/full-row native designs remain rejected on their timings.
+3. Keep experiment699f81e separate. End on clean pushed codex, remove shared
+   claim/post result, and do not wait idle for judge completion.
