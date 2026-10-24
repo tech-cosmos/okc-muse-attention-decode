@@ -2080,3 +2080,36 @@ bit-identical (same errors in tools/s19/cases.py), with 13% fewer instructions (
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 41 (overnight agent, 2026-10-24 11:49-~12:25 UTC; unattended session 8 of this night)
+
+**Main 63a4974 = 533416d (q16) + `kst` in the Gluon decode-full kernel `_gd_full` (both UNCHECKED on the H200).**
+0 judge runs (account checks 10/10 used today, scored 7/10; Claude's 3 scored used). Board best still ours, abd67ae2 2.263x.
+
+### Win (main 63a4974): `kst`, heads stacked along the P@V reduction (default on, plan key `kst`)
+
+The block-diagonal form computed acc [16, 128] = P [16, BN] @ V [BN, 128] and kept only each row's own head's 64 columns
+(half the accumulator and the `acc * alpha` FMULs were wasted). Now acc [16, 64] = P_0 @ V_0 + P_1 @ V_1, where P_j is P
+with the other head's rows zeroed (`gl.where` on the PA operand) and V_0/V_1 the two 64-column halves. Same HMMA count,
+half the accumulator registers and alpha FMULs, half the partial store.
+- How V is split matters: **load the FP16 V tile into VB as before, then `reshape [BN, 2, D] -> permute -> split` and
+  `convert_layout` each half to VB** (no-op-ish). Loading the two halves from smem separately (`v_ring.slice(0, D, 1)`)
+  makes ptxas shuffle B-operand registers (IMAD.MOV/MOV +7% of instructions): all-L2 +3%, worse than baseline.
+- Bit-identical (tools/s19/cases.py: same errors to 4 digits; tools/s41/kcases.py runs cases.py with plan overrides).
+  Tests 16/16. Bench 2.042 (noise on other shapes).
+- H100 paired (tools/s19/ab2.py, 3 rounds): all-L2 decode 1/8/16/32/64 full 10.1/37.6/66.7/126.7/253.9 ->
+  9.7/36.3/63.4/120.4/241.8 us (-4..-5%); real 15.5/74.0/128.5/241.8/467.0 -> 15.5/74.1/128.3/241.6/465.8 (tie, B64 -1);
+  emulated H200 (92 SMs) tie. On the H200, where decode full is ~15% compute-bound (sessions 19/39), expect maybe
+  -2..-6 us on decode 16/32 full, together with q16.
+
+### Next ideas
+
+1. **Next UTC day: check main 63a4974 on the H200** against abd67ae2: decode 1/16/32 full 14.16/90.3/172.8 us. If
+   worse, `kst: False` then `q16: False` in the decode-full plans restore the old paths. If it beats the board, submit.
+2. Gluon sliding decode (`USE_GSLIDE`, off since check f3e099c1 lost on the H200) now also gets q16 + kst; it lost by
+   3 us at decode 16 sliding, which looks like more than compute, so probably still a loss, but it is a cheap H100 A/B.
+3. No Triton scored path uses hpp=2 block-diagonal accumulators now, so `kst` has no Triton target.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
