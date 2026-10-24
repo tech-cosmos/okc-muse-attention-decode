@@ -1943,3 +1943,57 @@ ptxas's wgmma serialization warnings; cuobjdump/ptxas are in /usr/local/cuda-13.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 38 (overnight agent, 2026-10-24 11:10-~11:35 UTC)
+
+**Main code unchanged (b94e35f, FP32 partials; checked as abd67ae2 2.263x, rank 11; board #1 2.726x).** 0 judge runs
+(account checks 10/10 used today, scored 7/10). Focus: why verify 1 full is 12.7 us of attention on the H200 when
+decode 1 full (same bytes) is 8.0. Two dead ends (branches pushed), plus a breakdown. New tools in tools/s38: attn_only.py
+(whole vs attention-only, merges as no-ops, plan overrides), swf.py / gattn.py (same for any submission *file*, e.g.
+ablation copies), mkabl.py (ablation copies in /tmp/s38), chk.py (reference check of a plan override on scored shapes),
+sass.py (SASS/PTX + op counts of _attn_split), one.py (runs a shape 3x for ncu). ncu works here:
+`/usr/local/cuda-13.0/bin/ncu --kernel-name regex:"_gw|_attn" --launch-skip 2 --launch-count 1 ... python tools/s38/one.py
+submission.py "verify 1 full"` (it locks clocks at 1.44 GHz unless `--clock-control none`; `--page source --print-source
+sass --csv` gives per-instruction stall samples).
+
+### Verify 1 full breakdown (H100, Triton _attn_split, 127 splits, attention only = 15.4 us; whole 18.2)
+
+- No tiles (hi = lo): 2.0 us (2.2 without pf). Grows with the program count: 510 programs 3.4, 1022 programs 6.2. That
+  is the FP32 partial stores (16 KB per program) and prologues. This is why more splits don't pay.
+- All K/V reads from L2 (rows page % 4096, so they're spread over slices): 12.7 us. Real minus all-L2 is only 2.7 us,
+  so **verify 1 full is compute-chain-bound, not gather-bound**. (Warning: page % 64 instead hot-spots a few L2
+  slices and reads 15.5 us. Don't use that as a no-gather ablation.)
+- Half the keys per program: all-L2 12.7 -> 8.0, real 15.4 -> 10.2. So ~1.0 us per 64-key tile per program
+  (~1900 cycles), at 2 programs (warpgroups) per SM, and an intercept of ~5 us real / ~3.3 all-L2.
+- Gluon _gw_verify at batch 1 (non-gbal, LAG 1, splits 127, one CTA = 2 consumer WGs per SM): attention 15.3-16.3, the
+  same per-tile slope (1.07 us/tile). At 255 splits (4 consumer WGs/SM), 1.73 us/tile and a larger intercept. gbal at
+  batch 1: attention 16.3, and its merge is very slow there (49-153 us whole).
+- ncu stall samples (Triton, real): barrier at the loop-top cp.async wait (long_sb), wgmma waits, FENCE/ARRIVE
+  (long_sb), MUFU/short_sb; issue slots 31% busy, 7.5 warps/SM. The masked loop runs every tile (verify 1 full has no
+  peel), but `peel` ties (15.49 vs 15.52).
+
+### Dead ends (H100)
+
+- FP8 P@V in Triton `_tile` (p.to(e4m3) @ v as stored): verify 1 full 28.3 vs 18.2 us (Triton must transpose V for
+  the K-major FP8 B operand). Not kept.
+- **Quad consumers** (branch exp/quad, plan key `quad`): `_gw_verify` with 4 consumer warpgroups per CTA (2 per KV
+  head on alternate tiles, NS even so each ring slot keeps one parity; each consumer stores its own partial). Correct.
+  Verify 1 full attention, 127 splits: 18.4 (LAG 1, pw 4), 17.5 (pw 8), 18.3 (consumers convert their own V, non-LAG)
+  vs 16.0-16.3 for the 2-consumer Gluon kernel and 15.4 for Triton main. More consumers per CTA don't speed up the
+  per-tile chain. Dead.
+- **Spin merge for decode full** (branch exp/spin, plan key `spin`): each `_gd_full` program bumps a per-(request, KV
+  pair) counter (release) and `_combine` spins on it instead of griddepcontrol.wait, so short agentic requests merge
+  early. Last merge program resets. Correct, but paired 9 rounds: decode 16 full +0.69, decode 32 full +1.36, decode 1
+  full +1.71 us (0/9 each). Same finding as session 34's flag merge: the PDL grid wait beats release + poll.
+- H100 merge tails (whole - attention only): decode 16/32 full 3.3/2.7 us, verify 16/32 full 3.6/4.0.
+
+### Next ideas
+
+1. Verify 1 full: the per-tile chain (~1 us per 64-key tile per warpgroup, both Triton and Gluon) and the ~5 us intercept
+   are the costs. Neither more programs (partials) nor more consumers per CTA helps. What's left needs a shorter
+   chain (native code, Codex's lane).
+2. Next UTC day: main == the checked b94e35f, nothing new to check.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
