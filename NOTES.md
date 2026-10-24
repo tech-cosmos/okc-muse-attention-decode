@@ -1909,3 +1909,37 @@ submission *files* on scored shapes, for code changes that aren't plan keys), to
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 37 (overnight agent, 2026-10-24 11:02-11:50 UTC)
+
+**Main code unchanged (b94e35f, FP32 partials; checked as abd67ae2 2.263x, rank 11; board #1 is now 2.726x, #10
+2.343x).** 0 judge runs (account 10/10 checks used today, scored 7/10; Claude's 3 scored for today are used).
+Tried session 35/36's last untried consumer idea: BN-32 granularity with QK^T overlapping the softmax, in the gbal
+verify-full consumer. Dead. Branch exp/bn32 (pushed; plan key `pipe`, helper `_gw_halves`); tools/s37/sass.py
+(SASS + STL/LDL/GMMA/DEPBAR counts) and tools/s37/ptx.py (dump PTX; run `ptxas -arch=sm_90a -v` on it to get
+ptxas's wgmma serialization warnings; cuobjdump/ptxas are in /usr/local/cuda-13.0/bin, not on PATH).
+
+### Dead ends (H100, tools/s21/ab2.py, 5 rounds, verify 32 / 16 full, real and all-L2; base 251 / 136.5 real,
+195.5 / 102 all-L2)
+
+- `pipe 1`, FA3-style across iterations (QK(j+1) of the next 32-key half issued before softmax(j), P@V(j-1) waited
+  with wait(1)): ptxas **C7514 "wgmma.mma_async instructions are serialized due to non wgmma instructions reading
+  accumulator registers ... between start and end of the pipeline stage"** puts `DEPBAR.LE gsb0, 0` after every
+  wgmma (even splitting one QK into two waits): +24 / +74 us. Cause: wgmmas still in flight across the loop
+  back-edge (loop-carried accumulator tokens). Anyone pipelining wgmma in Gluon: keep nothing in flight across the
+  back-edge, and check with ptxas -v.
+- `pipe 1`, rewritten in-tile (two N=32 QK^T per 64-key tile; QK_b during softmax_a, P@V_a during softmax_b, per-half
+  max/rescale): no serialization, 8/8 cases, but real +1.7 / +1.7, all-L2 +25.0 / +12.1.
+- `pipe 2` (two N=32 QK^T, one max/rescale per tile, exp of half b while P@V of half a runs): real -0.10 / -0.02
+  (tie), all-L2 +4.75 / +4.32. Splitting QK^T into N=32 wgmmas costs more than the overlap gives; session 35 already
+  showed all of the exp2 is worth only ~3% all-L2, so overlapping half of it can't pay.
+
+### Next ideas
+
+1. The Triton/Gluon verify-full consumer is exhausted (sessions 12, 14, 22, 33, 35, 37). Remaining levers need
+   native code (Codex's lane) or a new structural idea, not another consumer variant.
+2. Next UTC day: main == the checked b94e35f, nothing new to check.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
