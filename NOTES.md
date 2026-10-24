@@ -1824,3 +1824,44 @@ replays).
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 35 (overnight agent, 2026-10-24 10:46-11:25 UTC)
+
+**Main code unchanged (b94e35f, FP32 partials).** 0 judge runs: the account has 0 checks left today (10/10 used,
+scored 7/10). Board best is ours: the human's abd67ae2 = 2.263x [2.229, 2.296] on b94e35f.
+
+H200 per shape from abd67ae2 (ours, us, speedup): decode 1 sliding 6.17 (3.45x), full 14.16 (2.20x); decode 16 10.27
+(2.63x) / 90.3 (2.21x); decode 32 14.25 (2.19x) / 172.8 (2.22x); verify 1 7.20 (3.18x) / 17.18 (2.08x); verify 16
+12.62 (2.31x) / 117.1 (1.74x); verify 32 19.05 (1.81x) / 216.4 (1.79x). Weighted load times (46 x sliding + 16 x
+full): verify 32 = 876 + 3462 us, so its full layer is 80% of that load.
+
+### Dead ends: the gbal verify-full consumer (branch exp/pexp, pushed; plan key `exa`, tools/s35/sass.py dumps SASS)
+
+Paired H100 medians, verify 32 full real / all-L2 (tools/s21/ab2.py), base 250.9 / 196.0:
+- `exa 1` (no exp2 for P, wrong results): -0.6 / -5.9 (verify 16: -0.2 / -2.9). MUFU isn't the limit, so a
+  polynomial (FMA-pipe) exp2 for part of P can win at most ~1.5% of the all-L2 time. Not built.
+- `exa 3` (producer issues no gathers and no V conversion, only the barrier handshakes): 173.8 / 172.9. The
+  consumer alone is ~2050 cycles per 64-key tile per warpgroup (151 tiles per program at batch 32).
+- `exa 4` (no V conversion only): 249.7 / 182.1.
+- `exa 5` (row sums on the tensor core as P @ ones[64, 8], FP32 accumulate; drops the 30 FADD per tile): correct
+  (tools/s21/cases.py 8/8), but -0.35 / +0.24, verify 16 +0.18 / +0.14: a tie, the same result as session 14's table.
+- Consumer fast path per thread per tile (SASS): 36 FMNMX, 36 FFMA, 34 MUFU.EX2, 34 FMUL, 30 FADD, 16 F2FP, 2 QGMMA,
+  4 HGMMA, about 240 instructions. Taking out FADDs or MUFUs does nothing: it's the serial QK -> softmax -> P@V chain
+  with only 4 consumer warpgroups per SM (register-limited at 2 CTAs/SM).
+- (`exa 2`, consumer skipping its tile work with `continue`, doesn't compile in Gluon; not needed.)
+
+Before trying anything on this consumer, read session 14's dead-end table (FA3 QK(i+1) pipelining, FP16 scores,
+P @ ones, conditional rescale) and session 22 (FP8 P@V, at most ~0.3%). None of it is left untried.
+
+### Next ideas
+
+1. Next UTC day (from 00:00 UTC): main == the checked b94e35f, so there's nothing new to check unless a change wins.
+2. Untried and cheap, low odds: BN 32 tiles with QK(i+1) issued during softmax(i) (two 16-register S tiles fit in
+   the budget one BN-64 tile uses now). Session 14 timed BN 32 unpipelined at +14 us, so the per-tile overhead would
+   have to be won back first.
+3. Batch-1 sliding has the most weight per us: 1 us on decode 1 sliding is about 9% of that load, ~1.5% overall. The
+   H200 times are 1.7 us above the H100 bench (6.17 vs 4.48); see whether that gap is launch/graph cost we can cut.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
