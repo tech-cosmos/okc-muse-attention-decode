@@ -2888,3 +2888,76 @@ This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 1
 Lesson: hpp 2 for batched sliding decode (e405425/6fb74be/652aafe) wins on the H100 and loses on the
 H200. H100-only sliding wins need a check before they count. Weakest shapes now: verify 16/32 full
 (1.79x/1.84x) and verify 32 sliding (2.00x).
+
+## Session 69 (overnight agent, 2026-10-24 18:05-~19:05 UTC; unattended session 1 of the #1-push brief)
+
+**Main code unchanged (14355d4 kernel = scored 7f45c5c6, 2.343x, rank 13). 0 judge runs.** Board at start: #1
+colinlikescode 2.834x, #2 2.726x. Budget at start (API): checks 10/20 used (Claude 5/8 -> 3 left today), scored 9/10
+used (1 left). Wrote STATE.md (was missing). New tools in tools/s69 (all native CUDA via load_inline, sm_90a; set
+`TORCH_CUDA_ARCH_LIST=9.0a` before importing torch or ptxas rejects wgmma; don't name macros D/M/BN: torch headers).
+
+### Where the load time is (H200, 7f45c5c6) and what a #1 needs
+
+Load arithmetic: with our current full-layer times, sliding layers at ~4 us everywhere would already score ~2.85x.
+Full layers are close to their floors on the H200 (decode 32 full 161.7 us = 4.0 TB/s; verify full is consumer-
+compute-bound, see below). The sliding layers (weight 46) are where the gap to #1 most plausibly is.
+
+### Verify full: the consumer is the limit, and a native consumer is only ~10% faster
+
+- Ablations of `_gw_verify` gbal (tools/s54/abl2.py, verify 32 full, H100, all-L2 = page_table % 4096): base 196 us;
+  producer only (consumer just handshakes) 107; consumer only (producer skips cp.async + V convert) 178 (real 179);
+  no gathers but convert 187. So the consumer is the critical path; ncu shows consumers spin ~22 retries per `ready`
+  wait in all-L2 mode only because 4 consumer WGs/SM can't keep up.
+- tools/s69/cmicro.cu: native consumer-only microbench (2 consumer WGs/CTA, one per KV head; K FP8 ring SW128, V
+  FP16 SW128 MN-major, Q FP8 SW64; wgmma m64n64k32 e4m3 QK + m64n64k16 f16 PV with P from registers; correct to
+  2e-4 vs torch). Descriptors copied from Gluon's PTX: SW128 K-major/MN-major SBO 1024 mode 1; Q SW64 SBO 512 mode 2;
+  k-steps advance the start address (+32 B QK, +2048 B PV). Verify-32-sized work (264 CTAs x 152 tiles), H100:
+  - unpipelined 161-163 us; FA3 intra-WG pipelined (QK(i) + PV(i-1) issued, wait<1>, softmax(i), wait<0>, rescale;
+    no C7514 in native code) 164-166; 1 CTA/SM pipelined 164.5; 3 CTAs/SM spill (85 regs).
+  - no softmax 87; no MUFU 145; no PV 140-155; ncu: XU (MUFU) pipe 60%, issue 55%, 3.5 warps/scheduler, 83.6M
+    instructions (Gluon kernel 120M incl. producer/spins).
+  - FA4 poly exp2 on 1/2/3 of 8 column blocks: 163 -> 173/183 (loses, as in Gluon). P@ones row sums (m64n8k16
+    extra wgmma, FADDs removed): 175-181 (loses). Warp-vote lazy rescale (threshold 8): pipelined 160 vs 166 (~-3%,
+    and the bench repeats 3 tiles, so real data rescales more).
+  - At 160 us the consumer runs ~525 TFLOPS fp16-equivalent (FA3-level for hdim 64): softmax per element is the floor.
+  Conclusion: a full native verify-full kernel would save at most ~10% of the consumer (H200 verify 32 full 210 ->
+  ~190), ~+1.5-2% overall, for a large build. Not the top lever.
+
+### Sliding gather floor with every row in flight (tools/s69/sgather.cu)
+
+Each CTA cp.asyncs all of its keys' K and V rows (128 B each, page table, cold L2) into up to 128 KB of smem at
+once. Best per shape (H100, minus 1-kernel graph): decode 1 3.2 us, decode 16 6.7, decode 32 10.9 (same as session
+14/43's floors). So deeper in-flight doesn't lower the floor; our H100 bench is ~1.3 (B1), 3.4 (decode 16), 4.7
+(decode 32), 6.3 (verify 16), 8.6 (verify 32) us above it.
+
+### Cluster (DSMEM) push-merge vs a separate PDL merge kernel (tools/s69/cmerge.cu) -- the best lever found
+
+Synthetic split partials ([16 rows x 64] fp32 + m/l per split CTA, cold global read), graph-timed, H100:
+- production style (partials to global, second kernel launched with PDL merges): 16 splits 3.87-4.03 us, 4 splits
+  2.66-2.70.
+- one kernel, thread-block cluster of NC split CTAs, **push** merge (each CTA st.shared::cluster's its rows into the
+  owning CTA's receive buffer, one cluster barrier, local merge from smem): 16 splits 2.32-2.37, 4 splits 2.18-2.27;
+  no merge at all 1.6-1.8. So **-1.6 us at 16 splits, -0.45 at 4**.
+- Pitfalls measured: pulling peers' partials with map_shared_rank loads in a loop costs ~+1 us (serial DSMEM
+  latency); cluster barriers themselves are ~free (two cl.sync ~0.05 us); unroll the per-split loads.
+- H200 profile: `_combine_hb` is 1.8 us at decode 1 sliding, 1.6-2.5 us at the batched sliding shapes.
+
+### Next ideas (ranked)
+
+1. **Native single-kernel sliding attention with a 16-CTA cluster push-merge**, starting with decode/verify 1 sliding
+   (~1.4% overall per us): per KV head one cluster of 16 CTAs x 128 keys (2 consumer WGs x one 64-key tile each, merged
+   in smem, then pushed to rank r = row owner), output RMSNorm + sigmoid(gate) by the owning ranks. Base it on Codex's
+   native sliding kernel (origin/codex submission.py `_NATIVE_SLIDING`: q norm/RoPE, new-token write, cp.async gather,
+   wgmma QK, softmax, PV; it was 6.93/8.26 us on the H200 vs Triton 6.05/7.17 as a split kernel + merge, so check its
+   attention half against `_attn_split` first). Needs NonPortableClusterSizeAllowed for 16. Expected -1..-1.5 us per
+   sliding shape on the H200; then extend to batched sliding (decode 16: 16 splits/head = one cluster per (b, kvh)).
+   Feasibility (H100 sweeps, Triton, 2 runs): the 16-split layout a 16-CTA cluster forces costs little at decode 1
+   sliding with one 128-key tile per split (`splits 16, sb 16, block_n 128`: 4.82/4.83 us vs main 4.45/4.56; with
+   64-key tiles 5.73/5.87), so with the merge ~1.5 us cheaper the net is ~-1 us. Verify 1 sliding at 16 x 64-key
+   tiles: 6.72/6.83 vs 5.38/5.46 (block_n 128 not measured: 64 x 128 FP32 scores per 4 warps).
+2. Native verify-full kernel (above): ~+1.5-2% at best.
+3. As before: merge tail on verify full.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/20 checks, 9/10 scored.
