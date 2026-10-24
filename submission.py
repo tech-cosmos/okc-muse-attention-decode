@@ -357,11 +357,10 @@ if HAVE_GLUON:
     @gluon.jit
     def _gw_merge_bal(qkv_ptr, pacc_ptr, pml_ptr, out_ptr, vs, b, h, r0, p_first, n, HQ: gl.constexpr,
                       HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
-                      NID: gl.constexpr, NBASE: gl.constexpr, R_PAD: gl.constexpr):
+                      NID: gl.constexpr, NBASE: gl.constexpr, R_PAD: gl.constexpr, U: gl.constexpr):
         """Merge rows [r0, r0 + R_PAD) of request b's 2 * M rows (KV heads h, h + 1) over its n partials (ids
         p_first + b ..) and its new tokens' (id NBASE + b), then RMSNorm and the gate."""
         ML: gl.constexpr = gl.BlockedLayout([1, 4], [2, 16], [4, 1], [1, 0])
-        U: gl.constexpr = 8
         r2 = r0 + gl.arange(0, R_PAD, layout=gl.SliceLayout(1, ML))
         ok = r2 < 2 * M
         r2 = gl.minimum(r2, 2 * M - 1)
@@ -400,7 +399,7 @@ if HAVE_GLUON:
     def _gw_bal_fuse(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, cnt_ptr, pid, h, HQ: gl.constexpr,
                      HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
                      B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, NID: gl.constexpr, BN: gl.constexpr,
-                     R_PAD: gl.constexpr):
+                     R_PAD: gl.constexpr, U: gl.constexpr):
         """The gbal merge in this grid (one wave, so every program waited for is resident). Only a program's first
         and last segments can have other programs: it arrives on both first (gfuse's counter words: arrivals in
         the low 16 bits, a generation above), then waits for each, then merges its rank's row chunks of every
@@ -441,7 +440,7 @@ if HAVE_GLUON:
             p_first, n = _gw_bal_parts(idx, tiles, b, tt, pe)
             for r0 in range((pid - p_first) * R_PAD, 2 * M, n * R_PAD):
                 _gw_merge_bal(qkv_ptr, pacc_ptr, pml_ptr, out_ptr, vs, b, h, r0, p_first, n, HQ, HKV, G, L, M, D,
-                              NID, P + B, R_PAD)
+                              NID, P + B, R_PAD, U)
 
     @gluon.jit
     def _gw_producer_bal(seq_ptr, pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, p,
@@ -721,7 +720,7 @@ if HAVE_GLUON:
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
                    R_PAD: gl.constexpr = 1, BAL: gl.constexpr = False, B: gl.constexpr = 1,
-                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1):
+                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, MU: gl.constexpr = 8):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -807,7 +806,7 @@ if HAVE_GLUON:
         ], [4, PW], [CREGS, PREGS])
         if BAL and FUSE:
             _gw_bal_fuse(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, cnt_ptr, split, h, HQ, HKV, G, L, M, D, B,
-                         B_PAD, NP, NID, BN, R_PAD)
+                         B_PAD, NP, NID, BN, R_PAD, MU)
         elif FUSE:
             # The merge, in this grid: once all S programs of this (request, KV head pair) have stored their
             # partials, each merges a slice of the rows. One counter word per pair: arrivals in the low 16
@@ -1443,7 +1442,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=progs,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
         LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
-        FUSE=fuse, cnt_ptr=_counters(batch * (hkv // 2), device, "g"), out_ptr=out, R_PAD=plan.get("rpad", 8),
+        FUSE=fuse, cnt_ptr=_counters(batch * (hkv // 2), device, "g"), out_ptr=out, R_PAD=plan.get("rpad", 8), MU=plan.get("mu", 8),
         launch_pdl=True)
     if fuse:
         return out
