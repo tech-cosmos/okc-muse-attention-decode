@@ -2721,3 +2721,143 @@ is10/day, not20. Snapshots are `profiles/session21-*`. Neither STOP file exists.
    without that measurement and a distinct structural change.
 4. Keep experimentc4f224a separate; end on clean pushed codex, shared claim
    removed and result posted. Do not wait idle for queued checks.
+
+## Session 22 — 2026-10-24, 01:51–02:03 UTC
+
+### Outcome and production state
+
+Measured the full-verify merge's actual critical-path contribution, then rejected
+native grouped-row and split-striped replacements. **No production source change,
+no new check.** Experiment **8cd75fa** is pushed on
+**codex-exp/cuda-verify-merge**, starting at `experiments/verify_merge/README.txt`.
+Sources, graph pairs, diagnostic controls, tests, fresh replays, sanitizers,
+compiler resources, SASS and reproducible audit are archived there. Production
+evidence copy: `profiles/session22-native-audit.json`.
+
+Fetched main at start/end; **origin/main3daf4a4** remains already merged.
+Production is unchanged SHA256
+`6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf`.
+No Triton/Gluon source, plans, merge or production dispatch was tuned. Native
+small sliding attention, its B*Hkv<=16 boundary, and small-full reduction stay.
+
+### Resolved H200 check and exact-source scored request
+
+Older **b4853b2accdc4b50**, exact45c56bc/SHAe9a877984ef7, completed around02:00UTC:
+**16/16,2.069426x**, CI **[2.038385,2.110797]**, no flags/rejections/errors.
+Read every passing profile; complete JSON/log/readable profile saved under
+`profiles/submission.b4853b2accdc4b50.*`. H200 decode1 sliding **5.980us**,
+decode1/verify1 full **14.813/16.451us**, verify16/32 full **155.387/265.111us**.
+The old Gluon profile has attention256.3us, merge120.4us, new tokens3.4us,
+GPU busy267.4us; those overlapping rows include waits and cannot be summed as
+end-to-end latency. This check predates producer-side V conversion in current code.
+
+Refreshed board **2.057970x,rank25**, official budget6/10checks,1/10scored.
+The passing check exceeds that best, within overlapping confidence intervals.
+Submitted **78b6db684e514dd6** around02:01UTC from the **exact older source**,
+exported with `git show 45c56bc:submission.py` into
+`profiles/session22-qualified/submission.py`. SHA256 verified as
+`e9a877984ef70a7067cce7ed85b8e573c95edc693b661b6e7ed16fa99136f349`;
+new scored job's content_hash matches b485's exactly. Existing session19 local
+16/16, bench, fresh and paired validation applies to this unchanged source;
+no redundant suite or rollback of current production was needed.
+
+**78b6db684e514dd6 remains queued.** Current-source **24414e478fa345a2** also
+remains queued. Only24414 can qualify current SHA6b171beb8ed5 for scoring;
+b485 is now resolved and must not be polled/resubmitted. Earlier2776/71e2 etc
+are resolved too. No new experimental source went to the judge.
+
+### Merge decomposition and native result
+
+Same-process balanced adjacent AB/BA cold-L2 CUDA-graph pairs,80rounds/entry,
+seed103. Negative deltas mean the diagnostic is faster than full production:
+
+| full L8 batch | splits including new slot | omit merge delta us | serialized merge delta us |
+|---|---:|---:|---:|
+|16 (Triton control)|33|-6.672|+0.976|
+|17|32|-8.928|-2.688|
+|24|22|-9.504|-1.792|
+|32|17|-8.784|-0.048|
+|48|11|-8.240|-1.184|
+|64|9|-9.936|-1.552|
+
+B32 complete/omitted **267.984/259.312us**. Omission is strictly an offline
+incomplete-output diagnostic, never kernel_fn or a submitted implementation;
+its partials are independently reduced in Torch and checked against output/cache
+reference before capture, after replay and after timing. Serialization still
+computes the full valid output. These measure marginal graph costs, not isolated
+merge duration or an exact breakdown of scheduling/traffic. All-key attention
+and new cache writes remain in the timed prefix. The serialized control is
+nearly flat on scored B32; its nearby B17/B24 savings are evidence for Claude's
+owned launch path, not a dispatch change made by Codex.
+
+Native CUDA uses four independent output rows per128-thread CTA, physical
+partial-row ordering, coherent volatile FP32 loads after griddepcontrol.wait,
+and unchanged normalization/gate/BF16 output. Two concrete layouts:
+
+- **warp:** one row/warp, two dimensions/lane, distributed split max/sum,
+  partial vectors loaded before weighted reduction and shuffled weights.
+- **striped:** four split groups x eight dimension groups per warp, eight
+  dimensions/lane,128-bit vector loads and shuffle reductions across split groups.
+
+Each layout has its own paired production control,60rounds/shape:
+
+| batch | warp parent/native us | warp paired delta us | striped paired delta us |
+|---|---:|---:|---:|
+|17|161.904/160.432|-1.456|+1.568|
+|24|208.336/205.952|-2.288|+0.064|
+|32|267.120/266.864|-0.336|+0.528|
+|48|400.256/399.088|-1.424|+0.960|
+|64|510.016/509.584|-0.304|+0.752|
+
+The scored B32 gain is too small to justify promotion or an experimental check;
+striped loses. No follow-up parameter sweep or favorable-seed selection. Median
+paired deltas need not equal differences of independently computed medians.
+
+### Validation and limits
+
+- Both wrappers **16/16**, followed by full benches **1.949/1.958x**. All standard
+  cases use unchanged production fallback; those suites alone do NOT validate
+  the new large-batch merge. Aggregates are experimental local measurements,
+  not paired improvements, production regressions or H200 estimates.
+- **84 actual native fresh-input graph replays**,42/layout,7cases x6seeds:
+  B17/24/32/48/64TP8 and B3/8DP, pages1/64, scales1/1/64, contexts1024–80000,
+  soft/coherent/edges, changing QKV/cache/routes/lengths/positions/cache slots,
+  including empty contexts. All independent output/cache references pass.
+- Isolated native synthetic partial reduction: **48 fresh graph replays**,
+  TP8/DP, S5/9/17/22/32/33/64, scales1/1/64, changing partials/maxima/denominators/
+  gates, empty partial slots. Independent Torch output comparison passes.
+- **Memcheck0 errors, synccheck0 errors, racecheck0 hazards/errors/warnings**,
+  each with48 synthetic native replays across both layouts. No Triton loader.
+  These isolated checks cover the merge, not attention/cache writes; the
+  integrated fresh graph checks above cover the existing PDL launch chain.
+- CAP16/32/64 registers warp48/80/32, striped52/62/80; all zero shared memory,
+  stack/local allocations and spills. SASS audit verifies all coherent partial
+  loads follow ACQBULK in all six specializations. CAP64 has synthetic runtime
+  coverage; current Gluon dispatch uses <=32slots. No NCU/dynamic-instruction/
+  achieved-occupancy claim; static instruction counts include padding NOPs.
+- 12diagnostic entries x80pairs and10native/control entries x60pairs. Custom
+  drivers lock generation/reference/capture/replay, flush512MB before each
+  timed graph, subtract empty replay. Full benches run sequentially with our
+  other GPU work and retain bench.py's timing-loop lock. All local processes
+  finished. Generated text whitespace was normalized; audits reran successfully.
+
+### Budget and next cycle
+
+Session **0checks,1scored**, no withdrawals. Codex2026-10-24 totals **4/8checks,
+2/3scored**. Final official shared usage **6/10checks,2/10scored**, leaving
+4checks/8scored. Actual check cap is10/day. Neither STOP file exists.
+
+1. Resolve **24414e478fa345a2** (current source check) and **78b6db684e514dd6**
+   (older exact-source scored request) without resubmitting. Read their passing
+   profiles; refresh board and budget before scoring current code. Only one
+   Codex scored request remains today. Preserve source identities.
+2. Fetch/read main and COORD. Claude owns Triton/Gluon; the nearby serialized-
+   merge observations above are available for its review. Current source is
+   already validated and unchanged, pending its own H200 check.
+3. Close native grouped-row/split-striped large-verify merge replacements.
+   There is8–10us marginal headroom, but these layouts recover little at scored
+   B32. Do not reopen old small-merge/last-CTA/placement sweeps based solely on
+   the long PDL profile rows. No new native architecture is justified by this
+   cycle alone; require a distinct measured mechanism before implementing one.
+4. Experiment8cd75fa stays separate. Finish on clean pushed codex, shared claim
+   removed/result posted; do not wait idle for either queued job.

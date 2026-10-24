@@ -1,0 +1,220 @@
+{
+  "production_sha256": "6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf",
+  "diagnostic_entries": 12,
+  "diagnostic_pairs_per_entry": 80,
+  "comparisons": {
+    "warp": [
+      {
+        "shape": {
+          "batch": 17,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "warp",
+        "serial": false,
+        "parent_us": 161.9040034711361,
+        "native_us": 160.43199971318245,
+        "paired_delta_us": -1.4559999108314514
+      },
+      {
+        "shape": {
+          "batch": 24,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "warp",
+        "serial": false,
+        "parent_us": 208.3359989337623,
+        "native_us": 205.9519994072616,
+        "paired_delta_us": -2.2879987955093384
+      },
+      {
+        "shape": {
+          "batch": 32,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "warp",
+        "serial": false,
+        "parent_us": 267.11999950930476,
+        "native_us": 266.86399755999446,
+        "paired_delta_us": -0.3360062837600708
+      },
+      {
+        "shape": {
+          "batch": 48,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "warp",
+        "serial": false,
+        "parent_us": 400.2560037188232,
+        "native_us": 399.08800600096583,
+        "paired_delta_us": -1.4239996671676636
+      },
+      {
+        "shape": {
+          "batch": 64,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "warp",
+        "serial": false,
+        "parent_us": 510.0160054862499,
+        "native_us": 509.5840208232403,
+        "paired_delta_us": -0.3040134906768799
+      }
+    ],
+    "striped": [
+      {
+        "shape": {
+          "batch": 17,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "striped",
+        "serial": false,
+        "parent_us": 162.4479996971786,
+        "native_us": 163.95199624821544,
+        "paired_delta_us": 1.5679970383644104
+      },
+      {
+        "shape": {
+          "batch": 24,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "striped",
+        "serial": false,
+        "parent_us": 208.31999508664012,
+        "native_us": 208.25599459931254,
+        "paired_delta_us": 0.06400048732757568
+      },
+      {
+        "shape": {
+          "batch": 32,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "striped",
+        "serial": false,
+        "parent_us": 267.40800170227885,
+        "native_us": 267.7920046262443,
+        "paired_delta_us": 0.527992844581604
+      },
+      {
+        "shape": {
+          "batch": 48,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "striped",
+        "serial": false,
+        "parent_us": 398.735988419503,
+        "native_us": 400.0319871120155,
+        "paired_delta_us": 0.9599924087524414
+      },
+      {
+        "shape": {
+          "batch": 64,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "page": 1,
+          "q_len": 8,
+          "dist": "coherent",
+          "spread": "agentic"
+        },
+        "variant": "striped",
+        "serial": false,
+        "parent_us": 510.1759764365852,
+        "native_us": 510.8640226535499,
+        "paired_delta_us": 0.7520020008087158
+      }
+    ]
+  },
+  "warp": {
+    "standard_fallback_passes": 16,
+    "native_fresh_replays": 42,
+    "local_bench_geomean": 1.949
+  },
+  "striped": {
+    "standard_fallback_passes": 16,
+    "native_fresh_replays": 42,
+    "local_bench_geomean": 1.958
+  },
+  "synthetic_replays": 48,
+  "sass_specializations_checked": 6,
+  "sanitizers": {
+    "memcheck": {
+      "synthetic_native_replays": 48,
+      "errors": 0
+    },
+    "synccheck": {
+      "synthetic_native_replays": 48,
+      "errors": 0
+    },
+    "racecheck": {
+      "synthetic_native_replays": 48,
+      "errors": 0
+    }
+  },
+  "source_hashes": {
+    "diagnostic.py": "c1a7d38a92e641b410330b603337aad0dd1e6989ca3b5abc1909c90779900307",
+    "native.cu": "fa93245e4494e74f899207b50e92cb9e1dd04e6b64786f8d5836ccb4ce395b64",
+    "native.py": "8c4d3bb51496e44ff02c9322802bf516bf0dcfbfbfc0ca6526bec1b9750a1905",
+    "candidate.py": "eace52395d53a73621504ca31cb2e517fb3436d0a0fe79589607d77811448400",
+    "pairs.py": "e362a24f457092b615318a1df41d276edfb8b8b117fddd9f7a6850ff4a7938f2",
+    "validate.py": "2808c81274d0b5628db77f1222c618129b283249a9d51e0c2100813b63f2d09e",
+    "synthetic.py": "ea375c5588adeec272461a056a5e4e8f613886b3c3c0bb390a9f0557c6a18ba8",
+    "run_cycle.py": "5a257da088bd88ed486d92c6e5980318fdbc5ac8a4b24cb4c61f3b4daac0db48",
+    "sass_audit.py": "3d130abf8de0fac2c6a48e7853d5421e8295a3b0d95fbe1059e45b9d0560c567",
+    "audit.py": "86d545940b2bcde83c5ecb422e62f10b4f7a3bf2f52b34a386fc9bc0e307ed64",
+    "run_sanitizers.py": "9043de33acdb91c20357c35b7d175a64dcf4fea7a36687a3e9661f616af87761"
+  }
+}
