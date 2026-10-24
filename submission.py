@@ -74,6 +74,7 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
+MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
 USE_GD1 = True  # decode full at batch * hkv == 2 on _gd_full too (511 splits, 8-warp one-pass merge); unchecked on H200
@@ -998,7 +999,7 @@ def _norm_gate_store(o, qkv_ptr, out_ptr, tok, head, c, ok, HQ: tl.constexpr, HK
 @triton.jit
 def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
              HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
-             D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, PDL: tl.constexpr):
+             D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, PDL: tl.constexpr, ONE: tl.constexpr = True):
     tok = tl.program_id(0)
     head = tl.program_id(1)
     b = tok // L
@@ -1014,16 +1015,25 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     s = tl.arange(0, S_PAD)
     m = tl.load(pml_ptr + (row + s * M) * 2, mask=s < S, other=-1.0e30)
     l = tl.load(pml_ptr + (row + s * M) * 2 + 1, mask=s < S, other=0.0)
-    m_max = tl.max(m, 0)
-    denom = tl.sum(tl.exp2(m - m_max) * l, 0)
-    acc = tl.zeros([D], tl.float32)
-    sb = tl.arange(0, SB)
-    for i in range(0, S, SB):
-        si = i + sb
-        w = tl.exp2(tl.load(pml_ptr + (row + si * M) * 2, mask=si < S, other=-1.0e30) - m_max)
-        a = tl.load(pacc_ptr + (row + si * M)[:, None] * D + d[None, :], mask=(si < S)[:, None],
+    if S_PAD <= SB and ONE:
+        # One pass: every load issued before the max reduction (one L2 round trip on the critical path).
+        a = tl.load(pacc_ptr + (row + s * M)[:, None] * D + d[None, :], mask=(s < S)[:, None],
                     other=0.0).to(tl.float32)
-        acc += tl.sum(w[:, None] * a, 0)
+        m_max = tl.max(m, 0)
+        w = tl.exp2(m - m_max)
+        denom = tl.sum(w * l, 0)
+        acc = tl.sum(w[:, None] * a, 0)
+    else:
+        m_max = tl.max(m, 0)
+        denom = tl.sum(tl.exp2(m - m_max) * l, 0)
+        acc = tl.zeros([D], tl.float32)
+        sb = tl.arange(0, SB)
+        for i in range(0, S, SB):
+            si = i + sb
+            w = tl.exp2(tl.load(pml_ptr + (row + si * M) * 2, mask=si < S, other=-1.0e30) - m_max)
+            a = tl.load(pacc_ptr + (row + si * M)[:, None] * D + d[None, :], mask=(si < S)[:, None],
+                        other=0.0).to(tl.float32)
+            acc += tl.sum(w[:, None] * a, 0)
     o = acc / denom * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
     tl.store(out_ptr + tok * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
@@ -1033,7 +1043,7 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
 def _combine_hb(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
                 HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
                 D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, HB: tl.constexpr,
-                PDL: tl.constexpr):
+                PDL: tl.constexpr, ONE: tl.constexpr = True):
     """_combine for HB adjacent query heads of one KV head per program: their partial rows are
     contiguous in every split, so each split's [HB, D] block is one contiguous read. Faster on
     sliding layers (fewer, fuller programs); full layers keep _combine."""
@@ -1053,17 +1063,25 @@ def _combine_hb(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     at = row[None, :] + (s * M)[:, None]
     m = tl.load(pml_ptr + at * 2, mask=(s < S)[:, None], other=-1.0e30)
     l = tl.load(pml_ptr + at * 2 + 1, mask=(s < S)[:, None], other=0.0)
-    m_max = tl.max(m, 0)
-    denom = tl.sum(tl.exp2(m - m_max[None, :]) * l, 0)
-    acc = tl.zeros([HB, D], tl.float32)
-    sb = tl.arange(0, SB)
-    for i in range(0, S, SB):
-        si = i + sb
-        at1 = row[None, :] + (si * M)[:, None]
-        ok = (si < S)[:, None]
-        w = tl.exp2(tl.load(pml_ptr + at1 * 2, mask=ok, other=-1.0e30) - m_max[None, :])
-        a = tl.load(pacc_ptr + at1[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0).to(tl.float32)
-        acc += tl.sum(w[:, :, None] * a, 0)
+    if S_PAD <= SB and ONE:
+        a = tl.load(pacc_ptr + at[:, :, None] * D + d[None, None, :], mask=(s < S)[:, None, None],
+                    other=0.0).to(tl.float32)
+        m_max = tl.max(m, 0)
+        w = tl.exp2(m - m_max[None, :])
+        denom = tl.sum(w * l, 0)
+        acc = tl.sum(w[:, :, None] * a, 0)
+    else:
+        m_max = tl.max(m, 0)
+        denom = tl.sum(tl.exp2(m - m_max[None, :]) * l, 0)
+        acc = tl.zeros([HB, D], tl.float32)
+        sb = tl.arange(0, SB)
+        for i in range(0, S, SB):
+            si = i + sb
+            at1 = row[None, :] + (si * M)[:, None]
+            ok = (si < S)[:, None]
+            w = tl.exp2(tl.load(pml_ptr + at1 * 2, mask=ok, other=-1.0e30) - m_max[None, :])
+            a = tl.load(pacc_ptr + at1[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0).to(tl.float32)
+            acc += tl.sum(w[:, :, None] * a, 0)
     o = acc / denom[:, None] * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
     tl.store(out_ptr + tok * HQ * D + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
@@ -1274,13 +1292,13 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         _combine_hb[(batch * length, hq // hb)](
             qkv, pacc, pml, data["v_scale"], out,
             HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=splits, S_PAD=triton.next_power_of_2(splits),
-            SB=sb, HB=hb, PDL=USE_PDL, num_warps=plan.get("cw", 4), launch_pdl=USE_PDL)
+            SB=sb, HB=hb, ONE=MERGE1 and not sep, PDL=USE_PDL, num_warps=plan.get("cw", 4), launch_pdl=USE_PDL)
         return out
     _combine[(batch * length, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=splits, S_PAD=triton.next_power_of_2(splits),
         # Up to 128 splits in one pass, so every partial's load is in flight at once.
-        SB=min(128, triton.next_power_of_2(splits)), PDL=USE_PDL, num_warps=4 if splits > 32 else 2,
+        SB=min(128, triton.next_power_of_2(splits)), ONE=MERGE1, PDL=USE_PDL, num_warps=4 if splits > 32 else 2,
         launch_pdl=USE_PDL)
     return out
 
@@ -1324,12 +1342,12 @@ def _verify_gluon(data, cfg, plan):
         _combine_hb[(batch * length, hq // hb)](
             qkv, pacc, pml, data["v_scale"], out,
             HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=s, S_PAD=triton.next_power_of_2(s),
-            SB=triton.next_power_of_2(s), HB=hb, PDL=USE_PDL, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
+            SB=triton.next_power_of_2(s), HB=hb, ONE=MERGE1, PDL=USE_PDL, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
         return out
     _combine[(batch * length, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=s, S_PAD=triton.next_power_of_2(s),
-        SB=min(128, triton.next_power_of_2(s)), PDL=USE_PDL, num_warps=plan.get("cw", 4 if s > 32 else 2),
+        SB=min(128, triton.next_power_of_2(s)), ONE=MERGE1, PDL=USE_PDL, num_warps=plan.get("cw", 4 if s > 32 else 2),
         launch_pdl=USE_PDL)
     return out
 
@@ -1395,11 +1413,11 @@ def _decode_gluon(data, cfg, plan):
             qkv, pacc, pml, data["v_scale"], out,
             HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
             SB=triton.next_power_of_2(s), HB=hb,
-            PDL=USE_PDL, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
+            ONE=MERGE1, PDL=USE_PDL, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
         return out
     _combine[(batch, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
-        SB=plan.get("csb", min(128, triton.next_power_of_2(s))), PDL=USE_PDL,
+        SB=plan.get("csb", min(128, triton.next_power_of_2(s))), ONE=MERGE1, PDL=USE_PDL,
         num_warps=plan.get("cw", 4 if s > 32 else 2), launch_pdl=USE_PDL)
     return out
