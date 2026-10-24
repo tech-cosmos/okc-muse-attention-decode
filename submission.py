@@ -452,7 +452,7 @@ if HAVE_GLUON:
                  cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
                  MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
-                 SEP: gl.constexpr = False):
+                 SEP: gl.constexpr = False, Q16: gl.constexpr = True):
         split = gl.program_id(0)
         b = gl.program_id(1)
         h = gl.program_id(2) * 2
@@ -523,6 +523,11 @@ if HAVE_GLUON:
             x = x * cos + xp * sin
         x8 = (x * rs).to(gl.float8e4nv)
         q = gl.convert_layout(x8, QA)
+        if Q16:
+            # Queries as FP16 once (exact E4M3 values) and K upcast per tile: on sm_90 ptxas lowers the FP8 mma.sync
+            # to FP16 HMMAs (+ FADDs), re-converting the loop-invariant queries every tile. Bit-identical results,
+            # 13% fewer instructions (H100 all-L2 decode 16/32 full 69.2/133.8 -> 67.7/129.1 us, real -0.4/-0.7).
+            q = q.to(gl.float16)
         k_scale = gl.load(ks_ptr)
         scale = qk_scale * k_scale
 
@@ -550,7 +555,10 @@ if HAVE_GLUON:
             cp.wait_group(NS - 1)
             gl.barrier()
             s = i % NS
-            sc = mma_v2(q, k_ring.index(s).permute((1, 0)).load(KB), gl.zeros([M, BN], gl.float32, MMA))
+            kb = k_ring.index(s).permute((1, 0)).load(KB)
+            if Q16:
+                kb = kb.to(gl.float16)
+            sc = mma_v2(q, kb, gl.zeros([M, BN], gl.float32, MMA))
             if lo + (i + 1) * BN > hi:
                 sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
             m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
@@ -1441,7 +1449,7 @@ def _decode_gluon(data, cfg, plan):
         _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
         HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
-        ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1)
+        ROPE=bool(cfg["rope_theta"]), SEP=sep, Q16=plan.get("q16", True), num_warps=1)
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch, hq // hb)](
