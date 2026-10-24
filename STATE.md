@@ -31,7 +31,7 @@ Updated 2026-10-24 ~20:45 UTC (session 72 = unattended session 4 of the #1-push 
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- Account: checks 12/20 used, scored 9/10 used (1 left). Claude share: 7/8 checks used -> 1 left today;
+- Account: checks 12/20 used, scored 9/10 used (1 left). Claude may use all account checks (human, a084e9c): 8 left today;
   scored: only 1 left on the account. Resets 00:00 UTC.
 
 ## Current direction (session 69): native verify-full consumer (CUDA, inline-PTX wgmma)
