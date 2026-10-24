@@ -1,0 +1,5 @@
+==PROF== Connected to process 175016 (/home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/bin/python3.12)
+env: torch 2.14.1+cu130, triton 3.8.0
+PROFILE REFERENCE PASS 8 1
+==PROF== Disconnected from process 175016
+==PROF== Report: /home/daytona/codex-repo/experiments/phase_latency/results/parent-b8-p1.ncu-rep

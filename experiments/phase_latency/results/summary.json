@@ -1,0 +1,3807 @@
+{
+  "initial": [
+    {
+      "index": 0,
+      "shape": {
+        "batch": 1,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 1,
+        "dist": "soft",
+        "spread": "fixed"
+      },
+      "stages": {
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1726.0,
+            1715.5,
+            1708.0,
+            1720.5
+          ],
+          "owner_warp_medians": [
+            1691.5,
+            1683.5,
+            1683.0,
+            1668.0
+          ],
+          "ordinary_warp_medians": [
+            1726.5,
+            1720.0,
+            1709.0,
+            1722.0
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            2448.0,
+            1826.5,
+            1833.0,
+            1811.5
+          ],
+          "owner_warp_medians": [
+            2424.0,
+            2915.0,
+            1801.0,
+            1768.5
+          ],
+          "ordinary_warp_medians": [
+            2449.5,
+            1821.0,
+            1834.0,
+            1813.0
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            1533.0,
+            1530.5,
+            1575.5
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            1490.0,
+            1528.5
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            1538.5,
+            1532.0,
+            1576.0
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            21.0,
+            669.0,
+            724.5,
+            642.5
+          ],
+          "owner_warp_medians": [
+            302.0,
+            21.0,
+            1037.0,
+            981.5
+          ],
+          "ordinary_warp_medians": [
+            21.0,
+            681.5,
+            713.5,
+            634.5
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            42.0,
+            36.0,
+            38.0,
+            40.0
+          ],
+          "owner_warp_medians": [
+            40.0,
+            649.0,
+            36.0,
+            38.0
+          ],
+          "ordinary_warp_medians": [
+            42.0,
+            36.0,
+            38.0,
+            40.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            347.0,
+            329.0,
+            345.0,
+            336.0
+          ],
+          "owner_warp_medians": [
+            870.5,
+            333.0,
+            857.5,
+            874.5
+          ],
+          "ordinary_warp_medians": [
+            347.0,
+            329.0,
+            345.0,
+            336.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            128.0,
+            134.0,
+            135.0,
+            130.0
+          ],
+          "owner_warp_medians": [
+            130.0,
+            128.0,
+            136.0,
+            134.0
+          ],
+          "ordinary_warp_medians": [
+            128.0,
+            134.0,
+            135.0,
+            130.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            657.0,
+            657.0,
+            657.5,
+            658.0
+          ],
+          "owner_warp_medians": [
+            649.0,
+            648.0,
+            649.0,
+            647.5
+          ],
+          "ordinary_warp_medians": [
+            657.0,
+            657.0,
+            658.0,
+            658.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            182.0,
+            181.0,
+            183.0,
+            183.0
+          ],
+          "owner_warp_medians": [
+            182.0,
+            181.0,
+            184.0,
+            184.0
+          ],
+          "ordinary_warp_medians": [
+            182.0,
+            181.0,
+            183.0,
+            183.0
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            221.0,
+            100.0,
+            101.0,
+            100.0
+          ],
+          "owner_warp_medians": [
+            211.0,
+            96.0,
+            95.5,
+            93.5
+          ],
+          "ordinary_warp_medians": [
+            221.0,
+            100.0,
+            101.0,
+            100.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            5674.0,
+            5524.0,
+            5513.0,
+            5510.5
+          ],
+          "owner_warp_medians": [
+            6380.5,
+            6224.5,
+            6216.0,
+            6210.5
+          ],
+          "ordinary_warp_medians": [
+            5663.5,
+            5513.0,
+            5502.5,
+            5498.5
+          ]
+        },
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        }
+      },
+      "timing": {
+        "same_code": {
+          "parent_us": 4.224000032991171,
+          "candidate_us": 4.335999954491854,
+          "paired_delta_us": 0.06400002166628838
+        },
+        "-1": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.512000363320112,
+          "paired_delta_us": 0.1600002869963646
+        },
+        "0": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.5439996756613255,
+          "paired_delta_us": 0.19199959933757782
+        },
+        "1": {
+          "parent_us": 4.31999983265996,
+          "candidate_us": 4.5439996756613255,
+          "paired_delta_us": 0.1759999431669712
+        },
+        "2": {
+          "parent_us": 4.399999976158142,
+          "candidate_us": 4.575999453663826,
+          "paired_delta_us": 0.20800018683075905
+        },
+        "3": {
+          "parent_us": 4.33599972166121,
+          "candidate_us": 4.400000208988786,
+          "paired_delta_us": 0.09599979966878891
+        },
+        "4": {
+          "parent_us": 4.416000097990036,
+          "candidate_us": 4.607999697327614,
+          "paired_delta_us": 0.1759999431669712
+        },
+        "5": {
+          "parent_us": 4.3680001981556416,
+          "candidate_us": 4.528000019490719,
+          "paired_delta_us": 0.15999982133507729
+        },
+        "6": {
+          "parent_us": 4.335999954491854,
+          "candidate_us": 4.512000363320112,
+          "paired_delta_us": 0.2560000866651535
+        },
+        "7": {
+          "parent_us": 4.3680001981556416,
+          "candidate_us": 4.624000284820795,
+          "paired_delta_us": 0.2560000866651535
+        },
+        "8": {
+          "parent_us": 4.271999932825565,
+          "candidate_us": 4.415999632328749,
+          "paired_delta_us": 0.1600002869963646
+        },
+        "9": {
+          "parent_us": 4.383999854326248,
+          "candidate_us": 4.447999410331249,
+          "paired_delta_us": 0.15999935567378998
+        },
+        "10": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.575999919325113,
+          "paired_delta_us": 0.2720002084970474
+        },
+        "11": {
+          "parent_us": 4.224000032991171,
+          "candidate_us": 4.575999919325113,
+          "paired_delta_us": 0.2560000866651535
+        }
+      }
+    },
+    {
+      "index": 1,
+      "shape": {
+        "batch": 8,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 1,
+        "dist": "soft",
+        "spread": "agentic"
+      },
+      "stages": {
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1833.0,
+            1852.0,
+            1861.0,
+            1829.0
+          ],
+          "owner_warp_medians": [
+            1812.5,
+            1810.0,
+            1827.5,
+            1819.5
+          ],
+          "ordinary_warp_medians": [
+            1834.0,
+            1854.0,
+            1862.0,
+            1829.0
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            5661.5,
+            4777.5,
+            4796.5,
+            4559.0
+          ],
+          "owner_warp_medians": [
+            5615.0,
+            6176.0,
+            4697.0,
+            4471.5
+          ],
+          "ordinary_warp_medians": [
+            5662.0,
+            4728.0,
+            4798.0,
+            4562.5
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            4416.0,
+            4527.5,
+            4370.5
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            4623.5,
+            4407.0
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            4479.0,
+            4523.5,
+            4366.0
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            22.0,
+            1090.5,
+            1061.0,
+            1144.5
+          ],
+          "owner_warp_medians": [
+            606.5,
+            24.0,
+            1540.5,
+            1668.5
+          ],
+          "ordinary_warp_medians": [
+            22.0,
+            1115.5,
+            1049.5,
+            1124.0
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            40.0,
+            38.0,
+            38.0,
+            38.0
+          ],
+          "owner_warp_medians": [
+            36.0,
+            456.5,
+            37.0,
+            36.0
+          ],
+          "ordinary_warp_medians": [
+            40.0,
+            37.0,
+            38.0,
+            38.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            408.0,
+            409.0,
+            420.0,
+            422.0
+          ],
+          "owner_warp_medians": [
+            845.5,
+            397.5,
+            856.5,
+            861.5
+          ],
+          "ordinary_warp_medians": [
+            405.0,
+            409.0,
+            415.0,
+            417.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            177.0,
+            174.0,
+            166.0,
+            164.0
+          ],
+          "owner_warp_medians": [
+            187.5,
+            158.5,
+            170.0,
+            165.5
+          ],
+          "ordinary_warp_medians": [
+            176.0,
+            175.0,
+            166.0,
+            164.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            769.0,
+            796.0,
+            807.0,
+            822.0
+          ],
+          "owner_warp_medians": [
+            751.0,
+            780.5,
+            791.5,
+            796.0
+          ],
+          "ordinary_warp_medians": [
+            769.0,
+            797.0,
+            808.0,
+            822.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            251.0,
+            219.0,
+            210.0,
+            208.0
+          ],
+          "owner_warp_medians": [
+            242.5,
+            208.0,
+            205.0,
+            198.0
+          ],
+          "ordinary_warp_medians": [
+            252.0,
+            220.0,
+            210.0,
+            209.0
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            258.0,
+            46.0,
+            45.0,
+            46.0
+          ],
+          "owner_warp_medians": [
+            206.0,
+            39.5,
+            37.0,
+            39.5
+          ],
+          "ordinary_warp_medians": [
+            258.0,
+            46.0,
+            45.0,
+            46.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            9959.5,
+            9717.0,
+            9727.0,
+            9728.0
+          ],
+          "owner_warp_medians": [
+            10684.5,
+            10454.0,
+            10436.0,
+            10469.5
+          ],
+          "ordinary_warp_medians": [
+            9931.0,
+            9684.0,
+            9695.0,
+            9697.0
+          ]
+        },
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        }
+      },
+      "timing": {
+        "same_code": {
+          "parent_us": 7.328000385314226,
+          "candidate_us": 7.487999740988016,
+          "paired_delta_us": 0.15999982133507729
+        },
+        "-1": {
+          "parent_us": 7.296000141650438,
+          "candidate_us": 7.488000206649303,
+          "paired_delta_us": 0.19200053066015244
+        },
+        "0": {
+          "parent_us": 7.344000041484833,
+          "candidate_us": 7.519999984651804,
+          "paired_delta_us": 0.1759994775056839
+        },
+        "1": {
+          "parent_us": 7.3439995758235455,
+          "candidate_us": 7.568000350147486,
+          "paired_delta_us": 0.23999996483325958
+        },
+        "2": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.712000515311956,
+          "paired_delta_us": 0.3360002301633358
+        },
+        "3": {
+          "parent_us": 7.360000163316727,
+          "candidate_us": 7.519999518990517,
+          "paired_delta_us": 0.15999935567378998
+        },
+        "4": {
+          "parent_us": 7.280000019818544,
+          "candidate_us": 7.487999740988016,
+          "paired_delta_us": 0.19199959933757782
+        },
+        "5": {
+          "parent_us": 7.328000385314226,
+          "candidate_us": 7.712000515311956,
+          "paired_delta_us": 0.36800000816583633
+        },
+        "6": {
+          "parent_us": 7.295999675989151,
+          "candidate_us": 7.61600024998188,
+          "paired_delta_us": 0.2560000866651535
+        },
+        "7": {
+          "parent_us": 7.231999654322863,
+          "candidate_us": 7.648000027984381,
+          "paired_delta_us": 0.46399980783462524
+        },
+        "8": {
+          "parent_us": 7.296000141650438,
+          "candidate_us": 7.648000027984381,
+          "paired_delta_us": 0.36800000816583633
+        },
+        "9": {
+          "parent_us": 7.295999675989151,
+          "candidate_us": 7.5519997626543045,
+          "paired_delta_us": 0.22399984300136566
+        },
+        "10": {
+          "parent_us": 7.296000141650438,
+          "candidate_us": 7.615999784320593,
+          "paired_delta_us": 0.2720002084970474
+        },
+        "11": {
+          "parent_us": 7.328000385314226,
+          "candidate_us": 7.680000271648169,
+          "paired_delta_us": 0.38400012999773026
+        }
+      }
+    },
+    {
+      "index": 2,
+      "shape": {
+        "batch": 1,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 64,
+        "dist": "soft",
+        "spread": "fixed"
+      },
+      "stages": {
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1596.0,
+            1586.0,
+            1577.0,
+            1569.5
+          ],
+          "owner_warp_medians": [
+            1631.5,
+            1627.5,
+            1616.0,
+            1606.5
+          ],
+          "ordinary_warp_medians": [
+            1595.0,
+            1584.0,
+            1576.0,
+            1567.5
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            2474.0,
+            1805.5,
+            1789.0,
+            1806.0
+          ],
+          "owner_warp_medians": [
+            2319.0,
+            2601.5,
+            1758.5,
+            1664.0
+          ],
+          "ordinary_warp_medians": [
+            2477.5,
+            1798.0,
+            1790.0,
+            1807.5
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            1472.5,
+            1467.5,
+            1475.5
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            1394.0,
+            1273.5
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            1487.5,
+            1469.0,
+            1487.0
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            21.0,
+            726.5,
+            765.5,
+            735.0
+          ],
+          "owner_warp_medians": [
+            205.5,
+            21.0,
+            985.0,
+            1067.5
+          ],
+          "ordinary_warp_medians": [
+            21.0,
+            733.5,
+            755.0,
+            729.0
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            46.0,
+            44.0,
+            42.0,
+            42.0
+          ],
+          "owner_warp_medians": [
+            44.0,
+            593.0,
+            40.0,
+            42.0
+          ],
+          "ordinary_warp_medians": [
+            46.0,
+            44.0,
+            42.0,
+            41.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            339.0,
+            325.0,
+            337.0,
+            333.0
+          ],
+          "owner_warp_medians": [
+            888.5,
+            333.0,
+            871.0,
+            883.0
+          ],
+          "ordinary_warp_medians": [
+            339.0,
+            324.0,
+            337.0,
+            333.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            128.0,
+            134.0,
+            135.0,
+            130.0
+          ],
+          "owner_warp_medians": [
+            128.5,
+            130.0,
+            136.0,
+            134.0
+          ],
+          "ordinary_warp_medians": [
+            128.0,
+            134.0,
+            135.0,
+            130.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            658.0,
+            658.0,
+            658.0,
+            657.0
+          ],
+          "owner_warp_medians": [
+            645.5,
+            646.5,
+            647.0,
+            648.0
+          ],
+          "ordinary_warp_medians": [
+            658.0,
+            658.0,
+            658.0,
+            658.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            182.0,
+            183.0,
+            184.0,
+            183.0
+          ],
+          "owner_warp_medians": [
+            182.0,
+            181.0,
+            183.0,
+            183.5
+          ],
+          "ordinary_warp_medians": [
+            182.0,
+            183.0,
+            184.0,
+            183.0
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            212.0,
+            105.0,
+            107.0,
+            106.0
+          ],
+          "owner_warp_medians": [
+            201.0,
+            103.0,
+            101.0,
+            99.0
+          ],
+          "ordinary_warp_medians": [
+            212.0,
+            105.0,
+            107.0,
+            106.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            5511.5,
+            5365.0,
+            5357.5,
+            5347.0
+          ],
+          "owner_warp_medians": [
+            6141.0,
+            6038.0,
+            6059.5,
+            6048.5
+          ],
+          "ordinary_warp_medians": [
+            5498.5,
+            5354.5,
+            5346.5,
+            5339.0
+          ]
+        },
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        }
+      },
+      "timing": {
+        "same_code": {
+          "parent_us": 4.335999954491854,
+          "candidate_us": 4.383999854326248,
+          "paired_delta_us": 0.06400002166628838
+        },
+        "-1": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.256000276654959,
+          "paired_delta_us": -0.06399955600500107
+        },
+        "0": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.4479998759925365,
+          "paired_delta_us": -0.031999778002500534
+        },
+        "1": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.559999797493219,
+          "paired_delta_us": 0.19200006499886513
+        },
+        "2": {
+          "parent_us": 4.383999854326248,
+          "candidate_us": 4.431999754160643,
+          "paired_delta_us": 0.047999899834394455
+        },
+        "3": {
+          "parent_us": 4.415999632328749,
+          "candidate_us": 4.415999632328749,
+          "paired_delta_us": 0.03200024366378784
+        },
+        "4": {
+          "parent_us": 4.3840003199875355,
+          "candidate_us": 4.559999797493219,
+          "paired_delta_us": 0.1600002869963646
+        },
+        "5": {
+          "parent_us": 4.415999632328749,
+          "candidate_us": 4.575999919325113,
+          "paired_delta_us": 0.09600073099136353
+        },
+        "6": {
+          "parent_us": 4.512000363320112,
+          "candidate_us": 4.431999754160643,
+          "paired_delta_us": -0.0800001434981823
+        },
+        "7": {
+          "parent_us": 4.480000119656324,
+          "candidate_us": 4.480000119656324,
+          "paired_delta_us": 0.09599979966878891
+        },
+        "8": {
+          "parent_us": 4.367999732494354,
+          "candidate_us": 4.528000019490719,
+          "paired_delta_us": 0.11199992150068283
+        },
+        "9": {
+          "parent_us": 4.496000241488218,
+          "candidate_us": 4.335999954491854,
+          "paired_delta_us": -0.09599979966878891
+        },
+        "10": {
+          "parent_us": 4.399999976158142,
+          "candidate_us": 4.415999632328749,
+          "paired_delta_us": -0.047999899834394455
+        },
+        "11": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.480000119656324,
+          "paired_delta_us": 0.11199992150068283
+        }
+      }
+    },
+    {
+      "index": 3,
+      "shape": {
+        "batch": 8,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 64,
+        "dist": "soft",
+        "spread": "agentic"
+      },
+      "stages": {
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1817.5,
+            1820.0,
+            1826.0,
+            1819.0
+          ],
+          "owner_warp_medians": [
+            1839.5,
+            1841.5,
+            1835.5,
+            1831.5
+          ],
+          "ordinary_warp_medians": [
+            1816.0,
+            1818.0,
+            1826.0,
+            1818.0
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            6234.0,
+            4833.0,
+            4838.5,
+            4814.5
+          ],
+          "owner_warp_medians": [
+            6347.5,
+            6401.5,
+            5007.5,
+            5215.0
+          ],
+          "ordinary_warp_medians": [
+            6231.0,
+            4775.0,
+            4833.0,
+            4803.0
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            4359.0,
+            4420.0,
+            4428.0
+          ],
+          "owner_warp_medians": [
+            5.0,
+            6.0,
+            4560.0,
+            4571.0
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            4410.0,
+            4416.5,
+            4422.5
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            22.0,
+            1463.0,
+            1487.5,
+            1492.0
+          ],
+          "owner_warp_medians": [
+            192.5,
+            25.5,
+            1738.5,
+            1672.5
+          ],
+          "ordinary_warp_medians": [
+            22.0,
+            1504.5,
+            1475.0,
+            1480.0
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            43.0,
+            41.0,
+            41.0,
+            41.0
+          ],
+          "owner_warp_medians": [
+            41.0,
+            462.5,
+            40.0,
+            40.0
+          ],
+          "ordinary_warp_medians": [
+            43.0,
+            41.0,
+            41.0,
+            41.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            436.0,
+            440.0,
+            449.0,
+            454.0
+          ],
+          "owner_warp_medians": [
+            863.0,
+            431.0,
+            892.5,
+            896.5
+          ],
+          "ordinary_warp_medians": [
+            430.0,
+            440.0,
+            443.0,
+            449.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            188.0,
+            180.0,
+            175.0,
+            173.0
+          ],
+          "owner_warp_medians": [
+            197.0,
+            158.5,
+            178.0,
+            167.0
+          ],
+          "ordinary_warp_medians": [
+            188.0,
+            181.0,
+            175.0,
+            174.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            822.0,
+            835.0,
+            854.0,
+            871.0
+          ],
+          "owner_warp_medians": [
+            794.0,
+            804.0,
+            823.5,
+            833.5
+          ],
+          "ordinary_warp_medians": [
+            823.0,
+            836.0,
+            855.0,
+            873.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            260.0,
+            229.0,
+            218.0,
+            213.0
+          ],
+          "owner_warp_medians": [
+            246.0,
+            215.0,
+            203.0,
+            196.5
+          ],
+          "ordinary_warp_medians": [
+            261.0,
+            229.0,
+            219.0,
+            213.5
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            266.0,
+            47.0,
+            46.0,
+            47.0
+          ],
+          "owner_warp_medians": [
+            233.5,
+            41.0,
+            40.0,
+            40.0
+          ],
+          "ordinary_warp_medians": [
+            266.0,
+            48.0,
+            46.0,
+            48.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            10255.5,
+            10020.5,
+            10034.0,
+            10038.5
+          ],
+          "owner_warp_medians": [
+            10768.0,
+            10558.0,
+            10553.0,
+            10565.0
+          ],
+          "ordinary_warp_medians": [
+            10238.5,
+            10004.0,
+            10018.0,
+            10017.5
+          ]
+        },
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        }
+      },
+      "timing": {
+        "same_code": {
+          "parent_us": 7.424000184983015,
+          "candidate_us": 7.328000385314226,
+          "paired_delta_us": -0.12800004333257675
+        },
+        "-1": {
+          "parent_us": 7.375999819487333,
+          "candidate_us": 7.455999962985516,
+          "paired_delta_us": 0.09599979966878891
+        },
+        "0": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.519999984651804,
+          "paired_delta_us": 0.14399969950318336
+        },
+        "1": {
+          "parent_us": 7.375999819487333,
+          "candidate_us": 7.631999906152487,
+          "paired_delta_us": 0.2400004304945469
+        },
+        "2": {
+          "parent_us": 7.3279994539916515,
+          "candidate_us": 7.664000149816275,
+          "paired_delta_us": 0.3519998863339424
+        },
+        "3": {
+          "parent_us": 7.391999941319227,
+          "candidate_us": 7.487999740988016,
+          "paired_delta_us": 0.0800001434981823
+        },
+        "4": {
+          "parent_us": 7.424000184983015,
+          "candidate_us": 7.615999784320593,
+          "paired_delta_us": 0.14399969950318336
+        },
+        "5": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.711999583989382,
+          "paired_delta_us": 0.4000002518296242
+        },
+        "6": {
+          "parent_us": 7.408000063151121,
+          "candidate_us": 7.7760000713169575,
+          "paired_delta_us": 0.39999978616833687
+        },
+        "7": {
+          "parent_us": 7.391999941319227,
+          "candidate_us": 7.568000350147486,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "8": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.711999583989382,
+          "paired_delta_us": 0.36800047382712364
+        },
+        "9": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.567999884486198,
+          "paired_delta_us": 0.19200006499886513
+        },
+        "10": {
+          "parent_us": 7.455999497324228,
+          "candidate_us": 7.648000027984381,
+          "paired_delta_us": 0.20799972116947174
+        },
+        "11": {
+          "parent_us": 7.391999941319227,
+          "candidate_us": 7.567999884486198,
+          "paired_delta_us": 0.14399969950318336
+        }
+      }
+    },
+    {
+      "index": 4,
+      "shape": {
+        "batch": 1,
+        "ctx": 4096,
+        "heads": "dp",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 64,
+        "kv_scale": 0.015625,
+        "dist": "coherent"
+      },
+      "stages": {
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1924.0,
+            1927.0,
+            1924.0,
+            1930.0
+          ],
+          "owner_warp_medians": [
+            1931.5,
+            1955.5,
+            1917.5,
+            1933.5
+          ],
+          "ordinary_warp_medians": [
+            1923.5,
+            1927.0,
+            1924.0,
+            1930.0
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            6452.5,
+            5054.0,
+            4966.0,
+            4997.5
+          ],
+          "owner_warp_medians": [
+            6481.5,
+            6536.0,
+            5017.0,
+            4997.0
+          ],
+          "ordinary_warp_medians": [
+            6451.0,
+            5010.0,
+            4961.5,
+            4997.5
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            4473.0,
+            4671.5,
+            4563.0
+          ],
+          "owner_warp_medians": [
+            5.0,
+            8.0,
+            4773.5,
+            4661.5
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            4546.0,
+            4669.5,
+            4563.0
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            22.0,
+            1565.5,
+            1534.5,
+            1691.0
+          ],
+          "owner_warp_medians": [
+            327.0,
+            25.0,
+            1878.5,
+            1899.0
+          ],
+          "ordinary_warp_medians": [
+            21.0,
+            1604.0,
+            1523.5,
+            1675.5
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            43.0,
+            42.0,
+            40.0,
+            41.0
+          ],
+          "owner_warp_medians": [
+            39.0,
+            495.0,
+            37.0,
+            37.0
+          ],
+          "ordinary_warp_medians": [
+            43.0,
+            41.0,
+            40.0,
+            42.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            458.0,
+            469.5,
+            478.0,
+            478.0
+          ],
+          "owner_warp_medians": [
+            903.0,
+            447.0,
+            922.5,
+            921.5
+          ],
+          "ordinary_warp_medians": [
+            452.0,
+            471.0,
+            472.0,
+            472.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            200.0,
+            182.0,
+            179.0,
+            185.0
+          ],
+          "owner_warp_medians": [
+            200.5,
+            159.5,
+            171.5,
+            170.0
+          ],
+          "ordinary_warp_medians": [
+            200.0,
+            183.0,
+            179.0,
+            185.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            820.0,
+            832.0,
+            853.0,
+            874.0
+          ],
+          "owner_warp_medians": [
+            794.0,
+            808.5,
+            808.5,
+            831.0
+          ],
+          "ordinary_warp_medians": [
+            821.0,
+            833.5,
+            855.0,
+            876.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            260.0,
+            236.0,
+            209.0,
+            204.0
+          ],
+          "owner_warp_medians": [
+            250.0,
+            228.0,
+            222.5,
+            189.0
+          ],
+          "ordinary_warp_medians": [
+            261.0,
+            236.0,
+            208.0,
+            205.0
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            266.0,
+            47.0,
+            48.0,
+            48.0
+          ],
+          "owner_warp_medians": [
+            228.0,
+            45.0,
+            44.0,
+            44.0
+          ],
+          "ordinary_warp_medians": [
+            266.0,
+            48.0,
+            48.0,
+            49.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            10419.5,
+            10214.5,
+            10222.5,
+            10212.0
+          ],
+          "owner_warp_medians": [
+            10751.5,
+            10543.5,
+            10542.0,
+            10550.5
+          ],
+          "ordinary_warp_medians": [
+            10401.0,
+            10196.0,
+            10202.0,
+            10195.0
+          ]
+        },
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        }
+      },
+      "timing": {
+        "same_code": {
+          "parent_us": 7.215999532490969,
+          "candidate_us": 7.359999697655439,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "-1": {
+          "parent_us": 7.296000141650438,
+          "candidate_us": 7.471999619156122,
+          "paired_delta_us": 0.22400030866265297
+        },
+        "0": {
+          "parent_us": 7.280000252649188,
+          "candidate_us": 7.567999651655555,
+          "paired_delta_us": 0.30399998649954796
+        },
+        "1": {
+          "parent_us": 7.280000019818544,
+          "candidate_us": 7.631999906152487,
+          "paired_delta_us": 0.38400012999773026
+        },
+        "2": {
+          "parent_us": 7.280000019818544,
+          "candidate_us": 7.583999540656805,
+          "paired_delta_us": 0.2719997428357601
+        },
+        "3": {
+          "parent_us": 7.2639998979866505,
+          "candidate_us": 7.519999984651804,
+          "paired_delta_us": 0.30400045216083527
+        },
+        "4": {
+          "parent_us": 7.199999410659075,
+          "candidate_us": 7.583999540656805,
+          "paired_delta_us": 0.3359997645020485
+        },
+        "5": {
+          "parent_us": 7.311999797821045,
+          "candidate_us": 7.648000027984381,
+          "paired_delta_us": 0.3519998863339424
+        },
+        "6": {
+          "parent_us": 7.280000019818544,
+          "candidate_us": 7.552000228315592,
+          "paired_delta_us": 0.3360002301633358
+        },
+        "7": {
+          "parent_us": 7.2479997761547565,
+          "candidate_us": 7.471999619156122,
+          "paired_delta_us": 0.2720002084970474
+        },
+        "8": {
+          "parent_us": 7.231999654322863,
+          "candidate_us": 7.615999784320593,
+          "paired_delta_us": 0.3519998863339424
+        },
+        "9": {
+          "parent_us": 7.280000019818544,
+          "candidate_us": 7.711999583989382,
+          "paired_delta_us": 0.39999978616833687
+        },
+        "10": {
+          "parent_us": 7.199999410659075,
+          "candidate_us": 7.408000063151121,
+          "paired_delta_us": 0.17600040882825851
+        },
+        "11": {
+          "parent_us": 7.296000141650438,
+          "candidate_us": 7.552000228315592,
+          "paired_delta_us": 0.2719997428357601
+        }
+      }
+    },
+    {
+      "index": 5,
+      "shape": {
+        "batch": 1,
+        "ctx": 10,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 1,
+        "dist": "edges"
+      },
+      "stages": {
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1654.0,
+            1648.0,
+            1111.0,
+            1105.0
+          ],
+          "owner_warp_medians": [
+            1654.0,
+            1648.0,
+            1111.0,
+            1105.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            1792.0,
+            1877.0,
+            901.0,
+            902.5
+          ],
+          "owner_warp_medians": [
+            1792.0,
+            1877.0,
+            901.0,
+            902.5
+          ],
+          "ordinary_warp_medians": null
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            5.0,
+            350.5,
+            349.5
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            350.5,
+            349.5
+          ],
+          "ordinary_warp_medians": null
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            175.5,
+            21.0,
+            1796.5,
+            1796.5
+          ],
+          "owner_warp_medians": [
+            175.5,
+            21.0,
+            1796.5,
+            1796.5
+          ],
+          "ordinary_warp_medians": null
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            40.0,
+            850.0,
+            36.0,
+            38.0
+          ],
+          "owner_warp_medians": [
+            40.0,
+            850.0,
+            36.0,
+            38.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            1140.5,
+            333.0,
+            1140.0,
+            1136.5
+          ],
+          "owner_warp_medians": [
+            1140.5,
+            333.0,
+            1140.0,
+            1136.5
+          ],
+          "ordinary_warp_medians": null
+        },
+        "QK": {
+          "warp_median_cycles": [
+            130.0,
+            128.0,
+            136.0,
+            134.0
+          ],
+          "owner_warp_medians": [
+            130.0,
+            128.0,
+            136.0,
+            134.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            655.0,
+            655.0,
+            655.5,
+            656.5
+          ],
+          "owner_warp_medians": [
+            655.0,
+            655.0,
+            655.5,
+            656.5
+          ],
+          "ordinary_warp_medians": null
+        },
+        "PV": {
+          "warp_median_cycles": [
+            182.0,
+            180.0,
+            183.0,
+            184.0
+          ],
+          "owner_warp_medians": [
+            182.0,
+            180.0,
+            183.0,
+            184.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            217.5,
+            100.0,
+            100.0,
+            100.0
+          ],
+          "owner_warp_medians": [
+            217.5,
+            100.0,
+            100.0,
+            100.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "total": {
+          "warp_median_cycles": [
+            5872.5,
+            5750.0,
+            5750.0,
+            5750.0
+          ],
+          "owner_warp_medians": [
+            5872.5,
+            5750.0,
+            5750.0,
+            5750.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": null
+        }
+      },
+      "timing": {
+        "same_code": {
+          "parent_us": 3.7440001033246517,
+          "candidate_us": 3.583999816328287,
+          "paired_delta_us": -0.1600002869963646
+        },
+        "-1": {
+          "parent_us": 3.6959999706596136,
+          "candidate_us": 3.8079998921602964,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "0": {
+          "parent_us": 3.775999415665865,
+          "candidate_us": 4.000000189989805,
+          "paired_delta_us": 0.2400004304945469
+        },
+        "1": {
+          "parent_us": 3.807999659329653,
+          "candidate_us": 3.727999981492758,
+          "paired_delta_us": -0.06400002166628838
+        },
+        "2": {
+          "parent_us": 3.7440001033246517,
+          "candidate_us": 3.9199995808303356,
+          "paired_delta_us": 0.14400016516447067
+        },
+        "3": {
+          "parent_us": 3.7440001033246517,
+          "candidate_us": 3.887999802827835,
+          "paired_delta_us": 0.14399969950318336
+        },
+        "4": {
+          "parent_us": 3.7600002251565456,
+          "candidate_us": 3.648000303655863,
+          "paired_delta_us": -0.11199992150068283
+        },
+        "5": {
+          "parent_us": 3.711999859660864,
+          "candidate_us": 3.8720001466572285,
+          "paired_delta_us": 0.2560000866651535
+        },
+        "6": {
+          "parent_us": 3.775999415665865,
+          "candidate_us": 3.7440001033246517,
+          "paired_delta_us": -0.06399955600500107
+        },
+        "7": {
+          "parent_us": 3.7440001033246517,
+          "candidate_us": 3.9039994589984417,
+          "paired_delta_us": 0.22399984300136566
+        },
+        "8": {
+          "parent_us": 3.7599997594952583,
+          "candidate_us": 3.8239997811615467,
+          "paired_delta_us": 0.06399955600500107
+        },
+        "9": {
+          "parent_us": 3.7760003469884396,
+          "candidate_us": 3.7440001033246517,
+          "paired_delta_us": -0.01600012183189392
+        },
+        "10": {
+          "parent_us": 3.7440001033246517,
+          "candidate_us": 3.8560000248253345,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "11": {
+          "parent_us": 3.775999415665865,
+          "candidate_us": 3.9039994589984417,
+          "paired_delta_us": 0.12800004333257675
+        }
+      }
+    },
+    {
+      "index": 6,
+      "shape": {
+        "batch": 3,
+        "ctx": 2047,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 1,
+        "dist": "edges"
+      },
+      "stages": {
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1732.0,
+            1741.0,
+            1720.0,
+            1700.0
+          ],
+          "owner_warp_medians": [
+            1715.5,
+            1684.0,
+            1666.0,
+            1647.0
+          ],
+          "ordinary_warp_medians": [
+            1732.0,
+            1743.5,
+            1721.5,
+            1701.0
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            3317.0,
+            2654.0,
+            2635.5,
+            2656.0
+          ],
+          "owner_warp_medians": [
+            3281.5,
+            3556.0,
+            2609.5,
+            2575.5
+          ],
+          "ordinary_warp_medians": [
+            3317.0,
+            2644.5,
+            2637.0,
+            2657.0
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            2349.0,
+            2375.0,
+            2363.0
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            2350.0,
+            2354.0
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            2359.0,
+            2375.5,
+            2363.5
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            21.0,
+            701.0,
+            702.0,
+            711.0
+          ],
+          "owner_warp_medians": [
+            304.5,
+            21.0,
+            916.5,
+            1122.5
+          ],
+          "ordinary_warp_medians": [
+            21.0,
+            713.5,
+            692.0,
+            700.5
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            40.0,
+            38.0,
+            36.0,
+            38.0
+          ],
+          "owner_warp_medians": [
+            40.0,
+            484.0,
+            36.0,
+            38.0
+          ],
+          "ordinary_warp_medians": [
+            40.0,
+            38.0,
+            37.0,
+            38.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            347.0,
+            342.0,
+            341.0,
+            344.0
+          ],
+          "owner_warp_medians": [
+            759.5,
+            333.0,
+            760.0,
+            760.5
+          ],
+          "ordinary_warp_medians": [
+            346.0,
+            342.0,
+            340.0,
+            342.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            135.0,
+            136.0,
+            151.0,
+            137.0
+          ],
+          "owner_warp_medians": [
+            130.0,
+            129.0,
+            136.0,
+            135.0
+          ],
+          "ordinary_warp_medians": [
+            135.0,
+            136.0,
+            152.0,
+            137.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            729.0,
+            732.0,
+            728.0,
+            731.5
+          ],
+          "owner_warp_medians": [
+            628.0,
+            629.0,
+            630.0,
+            630.0
+          ],
+          "ordinary_warp_medians": [
+            731.0,
+            733.0,
+            730.0,
+            732.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            189.0,
+            187.0,
+            189.0,
+            185.0
+          ],
+          "owner_warp_medians": [
+            182.0,
+            181.0,
+            184.0,
+            183.0
+          ],
+          "ordinary_warp_medians": [
+            190.0,
+            187.0,
+            190.0,
+            185.0
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            221.0,
+            50.0,
+            47.0,
+            49.0
+          ],
+          "owner_warp_medians": [
+            205.0,
+            50.0,
+            44.0,
+            46.0
+          ],
+          "ordinary_warp_medians": [
+            222.0,
+            49.0,
+            47.0,
+            50.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            6825.5,
+            6659.0,
+            6630.0,
+            6613.0
+          ],
+          "owner_warp_medians": [
+            7334.5,
+            7151.5,
+            7145.5,
+            7123.5
+          ],
+          "ordinary_warp_medians": [
+            6811.5,
+            6641.0,
+            6620.0,
+            6594.0
+          ]
+        },
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        }
+      },
+      "timing": {
+        "same_code": {
+          "parent_us": 5.08800009265542,
+          "candidate_us": 5.151999648660421,
+          "paired_delta_us": 0.03200024366378784
+        },
+        "-1": {
+          "parent_us": 5.023999605327845,
+          "candidate_us": 5.183999892324209,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "0": {
+          "parent_us": 4.9600000493228436,
+          "candidate_us": 5.0559998489916325,
+          "paired_delta_us": 0.06400002166628838
+        },
+        "1": {
+          "parent_us": 5.007999483495951,
+          "candidate_us": 5.1359995268285275,
+          "paired_delta_us": 0.06399955600500107
+        },
+        "2": {
+          "parent_us": 5.08800009265542,
+          "candidate_us": 5.279999691992998,
+          "paired_delta_us": 0.22399984300136566
+        },
+        "3": {
+          "parent_us": 4.9759994726628065,
+          "candidate_us": 5.391999846324325,
+          "paired_delta_us": 0.38400012999773026
+        },
+        "4": {
+          "parent_us": 4.9600000493228436,
+          "candidate_us": 5.24799944832921,
+          "paired_delta_us": 0.3360002301633358
+        },
+        "5": {
+          "parent_us": 5.007999483495951,
+          "candidate_us": 5.423999857157469,
+          "paired_delta_us": 0.38400012999773026
+        },
+        "6": {
+          "parent_us": 4.991999361664057,
+          "candidate_us": 5.32800005748868,
+          "paired_delta_us": 0.3359997645020485
+        },
+        "7": {
+          "parent_us": 4.991999361664057,
+          "candidate_us": 5.391999613493681,
+          "paired_delta_us": 0.38400012999773026
+        },
+        "8": {
+          "parent_us": 4.992000292986631,
+          "candidate_us": 5.279999691992998,
+          "paired_delta_us": 0.28799939900636673
+        },
+        "9": {
+          "parent_us": 5.023999605327845,
+          "candidate_us": 5.200000014156103,
+          "paired_delta_us": 0.1759999431669712
+        },
+        "10": {
+          "parent_us": 4.991999361664057,
+          "candidate_us": 5.344000179320574,
+          "paired_delta_us": 0.30399998649954796
+        },
+        "11": {
+          "parent_us": 5.007999483495951,
+          "candidate_us": 5.35999983549118,
+          "paired_delta_us": 0.28799939900636673
+        }
+      }
+    }
+  ],
+  "confirmation": [
+    {
+      "index": 0,
+      "shape": {
+        "batch": 1,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 1,
+        "dist": "soft",
+        "spread": "fixed"
+      },
+      "stages": {
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            5696.5,
+            5548.0,
+            5536.0,
+            5521.0
+          ],
+          "owner_warp_medians": [
+            6618.5,
+            6444.0,
+            6436.0,
+            6430.0
+          ],
+          "ordinary_warp_medians": [
+            5683.0,
+            5534.0,
+            5522.0,
+            5503.5
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            221.0,
+            100.0,
+            101.0,
+            100.0
+          ],
+          "owner_warp_medians": [
+            211.0,
+            96.0,
+            95.5,
+            94.0
+          ],
+          "ordinary_warp_medians": [
+            221.0,
+            100.0,
+            101.0,
+            100.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            182.0,
+            181.0,
+            183.0,
+            183.0
+          ],
+          "owner_warp_medians": [
+            182.0,
+            181.0,
+            184.0,
+            184.0
+          ],
+          "ordinary_warp_medians": [
+            182.0,
+            181.0,
+            183.0,
+            183.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            656.0,
+            656.0,
+            656.0,
+            657.0
+          ],
+          "owner_warp_medians": [
+            646.5,
+            647.0,
+            647.0,
+            646.5
+          ],
+          "ordinary_warp_medians": [
+            657.0,
+            657.0,
+            656.0,
+            657.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            128.0,
+            134.0,
+            135.0,
+            130.0
+          ],
+          "owner_warp_medians": [
+            130.0,
+            128.0,
+            136.0,
+            135.0
+          ],
+          "ordinary_warp_medians": [
+            128.0,
+            134.0,
+            135.0,
+            130.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            347.0,
+            329.0,
+            345.0,
+            337.0
+          ],
+          "owner_warp_medians": [
+            887.5,
+            333.0,
+            879.5,
+            888.5
+          ],
+          "ordinary_warp_medians": [
+            347.0,
+            329.0,
+            345.0,
+            336.0
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            42.0,
+            36.0,
+            38.0,
+            40.0
+          ],
+          "owner_warp_medians": [
+            40.0,
+            602.5,
+            36.0,
+            38.0
+          ],
+          "ordinary_warp_medians": [
+            42.0,
+            36.0,
+            38.0,
+            40.0
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            21.0,
+            616.5,
+            667.5,
+            589.0
+          ],
+          "owner_warp_medians": [
+            439.5,
+            21.0,
+            893.0,
+            1062.5
+          ],
+          "ordinary_warp_medians": [
+            21.0,
+            633.0,
+            655.5,
+            579.0
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            1519.0,
+            1501.0,
+            1567.0
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            1529.5,
+            1520.0
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            1526.0,
+            1500.0,
+            1567.5
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            2401.0,
+            1778.0,
+            1804.0,
+            1810.0
+          ],
+          "owner_warp_medians": [
+            2377.0,
+            2791.0,
+            1847.5,
+            1727.5
+          ],
+          "ordinary_warp_medians": [
+            2402.0,
+            1772.0,
+            1802.5,
+            1811.0
+          ]
+        },
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1611.0,
+            1612.5,
+            1614.0,
+            1630.0
+          ],
+          "owner_warp_medians": [
+            1626.0,
+            1635.0,
+            1631.5,
+            1624.0
+          ],
+          "ordinary_warp_medians": [
+            1611.0,
+            1612.0,
+            1613.0,
+            1630.0
+          ]
+        }
+      },
+      "timing": {
+        "11": {
+          "parent_us": 4.4479998759925365,
+          "candidate_us": 4.4479998759925365,
+          "paired_delta_us": -0.015999656170606613
+        },
+        "10": {
+          "parent_us": 4.383999388664961,
+          "candidate_us": 4.480000119656324,
+          "paired_delta_us": 0.03200024366378784
+        },
+        "9": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.5439996756613255,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "8": {
+          "parent_us": 4.352000076323748,
+          "candidate_us": 4.415999632328749,
+          "paired_delta_us": 0.03200024366378784
+        },
+        "7": {
+          "parent_us": 4.415999632328749,
+          "candidate_us": 4.5439996756613255,
+          "paired_delta_us": 0.06400048732757568
+        },
+        "6": {
+          "parent_us": 4.415999632328749,
+          "candidate_us": 4.608000162988901,
+          "paired_delta_us": 0.19200006499886513
+        },
+        "5": {
+          "parent_us": 4.383999388664961,
+          "candidate_us": 4.511999431997538,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "4": {
+          "parent_us": 4.383999388664961,
+          "candidate_us": 4.639999475330114,
+          "paired_delta_us": 0.20800018683075905
+        },
+        "3": {
+          "parent_us": 4.4479998759925365,
+          "candidate_us": 4.511999431997538,
+          "paired_delta_us": 0.04800036549568176
+        },
+        "2": {
+          "parent_us": 4.399999976158142,
+          "candidate_us": 4.512000363320112,
+          "paired_delta_us": 0.09600026533007622
+        },
+        "1": {
+          "parent_us": 4.415999632328749,
+          "candidate_us": 4.624000284820795,
+          "paired_delta_us": 0.1600002869963646
+        },
+        "0": {
+          "parent_us": 4.431999986991286,
+          "candidate_us": 4.623999586328864,
+          "paired_delta_us": 0.15999982133507729
+        },
+        "-1": {
+          "parent_us": 4.399999510496855,
+          "candidate_us": 4.415999632328749,
+          "paired_delta_us": 0.0
+        },
+        "same_code": {
+          "parent_us": 4.431999754160643,
+          "candidate_us": 4.480000119656324,
+          "paired_delta_us": 0.0
+        }
+      }
+    },
+    {
+      "index": 1,
+      "shape": {
+        "batch": 8,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 1,
+        "dist": "soft",
+        "spread": "agentic"
+      },
+      "stages": {
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            10100.0,
+            9866.5,
+            9872.5,
+            9865.5
+          ],
+          "owner_warp_medians": [
+            10824.0,
+            10619.0,
+            10627.0,
+            10630.0
+          ],
+          "ordinary_warp_medians": [
+            10061.5,
+            9829.0,
+            9835.0,
+            9828.5
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            254.0,
+            46.0,
+            45.0,
+            46.0
+          ],
+          "owner_warp_medians": [
+            206.0,
+            39.5,
+            41.0,
+            41.0
+          ],
+          "ordinary_warp_medians": [
+            255.0,
+            46.0,
+            45.0,
+            46.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            247.0,
+            217.0,
+            207.0,
+            206.0
+          ],
+          "owner_warp_medians": [
+            232.5,
+            200.0,
+            200.0,
+            201.5
+          ],
+          "ordinary_warp_medians": [
+            248.0,
+            218.0,
+            207.5,
+            207.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            770.0,
+            791.0,
+            805.0,
+            816.0
+          ],
+          "owner_warp_medians": [
+            748.5,
+            777.5,
+            781.5,
+            792.0
+          ],
+          "ordinary_warp_medians": [
+            771.0,
+            791.0,
+            805.5,
+            817.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            173.0,
+            171.0,
+            166.0,
+            164.0
+          ],
+          "owner_warp_medians": [
+            196.0,
+            164.0,
+            177.5,
+            169.5
+          ],
+          "ordinary_warp_medians": [
+            172.0,
+            171.0,
+            166.0,
+            163.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            403.0,
+            404.0,
+            411.0,
+            413.0
+          ],
+          "owner_warp_medians": [
+            874.5,
+            427.0,
+            883.5,
+            907.5
+          ],
+          "ordinary_warp_medians": [
+            399.0,
+            403.0,
+            407.0,
+            408.0
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            40.0,
+            38.0,
+            38.0,
+            38.0
+          ],
+          "owner_warp_medians": [
+            38.0,
+            459.0,
+            37.0,
+            37.0
+          ],
+          "ordinary_warp_medians": [
+            40.0,
+            37.0,
+            38.0,
+            38.0
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            23.0,
+            974.5,
+            1063.0,
+            909.0
+          ],
+          "owner_warp_medians": [
+            850.5,
+            23.0,
+            1633.0,
+            1383.0
+          ],
+          "ordinary_warp_medians": [
+            23.0,
+            1010.0,
+            1042.0,
+            891.0
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            4515.0,
+            4519.0,
+            4669.0
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            4559.0,
+            4692.0
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            4576.0,
+            4518.0,
+            4668.0
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            5573.0,
+            4788.0,
+            4741.0,
+            4755.0
+          ],
+          "owner_warp_medians": [
+            5532.5,
+            6050.5,
+            4591.0,
+            4811.0
+          ],
+          "ordinary_warp_medians": [
+            5575.0,
+            4737.0,
+            4746.0,
+            4753.0
+          ]
+        },
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1875.0,
+            1950.0,
+            1946.0,
+            1950.0
+          ],
+          "owner_warp_medians": [
+            1860.5,
+            1930.0,
+            1933.5,
+            1935.0
+          ],
+          "ordinary_warp_medians": [
+            1876.0,
+            1951.0,
+            1947.0,
+            1951.0
+          ]
+        }
+      },
+      "timing": {
+        "11": {
+          "parent_us": 7.3279994539916515,
+          "candidate_us": 7.552000228315592,
+          "paired_delta_us": 0.20800018683075905
+        },
+        "10": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.648000027984381,
+          "paired_delta_us": 0.30399998649954796
+        },
+        "9": {
+          "parent_us": 7.375999819487333,
+          "candidate_us": 7.664000149816275,
+          "paired_delta_us": 0.2400004304945469
+        },
+        "8": {
+          "parent_us": 7.391999941319227,
+          "candidate_us": 7.4720000848174095,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "7": {
+          "parent_us": 7.3279994539916515,
+          "candidate_us": 7.711999583989382,
+          "paired_delta_us": 0.38399966433644295
+        },
+        "6": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.74399982765317,
+          "paired_delta_us": 0.39999978616833687
+        },
+        "5": {
+          "parent_us": 7.391999941319227,
+          "candidate_us": 7.631999906152487,
+          "paired_delta_us": 0.22399984300136566
+        },
+        "4": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.552000228315592,
+          "paired_delta_us": 0.19200006499886513
+        },
+        "3": {
+          "parent_us": 7.3279994539916515,
+          "candidate_us": 7.631999906152487,
+          "paired_delta_us": 0.28800033032894135
+        },
+        "2": {
+          "parent_us": 7.391999941319227,
+          "candidate_us": 7.615999784320593,
+          "paired_delta_us": 0.19200053066015244
+        },
+        "1": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.519999984651804,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "0": {
+          "parent_us": 7.391999941319227,
+          "candidate_us": 7.615999784320593,
+          "paired_delta_us": 0.22399984300136566
+        },
+        "-1": {
+          "parent_us": 7.391999941319227,
+          "candidate_us": 7.456000428646803,
+          "paired_delta_us": 0.03200024366378784
+        },
+        "same_code": {
+          "parent_us": 7.359999697655439,
+          "candidate_us": 7.231999654322863,
+          "paired_delta_us": -0.12800004333257675
+        }
+      }
+    },
+    {
+      "index": 2,
+      "shape": {
+        "batch": 1,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 64,
+        "dist": "soft",
+        "spread": "fixed"
+      },
+      "stages": {
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            5630.5,
+            5512.0,
+            5495.5,
+            5477.0
+          ],
+          "owner_warp_medians": [
+            6423.0,
+            6321.0,
+            6319.0,
+            6315.0
+          ],
+          "ordinary_warp_medians": [
+            5625.0,
+            5502.0,
+            5484.5,
+            5469.5
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            212.0,
+            105.0,
+            107.0,
+            106.0
+          ],
+          "owner_warp_medians": [
+            199.0,
+            100.0,
+            100.0,
+            98.0
+          ],
+          "ordinary_warp_medians": [
+            212.0,
+            105.0,
+            107.0,
+            106.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            182.0,
+            183.0,
+            184.0,
+            183.0
+          ],
+          "owner_warp_medians": [
+            182.0,
+            181.0,
+            183.0,
+            183.0
+          ],
+          "ordinary_warp_medians": [
+            182.0,
+            183.0,
+            184.0,
+            183.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            658.0,
+            657.0,
+            658.0,
+            658.0
+          ],
+          "owner_warp_medians": [
+            646.5,
+            639.5,
+            643.5,
+            643.0
+          ],
+          "ordinary_warp_medians": [
+            658.0,
+            658.0,
+            658.0,
+            658.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            128.0,
+            134.0,
+            135.0,
+            130.0
+          ],
+          "owner_warp_medians": [
+            130.0,
+            128.0,
+            136.0,
+            135.0
+          ],
+          "ordinary_warp_medians": [
+            128.0,
+            135.0,
+            135.0,
+            130.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            339.0,
+            323.0,
+            337.0,
+            333.0
+          ],
+          "owner_warp_medians": [
+            862.0,
+            333.0,
+            854.5,
+            860.0
+          ],
+          "ordinary_warp_medians": [
+            339.0,
+            322.0,
+            337.0,
+            333.0
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            46.0,
+            44.0,
+            42.0,
+            42.0
+          ],
+          "owner_warp_medians": [
+            44.0,
+            589.0,
+            40.0,
+            42.0
+          ],
+          "ordinary_warp_medians": [
+            46.0,
+            41.0,
+            42.0,
+            44.0
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            21.0,
+            780.5,
+            800.0,
+            780.0
+          ],
+          "owner_warp_medians": [
+            251.5,
+            21.0,
+            1059.5,
+            1037.5
+          ],
+          "ordinary_warp_medians": [
+            21.0,
+            789.0,
+            792.5,
+            770.5
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            1440.0,
+            1443.0,
+            1473.5
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            1403.5,
+            1383.5
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            1447.0,
+            1446.5,
+            1477.0
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            2553.5,
+            1857.0,
+            1846.5,
+            1866.0
+          ],
+          "owner_warp_medians": [
+            2532.0,
+            2805.0,
+            1883.5,
+            1887.0
+          ],
+          "ordinary_warp_medians": [
+            2554.5,
+            1847.0,
+            1844.5,
+            1866.0
+          ]
+        },
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1579.0,
+            1574.0,
+            1571.0,
+            1569.0
+          ],
+          "owner_warp_medians": [
+            1583.5,
+            1571.5,
+            1569.0,
+            1566.5
+          ],
+          "ordinary_warp_medians": [
+            1579.0,
+            1574.0,
+            1571.0,
+            1569.5
+          ]
+        }
+      },
+      "timing": {
+        "11": {
+          "parent_us": 4.464000230655074,
+          "candidate_us": 4.527999786660075,
+          "paired_delta_us": 0.015999656170606613
+        },
+        "10": {
+          "parent_us": 4.511999431997538,
+          "candidate_us": 4.5279995538294315,
+          "paired_delta_us": -0.06400002166628838
+        },
+        "9": {
+          "parent_us": 4.479999653995037,
+          "candidate_us": 4.367999732494354,
+          "paired_delta_us": -0.11200038716197014
+        },
+        "8": {
+          "parent_us": 4.464000230655074,
+          "candidate_us": 4.464000230655074,
+          "paired_delta_us": -0.09600073099136353
+        },
+        "7": {
+          "parent_us": 4.511999431997538,
+          "candidate_us": 4.575999919325113,
+          "paired_delta_us": 0.031999312341213226
+        },
+        "6": {
+          "parent_us": 4.480000119656324,
+          "candidate_us": 4.4479998759925365,
+          "paired_delta_us": -0.06400048732757568
+        },
+        "5": {
+          "parent_us": 4.511999431997538,
+          "candidate_us": 4.431999754160643,
+          "paired_delta_us": -0.12800004333257675
+        },
+        "4": {
+          "parent_us": 4.511999897658825,
+          "candidate_us": 4.43200021982193,
+          "paired_delta_us": -0.12800004333257675
+        },
+        "3": {
+          "parent_us": 4.495999542996287,
+          "candidate_us": 4.655999829992652,
+          "paired_delta_us": 0.09599979966878891
+        },
+        "2": {
+          "parent_us": 4.511999431997538,
+          "candidate_us": 4.5439996756613255,
+          "paired_delta_us": 0.031999312341213226
+        },
+        "1": {
+          "parent_us": 4.511999431997538,
+          "candidate_us": 4.575999919325113,
+          "paired_delta_us": 0.06399955600500107
+        },
+        "0": {
+          "parent_us": 4.495999775826931,
+          "candidate_us": 4.5439996756613255,
+          "paired_delta_us": -0.031999312341213226
+        },
+        "-1": {
+          "parent_us": 4.480000119656324,
+          "candidate_us": 4.383999388664961,
+          "paired_delta_us": -0.1759999431669712
+        },
+        "same_code": {
+          "parent_us": 4.448000341653824,
+          "candidate_us": 4.255999810993671,
+          "paired_delta_us": -0.2560000866651535
+        }
+      }
+    },
+    {
+      "index": 4,
+      "shape": {
+        "batch": 1,
+        "ctx": 4096,
+        "heads": "dp",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 64,
+        "kv_scale": 0.015625,
+        "dist": "coherent"
+      },
+      "stages": {
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ]
+        },
+        "total": {
+          "warp_median_cycles": [
+            10183.0,
+            9960.0,
+            9976.5,
+            9982.0
+          ],
+          "owner_warp_medians": [
+            10741.5,
+            10536.0,
+            10529.0,
+            10519.5
+          ],
+          "ordinary_warp_medians": [
+            10162.0,
+            9938.0,
+            9958.0,
+            9959.0
+          ]
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            265.0,
+            48.0,
+            49.0,
+            49.0
+          ],
+          "owner_warp_medians": [
+            229.5,
+            47.5,
+            45.0,
+            46.0
+          ],
+          "ordinary_warp_medians": [
+            265.0,
+            48.0,
+            49.0,
+            49.0
+          ]
+        },
+        "PV": {
+          "warp_median_cycles": [
+            260.0,
+            236.0,
+            209.0,
+            203.0
+          ],
+          "owner_warp_medians": [
+            231.0,
+            212.0,
+            211.0,
+            193.5
+          ],
+          "ordinary_warp_medians": [
+            260.0,
+            237.0,
+            209.0,
+            203.0
+          ]
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            822.0,
+            831.0,
+            848.0,
+            872.0
+          ],
+          "owner_warp_medians": [
+            773.0,
+            783.0,
+            787.0,
+            814.5
+          ],
+          "ordinary_warp_medians": [
+            824.0,
+            833.0,
+            851.0,
+            874.0
+          ]
+        },
+        "QK": {
+          "warp_median_cycles": [
+            200.0,
+            179.0,
+            179.0,
+            187.0
+          ],
+          "owner_warp_medians": [
+            201.0,
+            164.0,
+            172.5,
+            172.0
+          ],
+          "ordinary_warp_medians": [
+            200.0,
+            179.0,
+            179.0,
+            188.0
+          ]
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            463.0,
+            476.0,
+            488.0,
+            474.0
+          ],
+          "owner_warp_medians": [
+            914.0,
+            432.0,
+            923.5,
+            947.0
+          ],
+          "ordinary_warp_medians": [
+            458.0,
+            478.0,
+            482.0,
+            469.0
+          ]
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            43.0,
+            41.0,
+            41.0,
+            41.0
+          ],
+          "owner_warp_medians": [
+            42.0,
+            472.5,
+            40.0,
+            40.0
+          ],
+          "ordinary_warp_medians": [
+            43.0,
+            40.0,
+            41.0,
+            41.0
+          ]
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            22.0,
+            1537.0,
+            1501.0,
+            1634.0
+          ],
+          "owner_warp_medians": [
+            259.5,
+            26.0,
+            1706.0,
+            1840.5
+          ],
+          "ordinary_warp_medians": [
+            22.0,
+            1580.0,
+            1490.5,
+            1629.0
+          ]
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            4488.5,
+            4675.5,
+            4571.0
+          ],
+          "owner_warp_medians": [
+            5.0,
+            8.5,
+            4914.5,
+            4721.0
+          ],
+          "ordinary_warp_medians": [
+            5.0,
+            4548.0,
+            4664.0,
+            4565.0
+          ]
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            6284.5,
+            4906.5,
+            4856.5,
+            4893.0
+          ],
+          "owner_warp_medians": [
+            6337.5,
+            6384.0,
+            5029.0,
+            5094.5
+          ],
+          "ordinary_warp_medians": [
+            6283.0,
+            4842.5,
+            4851.0,
+            4885.0
+          ]
+        },
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1846.0,
+            1858.0,
+            1849.0,
+            1849.0
+          ],
+          "owner_warp_medians": [
+            1870.5,
+            1880.0,
+            1846.0,
+            1856.5
+          ],
+          "ordinary_warp_medians": [
+            1845.0,
+            1857.0,
+            1849.0,
+            1848.0
+          ]
+        }
+      },
+      "timing": {
+        "11": {
+          "parent_us": 7.2639998979866505,
+          "candidate_us": 7.424000184983015,
+          "paired_delta_us": 0.1759999431669712
+        },
+        "10": {
+          "parent_us": 7.280000019818544,
+          "candidate_us": 7.455999497324228,
+          "paired_delta_us": 0.1600002869963646
+        },
+        "9": {
+          "parent_us": 7.280000019818544,
+          "candidate_us": 7.695999927818775,
+          "paired_delta_us": 0.4160003736615181
+        },
+        "8": {
+          "parent_us": 7.296000141650438,
+          "candidate_us": 7.583999540656805,
+          "paired_delta_us": 0.28800033032894135
+        },
+        "7": {
+          "parent_us": 7.3279994539916515,
+          "candidate_us": 7.519999984651804,
+          "paired_delta_us": 0.1759999431669712
+        },
+        "6": {
+          "parent_us": 7.296000141650438,
+          "candidate_us": 7.711999583989382,
+          "paired_delta_us": 0.4000002518296242
+        },
+        "5": {
+          "parent_us": 7.311999564990401,
+          "candidate_us": 7.567999651655555,
+          "paired_delta_us": 0.23999996483325958
+        },
+        "4": {
+          "parent_us": 7.311999797821045,
+          "candidate_us": 7.519999984651804,
+          "paired_delta_us": 0.19200006499886513
+        },
+        "3": {
+          "parent_us": 7.3279994539916515,
+          "candidate_us": 7.615999784320593,
+          "paired_delta_us": 0.30399998649954796
+        },
+        "2": {
+          "parent_us": 7.2639998979866505,
+          "candidate_us": 7.615999784320593,
+          "paired_delta_us": 0.3360002301633358
+        },
+        "1": {
+          "parent_us": 7.296000141650438,
+          "candidate_us": 7.583999540656805,
+          "paired_delta_us": 0.22400030866265297
+        },
+        "0": {
+          "parent_us": 7.2639998979866505,
+          "candidate_us": 7.615999784320593,
+          "paired_delta_us": 0.3519998863339424
+        },
+        "-1": {
+          "parent_us": 7.2480000089854,
+          "candidate_us": 7.264000130817294,
+          "paired_delta_us": 0.0
+        },
+        "same_code": {
+          "parent_us": 7.311999797821045,
+          "candidate_us": 7.296000141650438,
+          "paired_delta_us": 0.0
+        }
+      }
+    },
+    {
+      "index": 5,
+      "shape": {
+        "batch": 1,
+        "ctx": 10,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 1,
+        "dist": "edges"
+      },
+      "stages": {
+        "clock_pair_overhead": {
+          "warp_median_cycles": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "owner_warp_medians": [
+            2.0,
+            2.0,
+            2.0,
+            2.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "total": {
+          "warp_median_cycles": [
+            5941.5,
+            5805.5,
+            5803.5,
+            5804.0
+          ],
+          "owner_warp_medians": [
+            5941.5,
+            5805.5,
+            5803.5,
+            5804.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "partial_output": {
+          "warp_median_cycles": [
+            217.5,
+            100.0,
+            100.0,
+            100.0
+          ],
+          "owner_warp_medians": [
+            217.5,
+            100.0,
+            100.0,
+            100.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "PV": {
+          "warp_median_cycles": [
+            182.0,
+            180.0,
+            183.0,
+            184.0
+          ],
+          "owner_warp_medians": [
+            182.0,
+            180.0,
+            183.0,
+            184.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "softmax_pack": {
+          "warp_median_cycles": [
+            646.5,
+            646.5,
+            647.0,
+            648.0
+          ],
+          "owner_warp_medians": [
+            646.5,
+            646.5,
+            647.0,
+            648.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "QK": {
+          "warp_median_cycles": [
+            130.0,
+            129.0,
+            136.0,
+            135.0
+          ],
+          "owner_warp_medians": [
+            130.0,
+            129.0,
+            136.0,
+            135.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "value_conversion_publish": {
+          "warp_median_cycles": [
+            1169.5,
+            333.0,
+            1158.0,
+            1159.0
+          ],
+          "owner_warp_medians": [
+            1169.5,
+            333.0,
+            1158.0,
+            1159.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "newkv_publish": {
+          "warp_median_cycles": [
+            40.0,
+            873.5,
+            36.0,
+            38.0
+          ],
+          "owner_warp_medians": [
+            40.0,
+            873.5,
+            36.0,
+            38.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "first_CTA_rendezvous": {
+          "warp_median_cycles": [
+            166.5,
+            21.0,
+            1641.5,
+            1641.5
+          ],
+          "owner_warp_medians": [
+            166.5,
+            21.0,
+            1641.5,
+            1641.5
+          ],
+          "ordinary_warp_medians": null
+        },
+        "residual_copy_wait": {
+          "warp_median_cycles": [
+            5.0,
+            5.0,
+            365.0,
+            366.0
+          ],
+          "owner_warp_medians": [
+            5.0,
+            5.0,
+            365.0,
+            366.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "query_newkv_preparation": {
+          "warp_median_cycles": [
+            1637.0,
+            1794.5,
+            855.5,
+            855.0
+          ],
+          "owner_warp_medians": [
+            1637.0,
+            1794.5,
+            855.5,
+            855.0
+          ],
+          "ordinary_warp_medians": null
+        },
+        "metadata_and_gather_issue": {
+          "warp_median_cycles": [
+            1640.0,
+            1639.0,
+            1083.0,
+            1079.0
+          ],
+          "owner_warp_medians": [
+            1640.0,
+            1639.0,
+            1083.0,
+            1079.0
+          ],
+          "ordinary_warp_medians": null
+        }
+      },
+      "timing": {
+        "11": {
+          "parent_us": 3.871999680995941,
+          "candidate_us": 3.727999981492758,
+          "paired_delta_us": -0.09599979966878891
+        },
+        "10": {
+          "parent_us": 3.80800012499094,
+          "candidate_us": 3.936000168323517,
+          "paired_delta_us": 0.11199992150068283
+        },
+        "9": {
+          "parent_us": 3.9680004119873047,
+          "candidate_us": 4.127999767661095,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "8": {
+          "parent_us": 4.0319995023310184,
+          "candidate_us": 3.9359997026622295,
+          "paired_delta_us": -0.09600026533007622
+        },
+        "7": {
+          "parent_us": 3.8399999029934406,
+          "candidate_us": 3.9679999463260174,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "6": {
+          "parent_us": 3.8399999029934406,
+          "candidate_us": 3.9679999463260174,
+          "paired_delta_us": 0.12800004333257675
+        },
+        "5": {
+          "parent_us": 3.80800012499094,
+          "candidate_us": 3.936000168323517,
+          "paired_delta_us": 0.09599979966878891
+        },
+        "4": {
+          "parent_us": 3.8399999029934406,
+          "candidate_us": 3.775999415665865,
+          "paired_delta_us": -0.06399955600500107
+        },
+        "3": {
+          "parent_us": 3.984000300988555,
+          "candidate_us": 3.9199998136609793,
+          "paired_delta_us": -0.06400002166628838
+        },
+        "2": {
+          "parent_us": 3.80800012499094,
+          "candidate_us": 3.903999924659729,
+          "paired_delta_us": -0.06400048732757568
+        },
+        "1": {
+          "parent_us": 3.80800012499094,
+          "candidate_us": 3.7759998813271523,
+          "paired_delta_us": 0.0
+        },
+        "0": {
+          "parent_us": 3.807999659329653,
+          "candidate_us": 4.015999846160412,
+          "paired_delta_us": 0.1600002869963646
+        },
+        "-1": {
+          "parent_us": 3.887999802827835,
+          "candidate_us": 3.807999659329653,
+          "paired_delta_us": -0.06399955600500107
+        },
+        "same_code": {
+          "parent_us": 3.8399999029934406,
+          "candidate_us": 3.775999415665865,
+          "paired_delta_us": -0.19199959933757782
+        }
+      }
+    }
+  ]
+}
