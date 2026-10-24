@@ -2876,3 +2876,15 @@ reset; pausing tools/night.sh until then would save billed time.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 8/10 scored.
+
+## 2026-10-24 afternoon (human-directed runs, from the interactive session)
+
+| job | commit | speedup (95% CI) | notes |
+|---|---|---|---|
+| abd67ae2 | b94e35f (FP32 partials everywhere) | 2.263x (2.229-2.296) | BF16-partial runs 10d12495, beb63898 withdrawn |
+| 56fca423 | 1114bf9 (7 unchecked commits) | 2.265x (2.231-2.299) | decode 16/32 sliding LOST on the H200 (10.3/14.3 -> 11.1/15.4 us) |
+| 7f45c5c6 | 14355d4 (1114bf9 minus batched-sliding hpp 2) | **2.343x** (2.307-2.391) | rank 13; decode 16/32 sliding 10.7/13.9 us |
+
+Lesson: hpp 2 for batched sliding decode (e405425/6fb74be/652aafe) wins on the H100 and loses on the
+H200. H100-only sliding wins need a check before they count. Weakest shapes now: verify 16/32 full
+(1.79x/1.84x) and verify 32 sliding (2.00x).
