@@ -1,0 +1,81 @@
+{
+  "previous_sha256": "ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca",
+  "merged_sha256": "ee782c4d69edaf872132e3fc354ba522aaa30c237dcf40b5de525f204398db85",
+  "upstream_sha256": "79ba3080e152372a29b13d49f7ab9ca540dec4d5666c55660f92383f41073027",
+  "upstream_commit": "eef9721",
+  "shared_AST_nodes": [
+    "Config",
+    "Inputs",
+    "_attn_split",
+    "_combine",
+    "_combine_hb",
+    "_cos_sin",
+    "_counters",
+    "_finish",
+    "_gw_consumer",
+    "_gw_consumer_cv",
+    "_gw_merge",
+    "_gw_merge_rows",
+    "_gw_producer",
+    "_gw_producer_cv",
+    "_gw_store",
+    "_gw_verify",
+    "_new",
+    "_new_tokens",
+    "_norm_gate_store",
+    "_norm_rope",
+    "_num_sms",
+    "_plan",
+    "_tile",
+    "_verify_gluon"
+  ],
+  "native_extensions_and_dispatch_unchanged": true,
+  "runs": {
+    "compare": {
+      "cases": 15,
+      "pairs": 1200,
+      "reference_checks": 90,
+      "gfuse_cases": 11,
+      "control_deltas_us": [
+        -0.2240017056465149,
+        0.19200053066015244,
+        0.0,
+        -0.19200053066015244
+      ]
+    },
+    "confirm": {
+      "cases": 12,
+      "pairs": 960,
+      "reference_checks": 72,
+      "gfuse_cases": 9,
+      "control_deltas_us": [
+        0.0,
+        -0.03200024366378784,
+        0.28800033032894135
+      ]
+    },
+    "scored": {
+      "cases": 12,
+      "pairs": 960,
+      "reference_checks": 72,
+      "gfuse_cases": 2,
+      "control_deltas_us": [
+        0.0,
+        -0.12800004333257675,
+        0.0,
+        0.11199712753295898,
+        0.0,
+        -0.09600073099136353,
+        0.11200038716197014,
+        0.0,
+        -0.04799943417310715,
+        0.0
+      ]
+    }
+  },
+  "total_pairs": 3120,
+  "total_timing_reference_checks": 234,
+  "fresh_replays": 120,
+  "counter_boundary_replays": 36,
+  "standard_suite": 16
+}

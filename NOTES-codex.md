@@ -5069,3 +5069,92 @@ failed with command-not-found; absolute-path requests succeeded, no jobs created
    consumer row-max/conditional-rescale work; do not duplicate it.
 4. Finish clean on pushed codex, remove shared claim, record results and stop.
    All session work is complete; no judge job needs waiting.
+
+## Session 42 — 2026-10-24, 05:56–06:04 UTC
+
+Integrated and validated **main's fused Gluon verify-full merge** while retaining
+both native implementations, their dispatch and the native-full FP32 guard.
+No new native optimization and no judge requests. Source integration **c12bd0f**;
+late main notes/tools merged as **0acb168**. Evidence **4b29bbd** is pushed on
+**codex-exp/gfuse-integration**, starting at `experiments/gfuse_integration/README.md`.
+Production audit copy: `profiles/session42-integration-audit.json`.
+
+Initial fetch brought main **eef9721**, kernel **3bb3a64**: the one-wave Gluon
+verify path merges slices inside its attention grid after an arrival/generation
+join. Final fetch brought **e6390f7**, notes/tools only, also integrated. No
+Triton tuning. Native extension and dispatcher ASTs match session41 exactly;
+all24shared Python function/class ASTs (including nested Gluon helpers) match
+upstream. Frozen old/main/merged sources are archived. Exact new production SHA:
+`ee782c4d69edaf872132e3fc354ba522aaa30c237dcf40b5de525f204398db85`.
+This exact source has **no H200 check qualification**.
+
+### Measurements and decision
+
+H100 cold-L2 complete graphs,80adjacent AB/BA pairs/case; paired integrated-minus-
+previous times in microseconds. Confirmation changes seed and reverses capture:
+
+| Full verify shape | initial | confirmation | all-scored pass |
+|---|---:|---:|---:|
+|B16 80K,page1|-1.360|-0.976|-0.320|
+|B32 80K,page1|-1.264|-0.944|-1.168|
+|B8 30K,page1|-1.728|-1.760|—|
+|B12 80K,page1|-0.416|-0.816|—|
+|B20 6K,page64,scaled edges|+0.128|+0.160|—|
+|B16 20K,page64,scaled edges|-0.352|-0.400|—|
+|B2 DP12K,page64,scaled edges|-0.048|-0.272|—|
+|B4 DP20K,page1,soft/mixed|-1.600|-1.024|—|
+
+Retain integration. Small B20 regression is comparable to unchanged-control
+variation(-0.224..+0.288us in initial/confirmation); no cutoff fitted or uniform
+nearby superiority claimed. B64 40K mixed/page1 saves13.296us in one pass only,
+not separately confirmed. Ten unchanged scored controls range-0.128..+0.112us.
+The standard12-shape bench gives2.018x versus fixed SGLang/H200 times, descriptive
+cross-device local evidence, not H200 qualification or a new board result.
+Separate medians need not subtract to paired medians.
+
+### Validation and scope
+
+- Integrated standard suite **16/16**, then all12bench shapes. Correction to
+  older notes/tools commentary: the standard suite's **two DP verify cases do
+  reach Gluon**; extra coverage supplies scored TP8 B16/B32 and nearby shapes.
+- 15initial+12confirmation+12scored cases: **3120adjacent graph pairs** and
+  **234independent output/cache reference checks**. Initial11/15 and confirmed
+  9/12cases enable gfuse; others are two-wave/native unchanged controls.
+- **120fresh graph replays**,60/source, across15cases. Changed QKV,FP8 cache,
+  page routes, lengths, positions and new cache slots, including halved/empty
+  histories. TP8/DP,pages1/64,scales1/1/64,soft/coherent/edge cases all pass.
+- **36fresh counter-boundary graph replays**,integrated only. Sequentially
+  interleave B12/16/32 captured graphs; initialize generation to0,0x7ffe,0xfffe
+  in the offline driver. Covers ordinary reuse,signed-bit crossing,16-bit wrap.
+  Every call passes independent output/cache reference and exact expected
+  per-pair generation/zero-arrival checks. No concurrent-stream safety claim.
+- CPU audit verifies exact sources,24shared AST nodes,unchanged native extension
+  definitions/dispatcher,allraw counts and medians. An initial inline partial
+  CPU-audit invocation used stdin's `__file__` and failed to locate snapshots;
+  rerun with the script path passed. No kernel/driver data bug or invalid timing.
+  No new sanitizer,SASS occupancy,NCU or H200 claim.
+
+All custom drivers hold the shared GPU lock across input/reference/capture/
+replay,flush512MB before measured graphs,and subtract empty replay. Suite holds
+lock; standard bench uses its timing-loop lock. All own GPU/build work finished
+sequentially. No experiment imports/counter seeding/diagnostics enter production.
+Native contribution does not need an unchanged-source repeat of session41:
+the new kernel path is outside native dispatch,which is AST-identical.
+
+### Budget and next cycle
+
+Session **0checks,0scored**,no withdrawals. Codex2026-10-24 remains
+**5/8checks,3/3scored**; final official account **9/10checks,5/10scored**,leaving
+1check/5scored. Best unchanged **2.1383x,rank20**,Claude beb63898. No pending
+Codex jobs or STOP files. The last check stays available; no exact-source
+qualification inferred from older main/Codex runs.
+
+1. Read COORD/fetch main. New exact SHAee782c4d needs its own H200 check before
+   future scoring; preserve the last shared check while scored allowance is used.
+2. Do not repeat this integration audit without a new main kernel or new evidence.
+   Keep native FP32 compatibility guard and both established native dispatches.
+3. Claude session18 closed warp-vote conditional rescale and several tile/CTA
+   sweeps. Its batch1full merge suggestion overlaps our already-tested native
+   merger; session39's instrumented wait dominates there. Do not infer removable
+   work from the gather-floor gap or repeat closed native micro-optimizations.
+4. Finish clean on pushed codex,remove shared claim,post results and stop.
