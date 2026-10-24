@@ -7,9 +7,14 @@ tech-cosmos. Each session is started by `tools/night.sh`; the previous sessions'
 
 ## Goal
 
-Make `submission.py` faster than SGLang's kernel (`baseline.py`) on the 12 scored shapes, measured by
-the judge as the geometric mean over 6 loads of SGLang's load time over ours (each load = 46 x sliding
-layer + 16 x full layer). Leaders on the board are at about 2.37x. Real speedups only.
+**Be #1 on the board.** Score = the judge's geometric mean over 6 loads of SGLang's load time over
+ours (each load = 46 x sliding layer + 16 x full layer). At 2026-10-24 18:00 UTC we were #13 at
+2.343x (scored 7f45c5c6, main 14355d4) and #1 was 2.726x: we need ~16% more, so small plan tweaks
+won't do it alone. Think big as well as small: new kernel structures, hand-written kernels (Gluon,
+CUDA via load_inline, CuTe DSL, inline PTX are all in your lane now), fusing launches, and attacking
+the weakest shapes first (H200: verify 16/32 full 1.79x/1.84x, verify 32 sliding 2.00x; the rest
+2.2-3.5x). Check the board (`okc leaderboard muse_attention_decode`) at the start of each session.
+Real speedups only.
 
 ## Rules (non-negotiable)
 
@@ -22,26 +27,33 @@ layer + 16 x full layer). Leaders on the board are at about 2.37x. Real speedups
 - Precision: never below SGLang's. Split partials (accumulators and m/l) stay FP32, as FA3 keeps
   them; activations stay BF16 where SGLang has BF16. When in doubt, match SGLang's precision. (The
   human decided this on 2026-10-24 after BF16 partials had been used: don't reintroduce them.)
+  P@V with P in FP8 E4M3 is at SGLang's precision (FA3's FP8 path, which SGLang runs here, feeds P to
+  the P@V MMA as E4M3); confirm that in FA3's source before relying on it, and cite it in NOTES.md.
 - Decisions may depend only on shapes and `config` (page_table.shape etc.), never on input values.
 - Do not touch anything outside this repo and ~/okc (the venv). No new credentials, no other
   services. Don't delete the repo's history or force-push.
 
 ## Budget per UTC day (limits reset 00:00 UTC; check `okc problems --json` for what's left)
 
-The account allows 20 checks and 10 scored runs per UTC day, shared by everyone using it. Two agents
-work on this account (Claude on `main`, Codex on the `codex` branch; see CODEX.md), so each keeps to
-its own share and counts its own runs in its notes file:
+The account allows 10 checks and 10 scored runs per UTC day (it was 20 checks; the API is the truth).
+Codex is out of usage until 2026-10-30, so the Claude agent gets most of it:
 
-- `okc check submission.py --json`: at most 8 per UTC day per agent. Use them to confirm H100 wins on
-  the real H200, not to explore.
-- `okc submit submission.py --json`: at most 3 per UTC day per agent, and only when the H100 tests
-  pass (`python tools/bench.py test`) AND a check run on the same code beat the best board result
-  so far (`okc leaderboard muse_attention_decode` shows it; the other agent may have raised it).
-  Leave the rest of the day's runs for the human.
+- `okc check submission.py --json`: at most 8 per UTC day. Checks are the scarce resource: the
+  H100 does NOT always predict the H200 (batched-sliding hpp 2 won on the H100 and lost 0.8-1.1 us
+  per shape on the H200). The judge reports per-shape times, so one check can test independent
+  changes for different shapes at once: keep each change only for the shapes where it won.
+- `okc submit submission.py --json`: at most 6 per UTC day, only when the H100 tests pass
+  (`python tools/bench.py test`) AND a check run on the same code beat the board's best for
+  tech-cosmos. Leave the rest for the human.
 - If `okc problems --json` shows fewer left than your share, the smaller number wins.
-- Record every check/submit job id and its speedup in your notes file.
+- Record every check/submit job id, commit and per-shape result in NOTES.md and ~/COORD.md.
+- **Out of checks is not a reason to stop.** Never end a session as a no-op: research and prototype
+  on the H100 (bigger ideas especially), and queue candidates in STATE.md for the next day's checks.
 
 ## Coordinating with the other agent (~/COORD.md)
+
+(Codex is paused until 2026-10-30; until then the lanes below don't bind and hand-written kernels
+are yours too. Keep logging judge runs and results in ~/COORD.md.)
 
 `~/COORD.md` (in the sandbox's home, outside both repos) is the shared board between the two agents.
 Ownership, so you don't duplicate each other: **Claude owns the Triton kernel in submission.py**
@@ -83,13 +95,16 @@ agent's processes, and keep long sweeps to what you need.
 
 ## Workflow
 
-1. Read NOTES.md (latest state, what was tried, what's next). Pick the most promising idea.
+1. Read STATE.md first: a short (<= 150 lines) current picture you keep up to date (best scored run
+   and its per-shape H200 times, what's on main vs checked, queued candidates for checks, ranked
+   ideas, a dead-ends index pointing into NOTES.md). NOTES.md is the long log (2,600+ lines): grep
+   it, don't read it whole. If STATE.md is missing, write it from NOTES.md first.
 2. Work on a branch (`exp/<name>`) for anything risky; keep `main` = best known-good submission.
 3. Every change: `python tools/bench.py test` must pass, then `bench`. Compare against the numbers in
    NOTES.md.
 4. When a change wins: commit with a message that states the measured numbers, merge to main,
    `git push`, and append to NOTES.md.
-5. End each session after one focused cycle (roughly 45-90 minutes of work): update NOTES.md (state,
+5. End each session after one focused cycle (roughly 45-90 minutes of work): update STATE.md and NOTES.md (state,
    numbers, what you tried and learned, next ideas, budget used today), commit, push, and stop. The
    next session starts fresh from NOTES.md, so write it for a reader with no other context.
 6. If `~/STOP` exists, wrap up and stop.

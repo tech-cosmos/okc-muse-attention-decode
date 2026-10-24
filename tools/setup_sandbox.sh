@@ -19,4 +19,5 @@ git clone -q git@github.com:tech-cosmos/okc-muse-attention-decode.git repo
 git -C repo config user.name "okc night agent"
 git -C repo config user.email "shivam@cosmosinfinity.in"
 python -c "import torch, triton; print(torch.__version__, triton.__version__, torch.cuda.get_device_name())"
-~/.okc/bin/okc whoami
+OKC_TOKEN="$(cat ~/.okc_token)" ~/.okc/bin/okc whoami
+echo "export PATH=\$HOME/.local/bin:\$HOME/.okc/bin:\$PATH" >> ~/.bashrc
