@@ -619,3 +619,65 @@ Gluon gotchas (cost time, write down):
 ### Budget (UTC day 2026-10-24)
 
 Claude: 1 check (fdccc1c6, session 8), 0 scored. This session: none. Account at 00:35: 3/10 checks, 0/10 scored.
+
+## Session 10 (overnight agent, 2026-10-24 01:00-~02:00 UTC)
+
+### Change (main a82d996): verify full from 17 pairs up runs a warp-specialized Gluon kernel
+
+`_gw_verify` (submission.py, Gluon, guarded by `HAVE_GLUON`), FA3 style, per (split, request, KV head pair):
+- worker partition, 4 warps at 24 regs (`_gw_producer`): page indices (next tile's loaded before waiting for the
+  slot), cp.async of the pair's 128-byte K and V rows into an NS=4 slot ring of [64, 128] fp8 tiles,
+  `cp.mbarrier_arrive(ready[s], increment_count=False)` (ready count = 128 producer threads);
+- two consumer warpgroups (default partition + one worker, 96 regs), one per KV head: wait ready, FP8 QK^T wgmma
+  on its 64-byte half (`slice(HEAD*D, D, 1)`), V half -> FP16 smem, wait QK, `mbarrier.arrive(empty[s])` (count 2),
+  online softmax, P@V wgmma;
+- launch maxnreg 80 x 384 threads -> 2 CTAs/SM (Triton pads the 4-warp worker to a warpgroup; .reqntid 384);
+  setmaxnreg gives the partitions their counts. BN 64 tiles (BN 32 was 157 us, BN 64 145 us partials-only).
+- splits = (4*sms - 1) // pairs (verify 16: 32, verify 32: 16; one more split hits a wave-quantization cliff).
+- New tokens: a small Triton kernel `_new_tokens` (grid B x Hkv, reuses `_new`/`_finish`) writes partial slot S
+  and the FP8 cache rows; it triggers PDL at its start, the Gluon grid is launched with launch_pdl=True and runs
+  concurrently (it reads only cached rows < seq), and executes `griddepcontrol.wait` (inline asm) at its very end so
+  the merge (`_combine`, PDL, S+1 slots) sees slot S. Doing the new tokens inside the Gluon grid lost: as extra
+  programs (+1 split each, 158-172 us at verify 16) or at the end of split 0's consumers (163 us).
+
+H100 (Gluon vs Triton, verify full, ctx 80K agentic): batch 8 91.2/86.0, 12 125.4/122.5, 16 154.6/154.6,
+24 218.3/223.9, 32 274.5/294.8, 40 335.4/360.5, 48 407.7/422.3, 64 524.0/577.4. Dispatch: pairs > 16.
+Bench 1.905 -> **1.939** (verify 32 full 295 -> 275 us). 16/16 tests; with the Gluon path forced on every
+verify-full test shape plus page 64 / kv_scale / dp / batch 17-64 / ctx 1M cases: 11/11 pass; CUDA-graph replay with
+fresh inputs copied in (3 seeds, batch 32): pass.
+
+Gotchas: Gluon has no gdc builtins -> `gl.inline_asm_elementwise("griddepcontrol.wait;", "=r", [], dtype=gl.int32,
+is_pure=False, pack=1)`. A 1-warp producer gets padded to 4 warps anyway and at 24 regs spills (BN 64: 16 cp.async per
+thread); PW=4 doesn't. tp8 has Hkv=2 -> pairs = batch (I mis-sized splits once by assuming 2 pairs).
+Prototypes: tools/gluon_ws.py (single-consumer `_gws` and per-head `_gws2`), tools/gluon_verify.py (session 9).
+
+### Follow-up (main 0a22b94): producer converts V
+
+`_gw_producer_cv` / `_gw_consumer_cv` (plan `lag=1`): the producer warpgroup (40 regs) issues tile i's gathers, then
+`wait_group(LAG)` + partition barrier, converts tile i-LAG's V halves to FP16 into per-head [NS, 64, 64] rings, fences,
+arrives `ready` (count 1; Gluon's mbarrier.arrive is elected after a partition-local bar.sync). Consumers only do
+QK^T, softmax, P@V, then arrive `empty` after P@V. NS 3 (32 KB/stage, 104 KB smem for 2/SM). H100: verify 32 full
+275 -> 272, batch 24 218 -> 214, 64 524 -> 517, verify 16 ~153-155 (still a tie with Triton, so dispatch stays at
+pairs > 16). BN 32 + NS 5-6 with LAG 2-3: 310 us (dead). NS 4 + LAG 2 at BN 64: 1 CTA/SM, 314 (dead).
+
+### Judge (UTC day 2026-10-24)
+
+| job | commit | speedup (95% CI) | notes |
+|---|---|---|---|
+| 82a996b129e34019 (check) | a82d996 | **2.062x** (2.031-2.093) | 16/16; verify 32 full 295.4 -> 264.9 us (1.32x -> 1.47x on H200); everything else unchanged |
+
+Not submitted: board best at the time was Codex's 2.058x (71e2eaa7), within noise, and Codex's pending check
+b4853b2a is a82d996 + their native small-batch kernels (a superset). If that fails, a82d996 (checked) qualifies.
+0a22b94 is unchecked (~1% on verify 32 full only).
+Claude 2026-10-24: 2 checks (fdccc1c6, 82a996b1), 0 scored.
+
+### Next ideas
+
+1. Verify 16 full is still ~1.32x on the H200 and Gluon only ties there: at 2 CTAs/SM with S=32 it's 528 slots for
+   512 programs. Ideas: 3 CTAs/SM with 1 consumer warpgroup per CTA doing one head (no pair sharing of rows, 64-byte
+   gathers) + 1 producer warp... (Triton pads workers to warpgroups: 256 threads x 3 = 768, 85 regs each -> consumer
+   ~120, producer 24 might fit); or ping-pong two consumer warpgroups on one head (FA3 intra-head pipelining).
+2. Decode full (L=1, M=8 rows) could use the same producer/consumer structure with mma_v2 or a 64-row tile holding
+   8 heads x 8 ... (all query heads of a pair: G=8 rows per head -> M=16 for 2 heads, wgmma needs 64: waste). Hard.
+3. The merge costs ~8.7 us on the Gluon path vs ~6.5 on Triton's; the extra slot and the PDL chain may be the
+   reason. Merge in the last-finishing program (atomic counter) was a loss before at small batch, maybe not here.
