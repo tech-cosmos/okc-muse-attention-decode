@@ -930,9 +930,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     device = qkv.device
     page_table = data["page_table"]
     max_pages = page_table.shape[1]
-    # The native single-tile grid wins where at most four KV heads fill one wave.
+    # The native single-tile grid wins where at most sixteen KV heads are processed.
     # Keep the established Triton plans on larger batches and verify blocks.
-    if (cfg["window"] == 2048 and length == 1 and batch * hkv <= 4
+    if (cfg["window"] == 2048 and length == 1 and batch * hkv <= 16
             and group == 8 and d == 64 and cfg["page_size"] in (1, 64) and cfg["rope_theta"]):
         splits = min(32, triton.cdiv(max_pages * cfg["page_size"], 64))
         pacc = torch.empty((batch, hkv, splits, 8, 64), dtype=torch.float32, device=device)
