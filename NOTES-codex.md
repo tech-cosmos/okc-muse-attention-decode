@@ -1976,3 +1976,138 @@ Final handoff **00:43UTC**: experiment **338c474** and production notes/audit
 posted; other agent's claim preserved. All local build/GPU/sanitizer/benchmark
 processes completed. Final worktree is clean on codex; neither STOP file exists.
 No experimental import or source change was added to production.
+
+## Session 16 — 2026-10-24, 00:43–00:54 UTC
+
+### Outcome and source state
+
+Confirmed the **nearby small-batch native sliding dispatch opportunity** and
+rejected two padded-query softmax reductions. No production source change and
+no new judge jobs. Experiment **ad3bbef** is pushed on
+**codex-exp/cuda-sliding-boundary**, starting with
+`experiments/sliding_boundary/README.txt`. It contains the proposed dispatch patch,
+reproducible CUDA controls, graph pairs, tests, fresh replays, sanitizer reports,
+SASS and audit. Production audit copy: `profiles/session16-native-audit.json`.
+
+Main **8b0ac0c** was already merged and remained current at final fetch. Production
+still matches **3fb391f**, SHA256
+`16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e`.
+No Triton source or plans were tuned. The expanded dispatch is deliberately held
+as a separate patch so pending check2776 still qualifies the exact production
+source. It changes no scored dispatch; do not spend a check solely to remeasure
+unchanged scored paths. Bundle it with a future qualified production change.
+
+### Resolved older H200 check
+
+**4d36508dda044b58**, source5641ff1, completed around00:48UTC and was read:
+**16/16,2.027312x**, CI **[1.996903,2.067969]**, no flags/rejections/errors.
+Read the full passing profile; text/JSON/log saved as `profiles/submission.4d36508*`.
+
+H200 decode1 sliding **5.995698us**, native attention profile **3.0us**, inherited
+merge **1.5us**. Small-full decode1/verify1 **15.362767/16.329053us**, native
+reduction profile **1.9/2.4us**. Full verify16/32 **155.573262/306.313008us**.
+PDL profile rows include waiting/overlap; do not add them to infer graph latency.
+This supports retaining the native small-sliding path, alongside session13's
+paired H100 evidence. Cross-run differences alone do not isolate its benefit.
+
+The aggregate is slightly above account best2.020924x with overlapping intervals,
+but it is the **pre-main57ad70c** source. It CANNOT qualify the newer merged
+production source for scoring. Exact-current check **2776be989f794588** remains
+**queued at00:53UTC**. No resubmission and no scored request were made.
+
+### Dispatch boundary: a nearby-shape win
+
+The unchanged native kernel was forced on L1 sliding G8/D64/page1 or64 shapes,
+then compared with production using60 adjacent balanced AB/BA graph pairs/entry.
+The broad candidate wrapper uses the conservative shape-only rule **B*Hkv<=16**
+(up from4), retaining every other predicate. Proposed patch is archived, not applied.
+
+Second-seed confirmation,80K/page1,H100 microseconds:
+
+| batch | production | original native | paired delta |
+|---|---:|---:|---:|
+|3|6.336|5.312|-1.088|
+|4|6.432|5.536|-0.912|
+|5|6.976|6.144|-0.768|
+|6|7.296|6.624|-0.688|
+|8|7.808|7.424|-0.384|
+
+Initial scan agrees. Nearby contexts10–120K, pages1/64, mixed/agentic lengths,
+soft/coherent/edge inputs and1/64 scales also favor the extension. DP1 (=16 total
+KV heads) wins in the measured short/long cases; DP2 at long context loses.
+Final edge scan includes B7/8/9/10, both pages. B9 page1 is marginal (-0.128us),
+B10 page1 loses (+0.336us); page64 can win beyond8. Keep the conservative16-head
+boundary rather than fit those small differences. Initial B12/16/32 native loses.
+This is a useful generalization, **not a scored-load or H200 speedup claim**.
+
+### Padded-query work: no scored improvement
+
+The current native WGMMA tile has64 query rows but only8 real output heads.
+`pruned.cu` computes softmax/probability packing only for warp zero's8 useful
+rows, with the other probability operands zeroed; all128 threads reconverge for
+collective PV. `half.cu` drops each warp's second8 padded rows without the
+warp-zero branch. Actual queries, all keys, cache writes, FP8 query/cache
+precision, FP16 PV operands and FP32 partials are preserved.
+
+Balanced comparisons against the ORIGINAL NATIVE path, separate runs:
+
+| shape | base/pruned | base/half |
+|---|---:|---:|
+|B1 80K page1|4.464/4.432|4.272/4.272|
+|B2 80K page1|4.976/4.800|4.928/4.848|
+|B16 80K page1|11.536/11.920|11.520/11.200|
+|B32 80K page1|19.312/20.720|19.312/19.232|
+
+B1 paired deltas **-0.064/0.000us**, insufficient for promotion. Pruned's warp
+branch increases registers **74->106**; half retains74. Both have17408 shared
+bytes (cuobjdump),16384(ptxas), zero stack/local allocations and spills. Static
+page1/EARLY SASS instruction sites base/pruned/half **1049/1185/945**, EX2 sites
+**32/32/16**, F2FP **52/44/44**, matrix counts unchanged2QGMMA/4HGMMA. Pruned has
+additional branches/duplicated code. These are static counts, not executed warp
+instructions; no NCU or measured occupancy claim. Less padded-row arithmetic
+alone does not deliver a convincing latency win here. Close these controls.
+
+### Validation and reproducibility
+
+- Pruned and half each **16/16**,3 native/13 production fallback tests. Each
+  followed by full broad-native bench, **1.886x/1.892x** vs fixed SGLang-H200
+  numbers. These are rejected experiments, not production regressions.
+- Proposed boundary wrapper independently **16/16**,3 native/13 fallback;
+  full bench **1.923x**. Its scored dispatch/arithmetic is unchanged, so this
+  aggregate is not evidence of a scored speedup over the earlier1.918x run.
+- Base/pruned/half each **60 all-native fresh graph replays**,180 total,10 cases
+  and6 seeds: changed QKV/cache/routes/lengths/positions/cache slots, including
+  empty contexts; TP8/DP, pages1/64, scales1/1/64, contexts10–120K.
+- Pruned/half each **memcheck0 errors, synccheck0 errors, racecheck0 hazards/
+  errors/warnings**. Each candidate/tool checks12 native calls (B6,ctx2048,
+  two pages,two scales,three changed-QKV calls); torch independently reduces
+  partials and checks output/cache. No Triton loader. Only EARLY=True is runtime
+  validated in this session; compiled EARLY=False remains unused.
+- **104 comparison entries**,60 pairs each, including repeated controls;
+  references before capture, after replay, and after timing. Every custom GPU
+  driver locks generation/reference/capture/replay,512MB flush each replay,
+  empty replay subtraction. Full benches ran without our other GPU work and
+  retain bench.py's timing-loop lock. All local processes have completed.
+- `audit.py` reproduces generated CUDA, checks all completed logs/counts and
+  confirms proposed patch applies. Only generated text whitespace was normalized.
+  Source and full reports remain on the experiment branch.
+
+### Budget and next cycle
+
+This cycle **0 checks,0 scored**, no withdrawals. Codex2026-10-24 stays
+**2/8 checks,0/3 scored**. Final official account usage **3/10 checks,0/10 scored**;
+actual check cap remains10/day, not20. Board best **2.020924x**, rank26.
+Snapshots: `profiles/session16-*`. Neither STOP file exists.
+
+1. Resolve **2776be989f794588** without resubmitting. Read its passing profile;
+   score exact current3fb391f only if it beats the then-current account best.
+   Older4d36508 is resolved; do not poll it again or use it to qualify latest code.
+2. Preserve the nearby-boundary patch for the next actual source update; it has
+   strong local evidence and a broad shape rule, but changes no scored load.
+   Any integrated source must receive its own qualifying check before scoring.
+3. Do not repeat padded-row softmax, last-CTA fusion, L8 single-tile/preparation,
+   register/stage/merge sweeps or the rejected full native pipelines. Further
+   native work needs a distinct measured mechanism. Read Claude's active Gluon
+   claim/results before choosing overlapping architecture work.
+4. Finish on clean pushed codex, with experiment ad3bbef separate, shared claim
+   removed and results posted. No experimental import or production edit remains.

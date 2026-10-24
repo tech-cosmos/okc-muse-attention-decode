@@ -1,0 +1,16 @@
+{
+  "board": "muse_attention_decode",
+  "call_id": "nyc3:kc-4d36508dda044b58",
+  "cluster": "nyc3",
+  "content_hash": "dea0d7d424c99d2a580277a152e8c9cf5e6ea3b6cc949b55bb4b1150c0711cce",
+  "created_at": 1792800713.1929262,
+  "dedicated": false,
+  "duplicate_of": null,
+  "id": "4d36508dda044b58",
+  "mode": "check",
+  "payload_ref": "muse_attention_decode/dea0d7d424c99d2a580277a152e8c9cf5e6ea3b6cc949b55bb4b1150c0711cce.py",
+  "result": null,
+  "started_at": 1792802553.4889877,
+  "status": "running",
+  "team": "tech-cosmos"
+}

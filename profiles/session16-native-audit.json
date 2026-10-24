@@ -1,0 +1,89 @@
+{
+  "source_hashes": {
+    "base.cu": "2af7e641a33e2bd1915902d91d375139a38f97ff8fb8e71bffc7f00f2bc8a2a4",
+    "pruned.cu": "f906c97963de4d27b0d4903f80bca49b1dd2ef131a1e710789e9d686579c0b91",
+    "half.cu": "a9be1e1c1965841ccd962103d4f73e3baed5a5952e46536bb5452cd9498aa495",
+    "binding.txt": "d18d882286b46b08c44a038d5295686cf474ddd50cd8f345325e7ae528fa7370"
+  },
+  "production_unchanged": true,
+  "validation": {
+    "pruned": 16,
+    "half": 16,
+    "boundary": 16
+  },
+  "bench": {
+    "pruned": 1.886,
+    "half": 1.892,
+    "boundary": 1.923
+  },
+  "fresh_replays": {
+    "base": 60,
+    "pruned": 60,
+    "half": 60
+  },
+  "sanitizers": {
+    "pruned-memcheck": "12 calls; zero errors/hazards",
+    "pruned-synccheck": "12 calls; zero errors/hazards",
+    "pruned-racecheck": "12 calls; zero errors/hazards",
+    "half-memcheck": "12 calls; zero errors/hazards",
+    "half-synccheck": "12 calls; zero errors/hazards",
+    "half-racecheck": "12 calls; zero errors/hazards"
+  },
+  "comparison_entries": {
+    "initial-base": 15,
+    "nearby-base": 31,
+    "confirm-base": 15,
+    "edge-base": 8,
+    "initial-pruned": 15,
+    "structural-pruned": 10,
+    "structural-half": 10
+  },
+  "static_sass": {
+    "base": {
+      "instructions": 1049,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 2,
+        "HGMMA": 4,
+        "F2FP": 52,
+        "SHFL": 24,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    },
+    "pruned": {
+      "instructions": 1185,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 2,
+        "HGMMA": 4,
+        "F2FP": 44,
+        "SHFL": 26,
+        "BAR": 3,
+        "BRA": 11,
+        "BSSY": 5,
+        "BSYNC": 5
+      }
+    },
+    "half": {
+      "instructions": 945,
+      "counts": {
+        "MUFU.EX2": 16,
+        "MUFU.RSQ": 3,
+        "QGMMA": 2,
+        "HGMMA": 4,
+        "F2FP": 44,
+        "SHFL": 22,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    }
+  },
+  "pending_patch_applies": true
+}
