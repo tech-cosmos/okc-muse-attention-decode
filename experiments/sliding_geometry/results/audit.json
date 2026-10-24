@@ -1,0 +1,200 @@
+{
+  "source_sha256": {
+    "previous": "a7a3db9737aa25b42695a31b4c16d4da3649d910b2366bcfc18453a6a5a9b9e3",
+    "candidate": "2186a310ce6a65b3805ae02ec6619f7c96c9b72559ac1f6d7bf4273719a5319b",
+    "unsigned": "abe6b896c37c59c2be22b051189f0e66b09b63430565fe42f6d6a4d59d928bbc"
+  },
+  "only_native_sliding_changed": true,
+  "generic_candidate_sass_identical": true,
+  "unchanged_copy_topology": true,
+  "assembly": {
+    "candidate": [
+      {
+        "page": 1,
+        "early": 0,
+        "fixed_hkv": 0,
+        "sites": 1048,
+        "sites_before_first_copy": 416
+      },
+      {
+        "page": 1,
+        "early": 0,
+        "fixed_hkv": 2,
+        "sites": 1040,
+        "sites_before_first_copy": 416
+      },
+      {
+        "page": 1,
+        "early": 0,
+        "fixed_hkv": 16,
+        "sites": 1040,
+        "sites_before_first_copy": 416
+      },
+      {
+        "page": 1,
+        "early": 1,
+        "fixed_hkv": 0,
+        "sites": 1056,
+        "sites_before_first_copy": 109
+      },
+      {
+        "page": 1,
+        "early": 1,
+        "fixed_hkv": 2,
+        "sites": 1040,
+        "sites_before_first_copy": 100
+      },
+      {
+        "page": 1,
+        "early": 1,
+        "fixed_hkv": 16,
+        "sites": 1040,
+        "sites_before_first_copy": 100
+      },
+      {
+        "page": 64,
+        "early": 0,
+        "fixed_hkv": 0,
+        "sites": 1064,
+        "sites_before_first_copy": 435
+      },
+      {
+        "page": 64,
+        "early": 0,
+        "fixed_hkv": 2,
+        "sites": 1056,
+        "sites_before_first_copy": 424
+      },
+      {
+        "page": 64,
+        "early": 0,
+        "fixed_hkv": 16,
+        "sites": 1056,
+        "sites_before_first_copy": 424
+      },
+      {
+        "page": 64,
+        "early": 1,
+        "fixed_hkv": 0,
+        "sites": 1064,
+        "sites_before_first_copy": 114
+      },
+      {
+        "page": 64,
+        "early": 1,
+        "fixed_hkv": 2,
+        "sites": 1056,
+        "sites_before_first_copy": 106
+      },
+      {
+        "page": 64,
+        "early": 1,
+        "fixed_hkv": 16,
+        "sites": 1056,
+        "sites_before_first_copy": 106
+      }
+    ],
+    "unsigned": [
+      {
+        "page": 1,
+        "early": 0,
+        "fixed_hkv": 0,
+        "sites": 960,
+        "sites_before_first_copy": 376
+      },
+      {
+        "page": 1,
+        "early": 0,
+        "fixed_hkv": 2,
+        "sites": 928,
+        "sites_before_first_copy": 348
+      },
+      {
+        "page": 1,
+        "early": 0,
+        "fixed_hkv": 16,
+        "sites": 928,
+        "sites_before_first_copy": 348
+      },
+      {
+        "page": 1,
+        "early": 1,
+        "fixed_hkv": 0,
+        "sites": 960,
+        "sites_before_first_copy": 88
+      },
+      {
+        "page": 1,
+        "early": 1,
+        "fixed_hkv": 2,
+        "sites": 928,
+        "sites_before_first_copy": 79
+      },
+      {
+        "page": 1,
+        "early": 1,
+        "fixed_hkv": 16,
+        "sites": 928,
+        "sites_before_first_copy": 79
+      },
+      {
+        "page": 64,
+        "early": 0,
+        "fixed_hkv": 0,
+        "sites": 968,
+        "sites_before_first_copy": 391
+      },
+      {
+        "page": 64,
+        "early": 0,
+        "fixed_hkv": 2,
+        "sites": 944,
+        "sites_before_first_copy": 361
+      },
+      {
+        "page": 64,
+        "early": 0,
+        "fixed_hkv": 16,
+        "sites": 944,
+        "sites_before_first_copy": 361
+      },
+      {
+        "page": 64,
+        "early": 1,
+        "fixed_hkv": 0,
+        "sites": 968,
+        "sites_before_first_copy": 99
+      },
+      {
+        "page": 64,
+        "early": 1,
+        "fixed_hkv": 2,
+        "sites": 936,
+        "sites_before_first_copy": 88
+      },
+      {
+        "page": 64,
+        "early": 1,
+        "fixed_hkv": 16,
+        "sites": 936,
+        "sites_before_first_copy": 88
+      }
+    ]
+  },
+  "measurements": {
+    "candidate": {
+      "adjacent_pairs": 1760,
+      "paired_reference_checks": 132,
+      "fresh_graph_replays": 112,
+      "standard_tests": 16,
+      "bench_shapes": 12
+    },
+    "unsigned": {
+      "adjacent_pairs": 1760,
+      "paired_reference_checks": 132,
+      "fresh_graph_replays": 112,
+      "standard_tests": 16,
+      "bench_shapes": 12
+    }
+  }
+}
