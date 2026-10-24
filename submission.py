@@ -452,7 +452,7 @@ if HAVE_GLUON:
                  cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
                  MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
-                 SEP: gl.constexpr = False):
+                 SEP: gl.constexpr = False, cnt_ptr=None, CNT: gl.constexpr = False):
         split = gl.program_id(0)
         b = gl.program_id(1)
         h = gl.program_id(2) * 2
@@ -615,6 +615,10 @@ if HAVE_GLUON:
                      mask=q_ok)
             gl.store(pml_ptr + pn * 2, sn)
             gl.store(pml_ptr + pn * 2 + 1, gl.full([M], 1.0, gl.float32, gl.SliceLayout(1, BL)))
+        if CNT:
+            # spin: count this program's partials as stored for the (request, KV head pair)'s merge programs.
+            gl.barrier()
+            gl.atomic_add(cnt_ptr + b * (HKV // 2) + gl.program_id(2), 1, sem="release", scope="gpu")
 
     @gluon.jit
     def _gw_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
@@ -1010,7 +1014,8 @@ def _norm_gate_store(o, qkv_ptr, out_ptr, tok, head, c, ok, HQ: tl.constexpr, HK
 @triton.jit
 def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
              HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
-             D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, PDL: tl.constexpr, ONE: tl.constexpr = True):
+             D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, PDL: tl.constexpr, ONE: tl.constexpr = True,
+             cnt_ptr=None, NARR: tl.constexpr = 0):
     tok = tl.program_id(0)
     head = tl.program_id(1)
     b = tok // L
@@ -1018,7 +1023,17 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
     d = tl.arange(0, D)
     gate = tl.load(qkv_ptr + tok * QKV_W + (HQ + 2 * HKV) * D + head * D + d).to(tl.float32)
-    if PDL:
+    if NARR:
+        # spin: wait only for this request's NARR attention programs (they count up cnt), not the whole grid;
+        # the last of the pair's 2 * G merge programs to pass resets the counters for the next call.
+        cnt = cnt_ptr + b * (HKV // 2) + h // 2
+        while tl.load(cnt, volatile=True) < NARR:
+            pass
+        tl.atomic_add(cnt, 0, sem="acquire", scope="gpu")
+        if tl.atomic_add(cnt + 4096, 1, sem="acq_rel", scope="gpu") == 2 * G - 1:
+            tl.atomic_xchg(cnt, 0)
+            tl.atomic_xchg(cnt + 4096, 0)
+    elif PDL:
         # Launched early (programmatic dependent launch): wait here for _attn_split's partials.
         gdc_wait()
     # This head's row in each split's partial: [S] maxima and sums, [S, D] accumulators.
@@ -1435,13 +1450,15 @@ def _decode_gluon(data, cfg, plan):
     pml = torch.empty((batch, hkv, s, group, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
     sep = plan.get("sep", False)
+    spin = bool(plan.get("spin")) and plan.get("hb", 1) == 1 and hkv % 2 == 0 and batch * (hkv // 2) <= 4096
+    cnt = _counters(8192, device, "spin") if spin else pacc
     _gd_full[(splits + sep, batch, hkv // 2)](
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
         data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
         _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
         HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
-        ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1)
+        ROPE=bool(cfg["rope_theta"]), SEP=sep, cnt_ptr=cnt, CNT=spin, num_warps=1)
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch, hq // hb)](
@@ -1454,5 +1471,6 @@ def _decode_gluon(data, cfg, plan):
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
         SB=plan.get("csb", min(128, triton.next_power_of_2(s))), ONE=MERGE1, PDL=USE_PDL,
+        cnt_ptr=cnt, NARR=(splits + sep) if spin else 0,
         num_warps=plan.get("cw", 4 if s > 32 else 2), launch_pdl=USE_PDL)
     return out
