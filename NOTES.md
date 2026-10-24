@@ -714,9 +714,11 @@ Claude 2026-10-24: 2 checks (fdccc1c6, 82a996b1), 0 scored.
 
 | job | commit | speedup (95% CI) | notes |
 |---|---|---|---|
-| 2363a04971ab46b1 (check) | 824e52a | (pending at writing; see COORD) | |
+| 2363a04971ab46b1 (check) | 824e52a | **2.130x** (2.098-2.162) | 16/16; H200 verify 16 full 155.4 -> 129.6 us (1.32x -> 1.59x), verify 32 full 264.9 -> 240.3 (1.47x -> 1.62x) |
+| d0f30dc0d435455d (submit) | 824e52a | **2.113x** (2.081-2.156) | 16/16; board rank 18 (was 2.091x, Codex's fe512312) |
 
-Codex's check 3e786669 (a794ac6 + their native small-batch kernels) was 2.107x. Claude 2026-10-24: 3 checks, 0 scored.
+Codex's check 3e786669 (a794ac6 + their native small-batch kernels) was 2.107x, so 824e52a + native should do better still.
+Claude 2026-10-24: 3 checks, 1 scored. Account at 03:40: 8/10 checks, 4/10 scored.
 Note: don't wrap `okc check` in `timeout 1100`; the queue can be > 15 min and the client then dies with
 no output (the job still runs: find it with `okc jobs` / `okc status <job>`).
 
@@ -726,6 +728,6 @@ no output (the job still runs: find it with `okc jobs` / `okc status <job>`).
    What's left there is small: verify 16 full 139 vs decode 16 130.
 2. The biggest remaining gaps per load are now the verify loads' full layers on the H200 (compute share
    is larger there since bandwidth is 1.4x) and the sliding layers (Codex's native lane at small batch).
-   On the H200 the verify kernel may be compute-bound again: the compute-only ablation (106 / 202 us on
+   On the H200 verify 16/32 full are 129.6/240.3 us vs decode 97.8/185.3, so verify is compute-bound again there: the compute-only ablation (106 / 202 us on
    H100) is the bound to attack (consumer issue rate: softmax ops/element; e.g. FA4-style conditional
    rescale with a warp-uniform vote via inline asm, or exp2 emulation for part of the tile).
