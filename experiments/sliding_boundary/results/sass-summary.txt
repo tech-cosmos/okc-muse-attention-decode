@@ -1,0 +1,47 @@
+{
+  "base": {
+    "instructions": 1049,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "F2FP": 52,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "pruned": {
+    "instructions": 1185,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "F2FP": 44,
+      "SHFL": 26,
+      "BAR": 3,
+      "BRA": 11,
+      "BSSY": 5,
+      "BSYNC": 5
+    }
+  },
+  "half": {
+    "instructions": 945,
+    "counts": {
+      "MUFU.EX2": 16,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "F2FP": 44,
+      "SHFL": 22,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  }
+}
