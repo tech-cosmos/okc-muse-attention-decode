@@ -1,0 +1,10 @@
+{
+  "production_sha256": "ee782c4d69edaf872132e3fc354ba522aaa30c237dcf40b5de525f204398db85",
+  "candidate_sha256": "4ef7fae8c13bc49a0a573ca60dce1b82199dc2475de92dfe0897ccb317a1a7c6",
+  "unchanged_top_level_nodes": 37,
+  "suite_passes": 16,
+  "bench_shapes": 12,
+  "adjacent_pairs": 1120,
+  "reference_checks_in_pairs": 84,
+  "fresh_graph_replays": 64
+}
