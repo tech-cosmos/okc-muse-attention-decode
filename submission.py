@@ -196,7 +196,8 @@ if HAVE_GLUON:
     def _gw_consumer(q, k_ring, v_ring, vh, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, hh,
                      split, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, loc_ptr,
                      HEAD: gl.constexpr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr,
-                     S: gl.constexpr, M: gl.constexpr, D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr):
+                     S: gl.constexpr, M: gl.constexpr, D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
+                     E: gl.constexpr = 0, STEP: gl.constexpr = 1):
         VL: gl.constexpr = gl.BlockedLayout([1, 8], [4, 8], [4, 1], [1, 0])
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
                                                       instr_shape=[16, BN, 32])
@@ -207,7 +208,7 @@ if HAVE_GLUON:
         l_i = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, S_L))
         acc = gl.zeros([M, D], gl.float32, layout=O_L)
         n_s = gl.arange(0, BN, layout=gl.SliceLayout(0, S_L))
-        for i in range(ntiles):
+        for i in range(E, ntiles, STEP):
             s = i % NS
             mbarrier.wait(ready.index(s), (i // NS) & 1)
             s_tok = warpgroup_mma(q, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
@@ -228,7 +229,8 @@ if HAVE_GLUON:
             p16 = gl.convert_layout(p.to(gl.float16), P_L)
             a_tok = warpgroup_mma(p16, vh, acc, is_async=True)
             acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
-        _gw_store(pacc_ptr, pml_ptr, b, hh, split, m_i, l_i, acc, HKV, S + 1, M, D, gl.SliceLayout(1, S_L), O_L)
+        _gw_store(pacc_ptr, pml_ptr, b, hh, split * STEP + E, m_i, l_i, acc, HKV, S * STEP + 1, M, D,
+                  gl.SliceLayout(1, S_L), O_L)
 
     @gluon.jit
     def _gw_producer_cv(pt_row, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, lo, hi, ntiles,
@@ -265,7 +267,8 @@ if HAVE_GLUON:
     @gluon.jit
     def _gw_consumer_cv(q, k_ring, vh, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, hh, split,
                         HEAD: gl.constexpr, HKV: gl.constexpr, S: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
-                        BN: gl.constexpr, NS: gl.constexpr, PEEL: gl.constexpr, LSUM: gl.constexpr = False):
+                        BN: gl.constexpr, NS: gl.constexpr, PEEL: gl.constexpr, LSUM: gl.constexpr = False,
+                        E: gl.constexpr = 0, STEP: gl.constexpr = 1):
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
                                                       instr_shape=[16, BN, 32])
         O_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
@@ -279,7 +282,7 @@ if HAVE_GLUON:
             # Row sums kept per thread ([M, 8]: the 8 columns of each 8-wide group a quad holds), reduced
             # across the quad once at the end, as FA3 does.
             l8 = gl.sum(gl.reshape(gl.zeros([M, BN], gl.float32, S_L), [M, BN // 8, 8]), 1)
-        for i in range(ntiles):
+        for i in range(E, ntiles, STEP):
             s = i % NS
             mbarrier.wait(ready.index(s), (i // NS) & 1)
             s_tok = warpgroup_mma(q, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
@@ -307,7 +310,8 @@ if HAVE_GLUON:
             mbarrier.arrive(empty.index(s))
         if LSUM:
             l_i = gl.convert_layout(gl.sum(l8, 1), gl.SliceLayout(1, S_L))
-        _gw_store(pacc_ptr, pml_ptr, b, hh, split, m_i, l_i, acc, HKV, S + 1, M, D, gl.SliceLayout(1, S_L), O_L)
+        _gw_store(pacc_ptr, pml_ptr, b, hh, split * STEP + E, m_i, l_i, acc, HKV, S * STEP + 1, M, D,
+                  gl.SliceLayout(1, S_L), O_L)
 
     # ---- Balanced splits (plan gbal): the batch's key tiles cut into equal ranges, one per program ----
     # Program p (of P per KV head pair) takes tiles [p * T // P, (p + 1) * T // P) of the requests' tiles laid
@@ -624,7 +628,7 @@ if HAVE_GLUON:
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
                    R_PAD: gl.constexpr = 1, BAL: gl.constexpr = False, B: gl.constexpr = 1,
-                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1):
+                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, QUAD: gl.constexpr = False):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -688,6 +692,40 @@ if HAVE_GLUON:
                                     empty, split, B, B_PAD, NP, MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW,
                                     LAG)),
             ], [4, PW], [CREGS, PREGS])
+        elif QUAD and not LAG:
+            vh2 = gl.allocate_shared_memory(gl.float16, [BN, D], SH16)
+            vh3 = gl.allocate_shared_memory(gl.float16, [BN, D], SH16)
+            gl.warp_specialize([
+                (_gw_consumer, (q0, k_ring, v_ring, vh0, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h,
+                                split, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, loc_ptr, 0, HQ, HKV, G, L, S, M, D, BN,
+                                NS, 0, 2)),
+                (_gw_consumer, (q1, k_ring, v_ring, vh1, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b,
+                                h + 1, split, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, loc_ptr, 1, HQ, HKV, G, L, S, M,
+                                D, BN, NS, 0, 2)),
+                (_gw_consumer, (q0, k_ring, v_ring, vh2, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h,
+                                split, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, loc_ptr, 0, HQ, HKV, G, L, S, M, D, BN,
+                                NS, 1, 2)),
+                (_gw_consumer, (q1, k_ring, v_ring, vh3, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b,
+                                h + 1, split, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, loc_ptr, 1, HQ, HKV, G, L, S, M,
+                                D, BN, NS, 1, 2)),
+                (_gw_producer, (pt_row, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, ready, empty, lo, hi, ntiles,
+                                PAGE, ROW_W, BN, C, NS, PW)),
+            ], [4, 4, 4, PW], [CREGS, CREGS, CREGS, PREGS])
+        elif QUAD:
+            # Two consumer warpgroups per KV head, on alternate tiles (NS even: each ring slot always serves the
+            # same parity), each storing its own partial (slot split * 2 + parity).
+            gl.warp_specialize([
+                (_gw_consumer_cv, (q0, k_ring, vh0, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h,
+                                   split, 0, HKV, S, M, D, BN, NS, PEEL, LSUM, 0, 2)),
+                (_gw_consumer_cv, (q1, k_ring, vh1, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h + 1,
+                                   split, 1, HKV, S, M, D, BN, NS, PEEL, LSUM, 0, 2)),
+                (_gw_consumer_cv, (q0, k_ring, vh0, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h,
+                                   split, 0, HKV, S, M, D, BN, NS, PEEL, LSUM, 1, 2)),
+                (_gw_consumer_cv, (q1, k_ring, vh1, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h + 1,
+                                   split, 1, HKV, S, M, D, BN, NS, PEEL, LSUM, 1, 2)),
+                (_gw_producer_cv, (pt_row, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready, empty,
+                                   lo, hi, ntiles, PAGE, ROW_W, BN, C, D, NS, PW, LAG)),
+            ], [4, 4, 4, PW], [CREGS, CREGS, CREGS, PREGS])
         elif LAG:
             gl.warp_specialize([
                 (_gw_consumer_cv, (q0, k_ring, vh0, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h,
@@ -1351,27 +1389,29 @@ def _verify_gluon(data, cfg, plan):
     qk_scale = cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E
     if plan.get("gbal"):
         return _verify_bal(data, cfg, plan, out, qk_scale)
-    pacc = torch.empty((batch, hkv, splits + 1, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
-    pml = torch.empty((batch, hkv, splits + 1, rows, 2), dtype=torch.float32, device=device)
+    quad = bool(plan.get("quad"))
+    sp = splits * (2 if quad else 1)  # key partial slots
+    pacc = torch.empty((batch, hkv, sp + 1, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
+    pml = torch.empty((batch, hkv, sp + 1, rows, 2), dtype=torch.float32, device=device)
     # The in-grid merge (gfuse) needs every program resident at once (one wave).
     pairs = batch * (hkv // 2)
     fuse = plan.get("gfuse", False) and splits * pairs <= 2 * _num_sms(device) \
-        and splits < 0xFFFF
+        and splits < 0xFFFF and not quad
     rs = triton.cdiv(2 * rows, splits)
     _new_tokens[(batch, hkv)](
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], data["seq_lens"], data["cache_loc"],
         pacc, pml, qk_scale, HQ=hq, HKV=hkv, G=group, L=length, MG=rows, L_PAD=max(16, triton.next_power_of_2(length)),
-        D=d, S=splits, DOT=DOT_DTYPE, num_warps=4)
+        D=d, S=sp, DOT=DOT_DTYPE, num_warps=4)
     _gw_verify[(splits, batch, hkv // 2)](
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
         LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), LSUM=plan.get("lsum", False), FUSE=fuse, cnt_ptr=_counters(pairs, device, "g"), out_ptr=out, RS=rs,
-        R_PAD=triton.next_power_of_2(rs), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
+        R_PAD=triton.next_power_of_2(rs), QUAD=quad, num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
     if fuse:
         return out
-    s = splits + 1
+    s = sp + 1
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch * length, hq // hb)](
