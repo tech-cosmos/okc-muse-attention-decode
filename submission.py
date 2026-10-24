@@ -374,7 +374,7 @@ try:
 except Exception as _e:  # noqa: BLE001
     print("csl build failed, using Triton:", _e)
     _CSL = None
-CSL_MAX_BATCH = 16  # decode sliding up to this batch on the cluster kernel (H100 paired: B1 4.70 -> 3.84, B16 10.61 -> 9.14 us; B32 15.84 -> 15.94)
+CSL_MAX_BATCH = 32  # decode sliding up to this batch on the cluster kernel (H100 paired: B1 4.70 -> 3.84, B16 10.61 -> 9.14 us; B32 15.84 -> 15.94: tie, trying the H200)
 
 
 RMS_EPS = 1e-5
