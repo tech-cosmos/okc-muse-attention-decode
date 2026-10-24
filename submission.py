@@ -614,6 +614,185 @@ if HAVE_GLUON:
             gl.store(pml_ptr + pn * 2, sn)
             gl.store(pml_ptr + pn * 2 + 1, gl.full([M], 1.0, gl.float32, gl.SliceLayout(1, BL)))
 
+    # ---- Decode full layers, W warps per program: one key split per warp, merged on chip ----
+    # _gd_full with W independent one-warp chains in one CTA (rank-3 tensors, warps on dim 0, batched mma_v2):
+    # the same W * S-way key parallelism, but the CTA merges its warps' partials before storing, so the merge
+    # kernel reads S + 1 partials instead of W * S + 1. Full layers only (no window/RoPE).
+    @gluon.jit
+    def _gd_sync(WARP: gl.constexpr):
+        if WARP:
+            gl.inline_asm_elementwise("bar.warp.sync -1;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+        else:
+            gl.barrier()
+
+    @gluon.jit
+    def _gd_full4(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
+                  HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
+                  MAX_PAGES: gl.constexpr, S: gl.constexpr, W: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
+                  WSYNC: gl.constexpr = True, VDIRECT: gl.constexpr = False, XCH: gl.constexpr = True, XV: gl.constexpr = 1, XP: gl.constexpr = 1):
+        pid = gl.program_id(0)
+        b = gl.program_id(1)
+        h = gl.program_id(2) * 2
+        gl.inline_asm_elementwise("griddepcontrol.launch_dependents;", "=r", [], dtype=gl.int32, is_pure=False,
+                                  pack=1)
+        C: gl.constexpr = 2 * D
+        M: gl.constexpr = 2 * G
+        QKV_W: gl.constexpr = (2 * HQ + 2 * HKV) * D
+        ROW_W: gl.constexpr = HKV * D
+        MMA: gl.constexpr = gl.NVMMADistributedLayout(version=[2, 0], warps_per_cta=[W, 1, 1], instr_shape=[1, 16, 8])
+        QA: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=MMA, k_width=4)
+        KB: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=MMA, k_width=4)
+        PA: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=MMA, k_width=2)
+        VB: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=MMA, k_width=2)
+        BL: gl.constexpr = gl.BlockedLayout([1, 1, 16], [1, 4, 8], [W, 1, 1], [2, 1, 0])
+        WN: gl.constexpr = gl.SliceLayout(2, BL)  # [W, BN] / [W, M]
+        SH: gl.constexpr = gl.SwizzledSharedLayout(16, 1, 8, [2, 1, 0])
+
+        seq = gl.load(seq_ptr + b)
+        chunk = gl.cdiv(gl.cdiv(seq, S * W), BN) * BN
+        lo0 = pid * W * chunk
+        w_g = gl.arange(0, W, layout=gl.SliceLayout(1, WN))
+        lo = (lo0 + w_g * chunk)[:, None]
+        hi = gl.minimum(lo + chunk, seq)
+        ntiles = gl.cdiv(gl.maximum(gl.minimum(lo0 + chunk, seq) - lo0, 0), BN)  # warp 0 has the most
+        ragged = lo0 + W * chunk > seq
+        pt_row = pt_ptr + b.to(gl.int64) * MAX_PAGES
+        kbase = kc_ptr + h * D
+        vbase = vc_ptr + h * D
+        k_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, W, BN, C], SH)
+        v_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, W, BN, C], SH)
+        n_g = gl.arange(0, BN, layout=gl.SliceLayout(0, WN))[None, :]
+        c_g = gl.arange(0, C, layout=gl.SliceLayout(0, gl.SliceLayout(1, BL)))[None, None, :]
+        all_c = c_g >= 0
+        for j in gl.static_range(NS - 1):
+            t = lo + j * BN + n_g
+            ok = t < hi
+            pg = gl.load(pt_row + t // PAGE, mask=ok, other=0)
+            off = ((pg.to(gl.int64) * PAGE + t % PAGE) * ROW_W)[:, :, None] + c_g
+            cp.async_copy_global_to_shared(k_ring.index(j), kbase + off, mask=ok[:, :, None] & all_c)
+            cp.async_copy_global_to_shared(v_ring.index(j), vbase + off, mask=ok[:, :, None] & all_c)
+            cp.commit_group()
+        t = lo + (NS - 1) * BN + n_g
+        pg = gl.load(pt_row + t // PAGE, mask=t < hi, other=0)
+
+        # Block-diagonal queries (as _gd_full), one copy per warp.
+        r = gl.arange(0, M, layout=gl.SliceLayout(0, WN))[None, :, None]
+        hp = r // G
+        q_ok = (c_g // D) == hp
+        x = gl.load(qkv_ptr + b * QKV_W + ((h + hp) * G + r % G) * D + (c_g % D) + w_g[:, None, None] * 0,
+                    mask=q_ok, other=0.0).to(gl.float32)
+        x = gl.where(q_ok, x, 0.0)
+        rs = gl.rsqrt(gl.sum(x * x, 2) / D + 1e-5)[:, :, None]
+        q = gl.convert_layout((x * rs).to(gl.float8e4nv), QA)
+        k_scale = gl.load(ks_ptr)
+        scale = qk_scale * k_scale
+
+        m_i = gl.full([W, M], -1.0e30, gl.float32, layout=gl.SliceLayout(2, MMA))
+        l_i = gl.zeros([W, M], gl.float32, layout=gl.SliceLayout(2, MMA))
+        acc = gl.zeros([W, M, C], gl.float32, layout=MMA)
+        SN: gl.constexpr = gl.SliceLayout(1, MMA)
+        lo_s = (lo0 + gl.arange(0, W, layout=gl.SliceLayout(1, SN)) * chunk)[:, None]
+        hi_s = gl.minimum(lo_s + chunk, seq)
+        n_s = lo_s + gl.arange(0, BN, layout=gl.SliceLayout(0, SN))[None, :]
+        for i in range(ntiles):
+            sj = (i + NS - 1) % NS
+            ok = t < hi
+            off = ((pg.to(gl.int64) * PAGE + t % PAGE) * ROW_W)[:, :, None] + c_g
+            _gd_sync(WSYNC)  # slot sj was read last iteration (each warp only touches its own [w] slice)
+            cp.async_copy_global_to_shared(k_ring.index(sj), kbase + off, mask=ok[:, :, None] & all_c)
+            cp.async_copy_global_to_shared(v_ring.index(sj), vbase + off, mask=ok[:, :, None] & all_c)
+            cp.commit_group()
+            t = t + BN
+            pg = gl.load(pt_row + t // PAGE, mask=t < hi, other=0)
+            cp.wait_group(NS - 1)
+            _gd_sync(WSYNC)
+            s = i % NS
+            sc = mma_v2(q, k_ring.index(s).permute((0, 2, 1)).load(KB), gl.zeros([W, M, BN], gl.float32, MMA))
+            if ragged:
+                sc = gl.where((n_s + i * BN < hi_s)[:, None, :], sc, float("-inf"))
+            m_new = gl.maximum(m_i, gl.max(sc, 2) * scale)
+            alpha = gl.exp2(m_i - m_new)
+            p = gl.exp2(sc * scale - m_new[:, :, None])
+            l_i = l_i * alpha + gl.sum(p, 2)
+            m_i = m_new
+            acc = acc * alpha[:, :, None]
+            if VDIRECT:
+                v = v_ring.index(s).load(VB).to(gl.float16)
+            else:
+                v = gl.convert_layout(v_ring.index(s).load(BL).to(gl.float16), VB)
+            acc = mma_v2(gl.convert_layout(p.to(gl.float16), PA), v, acc)
+        cp.wait_group(0)
+
+        if XCH:
+            # Merge the W warps' partials: one exchange through shared memory (gl.sum over the warp dim emits dozens
+            # of barriers).
+            XS: gl.constexpr = gl.SwizzledSharedLayout(XV, 1, XP, [2, 1, 0])
+            xa = gl.allocate_shared_memory(gl.float32, [W, M, C], XS)
+            xm = gl.allocate_shared_memory(gl.float32, [W, M], gl.SwizzledSharedLayout(1, 1, 1, [1, 0]))
+            xl = gl.allocate_shared_memory(gl.float32, [W, M], gl.SwizzledSharedLayout(1, 1, 1, [1, 0]))
+            xa.store(acc)
+            xm.store(m_i)
+            xl.store(l_i)
+            gl.barrier()
+            R3: gl.constexpr = gl.BlockedLayout([W, 1, 4], [1, 1, 32], [1, W, 1], [2, 1, 0])
+            RM: gl.constexpr = gl.SliceLayout(2, R3)
+            mw = xm.load(RM)
+            lw = xl.load(RM)
+            m_c = gl.max(mw, 0)
+            wt = gl.exp2(mw - m_c[None, :])
+            l_c = gl.sum(lw * wt, 0)
+            acc_c = gl.sum(xa.load(R3) * wt[:, :, None], 0)
+            AL: gl.constexpr = gl.SliceLayout(0, R3)
+            ro = gl.arange(0, M, layout=gl.SliceLayout(1, AL))
+            co = gl.arange(0, C, layout=gl.SliceLayout(0, AL))
+            part = ((b * HKV + h + ro // G) * (S + 1) + pid) * G + ro % G
+            own = (co // D)[None, :] == (ro // G)[:, None]
+            gl.store(pacc_ptr + part[:, None] * D + (co % D)[None, :], acc_c.to(pacc_ptr.dtype.element_ty), mask=own)
+            ro1 = gl.arange(0, M, layout=gl.SliceLayout(0, RM))
+            part1 = ((b * HKV + h + ro1 // G) * (S + 1) + pid) * G + ro1 % G
+            gl.store(pml_ptr + part1 * 2, m_c)
+            gl.store(pml_ptr + part1 * 2 + 1, l_c)
+        else:
+            # Direct store of each warp's partial into slot pid * W + w (S * W + 1 slots; ablation).
+            ro3 = gl.arange(0, M, layout=gl.SliceLayout(0, gl.SliceLayout(2, MMA)))[None, :, None]
+            co3 = gl.arange(0, C, layout=gl.SliceLayout(0, gl.SliceLayout(1, MMA)))[None, None, :]
+            w3 = gl.arange(0, W, layout=gl.SliceLayout(1, gl.SliceLayout(2, MMA)))[:, None, None]
+            part3 = ((b * HKV + h + ro3 // G) * (S * W + 1) + pid * W + w3) * G + ro3 % G
+            gl.store(pacc_ptr + part3 * D + (co3 % D), acc.to(pacc_ptr.dtype.element_ty), mask=(co3 // D) == (ro3 // G))
+            ro2 = gl.arange(0, M, layout=gl.SliceLayout(0, gl.SliceLayout(2, MMA)))[None, :]
+            w2 = gl.arange(0, W, layout=gl.SliceLayout(1, gl.SliceLayout(2, MMA)))[:, None]
+            part2 = ((b * HKV + h + ro2 // G) * (S * W + 1) + pid * W + w2) * G + ro2 % G
+            gl.store(pml_ptr + part2 * 2, m_i)
+            gl.store(pml_ptr + part2 * 2 + 1, l_i)
+        if pid == S - 1:
+            # The step's new token for both KV heads (as _gd_full), into slot S.
+            B2: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [W, 1], [1, 0])
+            r2 = gl.arange(0, M, layout=gl.SliceLayout(1, B2))
+            c2 = gl.arange(0, C, layout=gl.SliceLayout(0, B2))
+            hp2 = r2 // G
+            q2 = (c2 // D)[None, :] == hp2[:, None]
+            x2 = gl.load(qkv_ptr + b * QKV_W + ((h + hp2) * G + r2 % G)[:, None] * D + (c2 % D)[None, :], mask=q2,
+                         other=0.0).to(gl.float32)
+            x2 = gl.where(q2, x2, 0.0)
+            x8 = (x2 * gl.rsqrt(gl.sum(x2 * x2, 1) / D + 1e-5)[:, None]).to(gl.float8e4nv)
+            loc = gl.load(loc_ptr + b)
+            zero = gl.zeros([M, C], gl.float32, B2)
+            kx = gl.where(q2, gl.load(qkv_ptr + b * QKV_W + (HQ + h) * D + c2)[None, :].to(gl.float32) + zero, 0.0)
+            krs = gl.rsqrt(gl.sum(kx * kx, 1) / D + 1e-5)[:, None]
+            kq = (kx * krs / k_scale).to(gl.float8e4nv)
+            vx = gl.load(qkv_ptr + b * QKV_W + (HQ + HKV + h) * D + c2)[None, :].to(gl.float32) + zero
+            vq = (gl.where(q2, vx, 0.0) / gl.load(vs_ptr)).to(gl.float8e4nv)
+            first = q2 & ((r2 % G) == 0)[:, None]
+            dst = (loc.to(gl.int64) * ROW_W + h * D + c2)[None, :] + gl.zeros([M, C], gl.int64, B2)
+            gl.store(kc_ptr + dst, kq, mask=first)
+            gl.store(vc_ptr + dst, vq, mask=first)
+            sn = gl.sum(x8.to(gl.float32) * kq.to(gl.float32), 1) * scale
+            pn = ((b * HKV + h + hp2) * (S + 1) + S) * G + r2 % G
+            gl.store(pacc_ptr + pn[:, None] * D + (c2 % D)[None, :], vq.to(gl.float32).to(pacc_ptr.dtype.element_ty),
+                     mask=q2)
+            gl.store(pml_ptr + pn * 2, sn)
+            gl.store(pml_ptr + pn * 2 + 1, gl.full([M], 1.0, gl.float32, gl.SliceLayout(1, B2)))
+
     @gluon.jit
     def _gw_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
                    HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, D: gl.constexpr,
@@ -1367,13 +1546,20 @@ def _decode_gluon(data, cfg, plan):
     pml = torch.empty((batch, hkv, s, group, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
     sep = plan.get("sep", False)
-    _gd_full[(splits + sep, batch, hkv // 2)](
-        qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
-        data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
-        _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
-        HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
-        BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
-        ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1)
+    if plan.get("w4"):
+        _gd_full4[(splits, batch, hkv // 2)](
+            qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
+            data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+            HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
+            W=plan["w4"], BN=plan["block_n"], NS=plan["stages"], WSYNC=plan.get("wsync", True), VDIRECT=plan.get("vd", False), XCH=plan.get("xch", True), XV=plan.get("xv", 1), XP=plan.get("xp", 1), num_warps=plan["w4"])
+    else:
+        _gd_full[(splits + sep, batch, hkv // 2)](
+            qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
+            data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+            _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
+            HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
+            BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
+            ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1)
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch, hq // hb)](
