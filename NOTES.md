@@ -548,3 +548,74 @@ The okc limit for this problem now reads 10 checks/day (not 20). Claude on 2026-
   softmax-side cuts (MUFU, rescale, exp form); the limit is issue utilization (~45%) at 16 warps/SM with
   the register cap. The occupancy/wave-fill rule is the one knob that still moved; maybe re-sweep splits
   around 4/SM (e.g. 2 waves of smaller chunks) at batch 16/32.
+
+## Session 9 (overnight agent, 2026-10-24 00:32-~01:00 UTC)
+
+Baseline: main 57ad70c unchanged (H100 verify 16/32 full 154.7/294-296 us). No change to submission.py; 0 checks,
+0 scored runs.
+
+### Re-sweeps (no win)
+
+- Verify full at 4/SM (maxnreg 128), splits 16-66: the current one-wave count is best (verify 16: 33 -> 154.8,
+  30/40/44/50/66 -> 166-194; verify 32: 16 -> 295.3, 33 -> 302, 18-25 -> 341-382). Two waves of smaller chunks lose.
+- Verify full block_n 64 (stages 2-5, with/without maxnreg): 207-291 us vs 155. Dead.
+
+### New direction: Gluon (triton.experimental.gluon, ships with triton 3.8), branch exp/gluon-verify
+
+Gluon is Triton's low-level dialect: explicit layouts, shared-memory allocation, cp.async rings with explicit
+wait_group, async wgmma with explicit `warpgroup_mma_wait(n)`, mbarriers, warp_specialize. It removes the two
+Triton limits the earlier sessions hit (wgmma waits pendings=0 after non-loop-carried dots; no control of the
+gather ring). Prototype: tools/gluon_verify.py on exp/gluon-verify (commit 507f50e), cached keys only (no new
+tokens, no merge), writes the same partials as _attn_split; bit-identical to Triton's partials for splits >= 1.
+
+H100, verify 16 / verify 32 full partials (Triton main: 155 / 294 us whole kernel_fn, ~149 / ~287 attn only):
+
+| variant | regs, smem, per SM | verify 16 | verify 32 |
+|---|---|---|---|
+| single head per program, 64-byte half-row gathers, serial waits, S=24 | 74, 28 KB, 6 | 160.4 | - |
+| same, S=16/20/33 (wave fill matters: S*32 programs vs 6*132 slots) | | 182/169/215 | |
+| same + FA3-style QK(i+1) during softmax(i) (88 regs, 5/SM), S=20 | | 172 | |
+| same + PV wait deferred to next iteration (88 regs) | | 238 (S=24) | |
+| same + page indices 1-3 tiles ahead | 75-77 | 166-171 | |
+| same, BN 64 / maxnreg 64-80 | | 200-233 / 214-462 | |
+| dual: both heads, one 128-byte row gather for K and V, zero-padded [64,128] queries, NS=4, 130 regs (3/SM) | | 198 (S=24) | |
+| dual, maxnreg 128, NS=3 (4/SM) | | 175 | |
+| dual + page indices 2 tiles ahead | | 170 | |
+| dual + per-head K slice (`k_tile.slice(h*64, 64, 1)`, [64,64] queries, half the QK work and Q smem), NS=4, pf | 128, 56 KB, 4 | **154.0** | **304.4** (S=16) |
+| same, single fp16 V staging buffer (VHB=1) | 128, 48 KB | 155.0 | 304.4 |
+| same, NS 5/6 (spills) or BN 16 (maxnreg 96-128) | | 173-315 | |
+
+So the best Gluon kernel is at parity minus ~3-6% with Triton's attn kernel; not integrated. ncu on the best
+variant: stalls spread (V fp8->fp16 conversion short_sb, barriers, wgmma waits); before the page-index lead the top
+stall (14-17%) was the page-table load feeding the gather address. Register cap 128 (4/SM) is the hard limit:
+NS >= 5 spills.
+
+Gluon gotchas (cost time, write down):
+- Casting an fp32 tensor that came from a bf16 load and was zeroed with where/masked-load to float8e4nv produced
+  NONZERO bytes (0x60, 0xFC) for the zeros in a [64,128] BlockedLayout([1,8],[4,8],[4,1]) tensor (repro:
+  `/tmp/g9cv3.py` pattern: load bf16 [64,64] twice as [64,128] via c % 64, where(c < 64, x, 0), .to(fp8)). Pure
+  fp32 input converts fine. Workaround: zero AFTER the cast (`where(first, x8, zeros_like(x8))`), or avoid zero
+  padding (per-head slices). The Triton submission's decode hpp=2 block-diagonal queries cast zeros too, but the
+  tests pass there.
+- Register operands of an async wgmma (P for P@V) must be passed in `warpgroup_mma_wait(deps=[...])` or the
+  compiler may reuse the registers while the MMA reads them.
+- NVMMA smem slices along the contiguous dim at 64 bytes inside a 128B swizzle work as wgmma operands.
+- `maxnreg` works as a launch kwarg on gluon kernels; `kernel.device_caches[0][0]` holds the compiled kernels
+  (n_regs, n_spills, metadata.shared).
+
+### Next ideas
+
+1. Gluon verify full is within ~5% of Triton with a design that is still simple. Things that could flip it:
+   (a) warp_specialize with a 1-warp producer (pages + cp.async + `async_copy.mbarrier_arrive`, noinc, ready count
+   32) and an mbarrier empty ring, so the consumer warpgroup has no address math or page waits; the catch is
+   occupancy: 160 threads x 128 regs > 4/SM, so use worker_num_regs (setmaxnreg) with the producer at 24-40 regs
+   and launch maxnreg ~100. (b) V fp8->fp16 conversion of tile i+1 done right after issuing PV(i) (needs tile i+1
+   landed: wait_group(NS-3)). (c) Fewer barriers: the cp.async-ready barrier and the V-staged barrier could merge
+   if V conversion moves one tile ahead.
+2. If Gluon wins on verify full, integrate as a shape-dispatched path in submission.py (new tokens + _combine
+   unchanged; the Gluon kernel only replaces the cached-key loop; split 0's new-token work could stay in a tiny
+   Triton kernel or move into Gluon). Check COORD lanes first (Gluon is Triton-family; noted in COORD as Claude's).
+
+### Budget (UTC day 2026-10-24)
+
+Claude: 1 check (fdccc1c6, session 8), 0 scored. This session: none. Account at 00:35: 3/10 checks, 0/10 scored.
