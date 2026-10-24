@@ -1244,3 +1244,56 @@ MMAv2 path (FP8 K upcast to FP16, as session 19 found for decode full). Plan re-
 
 This session: 1 check (f3e099c1), 1 scored (10d12495). Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks,
 6/10 scored.
+
+## Session 21 (overnight agent, 2026-10-24 07:31-~08:50 UTC)
+
+**Main 779bb6d = session 20's candidate 8aefd49 + balanced splits for verify full (`USE_GBAL`). Still UNCHECKED on the
+H200. Check it first thing next UTC day** (this problem's account limit is 10 checks/day, not 20, and all 10 were
+used today; Claude 3/3 scored used). In that check, compare verify 16/32 full against f3e099c1 (124.65 / 231.75 us);
+every other shape against beb63898 / f3e099c1 as in session 20. If verify 16 full gets worse but verify 32 better,
+gate gbal on pairs >= 24 or so; if both get worse, set `USE_GBAL = False` (the rest of the candidate is unaffected).
+
+### Finding: request-length spread costs the full layers when compute-bound
+
+Agentic lengths are uniform in ctx +- 7.5%, and every plan cut each request into the same number of splits, so the
+longest request's programs set the time. tools/s21/imbal.py (time with all lengths cut to the shortest, scaled by
+mean/min): H100 real decode 16/32 full, verify 16/32 full: no loss except verify 32 (-2.3%) because the H100 is
+bandwidth-bound; all-L2 (page_table % 4096, compute-bound like the H200): decode 16 full 70.9 vs 68.3 balanced, decode
+32 133.9 vs 133.5, verify 16 109.7 vs 106.9, verify 32 208.7 vs 200.5.
+
+### Change: plan key `gbal` (Gluon verify full, pairs >= 16)
+
+- Each KV-head-pair index gets P = 2 * SMs // (hkv / 2) programs (264 on 132 SMs: all slots, not splits * batch).
+  Program p takes tiles [p*T//P, (p+1)*T//P) of all requests' tiles laid end to end (T = sum of cdiv(seq, 64)), so a
+  range can span requests: one segment per request, partial stored at id p + b (unique), new tokens at P + B + b
+  (`_new_tokens` NID/NBASE), partials [HKV, NID, 64, 64]. `_gw_bal` / `_gw_seg` compute the ranges (vector of the
+  batch's lengths, associative_scan), `_gw_producer_bal` / `_gw_consumer_bal` loop over segments (ring position
+  carried; the consumer loads/norms each segment's queries into its q smem). Merge: `_combine_bal` (Triton, PDL;
+  finds request b's programs from closed forms + a predicate, 2 heads per one-warp program). No in-grid merge (gfuse).
+- Pitfall: the lengths vector's layout must sit inside one warp (size_per_thread B_PAD // 32): with B_PAD 64 spread
+  over 2 warps the scans/sums went through shared memory and cost +28 us (all-L2 batch 32 forced to B_PAD 64).
+- H100 paired (tools/s21/ab.py, emuab.py, near.py): verify 16/32 full all-L2 109.2/212.8 -> 102.3/196.4 us, real
+  136.0/255.6 -> 137.6/251.4, emulated H200 (92 SMs; partly an artifact: the old plan fills only 160 of 184 slots
+  there) 161.1/313.6 -> 154.7/291.5. Nearby real: batch 6/8/12/16/20 +2.0/+3.8..4.6/+0.3/+2.4/+1.9 (the lost gfuse
+  merge; hence pairs >= 16), 24 (ctx 120K)/32/40/48/64 -4.6/-4.8/-8.8/-7.1/-8.4.
+- Interpolating the H200 between H100 real and all-L2 (it sits ~45-55% of the way, from f3e099c1): expected verify
+  16 full ~-2 us, verify 32 ~-10 us: about +0.7% overall. Tests 16/16, gluon_cases 8/8, forced-gbal cases 8/8.
+
+### Next ideas
+
+1. Check main 779bb6d (see top of this section); submit if it beats the board (account best 2.1605x).
+2. In-grid merge for gbal (worth ~1-4 us at batch 8-16 on the H100, gfuse's gain): participants of request b are
+   programs ((excl_b+1)*P-1)//T .. (incl_b*P-1)//T if every request has >= 1 tile and P <= T (use P_eff = min(P, T),
+   tiles = max(cdiv(seq, 64), 1)); only a program's first and last segments are shared, so arrive on both first
+   (two counter words, generation scheme as gfuse), then merge row slices by rank p - p_first. Middle segments have
+   one participant (no atomics). Must NOT arrive-wait-merge per segment in order (serial chain over all requests).
+   Load the merge's partials in unrolled blocks (a dynamic loop of dependent L2 loads costs ~0.2 us per partial).
+3. The same balancing for decode full (`_gd_full`, all-L2 decode 16 full 70.9 -> ~68.3): needs segments in the
+   one-warp kernel; ~0.3% overall at best.
+4. Two-segment programs pay a q reload (dependent on the lengths load); the consumer could prefetch the second
+   segment's queries (no smem left for a second q buffer at 2 CTAs/SM: 106.8 KB each).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored (none left: account 10/10 checks for this problem). Claude day: 5/8 checks, 3/3
+scored.
