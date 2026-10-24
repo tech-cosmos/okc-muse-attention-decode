@@ -842,7 +842,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
-                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False):
+                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -858,6 +858,14 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     ROW_W: tl.constexpr = HKV * D
     C: tl.constexpr = HPP * D
 
+    if PF:
+        # Full layers: touch the page-table lines of this split's chunk (one entry per 128-byte line) before the
+        # query load stalls the warps, so the pipeline prologue's page loads hit L2. The sum is used only at the
+        # end. (Also touching the first tile's cache rows ties; on sliding layers, whose chunk starts at the
+        # window, it loses: decode 1 sliding +0.26 us.)
+        PF_N: tl.constexpr = triton.next_power_of_2(CHUNK // PAGE // 32 + 2)
+        pf_p = tl.minimum(split * CHUNK // PAGE + tl.arange(0, PF_N) * 32, MAX_PAGES - 1)
+        pf = tl.sum(tl.load(pt_ptr + b.to(tl.int64) * MAX_PAGES + pf_p), 0)
     seq = tl.load(seq_ptr + b)
     c = tl.arange(0, C)
     r = tl.arange(0, M_PAD)
@@ -923,6 +931,8 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
                                  True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
 
+    if PF:
+        m_i += tl.where(pf == -7, 1.0, 0.0) * 0.0
     _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
     if DUAL:
         _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
@@ -1213,7 +1223,9 @@ def _plan(cfg, max_pages, device):
         # sees at most 128 slots in one pass (-0.08, 8/11); then block_n 64 with 8 stages (-0.62, 9/11; emulated H200
         # 25.9 -> 20.3). Unchecked on the H200: if verify 1 full is worse there, revert block_n/stages first.
         if length > 1:
-            return dict(splits=127, block_n=64, warps=4, stages=8, hpp=1, fuse=False, qk8=True, pdt="bf16", tsep=True)
+            # pf: the split's page-table lines touched before the query load (H100 paired -0.35 us, 10/11 and 8/11).
+            return dict(splits=127, block_n=64, warps=4, stages=8, hpp=1, fuse=False, qk8=True, pdt="bf16", tsep=True,
+                        pf=True)
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16")
     if length == 1:
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
@@ -1300,7 +1312,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep), num_warps=plan["warps"],
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
+        PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
