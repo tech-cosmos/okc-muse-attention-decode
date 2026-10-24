@@ -18,7 +18,7 @@ for blk in blocks:
         res = {False: [], True: []}
         for _ in range(rounds):
             for g in (False, True):
-                submission.USE_GDEC = g
+                submission.USE_GDEC = submission.USE_GSLIDE = g
                 res[g].append(emu.time_blocked(lambda: submission.kernel_fn(data), blk, 20) - empty)
         med = lambda v: sorted(v)[len(v) // 2]
         print(f"sms {132 - blk} {load:10s} {c['layer']:8s} off {med(res[False]):7.2f} on {med(res[True]):7.2f} "

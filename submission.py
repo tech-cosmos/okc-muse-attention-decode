@@ -75,6 +75,7 @@ DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
+USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
 # Split partials' accumulator dtype (plan key pdt).
 _PDT = {"f32": torch.float32, "bf16": torch.bfloat16, "f16": torch.float16}
 print(f"env: torch {torch.__version__}, triton {triton.__version__}", flush=True)
@@ -922,11 +923,12 @@ def _plan(cfg, max_pages, device):
     batch, length, hkv = cfg["batch"], cfg["q_len"], cfg["num_kv_heads"]
     heads = batch * hkv
     pairs = heads // 2
-    if cfg["window"] and length == 1 and pairs >= 12 and HAVE_GLUON and USE_GDEC and hkv % 2 == 0 \
+    if cfg["window"] and length == 1 and pairs >= 12 and HAVE_GLUON and USE_GSLIDE and hkv % 2 == 0 \
             and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
         # Batched sliding decode on the Gluon one-warp kernel (FP8 QK^T mma; a dedicated program per KV head
         # pair for the new token, so the S key splits stay tile-aligned), up to ~800 programs (H100 decode
         # 16/32 sliding 10.6/15.6 -> 9.3/13.9 us, B64 27.7 -> 23.2; at batch <= 8 it loses by 0.2-1.8 us).
+        # Off: on the H200 (check f3e099c1) decode 16/32 sliding went 10.4/14.6 -> 13.6/15.4 us.
         splits = 32 if pairs * 32 <= 800 else (16 if pairs * 16 <= 800 else 8)
         return dict(gdec=True, sep=True, splits=splits, block_n=32, stages=2, pdt="bf16", hb=2)
     if cfg["window"]:
@@ -940,19 +942,15 @@ def _plan(cfg, max_pages, device):
         if heads <= 32:
             return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt)
-        # Large batches: smaller, deeply pipelined programs (decode: both KV heads per program, whole 128-byte
-        # rows; H100 decode 32 sliding 16.0 -> 15.4 us).
-        if length == 1:
-            return dict(splits=splits, block_n=64, warps=4, stages=5, hpp=2, fuse=False, qk8=True, hb=2, sb=splits,
-                        cw=1, pdt=pdt)
-        return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=1, fuse=False,
+        # Large batches: smaller, deeply pipelined programs. (hpp 2 for decode won on the H100, decode 32 sliding
+        # 16.0 -> 15.4 us, but is unchecked on the H200; reverted with session 18's decode 1 full plan.)
+        return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
                     qk8=True, peel=length > 1, hb=2, sb=splits, cw=1, pdt=pdt)
     # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
     # decode 16/32 full -1.0/-1.5 us, verify 1 full -0.4. The Gluon verify path keeps FP32 (BF16 +1.5 us).
     if heads <= (2 if length == 1 else 4):
-        if length == 1:
-            # Both KV heads per program (whole 128-byte rows): H100 decode 1 full 17.4 -> 16.8 us.
-            return dict(splits=128, block_n=64, warps=4, stages=5, hpp=2, fuse=False, qk8=True, pdt="bf16")
+        # (Session 18's hpp 2 / block_n 64 for decode 1 full won on the H100, 18.0 -> 17.4 us, but lost on the
+        # H200: check f3e099c1 decode 1 full 15.2 -> 17.6 us.)
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16")
     if length == 1:
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
