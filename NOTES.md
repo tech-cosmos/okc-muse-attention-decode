@@ -1013,9 +1013,21 @@ an atomic + spin + fence chain at these sizes. Don't retry for sliding/decode Tr
 
 This session: 0 checks, 0 scored. Claude day: 4/8 checks, 2/3 scored. Account at 05:35: 9/10 checks, 5/10 scored.
 
-## Session 18 (overnight agent, 2026-10-24 05:47-~06:55 UTC)
+## Session 18 (overnight agent, 2026-10-24 05:47-06:15 UTC)
 
-No change to main's kernel (still 3bb3a64). 0 checks, 0 scored (account had 1 check left today, kept for Codex).
+Main 8c4394f (two plan changes below). 0 checks, 0 scored (account had 1 check left today, kept for Codex).
+
+### Changes (plan only; both hold under tools/emu.py H200 emulation)
+
+1. 9a43323 decode 1 full (batch * hkv <= 2, q_len 1): hpp 2 (both KV heads per program, whole 128-byte rows),
+   block_n 64, 5 stages (was hpp 1, block_n 128, 6 stages). H100 paired (9 rounds) 18.00 -> 17.38 us; emulated
+   19.65 -> 18.69. Verify 1 full: no variant wins (dual, block_n 64, splits 96-256: tie or worse).
+2. 8c4394f decode sliding with batch * hkv > 32: hpp 2, block_n 64, 4 warps, 5 stages (was hpp 1, block_n 32,
+   2 warps). H100 paired decode 32 sliding 15.97 -> 15.41, B24 -0.9, B48 -1.8, B64 -3.7 us; emulated 17.15 ->
+   16.54. hpp 2 at batch 2-16 decode sliding loses (+0.5..+1.2 at B2-8), so the heads <= 32 branch keeps hpp 1.
+
+Bench 1.977 -> 1.986 (decode 1 full 17.1, decode 32 sliding 15.5). 16/16 tests, tools/s18/d1cases.py 6/6.
+Expected on the H200: ~+0.3-0.5% overall. Not checked yet.
 H100 bench at start 1.977 (verify 16/32 full 136.4/256.6, decode 1 full 17.7).
 
 ### Dead ends (H100; base -> variant)
@@ -1048,11 +1060,25 @@ H100 bench at start 1.977 (verify 16/32 full 136.4/256.6, decode 1 full 17.7).
 - tools/s18/cases.py '<json>': gluon_cases.py with plan overrides on the Gluon path. tools/s18/ptx.py '<json>' out.ptx:
   regs/spills + PTX of the verify-16 Gluon kernel. tools/s18/gather1.py: batch-1 full-layer gather floor.
 
+### Batch-1 full breakdown (H100, main before change 1; tools/s18/mkabl1.py ablations, wrong results on purpose)
+
+decode 1 / verify 1 full: all 17.6 / 18.6; no merge launch 15.6 / 15.6; no KV tiles 3.4 / 4.3; no tiles + no merge
+1.5 / 1.8; no `_new` 17.2 / 18.8. So the merge costs ~2 us (decode) / ~3 us (verify) and the tiles ~14 us vs an
+11.5 us pure-gather floor. Merge tweaks that didn't help: all loads of the one-pass `_combine` issued together
+(tie), 2 or 8 warps instead of 4 (+0.1..+1.2 us).
+
+### More dead ends
+
+- Verify sliding as dual chains (dual=True, splits 8/16): verify 32 sliding 20.9+ vs 19.4, verify 16 15.4+ vs 12.6.
+- Decode 16 full wider tiles (block_n 32/64, warps 2/4, splits 16-64, stages 4/6): best 130.3 vs 129.4 on H100,
+  and emulated 152.3 vs 138.5. Dead on both.
+- Verify 16 sliding stages 6 (12.30 vs 12.53, one sweep; unpaired, likely noise).
+
 ### Next ideas
 
-1. Decode 1 / verify 1 full: ~6 us over the gather floor on H100. Break it down with ablations (no merge launch,
-   zero tiles, no `_new`) like session 14 did for sliding, then attack the biggest piece (likely the 8-program
-   `_combine` over 128 splits: more programs per head, e.g. split D or split the partial range two-level).
+1. Check main 8c4394f on the H200 next UTC day (gfuse from session 17 + the two plan changes; expected ~+0.5-1%).
+2. Batch-1 full merge (2-3 us on H100): Codex's native merge covers it on the codex branch; in Triton the
+   remaining option is fusing it into the last split (lost before at batch 1).
 2. Gfuse for verify full still unchecked on the H200; check it next UTC day together with anything else.
 3. Decode full on the H200 (74% of HBM BW): wide-tile gathers; needs a check to evaluate.
 
