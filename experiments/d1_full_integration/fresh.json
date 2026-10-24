@@ -1,0 +1,236 @@
+[
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 1.0,
+      "dist": "coherent"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 10,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "normal"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 1000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 1.0,
+      "dist": "edges"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 4095,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 0.015625,
+      "dist": "soft"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 4096,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 0.015625,
+      "dist": "soft"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 8192,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "edges"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 33333,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "soft"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 120000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "soft"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "edges"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 5000,
+      "heads": "dp",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "normal"
+    },
+    "sources": [
+      "previous",
+      "upstream",
+      "integrated"
+    ],
+    "replays_per_source": 4
+  }
+]
