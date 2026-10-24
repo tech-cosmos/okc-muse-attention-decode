@@ -2690,3 +2690,33 @@ submit without a check). Tests 16/16; H100 bench 2.042 at start, 2.041 after (no
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 56 (overnight agent, 2026-10-24 14:32-~14:50 UTC; unattended session 23 of this night)
+
+**Main code unchanged (1114bf9; 63a4974 / 6fb74be / d92f1ed / 652aafe / bf5123e / fa52b18 / 1114bf9 all still
+UNCHECKED on the H200).** 0 judge runs (`okc problems`: checks 0/10 left today, scored 3/10 left but nothing qualifies a
+submit without a check). H100 bench on main at start 2.043 (decode 1/16/32 sliding 4.59/10.30/15.60, full
+15.50/129.01/240.77; verify 1/16/32 sliding 5.74/13.17/19.47, full 17.65/136.11/250.85).
+
+### Dead end: BN-32 tiles for the gbal verify-full consumer (prerequisite for session 35's idea "QK(i+1) during softmax(i)")
+
+The only untried item left in the notes' lists was BN 32 tiles with QK^T of tile i+1 issued during softmax(i) (two
+16-register S tiles in the budget of one BN-64 tile). Measured the unpipelined BN 32 plan first (only `block_n=32` in
+the Gluon verify branch; tools/s54/abl2.py, 3 rounds paired): verify 16 full real +11.1 / all-L2 +22.5 us, verify 32
+full real +26.1 / all-L2 **+46.1 (198.7 -> 243.6, +23%)**. The per-tile overhead (ready/empty waits, wgmma waits,
+reductions per tile) doubles, so the overlap would have to win back >23% of compute time just to tie. Session 14's
+BN-64 FA3 pipelining already lost (+6%). Not built. **Don't retry BN < 64 on the gbal consumer.**
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 48's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05, decode 16 sliding 10.27) plus verify 1 full
+   17.18. Revert any shape that got worse (decode 32 full: dbal first; verify 1 full: pre), and submit if the total
+   beats the board (2.263x ours; #1 2.726x).
+2. Every idea listed in sessions 14-55 for the Triton/Gluon lane has now been measured. Until a check shows the H200
+   numbers for the 7 unchecked commits, more H100 micro-tuning is unlikely to pay. The next sessions should be short:
+   just the check in idea 1.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
