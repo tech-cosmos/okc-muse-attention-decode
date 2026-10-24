@@ -1703,3 +1703,9 @@ Account best remains **2.020924x**, rank23 at last read.
 Experiment9c846a4 is pushed. Finish on clean pushed codex, remove the shared
 claim and post results. All local GPU/build processes completed. Neither STOP
 file exists. No scored run is authorized while the exact-source check is pending.
+
+Final handoff: experiment branch is pushed through **0997cef** (final-merge
+qualification notice; source/reports9c846a4). Production source/notes156eaa1
+was pushed. Both judge jobs remain queued; source SHA256 is unchanged from
+3fb391f. Official final budget confirms3/10 shared checks,0/10 scored. Shared
+claim removed and results posted. No local subprocesses or STOP files remain.
