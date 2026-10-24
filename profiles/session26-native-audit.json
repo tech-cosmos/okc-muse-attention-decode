@@ -1,0 +1,41 @@
+{
+  "source_hashes": {
+    "main": "01a58b8042e2c8fbeba1b351f90ba487973d956fdd8e3bfe4d5c2a773a98be9f",
+    "previous": "6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf",
+    "current": "6f0fcb357146bbfd4e69e3f9d8a3ea2d9968f09c26b5876a0aa83af63ebe8c05"
+  },
+  "shared_helpers": 14,
+  "changed_helpers": [
+    "_plan"
+  ],
+  "counts": {
+    "integration": {
+      "shapes": 13,
+      "pairs": 1040,
+      "reference_checks": 78
+    },
+    "neighborhood": {
+      "shapes": 44,
+      "pairs": 3520,
+      "reference_checks": 264
+    },
+    "integration-confirmation": {
+      "shapes": 3,
+      "pairs": 360,
+      "reference_checks": 18
+    },
+    "neighborhood-confirmation": {
+      "shapes": 9,
+      "pairs": 1080,
+      "reference_checks": 54
+    },
+    "fresh_integration": {
+      "shapes": 13,
+      "replays": 104
+    },
+    "integrated_standard_suite": {
+      "passed": 16
+    }
+  },
+  "native_source_and_dispatch_unchanged": true
+}

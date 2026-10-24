@@ -1,0 +1,19 @@
+{
+  "final_sha256": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "initial_sha256": "6f0fcb357146bbfd4e69e3f9d8a3ea2d9968f09c26b5876a0aa83af63ebe8c05",
+  "main_sha256": "4f9ccd6bab273111bc98231a3ca832264358473d1a5c8fb1f5719ccc18b03043",
+  "all_shared_helpers_including_nested": 20,
+  "changed_helpers": [
+    "_gw_consumer_cv",
+    "_gw_verify",
+    "_plan",
+    "_verify_gluon"
+  ],
+  "native_source_and_dispatch_unchanged": true,
+  "standard_tests": 16,
+  "compared_shapes": 7,
+  "pairs": 560,
+  "reference_checks": 42,
+  "fresh_replays": 56,
+  "judge_qualification": "NOT covered by check3e786: that request has the earlier initial snapshot"
+}

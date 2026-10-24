@@ -3186,3 +3186,157 @@ leaving4checks/7scored account-wide. Actual check cap10/day. Neither STOP file.
    boundary remains supported; closed L1 micro-optimization families stay closed.
 4. Keep experiment6da6317 separate. Finish on clean pushed codex, shared claim
    removed/results posted. Do not wait idle for the remaining queued job.
+
+## Session 26 — 2026-10-24, 02:32–02:44 UTC
+
+### Outcome and production state
+
+Resolved older scored **fe512312803447b2: 16/16,2.091142x**, CI
+**[2.059775,2.122509]**, no flags/rejections/errors; new account best, **rank20**.
+Read all12 passing profiles and saved complete JSON/log/text as
+`profiles/submission.fe512312803447b2.*`. Its content_hash matches qualifying
+check24414 exactly. This is older SHA6b171beb8ed5, not either source integrated
+this cycle, and was not resubmitted. Confidence intervals overlap the previous
+best; do not attribute this independent aggregate increase to today's work.
+
+H200 decode1 sliding5.91us, decode1/verify1 full14.32/16.31us, verify16/32
+full156.15/260.01us. Final Gluon profile: attention251.7us, merge120.3us,
+new tokens3.4us, GPU busy262.8us. PDL rows overlap/include waiting and cannot
+be summed as graph latency.
+
+Integrated two new main improvements; **no native implementation or dispatch
+change**. Initial main **a794ac6** merged as **8c35564**: Gluon full verify from
+six pairs up, one wave unless two fill slots materially better. A late fetch
+then found **824e52a**, merged as **d8bab0a**: mask only each chunk's last tile
+in the Gluon consumer. Both are Claude's changes; Codex did not tune its lane.
+
+Final production SHA256:
+`1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548`.
+Final integrated suite **16/16**, full local bench **1.987x** against fixed
+SGLang/H200 reference times, verify16/32 full **139.50/260.08us**. The unchanged
+native small-sliding path and small-full reduction retain prior sanitizer
+coverage. No new sanitizer claim. No experimental import was added.
+
+Experiment **7305b35** is pushed on **codex-exp/native-merge-neighborhood**;
+initial source/results **af33923**. Start with
+`experiments/native_neighborhood/README.txt`. Frozen previous, initial merged,
+final merged and main snapshots preserve all source identities. Drivers,
+raw pairs, validation logs and CPU audits are archived separately from production.
+Production evidence copies: `profiles/session26-{native,final}-audit.json`.
+
+### Main integration evidence
+
+Initial merged SHA
+`6f0fcb357146bbfd4e69e3f9d8a3ea2d9968f09c26b5876a0aa83af63ebe8c05`
+passed **16/16**, full bench **1.965x**, and **104 fresh graph replays** across
+13 full-verify shapes, four changed inputs per implementation. Current-source
+52 calls comprise44 Gluon and8 Triton fallback; previous-source52 are separate
+controls. All QKV/cache/routes/lengths/positions/cache slots change, with shortened
+and empty contexts. Pages1/64, TP8/DP and mixed lengths are included.
+
+Balanced adjacent AB/BA cold-L2 graph pairs,80 rounds/shape,H100 microseconds:
+
+| full L8 batch,80K | previous / initial merged us | paired delta us |
+|---|---:|---:|
+|6|68.432/69.840|+1.312|
+|8|85.200/83.280|-2.176|
+|12|122.384/115.968|-6.512|
+|16|153.264/145.296|-7.824|
+|17|160.720/155.664|-5.040|
+|24|211.856/204.928|-7.216|
+|32|273.408/268.208|-4.912|
+|64|515.312/512.016|-3.792|
+
+B4/B5 and B40 are unchanged controls. DP2/20K/page64 improves2.736us; B6/4K/
+mixed/page64 is nearly flat (+0.112us). Three second-seed confirmations,120pairs
+apiece: B5 control+0.080us, B6 **-1.056us**, B8-4.240us. Thus B6's initial
+regression reverses with fresh inputs; retain both observations for Claude,
+without claiming a universal B6 gain/regression or changing its plan.
+
+The late824e52a merge independently passed16/16 and adds **56 fresh graph
+replays**,28/source over7shapes (all final28 use Gluon). Cases include
+B6/8/16/17/32 at80K,DP2/page64/scale1/64 at20K,and B6 mixed4K/page64 with edge
+keys. Changes include shortened and empty contexts. Seven additional paired
+comparisons,80rounds/shape, isolate this second main update:
+
+| full L8 batch | initial merged / final us | paired delta us |
+|---|---:|---:|
+|16|145.584/139.920|-5.808|
+|17|154.880/147.024|-7.760|
+|32|268.016/257.584|-10.320|
+
+Do not add deltas from separate paired runs to estimate a combined speedup.
+These are local graph measurements, not H200 estimates. Final audit verifies
+all20 shared helper ASTs, including nested Gluon functions, against main824e52a,
+and exact unchanged native extension/dispatcher ASTs. No Codex kernel edit.
+
+### Native full-merge neighborhood: no cutoff promoted
+
+Followed session25's small B2/L8/page64 weakness across **44 shapes**: B1/fixed
+and B2/agentic at7K,8192,9K,10K,12K,16K,20K,40K on pages1/64, plus B2/fixed at
+8192,9K,10K,12K,16K,20K on both pages. Complete current-source kernels compared
+with frozen main; the only exercised implementation difference is native merge.
+Initial80pairs/shape, then nine suspect/neighbor/control confirmations at a second
+seed with120pairs each.
+
+All20 native page1 cases favor native (-1.136 to-0.272us); page1 fallback controls
+are flat. All7 native B1/page64 cases win (-0.896 to-0.576us). B2/page64 remains
+flat or slightly slower at some small split counts:
+
+| B2/page64 case | actual splits | initial / confirmation paired delta us |
+|---|---:|---:|
+|8192 agentic|69|+0.032/+0.128|
+|9K agentic|76|0.000/+0.144|
+|10K agentic|85|-1.248/-1.632|
+|8192 fixed|65|0.000/+0.032|
+|9K fixed|71|-0.320/-0.272|
+|10K fixed|79|-0.960/-0.960|
+|16K agentic|68|+0.320/no second-seed check|
+
+Actual splits are not monotonic in context: chunk-size transitions reduce them.
+Page1 at the same agentic contexts/split counts wins on both seeds. B2/page64
+40K still wins1.872us initially. This supports a narrow small-split weakness,
+not a shape-general cutoff; **no native dispatch change**. Do not claim Codex
+is always faster than main on nearby shapes. Closed native micro-optimization
+and merge architecture families remain closed.
+
+Initial integration+neighborhood:57 distinct shapes,12confirmation entries,
+**6000 adjacent pairs,414 independent output/cache reference checks**. Final
+integration adds560pairs/42checks. Total fresh replays160 across both phases,
+including separate baseline controls. Each custom driver locks generation,
+reference,capture,replay,flushes512MB before every timed replay,and subtracts an
+empty replay. Full benches ran sequentially with own GPU work, retaining
+bench.py's timing-loop lock. All local GPU processes completed. Bootstrap
+intervals quantify within-run variation only, not H200 uncertainty or multiple
+comparisons. Audits verify exact hashes and complete log/result counts.
+
+### Judge jobs, budget and next cycle
+
+Requested **one check3e786669e1bb41a8** at02:36UTC for exact **8c35564/SHA6f0f**,
+after initial local validation and paired wins. Its content_hash is
+`b20f39f4b465efaed561959a77cf7a502b68f6f3174a76c4951ed3bd80b74047`.
+It remains **queued**. **It does NOT qualify final d8bab0a/SHA1bcf42aa6edf**:
+824e52a arrived after the request. Preserve exact snapshots if acting on results.
+No second check was requested for the late merge; official shared usage rose to
+8/10checks,leaving2. An additional account check2363a04971ab46b1 appeared after
+ours; it was not a Codex request. Do not assume it qualifies Codex's native source.
+
+Older scored **fe512312803447b2 resolved at the final02:43UTC read**, as
+described above. Only check3e786 remains pending. Account best is now
+**2.091142x,rank20**, replacing resolved78b6's2.081734x. No more Codex scored
+requests today: session **1check,0scored**, Codex2026-10-24 totals **5/8checks,
+3/3scored**. Official account **8/10checks,3/10scored**,leaving2checks/7scored.
+The actual check cap is10/day. No withdrawals or STOP files.
+
+1. Resolve queued3e786 without resubmitting; read its passing profile.
+   Resolvedfe512/78b6/24414/b485 and earlier jobs need no further polling.
+2. Final production SHA1bcf42aa6edf is locally validated but has NO exact-source
+   qualifying check. Older check3e786 covers only frozen8c35564/SHA6f0f. No scored
+   allowance remains today regardless of account budget. Preserve the remaining
+   shared checks until a stable source merits H200 confirmation.
+3. Read COORD/fetch main before work. Native small-full weakness is small and
+   page/row-count dependent; do not fit a context-specific cutoff. No new native
+   architecture is justified by this audit alone. Reported B6 Gluon variation
+   belongs to Claude's lane.
+4. Keep experiment7305b35 separate; finish clean on pushed codex, remove shared
+   claim and post results. Do not wait idle for the remaining queued check.
