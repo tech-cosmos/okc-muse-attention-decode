@@ -3114,9 +3114,22 @@ beats the board). Per-load estimate vs 7f45c5c6 at equal noise: decode 1 +3.9%, 
 Merged to main anyway (per-shape evidence is far outside noise). Next UTC day: re-check main (plus any new change) and
 submit if it beats 2.343.
 
+### Verify 1 sliding on the same structure: correct, but slow (tools/s72/csv.cu, vsl.py; not integrated)
+
+One 16-CTA cluster per (request, KV head); 64 rows (token * 8 + head); warp = (m-tile rq: tokens 2rq, 2rq+1; key half
+kh: 2 chunks of 32 keys) with one joint max over its chunks (no online rescale); CTA 15's kh-1 warps make the block's
+8 new tokens (cache write, smem, named barrier) and run them as a third, causal chunk; the 2 key halves pre-merge in
+smem (dynamic smem 51 KB), then st.async to owners (4 rows per CTA, 16 sources each). 138 regs, no spills. Correct on
+7 cases (ctx 10 page 64, edges, kv_scale, mixed, batch 1-5). **H100: verify 1 sliding 7.6-7.8 us vs main 5.5-5.6**
+(verify 16: 39.5 vs 13.1). Ablations (tools/s72/csv_abl.cu via CSV_SRC=... vsl.py): loads only 2.72, + compute 5.25,
++ merge 7.58. So compute (~2.5 us: 64 rows x 64 keys per warp; FP8 mma.sync is emulated as HMMA + converts on sm_90)
+and the merge (~2.3 us: 8x the decode partial volume, 17 KB pushed per CTA) both lose to Triton's 32 splits + PDL merge.
+A verify version would need wgmma (M = 64 rows natively) and far fewer key splits (e.g. 4-8 per head) to cut the
+partial volume; not obviously a win. Parked.
+
 ### Next ideas (ranked)
 
-1. **Verify 1 sliding on the same structure** (H200 7.1 us, 1 us there = ~1.3% overall): 64 rows per KV head (8 tokens
+1. ~~Verify 1 sliding on the same structure~~ (tried, above; would need a wgmma-based redesign) (H200 7.1 us, 1 us there = ~1.3% overall): 64 rows per KV head (8 tokens
    x 8 heads) -> mma.sync m-tiles of 16 rows; split rows over warps to keep S/acc registers sane (a warp = 32 keys x 32
    rows: S 32 regs, acc 64); window union [seq - 2047, seq + 7] = 2055 keys: CTA 15 takes an extra 8-key tile for the
    block's 8 new tokens (causal mask within the block, window mask per token on the oldest keys).

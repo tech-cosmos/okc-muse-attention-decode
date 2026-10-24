@@ -52,8 +52,9 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Ranked ideas
 
-0. (s72) Extend the cluster kernel: verify 1 sliding (64 rows/head, extra 8-key tile for the block's new tokens),
-   then batch 32 decode sliding (csl2 NC 8 needs register/load-order fixes), verify 16 sliding. NOTES session 72.
+0. (s72) Cluster kernel follow-ups: batch 32 decode sliding (csl2 NC 8 needs register/load-order fixes); shave csl
+   (compute ~0.8, merge ~0.8, cluster launch ~0.45 us on H100). Verify sliding on mma.sync clusters LOST (7.6 vs 5.5 us
+   H100: 8x partial volume + emulated FP8 mma); would need wgmma + few key splits. NOTES session 72.
 
 1. Native verify-full kernel BUILT (session 71, branch exp/nverify 5bc0e6a, tools/s71/nverify.cu): correct, but H200
    check 19485acf kernel 209.9/112.0 us vs Gluon 209.8/109.2 at verify 32/16 = tie/loss. Producer (gathers + FP8 V
