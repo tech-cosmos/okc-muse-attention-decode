@@ -76,6 +76,7 @@ DOT_DTYPE = tl.float16
 USE_PDL = True
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
+USE_GD1 = True  # decode full at batch * hkv == 2 on _gd_full too (511 splits, 8-warp one-pass merge); unchecked on H200
 USE_GBAL = True  # verify full from 16 KV head pairs: balanced splits over the whole batch (_gw_bal); unchecked on H200
 # Split partials' accumulator dtype (plan key pdt).
 _PDT = {"f32": torch.float32, "bf16": torch.bfloat16, "f16": torch.float16}
@@ -1155,6 +1156,12 @@ def _plan(cfg, max_pages, device):
                     qk8=True, peel=length > 1, hb=2, sb=splits, cw=1, pdt=pdt)
     # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
     # decode 16/32 full -1.0/-1.5 us, verify 1 full -0.4. The Gluon verify path keeps FP32 (BF16 +1.5 us).
+    if heads == 2 and length == 1 and HAVE_GLUON and USE_GDEC and USE_GD1 and cfg["num_q_heads"] // hkv == 8 \
+            and cfg["head_dim"] == 64:
+        # Batch-1 decode full on the Gluon one-warp kernel: 511 key splits + the new token's slot (512 BF16
+        # partials, about 4 per SM), merged in one pass by 8-warp programs. H100 17.5 -> 15.7 us (attention
+        # alone 15.3 -> 12.4, near the 11.5 us gather floor; the 512-way merge costs 3.2 us vs 2.2).
+        return dict(gdec=True, splits=511, block_n=32, stages=2, pdt="bf16", csb=512, cw=8)
     if heads <= (2 if length == 1 else 4):
         # (Session 18's hpp 2 / block_n 64 for decode 1 full won on the H100, 18.0 -> 17.4 us, but lost on the
         # H200: check f3e099c1 decode 1 full 15.2 -> 17.6 us.)
@@ -1375,5 +1382,6 @@ def _decode_gluon(data, cfg, plan):
     _combine[(batch, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
-        SB=min(128, triton.next_power_of_2(s)), PDL=USE_PDL, num_warps=4 if s > 32 else 2, launch_pdl=USE_PDL)
+        SB=plan.get("csb", min(128, triton.next_power_of_2(s))), PDL=USE_PDL,
+        num_warps=plan.get("cw", 4 if s > 32 else 2), launch_pdl=USE_PDL)
     return out
