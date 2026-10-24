@@ -2642,3 +2642,51 @@ and all-L2)
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 55 (overnight agent, 2026-10-24 14:22-~14:45 UTC; unattended session 22 of this night)
+
+**Main 1114bf9 = fa52b18 + `pre` (verify 1 full only). 63a4974 / 6fb74be / d92f1ed / 652aafe / bf5123e / fa52b18 /
+1114bf9 all UNCHECKED on the H200** (`okc problems`: checks 0/10 left today; scored 3/10 left but nothing qualifies a
+submit without a check). Tests 16/16; H100 bench 2.042 at start, 2.041 after (noise; verify 1 full 18.29 -> 17.98).
+
+### Win: L2 prefetch of the split's first tiles before the query norm (plan key `pre`, `_attn_split`)
+
+- With `PRE = n`, `_attn_split` computes its key range first (helper `_range`), loads the page indices of its first
+  n tiles and issues `prefetch.global.L2` for their K and V rows (inline asm, one row per element), then does the
+  query load/norm/RoPE as before; the pipelined loop's cp.async gathers then hit L2. So the page-table -> gather chain
+  overlaps the qkv (and cos/sin) chain instead of following it.
+- Paired H100 (new tools/s55/abalt.py: two submission files, 20 rounds, order alternating each round): verify 1 full
+  pre 1 -0.45 us (20/20), pre 2 another -0.48 (19/20), pre 4 +1.06 vs pre 2. Final vs main: **verify 1 full -0.78
+  us (20/20, -0.79 / -0.77 by order)**. Nearby (tools/s55/near.py, seed 7, all correct): B1 ctx 40K/120K/300K
+  -1.10/-0.77/-0.33, B1 page 64 -0.28, B2 ctx 80K -0.79.
+- Expected H200: verify 1 full ~-0.5..-0.8 us of 17.18 (batch-1 full ~0.5% overall per us, so ~+0.3%). It's latency
+  overlap, not a parallelism change, so lower risk than the session 18 plan flips; if the next check shows verify 1
+  full worse than abd67ae2's 17.18, set `pre=2` off in `_plan`'s verify-1-full branch first.
+- Gotcha: just moving the `base/lo/hi` computation above the query load (no prefetch) cost decode 1 sliding +0.22 us
+  (0/20). The non-PRE path keeps it after the queries.
+
+### Dead ends (measured, not kept)
+
+- First tile held in registers (loaded before the queries, consumed before the loop; loop from lo + BLOCK_N), for
+  all `_attn_split` plans: decode 1/16/32 sliding +1.1/+2.6/+2.0 us, verify 16/32 sliding +0.6/+0.9, verify 1 full
+  +1.1; verify 1 sliding -0.06 paired (13/20). Register-held tiles replace the pipeliner's cp.async path.
+- `pre` (L2 prefetch) on sliding: batch 1 ties (one 64-key tile per split, nothing beyond it to prefetch); decode
+  16/32 and verify 16/32 sliding +0.2..+0.7 us.
+- The same L2 prefetch in Gluon `_gd_full` for decode 1 full (rows of the PFT tiles after the NS - 1 cp.async
+  prologue tiles, one row per lane): pft 1/2/4 +0.6..+0.8 us. `_gd_full` already issues its prologue cp.async before
+  the query math.
+- Verify 1 full with pre 2: stages 10 -0.14 us paired (15/20), within judge noise, not kept; stages 6/7, splits
+  63/95, block_n 32 not better in a sweep.
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 48's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05, decode 16 sliding 10.27) plus verify 1 full
+   17.18 (this session). Revert any shape that got worse (decode 32 full: dbal first), submit if the total beats the
+   board (2.263x ours; #1 2.726x).
+2. Other latency-bound prologues that wait on a dependent chain: none left in Triton (batched sliding loses, batch-1
+   sliding has one tile per split). The merge kernels already load the gate before the PDL wait.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
