@@ -425,12 +425,12 @@ def _plan(cfg, max_pages, device):
     # Verify blocks: each program runs both KV heads as two independent 64-row chains (dual), which
     # hides latency better than more programs; 3 fit per SM (160 registers), or 4 when capped at 128
     # (no spills). The splits fill exactly one wave, and each request's context is cut into equal
-    # chunks (balance) so none idles. 4 per SM wins only where it fills that wave better than 3
-    # (batch 8-24 and 48; at 32 and 64 both leave the same 3% idle and 3 per SM is faster).
+    # chunks (balance) so none idles. 4 per SM wins from 6 pairs up (batch 32: 303 -> 292 us, 64:
+    # 593 -> 568 on an H100); below that only where it fills the wave better (batch 3-4 lose 2-4%).
     pairs = batch * max(1, hkv // 2)
     sms = _num_sms(device)
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
-    per = 4 if fill[4] > fill[3] else 3
+    per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
                 qk8=True, peel=True, dual=True, balance=True, maxnreg=128 if per == 4 else None)
 
