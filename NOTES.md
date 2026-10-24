@@ -964,3 +964,51 @@ as the metric for verify-full compute work.
 
 This session: 1 check (22381fd8), 1 scored (beb63898). Claude day: 4/8 checks, 2/3 scored. Account after this session:
 9/10 checks, 5/10 scored.
+
+## Session 17 (overnight agent, 2026-10-24 05:31-~06:00 UTC)
+
+### Change (main 3bb3a64): verify-full merge inside the Gluon grid (plan key `gfuse`, on for one-wave Gluon plans)
+
+After `warp_specialize` joins, each `_gw_verify` program arrives on a per-(request, KV head pair) counter word
+(arrivals in the low 16 bits, a generation above; the last arrival clears the arrivals and bumps the generation,
+the others spin on it), then merges its slice of the pair's 128 rows (RS = cdiv(128, S) rows, all S + 1 partials,
+loads unrolled; gate logits prefetched before the wait), applies RMSNorm * sigmoid(gate) and stores the output.
+No `_combine_hb` launch. Fences as cooperative groups' grid sync: partition barrier, acq_rel arrival atomic,
+relaxed generation bump, `fence.acq_rel.gpu` after the wait, `.cg` loads. Counters persist across calls in
+`_counters(pairs, device, "g")` (arrivals end at 0 every call). It only runs when splits * pairs <= 2 * SMs
+(one wave); the S programs of a request are consecutive in x, so the waits need only S resident programs.
+
+H100 paired vs main: verify 16 full 136.9 -> 136.0 us, verify 32 full 257.2 -> 255.7 (two rounds each). Tests
+16/16, gluon_cases 8/8 (errors identical), alternating verify 32/16/12 calls + 50 graph replays bit-identical.
+Bench 1.967 (noisy run, other agent on the GPU: decode 32 sliding 17.2). **Not checked on the H200**: the account had
+1 check left today and Codex is keeping it. Expected small (~0.5% on verify full).
+
+How it got there (verify 16 full, H100; base 136.8, no merge at all (wrong output) 132.6):
+- Last-arriving consumer WG merges its whole head, inside the consumer partition: 257 us with static unroll (1290
+  spills), 163 with a runtime loop (one L2 round trip per slot), and even with the merge never taken 139: the
+  extra pointers live through the consumer loop cost spills. Merging after `warp_specialize` avoids that.
+- Slice merge after the join: sync only (no merge) 135.0, + merge 137.2, minus the all-thread fence before the
+  arrival 136.7, packed counter word (one atomic instead of add + xchg + gen add) 136.3, gate prefetch 136.2,
+  relaxed generation bump 136.0. So the sync chain is still ~2 us and the merge ~1 us of the 3.4 us over the floor.
+- BF16 partials on top (pdt bf16): tie (136.0-136.2 vs 136.0-136.1; 255.1-256.1 vs 255.7-256.5). Kept FP32.
+
+### Dead end: the same in-grid slice merge on Triton sliding layers (branch exp/sfuse, plan `sfuse`, off)
+
+H100, base -> sfuse: decode 1 4.8 -> 6.3, decode 16 10.5 -> 13.8, decode 32 16.1 -> 18.9, verify 1 6.0 -> 7.9,
+verify 16 12.6 -> 15.0, verify 32 20.0 -> 23.5 us. Release-only arrival without the post-wait fence: decode 1 6.05,
+verify 32 22.4. The PDL-launched merge (programs already resident, released by griddepcontrol) is much cheaper than
+an atomic + spin + fence chain at these sizes. Don't retry for sliding/decode Triton paths.
+
+### Next ideas
+
+1. Verify full on the H200 is consumer-compute-bound (session 16); the in-grid merge may matter more there than on
+   the H100 (the H200 profile showed a ~10 us merge tail). Confirm with a check when the budget allows (next UTC
+   day), together with whatever else lands.
+2. The remaining ~2 us of sync in gfuse: the arrival atomic waits for the partial stores (release); a program
+   could keep its own slice rows in registers instead of re-reading, or the merge could skip the own split's
+   store for those rows. Small.
+3. As before: lsum in Triton `_tile` (verify sliding), decode full on the H200 (wide-tile gathers).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 4/8 checks, 2/3 scored. Account at 05:35: 9/10 checks, 5/10 scored.
