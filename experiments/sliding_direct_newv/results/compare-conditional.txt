@@ -1,0 +1,10 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+{"shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "fixed"}, "parent_us": 4.287999588996172, "native_us": 4.287999588996172, "paired_delta_us": 0.0}
+{"shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 4.991999361664057, "native_us": 4.927999805659056, "paired_delta_us": -0.06400002166628838}
+{"shape": {"batch": 3, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 5.24799944832921, "native_us": 5.344000179320574, "paired_delta_us": 0.09600026533007622}
+{"shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 7.391999941319227, "native_us": 7.519999984651804, "paired_delta_us": 0.11199992150068283}
+{"shape": {"batch": 1, "ctx": 10, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 3.711999859660864, "native_us": 3.7440001033246517, "paired_delta_us": -0.09599979966878891}
+{"shape": {"batch": 2, "ctx": 1024, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 4.256000276654959, "native_us": 4.256000276654959, "paired_delta_us": -0.07999967783689499}
+{"shape": {"batch": 3, "ctx": 4000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 5.151999648660421, "native_us": 5.279999691992998, "paired_delta_us": 0.15999982133507729}
+{"shape": {"batch": 1, "ctx": 4000, "heads": "dp", "layer": "sliding", "page": 64, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 7.391999941319227, "native_us": 7.200000341981649, "paired_delta_us": -0.19200053066015244}

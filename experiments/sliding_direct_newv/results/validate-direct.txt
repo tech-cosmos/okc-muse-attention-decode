@@ -1,0 +1,54 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_sliding_direct_newv_direct -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/sliding_direct_newv/.build-direct/main.cpp -o main.o
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_sliding_direct_newv_direct -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/sliding_direct_newv/.build-direct/cuda.cu -o cuda.cuda.o
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 75 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 46.734 ms
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 44.978 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 75 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 44.625 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 44.405 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_sliding_direct_newv_direct.so
+PASS 0 {'batch': 1, 'ctx': 10, 'heads': 'tp8', 'layer': 'sliding'} relative L2 error 5.319e-02 (worst row 5.319e-02) [bound 0.148: 2.5 x the reference's 0.05
+PASS 1 {'batch': 3, 'ctx': 2047, 'heads': 'tp8', 'layer': 'sliding'} relative L2 error 9.027e-02 (worst row 1.180e-01) [bound 0.150: 2.5 x the reference's 0.09
+PASS 2 {'batch': 5, 'ctx': 5000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 8, 'spread': 'mixed', 'page': 1} relative L2 error 7.834e-02 (worst row 1.152e-01) [bound 0.150: 2.5 x the reference's 0.07
+PASS 3 {'batch': 4, 'ctx': 3000, 'heads': 'tp8', 'layer': 'full'} relative L2 error 8.629e-02 (worst row 8.783e-02) [bound 0.150: 2.5 x the reference's 0.08
+PASS 4 {'batch': 8, 'ctx': 8192, 'heads': 'dp', 'layer': 'full', 'spread': 'mixed'} relative L2 error 8.407e-02 (worst row 9.223e-02) [bound 0.150: 2.5 x the reference's 0.08
+PASS 5 {'batch': 2, 'ctx': 100000, 'heads': 'tp8', 'layer': 'full', 'q_len': 8, 'page': 1} relative L2 error 9.332e-02 (worst row 1.112e-01) [bound 0.150: 2.5 x the reference's 0.09
+PASS 6 {'batch': 4, 'ctx': 6000, 'heads': 'tp8', 'layer': 'sliding', 'dist': 'edges', 'page': 1} relative L2 error 6.945e-02 (worst row 8.060e-02) [bound 0.150: 2.5 x the reference's 0.06
+PASS 7 {'batch': 4, 'ctx': 6000, 'heads': 'tp8', 'layer': 'full', 'q_len': 8, 'dist': 'edges'} relative L2 error 8.646e-02 (worst row 1.194e-01) [bound 0.150: 2.5 x the reference's 0.08
+PASS 8 {'batch': 1, 'ctx': 1048576, 'heads': 'tp8', 'layer': 'full', 'q_len': 8} relative L2 error 1.050e-01 (worst row 1.150e-01) [bound 0.150: 2.5 x the reference's 0.10
+PASS 9 {'batch': 3, 'ctx': 4000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 8, 'page': 1, 'kv_scale': 0.015625} relative L2 error 7.401e-02 (worst row 9.542e-02) [bound 0.150: 2.5 x the reference's 0.07
+PASS 10 {'batch': 2, 'ctx': 9000, 'heads': 'tp8', 'layer': 'full', 'kv_scale': 0.015625} relative L2 error 6.736e-02 (worst row 7.044e-02) [bound 0.150: 2.5 x the reference's 0.06
+PASS 11 {'batch': 4, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'spread': 'mixed', 'dist': 'soft'} relative L2 error 7.596e-02 (worst row 7.968e-02) [bound 0.150: 2.5 x the reference's 0.07
+PASS 12 {'batch': 4, 'ctx': 6000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 8, 'dist': 'soft', 'page': 1} relative L2 error 5.950e-02 (worst row 8.151e-02) [bound 0.150: 2.5 x the reference's 0.06
+PASS 13 {'batch': 2, 'ctx': 20000, 'heads': 'dp', 'layer': 'full', 'q_len': 8, 'dist': 'soft'} relative L2 error 6.873e-02 (worst row 7.395e-02) [bound 0.150: 2.5 x the reference's 0.06
+PASS 14 {'batch': 4, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'spread': 'mixed', 'dist': 'coherent', 'page': 1} relative L2 error 4.388e-02 (worst row 5.757e-02) [bound 0.125: 2.5 x the reference's 0.04
+PASS 15 {'batch': 2, 'ctx': 20000, 'heads': 'dp', 'layer': 'full', 'q_len': 8, 'dist': 'coherent'} relative L2 error 3.694e-02 (worst row 4.457e-02) [bound 0.107: 2.5 x the reference's 0.03
+decode 1   sliding      4.56 us   (sglang on H200   20.94)
+decode 1   full        17.14 us   (sglang on H200   31.23)
+decode 16  sliding     11.76 us   (sglang on H200   27.25)
+decode 16  full       130.77 us   (sglang on H200  200.06)
+decode 32  sliding     19.55 us   (sglang on H200   31.30)
+decode 32  full       243.92 us   (sglang on H200  383.65)
+verify 1   sliding      5.92 us   (sglang on H200   22.94)
+verify 1   full        18.74 us   (sglang on H200   35.92)
+verify 16  sliding     12.96 us   (sglang on H200   29.17)
+verify 16  full       156.06 us   (sglang on H200  204.18)
+verify 32  sliding     20.69 us   (sglang on H200   34.42)
+verify 32  full       273.39 us   (sglang on H200  387.94)
+H100 time vs SGLang-on-H200, geomean over loads: 1.92
