@@ -1,0 +1,12 @@
+==PROF== Connected to process 165621 (/home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/bin/python3.12)
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS ('profile', 'neighbor', 1, 1)
+==PROF== Disconnected from process 165621
+"ID","Process ID","Process Name","Host Name","Kernel Name","Context","Stream","Block Size","Grid Size","Device","CC","Section Name","Metric Name","Metric Unit","Metric Value"
+"0","165621","python3.12","127.0.0.1","void sliding<1, 1>(const __nv_bfloat16 *, const float *, unsigned char *, unsigned char *, const int *, const int *, const long *, const float *, const float *, float *, float *, int, int, int, int, float)","1","7","(128, 1, 1)","(2, 32, 1)","0","9.0","Command line profiler metrics","dram__bytes_read.sum","byte","553,472"
+"0","165621","python3.12","127.0.0.1","void sliding<1, 1>(const __nv_bfloat16 *, const float *, unsigned char *, unsigned char *, const int *, const int *, const long *, const float *, const float *, float *, float *, int, int, int, int, float)","1","7","(128, 1, 1)","(2, 32, 1)","0","9.0","Command line profiler metrics","launch__registers_per_thread","register/thread","74"
+"0","165621","python3.12","127.0.0.1","void sliding<1, 1>(const __nv_bfloat16 *, const float *, unsigned char *, unsigned char *, const int *, const int *, const long *, const float *, const float *, float *, float *, int, int, int, int, float)","1","7","(128, 1, 1)","(2, 32, 1)","0","9.0","Command line profiler metrics","lts__t_sector_hit_rate.pct","%","68.65"
+"0","165621","python3.12","127.0.0.1","void sliding<1, 1>(const __nv_bfloat16 *, const float *, unsigned char *, unsigned char *, const int *, const int *, const long *, const float *, const float *, float *, float *, int, int, int, int, float)","1","7","(128, 1, 1)","(2, 32, 1)","0","9.0","Command line profiler metrics","lts__t_sectors_op_read.sum","sector","33,152"
+"0","165621","python3.12","127.0.0.1","void sliding<1, 1>(const __nv_bfloat16 *, const float *, unsigned char *, unsigned char *, const int *, const int *, const long *, const float *, const float *, float *, float *, int, int, int, int, float)","1","7","(128, 1, 1)","(2, 32, 1)","0","9.0","Command line profiler metrics","smsp__inst_executed.sum","inst","164,482"

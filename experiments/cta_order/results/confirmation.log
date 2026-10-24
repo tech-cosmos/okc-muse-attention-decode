@@ -1,0 +1,91 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS (0, 'control', 'eager')
+PASS (0, 'control', 'capture')
+PASS (0, 'neighbor', 'eager')
+PASS (0, 'neighbor', 'capture')
+PASS (0, 'parent', 'eager')
+PASS (0, 'parent', 'capture')
+PASS (0, 'control', 'after')
+PASS (0, 'neighbor', 'after')
+PASS (0, 'parent', 'after')
+{"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "fixed"}, "variant": "neighbor", "seed": 30919, "reverse_capture": true, "parent_us": 4.4479998759925365, "candidate_us": 4.415999632328749, "paired_delta_us": -0.09599979966878891}
+{"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "fixed"}, "variant": "control", "seed": 30919, "reverse_capture": true, "parent_us": 4.4479998759925365, "candidate_us": 4.415999632328749, "paired_delta_us": -0.03200024366378784}
+PASS (1, 'control', 'eager')
+PASS (1, 'control', 'capture')
+PASS (1, 'neighbor', 'eager')
+PASS (1, 'neighbor', 'capture')
+PASS (1, 'parent', 'eager')
+PASS (1, 'parent', 'capture')
+PASS (1, 'control', 'after')
+PASS (1, 'neighbor', 'after')
+PASS (1, 'parent', 'after')
+{"index": 1, "shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30919, "reverse_capture": true, "parent_us": 5.0559998489916325, "candidate_us": 4.927999805659056, "paired_delta_us": -0.12800004333257675}
+{"index": 1, "shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30919, "reverse_capture": true, "parent_us": 5.08800009265542, "candidate_us": 4.9600000493228436, "paired_delta_us": -0.0800001434981823}
+PASS (3, 'control', 'eager')
+PASS (3, 'control', 'capture')
+PASS (3, 'neighbor', 'eager')
+PASS (3, 'neighbor', 'capture')
+PASS (3, 'parent', 'eager')
+PASS (3, 'parent', 'capture')
+PASS (3, 'control', 'after')
+PASS (3, 'neighbor', 'after')
+PASS (3, 'parent', 'after')
+{"index": 3, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30919, "reverse_capture": true, "parent_us": 7.424000184983015, "candidate_us": 7.312000263482332, "paired_delta_us": -0.09600073099136353}
+{"index": 3, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30919, "reverse_capture": true, "parent_us": 7.391999941319227, "candidate_us": 7.456000428646803, "paired_delta_us": 0.0}
+PASS (4, 'control', 'eager')
+PASS (4, 'control', 'capture')
+PASS (4, 'neighbor', 'eager')
+PASS (4, 'neighbor', 'capture')
+PASS (4, 'parent', 'eager')
+PASS (4, 'parent', 'capture')
+PASS (4, 'control', 'after')
+PASS (4, 'neighbor', 'after')
+PASS (4, 'parent', 'after')
+{"index": 4, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "fixed"}, "variant": "neighbor", "seed": 30919, "reverse_capture": true, "parent_us": 4.480000119656324, "candidate_us": 4.496000241488218, "paired_delta_us": 0.0}
+{"index": 4, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "fixed"}, "variant": "control", "seed": 30919, "reverse_capture": true, "parent_us": 4.512000363320112, "candidate_us": 4.31999983265996, "paired_delta_us": -0.19199959933757782}
+PASS (7, 'control', 'eager')
+PASS (7, 'control', 'capture')
+PASS (7, 'neighbor', 'eager')
+PASS (7, 'neighbor', 'capture')
+PASS (7, 'parent', 'eager')
+PASS (7, 'parent', 'capture')
+PASS (7, 'control', 'after')
+PASS (7, 'neighbor', 'after')
+PASS (7, 'parent', 'after')
+{"index": 7, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30919, "reverse_capture": true, "parent_us": 7.359999697655439, "candidate_us": 7.072000298649073, "paired_delta_us": -0.28800033032894135}
+{"index": 7, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30919, "reverse_capture": true, "parent_us": 7.408000063151121, "candidate_us": 7.296000141650438, "paired_delta_us": -0.12800004333257675}
+PASS (11, 'control', 'eager')
+PASS (11, 'control', 'capture')
+PASS (11, 'neighbor', 'eager')
+PASS (11, 'neighbor', 'capture')
+PASS (11, 'parent', 'eager')
+PASS (11, 'parent', 'capture')
+PASS (11, 'control', 'after')
+PASS (11, 'neighbor', 'after')
+PASS (11, 'parent', 'after')
+{"index": 11, "shape": {"batch": 8, "ctx": 2049, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "edges", "spread": "mixed"}, "variant": "neighbor", "seed": 30919, "reverse_capture": true, "parent_us": 6.0800001956522465, "candidate_us": 6.1439997516572475, "paired_delta_us": 0.03200024366378784}
+{"index": 11, "shape": {"batch": 8, "ctx": 2049, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "edges", "spread": "mixed"}, "variant": "control", "seed": 30919, "reverse_capture": true, "parent_us": 6.0800001956522465, "candidate_us": 5.95200015231967, "paired_delta_us": -0.11200038716197014}
+PASS (12, 'control', 'eager')
+PASS (12, 'control', 'capture')
+PASS (12, 'neighbor', 'eager')
+PASS (12, 'neighbor', 'capture')
+PASS (12, 'parent', 'eager')
+PASS (12, 'parent', 'capture')
+PASS (12, 'control', 'after')
+PASS (12, 'neighbor', 'after')
+PASS (12, 'parent', 'after')
+{"index": 12, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1, "dist": "soft", "spread": "fixed"}, "variant": "neighbor", "seed": 30919, "reverse_capture": true, "parent_us": 7.1840002201497555, "candidate_us": 7.072000298649073, "paired_delta_us": -0.12800004333257675}
+{"index": 12, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1, "dist": "soft", "spread": "fixed"}, "variant": "control", "seed": 30919, "reverse_capture": true, "parent_us": 7.168000098317862, "candidate_us": 7.072000298649073, "paired_delta_us": -0.09599979966878891}
+PASS (13, 'control', 'eager')
+PASS (13, 'control', 'capture')
+PASS (13, 'neighbor', 'eager')
+PASS (13, 'neighbor', 'capture')
+PASS (13, 'parent', 'eager')
+PASS (13, 'parent', 'capture')
+PASS (13, 'control', 'after')
+PASS (13, 'neighbor', 'after')
+PASS (13, 'parent', 'after')
+{"index": 13, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "coherent", "spread": "fixed"}, "variant": "neighbor", "seed": 30919, "reverse_capture": true, "parent_us": 7.359999697655439, "candidate_us": 7.168000098317862, "paired_delta_us": -0.19199959933757782}
+{"index": 13, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "coherent", "spread": "fixed"}, "variant": "control", "seed": 30919, "reverse_capture": true, "parent_us": 7.359999697655439, "candidate_us": 7.2639998979866505, "paired_delta_us": -0.09599979966878891}

@@ -1,0 +1,19 @@
+{
+  "sass_instruction_sites_all_specializations": 4232,
+  "sass_changed_coordinate_reads": 12,
+  "profile_reference_checks": 6,
+  "production_sha256": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "candidate_sha256": "2829404d0de9410a013ef399cd5db2d74e9f190a31f93a0a173e5e64a2b1ae06",
+  "unchanged_python_functions": 21,
+  "source_edits": [
+    "native grid dimensions",
+    "native blockIdx mapping",
+    "extension name"
+  ],
+  "adjacent_pairs": 4480,
+  "comparison_reference_checks": 216,
+  "fresh_native_replays": 64,
+  "full_suite_passes": 16,
+  "bench_shapes": 12,
+  "sanitizer_claim": false
+}

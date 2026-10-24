@@ -1,0 +1,179 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS (0, 'parent', 'eager')
+PASS (0, 'parent', 'capture')
+PASS (0, 'neighbor', 'eager')
+PASS (0, 'neighbor', 'capture')
+PASS (0, 'control', 'eager')
+PASS (0, 'control', 'capture')
+PASS (0, 'parent', 'after')
+PASS (0, 'neighbor', 'after')
+PASS (0, 'control', 'after')
+{"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "fixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 4.352000076323748, "candidate_us": 4.352000076323748, "paired_delta_us": 0.0}
+{"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "fixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 4.352000076323748, "candidate_us": 4.415999632328749, "paired_delta_us": 0.0800001434981823}
+PASS (1, 'parent', 'eager')
+PASS (1, 'parent', 'capture')
+PASS (1, 'neighbor', 'eager')
+PASS (1, 'neighbor', 'capture')
+PASS (1, 'control', 'eager')
+PASS (1, 'control', 'capture')
+PASS (1, 'parent', 'after')
+PASS (1, 'neighbor', 'after')
+PASS (1, 'control', 'after')
+{"index": 1, "shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 4.992000292986631, "candidate_us": 4.896000027656555, "paired_delta_us": -0.03200024366378784}
+{"index": 1, "shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 4.9760001711547375, "candidate_us": 5.023999605327845, "paired_delta_us": 0.031999312341213226}
+PASS (2, 'parent', 'eager')
+PASS (2, 'parent', 'capture')
+PASS (2, 'neighbor', 'eager')
+PASS (2, 'neighbor', 'capture')
+PASS (2, 'control', 'eager')
+PASS (2, 'control', 'capture')
+PASS (2, 'parent', 'after')
+PASS (2, 'neighbor', 'after')
+PASS (2, 'control', 'after')
+{"index": 2, "shape": {"batch": 4, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 5.504000466316938, "candidate_us": 5.584000144153833, "paired_delta_us": 0.09599979966878891}
+{"index": 2, "shape": {"batch": 4, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 5.504000466316938, "candidate_us": 5.504000466316938, "paired_delta_us": -0.015999656170606613}
+PASS (3, 'parent', 'eager')
+PASS (3, 'parent', 'capture')
+PASS (3, 'neighbor', 'eager')
+PASS (3, 'neighbor', 'capture')
+PASS (3, 'control', 'eager')
+PASS (3, 'control', 'capture')
+PASS (3, 'parent', 'after')
+PASS (3, 'neighbor', 'after')
+PASS (3, 'control', 'after')
+{"index": 3, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 7.391999941319227, "candidate_us": 7.296000141650438, "paired_delta_us": -0.11200038716197014}
+{"index": 3, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 7.391999941319227, "candidate_us": 7.456000428646803, "paired_delta_us": 0.03200024366378784}
+PASS (4, 'parent', 'eager')
+PASS (4, 'parent', 'capture')
+PASS (4, 'neighbor', 'eager')
+PASS (4, 'neighbor', 'capture')
+PASS (4, 'control', 'eager')
+PASS (4, 'control', 'capture')
+PASS (4, 'parent', 'after')
+PASS (4, 'neighbor', 'after')
+PASS (4, 'control', 'after')
+{"index": 4, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "fixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 4.3840003199875355, "candidate_us": 4.415999632328749, "paired_delta_us": 0.047999899834394455}
+{"index": 4, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "fixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 4.415999632328749, "candidate_us": 4.415999632328749, "paired_delta_us": 0.0}
+PASS (5, 'parent', 'eager')
+PASS (5, 'parent', 'capture')
+PASS (5, 'neighbor', 'eager')
+PASS (5, 'neighbor', 'capture')
+PASS (5, 'control', 'eager')
+PASS (5, 'control', 'capture')
+PASS (5, 'parent', 'after')
+PASS (5, 'neighbor', 'after')
+PASS (5, 'control', 'after')
+{"index": 5, "shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 4.799999762326479, "candidate_us": 4.895999561995268, "paired_delta_us": 0.06400002166628838}
+{"index": 5, "shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 4.799999762326479, "candidate_us": 4.879999905824661, "paired_delta_us": 0.06399955600500107}
+PASS (6, 'parent', 'eager')
+PASS (6, 'parent', 'capture')
+PASS (6, 'neighbor', 'eager')
+PASS (6, 'neighbor', 'capture')
+PASS (6, 'control', 'eager')
+PASS (6, 'control', 'capture')
+PASS (6, 'parent', 'after')
+PASS (6, 'neighbor', 'after')
+PASS (6, 'control', 'after')
+{"index": 6, "shape": {"batch": 4, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 5.503999534994364, "candidate_us": 5.472000222653151, "paired_delta_us": -0.015999656170606613}
+{"index": 6, "shape": {"batch": 4, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 5.472000222653151, "candidate_us": 5.535999778658152, "paired_delta_us": 0.06400002166628838}
+PASS (7, 'parent', 'eager')
+PASS (7, 'parent', 'capture')
+PASS (7, 'neighbor', 'eager')
+PASS (7, 'neighbor', 'capture')
+PASS (7, 'control', 'eager')
+PASS (7, 'control', 'capture')
+PASS (7, 'parent', 'after')
+PASS (7, 'neighbor', 'after')
+PASS (7, 'control', 'after')
+{"index": 7, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "agentic"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 7.168000098317862, "candidate_us": 6.975999567657709, "paired_delta_us": -0.19200006499886513}
+{"index": 7, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "agentic"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 7.215999532490969, "candidate_us": 7.231999654322863, "paired_delta_us": 0.047999899834394455}
+PASS (8, 'parent', 'eager')
+PASS (8, 'parent', 'capture')
+PASS (8, 'neighbor', 'eager')
+PASS (8, 'neighbor', 'capture')
+PASS (8, 'control', 'eager')
+PASS (8, 'control', 'capture')
+PASS (8, 'parent', 'after')
+PASS (8, 'neighbor', 'after')
+PASS (8, 'control', 'after')
+{"index": 8, "shape": {"batch": 1, "ctx": 10, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1, "dist": "edges", "spread": "fixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 3.647999372333288, "candidate_us": 3.647999372333288, "paired_delta_us": 0.031999312341213226}
+{"index": 8, "shape": {"batch": 1, "ctx": 10, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1, "dist": "edges", "spread": "fixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 3.647999372333288, "candidate_us": 3.8399999029934406, "paired_delta_us": 0.03200024366378784}
+PASS (9, 'parent', 'eager')
+PASS (9, 'parent', 'capture')
+PASS (9, 'neighbor', 'eager')
+PASS (9, 'neighbor', 'capture')
+PASS (9, 'control', 'eager')
+PASS (9, 'control', 'capture')
+PASS (9, 'parent', 'after')
+PASS (9, 'neighbor', 'after')
+PASS (9, 'control', 'after')
+{"index": 9, "shape": {"batch": 2, "ctx": 63, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "soft", "spread": "mixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 3.8399999029934406, "candidate_us": 3.7599997594952583, "paired_delta_us": -0.06400048732757568}
+{"index": 9, "shape": {"batch": 2, "ctx": 63, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "soft", "spread": "mixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 3.8399999029934406, "candidate_us": 3.8399999029934406, "paired_delta_us": -0.03200024366378784}
+PASS (10, 'parent', 'eager')
+PASS (10, 'parent', 'capture')
+PASS (10, 'neighbor', 'eager')
+PASS (10, 'neighbor', 'capture')
+PASS (10, 'control', 'eager')
+PASS (10, 'control', 'capture')
+PASS (10, 'parent', 'after')
+PASS (10, 'neighbor', 'after')
+PASS (10, 'control', 'after')
+{"index": 10, "shape": {"batch": 3, "ctx": 2047, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1, "dist": "edges", "spread": "mixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 4.70399996265769, "candidate_us": 4.623999819159508, "paired_delta_us": 0.0}
+{"index": 10, "shape": {"batch": 3, "ctx": 2047, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1, "dist": "edges", "spread": "mixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 4.720000084489584, "candidate_us": 4.608000162988901, "paired_delta_us": -0.11200038716197014}
+PASS (11, 'parent', 'eager')
+PASS (11, 'parent', 'capture')
+PASS (11, 'neighbor', 'eager')
+PASS (11, 'neighbor', 'capture')
+PASS (11, 'control', 'eager')
+PASS (11, 'control', 'capture')
+PASS (11, 'parent', 'after')
+PASS (11, 'neighbor', 'after')
+PASS (11, 'control', 'after')
+{"index": 11, "shape": {"batch": 8, "ctx": 2049, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "edges", "spread": "mixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 6.527999881654978, "candidate_us": 6.399999838322401, "paired_delta_us": -0.12800004333257675}
+{"index": 11, "shape": {"batch": 8, "ctx": 2049, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "edges", "spread": "mixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 6.49599963799119, "candidate_us": 6.560000125318766, "paired_delta_us": 0.06400002166628838}
+PASS (12, 'parent', 'eager')
+PASS (12, 'parent', 'capture')
+PASS (12, 'neighbor', 'eager')
+PASS (12, 'neighbor', 'capture')
+PASS (12, 'control', 'eager')
+PASS (12, 'control', 'capture')
+PASS (12, 'parent', 'after')
+PASS (12, 'neighbor', 'after')
+PASS (12, 'control', 'after')
+{"index": 12, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1, "dist": "soft", "spread": "fixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 7.040000054985285, "candidate_us": 7.071999367326498, "paired_delta_us": 0.03200024366378784}
+{"index": 12, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1, "dist": "soft", "spread": "fixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 7.007999811321497, "candidate_us": 7.183999754488468, "paired_delta_us": 0.15999935567378998}
+PASS (13, 'parent', 'eager')
+PASS (13, 'parent', 'capture')
+PASS (13, 'neighbor', 'eager')
+PASS (13, 'neighbor', 'capture')
+PASS (13, 'control', 'eager')
+PASS (13, 'control', 'capture')
+PASS (13, 'parent', 'after')
+PASS (13, 'neighbor', 'after')
+PASS (13, 'control', 'after')
+{"index": 13, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "coherent", "spread": "fixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 7.2639998979866505, "candidate_us": 7.296000141650438, "paired_delta_us": 0.0}
+{"index": 13, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "coherent", "spread": "fixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 7.296000141650438, "candidate_us": 7.2639998979866505, "paired_delta_us": -0.01600012183189392}
+PASS (14, 'parent', 'eager')
+PASS (14, 'parent', 'capture')
+PASS (14, 'neighbor', 'eager')
+PASS (14, 'neighbor', 'capture')
+PASS (14, 'control', 'eager')
+PASS (14, 'control', 'capture')
+PASS (14, 'parent', 'after')
+PASS (14, 'neighbor', 'after')
+PASS (14, 'control', 'after')
+{"index": 14, "shape": {"batch": 2, "ctx": 120000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 0.015625, "dist": "coherent", "spread": "mixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 4.9600000493228436, "candidate_us": 4.847999662160873, "paired_delta_us": 0.0}
+{"index": 14, "shape": {"batch": 2, "ctx": 120000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 0.015625, "dist": "coherent", "spread": "mixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 4.991999361664057, "candidate_us": 4.895999561995268, "paired_delta_us": -0.06399955600500107}
+PASS (15, 'parent', 'eager')
+PASS (15, 'parent', 'capture')
+PASS (15, 'neighbor', 'eager')
+PASS (15, 'neighbor', 'capture')
+PASS (15, 'control', 'eager')
+PASS (15, 'control', 'capture')
+PASS (15, 'parent', 'after')
+PASS (15, 'neighbor', 'after')
+PASS (15, 'control', 'after')
+{"index": 15, "shape": {"batch": 4, "ctx": 4000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 1, "dist": "soft", "spread": "mixed"}, "variant": "neighbor", "seed": 30103, "reverse_capture": false, "parent_us": 5.08800009265542, "candidate_us": 5.103999748826027, "paired_delta_us": 0.03200024366378784}
+{"index": 15, "shape": {"batch": 4, "ctx": 4000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 1, "dist": "soft", "spread": "mixed"}, "variant": "control", "seed": 30103, "reverse_capture": false, "parent_us": 5.1199994049966335, "candidate_us": 5.216000135987997, "paired_delta_us": 0.09600026533007622}

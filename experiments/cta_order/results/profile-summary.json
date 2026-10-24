@@ -1,0 +1,68 @@
+[
+  {
+    "batch": 1,
+    "page": 1,
+    "variant": "parent",
+    "grid": "(32, 1, 2)",
+    "dram__bytes_read.sum": 553216.0,
+    "launch__registers_per_thread": 74.0,
+    "lts__t_sector_hit_rate.pct": 71.52,
+    "lts__t_sectors_op_read.sum": 33427.0,
+    "smsp__inst_executed.sum": 164482.0
+  },
+  {
+    "batch": 1,
+    "page": 1,
+    "variant": "neighbor",
+    "grid": "(2, 32, 1)",
+    "dram__bytes_read.sum": 553472.0,
+    "launch__registers_per_thread": 74.0,
+    "lts__t_sector_hit_rate.pct": 68.65,
+    "lts__t_sectors_op_read.sum": 33152.0,
+    "smsp__inst_executed.sum": 164482.0
+  },
+  {
+    "batch": 8,
+    "page": 1,
+    "variant": "parent",
+    "grid": "(32, 8, 2)",
+    "dram__bytes_read.sum": 4300032.0,
+    "launch__registers_per_thread": 74.0,
+    "lts__t_sector_hit_rate.pct": 37.56,
+    "lts__t_sectors_op_read.sum": 225168.0,
+    "smsp__inst_executed.sum": 1315856.0
+  },
+  {
+    "batch": 8,
+    "page": 1,
+    "variant": "neighbor",
+    "grid": "(2, 32, 8)",
+    "dram__bytes_read.sum": 4299776.0,
+    "launch__registers_per_thread": 74.0,
+    "lts__t_sector_hit_rate.pct": 38.08,
+    "lts__t_sectors_op_read.sum": 226146.0,
+    "smsp__inst_executed.sum": 1315856.0
+  },
+  {
+    "batch": 8,
+    "page": 64,
+    "variant": "parent",
+    "grid": "(32, 8, 2)",
+    "dram__bytes_read.sum": 4236288.0,
+    "launch__registers_per_thread": 74.0,
+    "lts__t_sector_hit_rate.pct": 37.09,
+    "lts__t_sectors_op_read.sum": 219025.0,
+    "smsp__inst_executed.sum": 1336336.0
+  },
+  {
+    "batch": 8,
+    "page": 64,
+    "variant": "neighbor",
+    "grid": "(2, 32, 8)",
+    "dram__bytes_read.sum": 4236544.0,
+    "launch__registers_per_thread": 74.0,
+    "lts__t_sector_hit_rate.pct": 37.4,
+    "lts__t_sectors_op_read.sum": 221421.0,
+    "smsp__inst_executed.sum": 1336336.0
+  }
+]
