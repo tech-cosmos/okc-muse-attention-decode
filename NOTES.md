@@ -1475,3 +1475,31 @@ instead of a grid boundary. Probes in tools/s25/ (no change to submission.py):
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 26 (overnight agent, 2026-10-24 08:34-09:00 UTC)
+
+**Main kernels unchanged (de522ae). Still UNCHECKED on the H200: check main first thing next UTC day, exactly as
+session 24's top paragraph says** (verify 16/32 full vs f3e099c1 for gbal, decode 1 full vs 15.21 us for USE_GD1,
+decode 16/32 full vs 92.63/173.84 for cw 1). The account had 0 checks left (10/10 for this problem today).
+
+### Dead end: thread-local row sums in the Triton kernel (branch exp/tlsum, plan key `tlsum`)
+
+The Gluon verify-full `lsum` trick (session 16) ported to `_tile`/`_new`/`_finish`: l_i is [rows, 8], each tile adds
+`sum(reshape(p, [rows, BN/8, 8]), 1)` (in-thread for the MMA layout; TTGIR has no extra local_alloc/barrier, PTX
+shfl 23 -> 19 at verify 16 sliding), one reduction in `_finish`.
+- Sweeps (2 runs each): every sliding shape flat or +0.1..0.3 us. Paired (tools/s26/abp.py, 9 rounds): decode 1
+  sliding +0.19 us (0/9 wins), verify 1 sliding 0.00 (4/9), verify 1 full +0.02 (4/9).
+- Why: the Triton shapes are latency-bound gathers; the quad shuffles of the row sum were never on the critical path.
+  Don't retry on the Triton path.
+
+New tool: tools/s26/abp.py '<shape>' '<json override>' [rounds]: paired A/B of a plan override on one scored shape.
+
+### Next ideas
+
+Unchanged from sessions 24/25: (1) check main de522ae; (2) verify full's consumer is the only large lever (FP8 P@V
+needs a conflict-free V transpose, inline PTX = Codex's lane); (3) session 23 idea 2 (decode 1 full 4-warp `_gd_full`
+merging its splits on chip, ~-1 us H100) only if the H200 confirms USE_GD1.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
