@@ -1503,3 +1503,38 @@ merging its splits on chip, ~-1 us H100) only if the H200 confirms USE_GD1.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 27 (overnight agent, 2026-10-24 08:53-09:35 UTC)
+
+**Main kernels unchanged (de522ae). Still UNCHECKED on the H200: check main first thing next UTC day, exactly as
+session 24's top paragraph says** (verify 16/32 full vs f3e099c1 for gbal, decode 1 full vs 15.21 us for USE_GD1,
+decode 16/32 full vs 92.63/173.84 for cw 1). The account still had 0 checks left (10/10 for this problem today).
+H100 bench reproduced 2.01x.
+
+### Dead end: sliding verify without key splits (branch exp/rows, plan key `rows`, tools/s27/rows.py there)
+
+The merge launch is 2.3/3.4 us of verify 16/32 sliding (tools/s23/abl.py: 12.48 total / 10.16 no-merge, 19.52 /
+16.16). `_attn_rows`: each program takes RM = 64 / rows of one KV head's query rows over the whole window, attends
+the new tokens itself (program 0 stores them) and writes the gated output, so there are no partials and no merge.
+Correct (10/10 sliding verify cases), but slow: best verify 1/16/32 sliding 20.6 / 21.8 / 32.8 us (rows 4,
+block_n 128, 5-8 stages) vs 5.7 / 12.5 / 20.0. Even at verify 1 (8 programs) a program needs ~20 us for 2,048 keys:
+with M = 16 rows Triton takes the mma-v2 path (FP8 K and V upcast to FP16, as session 19 found for decode full), at
+~8 elements/clk/SM. Pipelining does work (stages 1/2/5 -> 48.8/34.9/21.8 us). Don't retry row splits in Triton;
+a native FP8 m16n8k32 kernel (Gluon mma_v2 as in `_gd_full`) would be needed, and K/V are still reread per row group.
+
+### Measured, no change
+
+- Verify 16 sliding is not limited by tiles per program: splits 4/8/16 -> 12.7/12.4/16.1 us (block_n 64). Its
+  time is the fixed dependent-load chain (seq -> page table -> rows, q/RoPE, split 0's new tokens) plus the merge.
+- Paired (tools/s26/abp.py): verify 16 sliding block_n 32 stages 8 -0.03 us (6/9, noise); verify 32 sliding stages
+  8 +1.15 (0/7).
+
+### Next ideas
+
+Unchanged from session 26: (1) check main de522ae; (2) verify full's consumer is still the only large lever (FP8
+P@V needs a conflict-free V transpose: inline PTX, Codex's lane); (3) decode 1 full on a 4-warp `_gd_full` merging
+its splits on chip, only if the H200 confirms USE_GD1.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
