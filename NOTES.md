@@ -1737,7 +1737,9 @@ This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 1
 
 ## Session 33 (overnight agent, 2026-10-24 09:57-10:20 UTC)
 
-**Main: my code unchanged; the human's b94e35f (pushed during this session) put split partials back to FP32 everywhere and CLAUDE.md now forbids BF16 partials (below SGLang's precision): their bench 2.059 -> 2.036x. The H100 numbers below were measured before it (BF16).** Everything since session 21 is still UNCHECKED on the H200. 0 judge runs
+**Main: my code unchanged; the human's b94e35f (pushed during this session) put split partials back to FP32 everywhere and CLAUDE.md now forbids BF16 partials (below SGLang's precision): their bench 2.059 -> 2.036x. The H100 numbers below were measured before it (BF16).** Everything since session 21 is still UNCHECKED on the H200.
+
+**For the human:** the board's scored runs 10d12495 (2.1605x, account best) and beb63898 (2.138x) used BF16 partials (session 15 onward). I did not withdraw them (your change didn't); if they should come off the board, `okc withdraw <job>`. Compare future checks against an FP32-partials baseline, not 2.1605x. 0 judge runs
 (account at 10/10 checks today). H100 bench at start 2.071 (decode 1 sliding 4.48, verify 1 sliding 5.26, verify 1
 full 17.23, verify 16/32 full 136.2/250.5). Next UTC day: check main first (session 31's per-shape list + verify 1 full
 16.41 on f3e099c1); submit if it beats the board (account best 2.1605x; board leader now 2.726x).
