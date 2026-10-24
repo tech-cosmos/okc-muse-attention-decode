@@ -949,3 +949,18 @@ the bound the H200 hits on verify full) 103.8 -> 101.0 (lsum) -> 100.2 (barriers
 The verify-full gain on the H200 (-3.3% / -2.3%) is about what the H100 compute-only ablation predicted, so on the H200
 verify full really is bound by consumer compute: keep using the no-gather ablation (cp.async skipped in the producer)
 as the metric for verify-full compute work.
+| beb63898dbb64991 (submit) | exactly the file checked as 22381fd8 | **2.138x** (2.106-2.170) | 16/16; new account best (was 2.113x d0f30dc0), board rank 20 |
+
+### Next ideas
+
+1. Verify full on the H200 is consumer-compute-bound: keep cutting per-tile consumer work and measure it with the
+   no-gather ablation. Left: the row-max quad reduction (2 shfl + 2 FMNMX per row, on the critical path), the acc
+   rescale (32 FMUL/thread/tile; FA4's conditional rescale lost in session 12 with a WG-wide vote, though a
+   warp-level vote would be enough because a row's quad sits inside one warp), and the ready-wait retries.
+2. The lsum trick in Triton `_tile` (verify sliding batch 16/32), if Triton's reshape stays in registers.
+3. As before: the merge tail on verify full (~6 us on H100), and decode full on the H200 (wide-tile gathers).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 1 check (22381fd8), 1 scored (beb63898). Claude day: 4/8 checks, 2/3 scored. Account after this session:
+9/10 checks, 5/10 scored.
