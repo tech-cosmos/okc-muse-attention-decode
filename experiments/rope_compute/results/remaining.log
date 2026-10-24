@@ -1,0 +1,11 @@
+candidate-config.log 0
+candidate-memcheck.log 0
+candidate-synccheck.log 0
+candidate-racecheck.log 0
+compensated-suite.log 0
+compensated-compare.log 0
+compensated-fresh.log 0
+compensated-config.log 0
+compensated-memcheck.log 0
+compensated-synccheck.log 0
+compensated-racecheck.log 0

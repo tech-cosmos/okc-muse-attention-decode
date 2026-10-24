@@ -1,0 +1,26 @@
+========= COMPUTE-SANITIZER
+PASS native-only 1 1.0 10 0
+PASS native-only 1 1.0 10 1
+PASS native-only 1 1.0 257 0
+PASS native-only 1 1.0 257 1
+PASS native-only 1 1.0 4096 0
+PASS native-only 1 1.0 4096 1
+PASS native-only 1 0.015625 10 0
+PASS native-only 1 0.015625 10 1
+PASS native-only 1 0.015625 257 0
+PASS native-only 1 0.015625 257 1
+PASS native-only 1 0.015625 4096 0
+PASS native-only 1 0.015625 4096 1
+PASS native-only 64 1.0 10 0
+PASS native-only 64 1.0 10 1
+PASS native-only 64 1.0 257 0
+PASS native-only 64 1.0 257 1
+PASS native-only 64 1.0 4096 0
+PASS native-only 64 1.0 4096 1
+PASS native-only 64 0.015625 10 0
+PASS native-only 64 0.015625 10 1
+PASS native-only 64 0.015625 257 0
+PASS native-only 64 0.015625 257 1
+PASS native-only 64 0.015625 4096 0
+PASS native-only 64 0.015625 4096 1
+========= ERROR SUMMARY: 0 errors

@@ -1,0 +1,9 @@
+{
+  "production_snapshot.py": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "candidate.py": "e9bccd895d4aa13575833f3e8b385bb51ee6b53dfc94ff54d1379032fa79a9f6",
+  "candidate.cu": "0c25c7f9a17e17905882b58b74a9dc8f71f32b3de34acb7b8a6a570cbd01da10",
+  "compensated.py": "776567175f00da7a1284315750f7363e028dc0188ff8165595da7f56c65b2adf",
+  "compensated.cu": "10ea7d0e21d3f228b37bdb8d50f3744da6d137c5488576e49e5996907cb7103c",
+  "parent.cu": "2af7e641a33e2bd1915902d91d375139a38f97ff8fb8e71bffc7f00f2bc8a2a4",
+  "helper.cuh": "e5e04969f3090b1c723ab1b3d7c2f44ee33dcfd9de76be0c16880dda1b2eb7af"
+}
