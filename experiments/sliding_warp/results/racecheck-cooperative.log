@@ -1,0 +1,7 @@
+========= COMPUTE-SANITIZER
+ninja: no work to do.
+PASS native-only experiments.sliding_warp.cooperative True 1 1.0
+PASS native-only experiments.sliding_warp.cooperative True 1 0.015625
+PASS native-only experiments.sliding_warp.cooperative True 64 1.0
+PASS native-only experiments.sliding_warp.cooperative True 64 0.015625
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

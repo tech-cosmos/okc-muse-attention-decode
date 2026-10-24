@@ -1,0 +1,206 @@
+{
+  "production_unchanged": true,
+  "base_matches_embedded_native": true,
+  "source_hashes": {
+    "warp.cu": "a14fb052a9e1c137888314d4c550c9fe0ac65f4152c52ef2cb57258a76d4bb6b",
+    "warp.py": "8b24c81a56391bb83fcf22c7e88d8018b522d17c226a535941a01d86fbd06988",
+    "cooperative.cu": "e58eff84158be56690aa3b890990a0886a1bd2f50297b45be6a7c39be28e2456",
+    "cooperative.py": "9abd74d9c97c74e54401154d9828099e2527e6af1c8eab89e23a6af5e07e50d7",
+    "hybrid.cu": "8acf5378cd1b5d6d7e46fd0b463ba1238ceb79932516f4c62e78ac3c277e3cc5",
+    "hybrid.py": "ae807ba5fc696b50c6de9eeb2ec15927af0bc895d7d03e04b148c938f9ab3532",
+    "warp_swizzle.cu": "a1e74057fc179f8268e16737c86aa24538a312289deaa07240195ba017bab808",
+    "warp_swizzle.py": "0af4ba86dde0b3939e83aafffe431f3ac8f75b249497149a6a305492497bb324",
+    "cooperative_swizzle.cu": "281b44111bd7cac8655c5d61f9b8c71bdccc24e623da5c85382ae88ef87606e9",
+    "cooperative_swizzle.py": "4aa2bcabaa1f20c9c4ab66ec2c3c665841c7cc0f6ab86236a3228b2ad25271ec",
+    "hybrid_swizzle.cu": "715fdd04ca0bd6fabe0cdca22230da3bc7f4d1d02845721243249fe15fcafa41",
+    "hybrid_swizzle.py": "cbcc731648843df8a8ac03641591187ea66a680c9b868a267777d6266c9123dd"
+  },
+  "validation": {
+    "warp": {
+      "pass": 16,
+      "native": 3,
+      "fallback": 13
+    },
+    "cooperative": {
+      "pass": 16,
+      "native": 3,
+      "fallback": 13
+    },
+    "hybrid": {
+      "pass": 16,
+      "native": 3,
+      "fallback": 13
+    },
+    "warp_swizzle": {
+      "pass": 16,
+      "native": 3,
+      "fallback": 13
+    },
+    "cooperative_swizzle": {
+      "pass": 16,
+      "native": 3,
+      "fallback": 13
+    },
+    "hybrid_swizzle": {
+      "pass": 16,
+      "native": 3,
+      "fallback": 13
+    }
+  },
+  "bench": {
+    "warp": 1.836,
+    "cooperative": 1.847,
+    "hybrid": 1.878,
+    "warp_swizzle": 1.872,
+    "cooperative_swizzle": 1.884,
+    "hybrid_swizzle": 1.891
+  },
+  "fresh_replays": {
+    "warp": 60,
+    "cooperative": 60,
+    "hybrid": 60,
+    "warp_swizzle": 60,
+    "cooperative_swizzle": 60,
+    "hybrid_swizzle": 60
+  },
+  "sanitizers": {
+    "warp-memcheck": "12 calls; zero errors/hazards",
+    "warp-synccheck": "12 calls; zero errors/hazards",
+    "warp-racecheck": "12 calls; zero errors/hazards",
+    "cooperative-memcheck": "12 calls; zero errors/hazards",
+    "cooperative-synccheck": "12 calls; zero errors/hazards",
+    "cooperative-racecheck": "12 calls; zero errors/hazards",
+    "hybrid-memcheck": "12 calls; zero errors/hazards",
+    "hybrid-synccheck": "12 calls; zero errors/hazards",
+    "hybrid-racecheck": "12 calls; zero errors/hazards"
+  },
+  "comparison_entries": {
+    "warp": 20,
+    "cooperative": 20,
+    "hybrid": 20,
+    "warp_swizzle": 20,
+    "cooperative_swizzle": 20,
+    "hybrid_swizzle": 20
+  },
+  "static_sass": {
+    "base": {
+      "instructions": 1049,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 2,
+        "HGMMA": 4,
+        "HMMA": 0,
+        "LDSM": 0,
+        "F2FP": 52,
+        "SHFL": 24,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    },
+    "warp": {
+      "instructions": 1673,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 0,
+        "HGMMA": 0,
+        "HMMA": 64,
+        "LDSM": 32,
+        "F2FP": 173,
+        "SHFL": 24,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    },
+    "cooperative": {
+      "instructions": 1425,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 0,
+        "HGMMA": 0,
+        "HMMA": 64,
+        "LDSM": 32,
+        "F2FP": 125,
+        "SHFL": 24,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    },
+    "hybrid": {
+      "instructions": 1065,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 2,
+        "HGMMA": 0,
+        "HMMA": 32,
+        "LDSM": 32,
+        "F2FP": 52,
+        "SHFL": 24,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    },
+    "warp_swizzle": {
+      "instructions": 1857,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 0,
+        "HGMMA": 0,
+        "HMMA": 64,
+        "LDSM": 32,
+        "F2FP": 173,
+        "SHFL": 24,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    },
+    "cooperative_swizzle": {
+      "instructions": 1553,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 0,
+        "HGMMA": 0,
+        "HMMA": 64,
+        "LDSM": 32,
+        "F2FP": 125,
+        "SHFL": 24,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    },
+    "hybrid_swizzle": {
+      "instructions": 1209,
+      "counts": {
+        "MUFU.EX2": 32,
+        "MUFU.RSQ": 3,
+        "QGMMA": 2,
+        "HGMMA": 0,
+        "HMMA": 32,
+        "LDSM": 32,
+        "F2FP": 52,
+        "SHFL": 24,
+        "BAR": 3,
+        "BRA": 8,
+        "BSSY": 4,
+        "BSYNC": 4
+      }
+    }
+  }
+}

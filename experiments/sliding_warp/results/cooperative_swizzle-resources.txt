@@ -1,0 +1,20 @@
+
+Fatbin elf code:
+================
+arch = sm_90a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /home/daytona/codex-repo/experiments/sliding_warp/.build-cooperative_swizzle/cuda.cu
+
+Resource usage:
+ Common:
+  GLOBAL:28 CONSTANT[4]:224
+ Function _Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif:
+  REG:64 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:636 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif:
+  REG:64 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:636 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif:
+  REG:64 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:636 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif:
+  REG:64 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:636 TEXTURE:0 SURFACE:0 SAMPLER:0

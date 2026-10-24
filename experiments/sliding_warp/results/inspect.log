@@ -1,0 +1,121 @@
+{
+  "base": {
+    "instructions": 1049,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "HMMA": 0,
+      "LDSM": 0,
+      "F2FP": 52,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "warp": {
+    "instructions": 1673,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 0,
+      "HGMMA": 0,
+      "HMMA": 64,
+      "LDSM": 32,
+      "F2FP": 173,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "cooperative": {
+    "instructions": 1425,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 0,
+      "HGMMA": 0,
+      "HMMA": 64,
+      "LDSM": 32,
+      "F2FP": 125,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "hybrid": {
+    "instructions": 1065,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 0,
+      "HMMA": 32,
+      "LDSM": 32,
+      "F2FP": 52,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "warp_swizzle": {
+    "instructions": 1857,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 0,
+      "HGMMA": 0,
+      "HMMA": 64,
+      "LDSM": 32,
+      "F2FP": 173,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "cooperative_swizzle": {
+    "instructions": 1553,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 0,
+      "HGMMA": 0,
+      "HMMA": 64,
+      "LDSM": 32,
+      "F2FP": 125,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "hybrid_swizzle": {
+    "instructions": 1209,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 0,
+      "HMMA": 32,
+      "LDSM": 32,
+      "F2FP": 52,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  }
+}
