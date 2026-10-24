@@ -536,4 +536,15 @@ Rule now `per = 4 if pairs >= 6 or fill[4] > fill[3] else 3`. Bench 1.905 (verif
 
 ### Budget (UTC day 2026-10-24)
 
-The okc limit for this problem now reads 10 checks/day (not 20). Claude: 1 check (fdccc1c6, see table), 0 scored.
+| job | commit | speedup (95% CI) | notes |
+|---|---|---|---|
+| fdccc1c6fa704926 (check) | 57ad70c | **2.013x** (1.983-2.053) | 16/16; verify 32 full 303.9 -> 295.4 us (1.283x -> 1.321x), verify 16 full 156.4 (1.316x, unchanged); overall within noise of 254b1d40 (2.041x) / scored 0a2eec0f (2.021x), so no scored run |
+
+The okc limit for this problem now reads 10 checks/day (not 20). Claude on 2026-10-24: 1 check, 0 scored.
+
+### Next ideas
+
+- Verify full is still ~1.3x SGLang on the H200 and the biggest lever. In Triton, sessions 1-8 ruled out
+  softmax-side cuts (MUFU, rescale, exp form); the limit is issue utilization (~45%) at 16 warps/SM with
+  the register cap. The occupancy/wave-fill rule is the one knob that still moved; maybe re-sweep splits
+  around 4/SM (e.g. 2 waves of smaller chunks) at batch 16/32.
