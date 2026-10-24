@@ -1734,3 +1734,50 @@ the remaining lever is the H200's compute-bound verify full consumer (Codex's la
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 33 (overnight agent, 2026-10-24 09:57-10:20 UTC)
+
+**Main unchanged (= session 32's 4ea5904, everything since session 21 still UNCHECKED on the H200).** 0 judge runs
+(account at 10/10 checks today). H100 bench at start 2.071 (decode 1 sliding 4.48, verify 1 sliding 5.26, verify 1
+full 17.23, verify 16/32 full 136.2/250.5). Next UTC day: check main first (session 31's per-shape list + verify 1 full
+16.41 on f3e099c1); submit if it beats the board (account best 2.1605x; board leader now 2.726x).
+
+Where the gap is (f3e099c1 per-load speedups): decode 1 2.52, decode 16 2.11 (2.27 with beb63898's sliding), decode
+32 2.17, verify 1 2.70, **verify 16 1.81, verify 32 1.72**. The verify loads' full layers (H200 124.65/231.75 us,
+compute-bound there) are the lever; getting them to decode-full speed (~93/175) would be about +7% overall.
+
+### Dead end 1 (branch exp/pfr, not pushed): page-table prefetch on batch-1 sliding (plan `pfr`)
+
+Upper bound first: skipping the page-table load (page = token index, wrong results) makes decode/verify 1 sliding
+~0.45 us faster, so the seq -> page-table hop is on the critical path. But the window's place in the row depends on
+seq, so a seq-independent prefetch has to cover the whole row (80001 entries, 320 KB):
+- per-line `tl.load`s: decode 1 +0.78, verify 1 +0.53; per-line `prefetch.global.L2`: +0.21 / 0.0;
+- one `cp.async.bulk.prefetch.L2` per program (row split over the 66 programs): decode 1 +0.26 (0/15), verify 1
+  -0.06..-0.16 at first, then off-vs-on recheck +0.03 (6/15): noise. Batch 16 sliding +2 us. A 16-byte bulk
+  prefetch ties, so the loss is the extra DRAM traffic.
+
+### Dead end 2 (branch exp/qreg, pushed): gbal verify-full queries as QK^T's register A operand (plan `qreg`)
+
+Idea: skip the per-tile shared-memory read of the 64x64 FP8 queries (A operand from registers, 8 regs/thread).
+- Held across the tile loop it gives NaN: in SASS, ptxas puts the query fragment in R88-R95 and the loop's F2FP (P to
+  FP16) overwrites them after the first tile (the PTX keeps the virtual register live; a non-pure `mov` copy doesn't
+  help). Unit tests (tools/s33/qreg_unit*.py, qreg_ws.py: register-A FP8 wgmma, also in warp_specialize partitions
+  and on the 128B-swizzled K slice) are all correct; it's the in-loop register allocation. The broken kernel timed
+  all-L2 -2.4/-5.1 us at cregs 104 / pregs 32 (+9/+16 at 96), but that doesn't count.
+- Correct variants: per-tile `q_s.load(DotOperandLayout)` all-L2 -0.4/-0.75 (tie), real tie; held queries
+  with each tile's operand `qa ^ loop-variant zero` (inline asm) +2.5/+4.9. Dead.
+- Gluon facts: `warpgroup_mma_wait(deps=[fp8 tensor])` fails to compile ("Unexpected bitwidth in WGMMAWaitGroupOp:
+  8"); FP8 register A operands work with DotOperandLayout(0, parent=wgmma layout, k_width=4).
+- Debug tools: tools/s33/dbg.py (non-finite count per batch/head/token for a plan override on a gbal case),
+  tools/s33/dump.py (on exp/qreg: a kernel debug buffer comparing two score paths on one tile).
+
+### Next ideas
+
+1. Check main next UTC day; submit if it beats the board.
+2. Verify 16/32 full on the H200 is the lever (above). On the H100, compute-only (all-L2) is the proxy;
+   the consumer has no register headroom at 2 CTAs/SM, so ideas that add live state lose. Unchanged: FP8 P@V with a
+   conflict-free V transpose (Codex's lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
