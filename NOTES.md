@@ -3020,3 +3020,51 @@ Step 3: integrate, test, bench, then check (verify 16/32 full only).
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/20 checks, 9/10 scored.
+
+## Session 71 (overnight agent, 2026-10-24 19:04-~20:35 UTC; unattended session 3 of the #1-push brief)
+
+**Main kernel unchanged (14355d4 = scored 7f45c5c6, 2.343x). 1 check (19485acf, branch exp/nverify 5bc0e6a).**
+Board at start: #1 colinlikescode 2.834x, ours #14 2.343x.
+
+### Native CUDA verify-full kernel (exp/nverify, tools/s71/nverify.cu): correct, ties Gluon on the H200
+
+Drop-in for the gbal `_gw_verify` (same partial ids/format, so `_new_tokens` and `_combine_bal` unchanged; dispatched
+when hkv 2, G 8, L 8, D 64, FP32 partials; built with load_inline at import, Gluon fallback if the build fails).
+384 threads, 2 CTAs/SM (80 regs at launch; setmaxnreg producer 32 / consumers 104: ptxas does allocate per region,
+reported "Used 80"; producer > 32 or consumer 96 spill/serialize). Producer WG: cp.async K (SW128) and V staging
+(SW128) per 64-key tile, 8 lanes per 128-byte row; page-table entries staged NV_PFD=4 tiles ahead in a smem ring via
+cp.async (page 1; register path for other pages); V^T built FA3-style: per 16 keys x 32 d, ldmatrix.x4.trans.b16 +
+4 PRMT (0x6420/0x7531) + stmatrix.x4 straight into the permuted-key SW64 V^T that the RS FP8 wgmma wants (keys
+2t,2t+1,2t+8,2t+9 per slot word, exactly what ldmatrix.trans hands thread t). Consumers: tools/s70 cmicro8 pipeline
+(QK(i) + PV(i-1) in flight, unrolled x2 for the P registers), E4M3 P with lazy rescale (threshold 8; m stored as is),
+per-segment query norm/FP8 into smem, partial stores. Correct: tests 16/16 + 6 gbal shapes (tools/s71/chk.py; errors
+~3-5% relative above Gluon's, e.g. 3.32e-2 vs 2.88e-2 at verify 32, bound 8.7e-2).
+
+H100 (tools/s54/abl2.py vs main, verify 32 full): real 268.8 vs 267.7, all-L2 206.8 vs 199.0 (verify 16: real -0.75,
+all-L2 +3.3). **H200 check 19485acf: 2.310x [2.275, 2.345]; nverify kernel 209.9 us (verify 32) / 112.0 (verify 16)
+vs Gluon 209.8 / 109.2 in 7f45c5c6: tie/loss.** (Unchanged decode-full shapes also came in ~4% lower than in
+7f45c5c6, so per-shape judge ratios move several % run to run.) Not submitted; main unchanged.
+
+What mattered (H100, producer-only = consumers just wait/arrive):
+- Page-table loads on the per-tile chain (loaded one tile ahead into registers): producer-only 349 us at verify 32;
+  L2 prefetch of the entries didn't help; contiguous rows 263. Staging entries in smem 4 tiles ahead fixed the chain.
+- Request granularity: 2 threads per row (4 chunks each) -> 363 us; 8 lanes per row (whole 128-B line per
+  instruction) -> 259. Same lesson as s43.
+- LAG/NS: LAG 2 with NS 3 deadlocks (consumer holds tile i-1 until tile i is ready: need NS >= LAG + 2); LAG 2/NS 4,
+  LAG 3/NS 4, NS 4, PFD 6 all tie or lose; LAZY 0 +8 us all-L2.
+- Register 4x4 byte transpose (16 LDS.32 + 32 PRMT + 16 STS.32 per thread per tile): producer-only all-L2 142 us vs
+  95 without transpose; ldmatrix/stmatrix version 116; combined 225 -> 207. One arrive per warp instead of 128: tie.
+- The combined kernel is ~40-90 us above producer-only all-L2 (116); consumer-only numbers were not measurable
+  cleanly (uninitialized/garbage smem changes the lazy path; ABL 6 gave 81 us, below the ~84 us MUFU floor, so broken).
+  cmicro8's 149 us consumer-only + 116 producer => the SM is shared-issue bound when both run (s51: issue-bound).
+
+Next ideas on this kernel (if anyone resumes it): cut producer instructions further (the transpose is now 4 LDSM +
+16 PRMT + 4 STSM per thread per tile; gathers 8 cp.async + 4 LDS), move the V transpose out entirely (e.g. TMA-less
+bulk copies can't gather rows; a dedicated transpose warp is the same issue cost), or give the consumers the whole SM
+issue share (1 producer warp instead of a WG is not possible with setmaxnreg granularity). Honest read: the H200
+verify-full floor for this structure looks like ~200 us, the same as Gluon; FP8 P@V's consumer saving is eaten by
+the producer's extra transpose work.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 1 check (19485acf), 0 scored. Claude day: 6/8 checks, scored 3/3 (account: 11/20 checks, 9/10 scored).

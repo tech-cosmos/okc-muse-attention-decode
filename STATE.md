@@ -1,6 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-24 ~19:20 UTC (session 70 = unattended session 2 of the #1-push brief).
+Updated 2026-10-24 ~20:35 UTC (session 71 = unattended session 3 of the #1-push brief).
 
 ## Board and best run
 
@@ -29,7 +29,7 @@ Updated 2026-10-24 ~19:20 UTC (session 70 = unattended session 2 of the #1-push 
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- Account: checks 10/20 used (10 left), scored 9/10 used (1 left). Claude share: 5/8 checks used -> 3 left today;
+- Account: checks 11/20 used, scored 9/10 used (1 left). Claude share: 6/8 checks used -> 2 left today;
   scored: only 1 left on the account.
 
 ## Current direction (session 69): native verify-full consumer (CUDA, inline-PTX wgmma)
@@ -50,21 +50,22 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Ranked ideas
 
-1. **Native verify-full kernel with FP8 P@V** (NOTES session 70): native consumer-only microbench (tools/s70/cmicro8)
-   152 us with E4M3 P (FA3 Max_offset 8; V^T FP8 K-major with permuted keys, no register shuffles), 149 with lazy
-   rescale, vs Gluon consumer-only 178 and native FP16-P 166. Estimated verify 32/16 full H200 210/109 -> ~180/95,
-   ~+3.5-4% overall. Risk: the producer's FP8 V transpose (do it FA3's way, ldmatrix.trans + PRMT + stmatrix, or a
-   conflict-free 4x4-byte register transpose). Step 1 = producer-only microbench with real gathers + transpose.
-   FA3 source citations for E4M3 P are in NOTES session 70.
+1. Native verify-full kernel BUILT (session 71, branch exp/nverify 5bc0e6a, tools/s71/nverify.cu): correct, but H200
+   check 19485acf kernel 209.9/112.0 us vs Gluon 209.8/109.2 at verify 32/16 = tie/loss. Producer (gathers + FP8 V
+   transpose) and consumer contend for issue; see NOTES session 71 for the measured levers. Resume only with a
+   concrete way to cut producer instructions (now 4 LDSM + 16 PRMT + 4 STSM + 8 cp.async + 4 LDS per thread/tile).
 2. Sliding shapes: no cheap lever left in Triton (cluster merges dead, s70); a native sliding kernel would have to
    beat `_attn_split` + PDL merge on the H200 (Codex's native sliding didn't).
 3. Merge tail on verify full (~7 us on the H200 at verify 16/32 = ~0.8% overall at most).
 
 ## Queued for checks
 
-- Nothing yet (main is the scored kernel). Use today's 3 Claude checks only on a candidate that wins on the H100.
+- Nothing (main is the scored kernel). 2 Claude checks left today; nverify was checked (tie), not worth scoring.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- Native CUDA verify full with FP8 P@V (s71, exp/nverify): H200 tie with Gluon. Lessons: page-table entries off the
+  per-tile DRAM chain (smem ring), 8 lanes per 128-B row, NS >= LAG + 2.
 
 - Verify-full Gluon consumer: FA3 pipelining (C7514 serialization, s37), BN 32 (s56), conditional rescale (s18
   exp/wcr), FP16 scores / f16x2 ex2 (s12, s49), FP8 P@V ceiling only -10 us all-L2 (s22), 6 WGs/SM (s42, s51),
