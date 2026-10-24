@@ -4277,3 +4277,114 @@ resolved older jobs need no polling. Neither STOP file exists.
    low per-tile work, rather than another gather-only or large-single-tile sweep.
 4. Keep c8b85d5 separate. Finish on clean pushed codex, remove the claim and post
    results. No judge job requires waiting.
+
+## Session 35 — 2026-10-24, 04:27–04:39 UTC
+
+Completed a focused **transposed native full-decode WGMMA** cycle. Neither
+implementation wins on the scored full-decode cases. **No production change
+and no judge requests.** Experiment **fded6bf** is pushed separately on
+**codex-exp/native-transposed-decode**; start with
+`experiments/transposed_decode/README.md`. CUDA sources/generator, frozen
+production, complete graph pairs, fresh checks, sanitizers, SASS/resources,
+NCU and reproducible CPU audit are archived. Production audit copy:
+`profiles/session35-native-audit.json`.
+
+Initial main44e4e25 was already merged. Final fetch found **a8de0e7**, Claude's
+session14 notes only, and merged it into codex. Read its sliding fixed-cost and
+FP8 P@V observations; no Triton/Gluon tuning by Codex. Production remains SHA256
+`62fefe79bd913e6dc1b12388ad7bec50139096cb07c7b61918b8031c0c93a86b`.
+No native implementation/dispatch or inherited helper/plan changed. Session34's
+integrated production validation still applies; no redundant unchanged-source
+suite or new production sanitizer claim. No experimental imports were added.
+
+### Mechanism and results
+
+One128-thread CTA handles a KV-head pair with a three-stage ring of64-key,
+full128-byte-row K/V gathers. Per head, QK becomes K[64,64] @ Q.T[64,8], FP8
+m64n8k32, and PV becomes V.T[64,64] @ P[64,8], FP16 m64n8k16. Each thread holds
+only four score/output floats per head. This removes padded matrix work but
+requires cross-warp max/sum reductions and shared probability staging.
+It is a streaming design, unlike session28's large single-tile grid; main's
+previous transposed experiment used warp MMA rather than this WGMMA layout.
+
+The first version explicitly transposes V while converting it to FP16. The
+follow-up keeps V's natural layout with packed conversion/vector stores and
+uses WGMMA transA=1. This sole conversion/descriptor/MMA change is generated
+reproducibly. Both preserve every key/value, FP8 query/cache limits, FP16 PV,
+FP32 online softmax/partials, cache insertion, BF16 output and inherited PDL
+merge. One fixed grid policy, ceil(528/pairs), capped128 splits; no stage/tile/
+warp/split sweep or fitted dispatch cutoff.
+
+Eight shapes per variant,60 adjacent AB/BA complete-graph pairs, H100 us:
+
+| Full L1 case | production / explicit transpose | paired delta | production / natural V | paired delta |
+|---|---:|---:|---:|---:|
+|B1,80K,page1|16.720 / 34.240|+17.600|17.056 / 22.112|+5.072|
+|B16,80K,page1|130.016 / 308.880|+178.816|129.856 / 185.296|+55.600|
+|B32,80K,page1|241.888 / 570.544|+328.560|243.200 / 337.728|+94.672|
+|B1,80K,page64|16.592 / 31.392|+14.720|16.480 / 19.072|+2.560|
+|B4,6K,page64,scale1/64,edges|11.120 / 12.240|+1.136|11.456 / 10.288|-1.184|
+|B2,9K,page64,mixed,soft|13.040 / 7.600|-5.472|13.440 / 5.984|-7.408|
+|DP1,4096,page64,scale1/64|11.328 / 15.248|+3.824|11.584 / 12.096|+0.528|
+
+Each variant has its own paired production capture. Paired deltas need not
+match differences of independent medians. Scored losses are decisive; no
+favorable-repeat selection, new cutoff or H200 request is justified. Nearby
+short-context gains do not reopen session29's closed short-context audit.
+Whole-wrapper bench1.440/1.750x against fixed SGLang/H200 times is experimental
+local evidence, not production regression or H200 speedup.
+
+### Evidence and validation
+
+Page1/page64 register counts: explicit transpose120/113, natural V94/80;
+both69,632 dynamic shared bytes (structure-layout audit) plus1,024 static bytes
+reported by cuobjdump, no local/stack allocation. Each page has4QGMMA/8HGMMA
+static sites. Both have identical matrix dimensions and precision.
+
+Two isolated B16/80K/page1 NCU launches, independently reference-checked:
+executed warp instructions63,602,660 /48,439,316; shared store bank conflicts
+17,024,174 /1,269,607; shared read conflicts1,220 /1,677; HBM reads
+335,207,936 /335,176,704 bytes. Short-scoreboard stalls48.67/22.46%, long-
+scoreboard13.46/26.98%, barrier3.00/5.80%. Removing the software transpose
+removes substantial work/conflicts, but does not make complete attention
+competitive. These counters do not isolate latency or attribute remaining
+conflicts to a specific instruction. No profiler-duration/occupancy speedup claim.
+
+- Both wrappers **16/16** (5actual-native/11fallback), each followed by all12
+  benchmark shapes. Also16 boundary smoke checks per variant, pages1/64,
+  contexts0/1/10/63/64/65/257/4096.
+- **960 adjacent graph pairs**, **96 independent output/cache checks** at
+  comparison checkpoints across eight cases per variant.
+- **64 actual-native fresh graph replays**, plus64production controls:
+  four inputs/case, changing QKV/cache/routes/lengths/positions/cache slots,
+  halved/empty contexts, TP8/DP,pages1/64,scales1/1/64,coherent/soft/edges.
+- Natural-V variant independently passes **memcheck0errors, synccheck0errors,
+  racecheck0hazards/errors/warnings**,24fresh native replays per tool.
+  Torch reduces FP32 partials and validates output/cache; no Triton loader
+  launches. No separate sanitizer claim for the explicit-transpose variant.
+- Custom drivers lock generation/reference/capture/replay, flush512MB before
+  every timed graph, subtract empty replay. Suite tests hold the lock; standard
+  bench uses its timing-loop lock. All own GPU jobs are sequential. NCU parent
+  takes the lock before launching the profiler, after timing/fresh/sanitizers.
+- CPU audit reproduces natural source, checks frozen production identity,
+  fragment/gather/swizzle/chunk coverage, raw medians and complete result counts.
+  Generated disassembly whitespace only was normalized. All processes finished.
+
+### Budget and next cycle
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 remains
+**5/8checks,3/3scored**. Final official account **8/10checks,4/10scored**,
+2checks/6scored left; actual account check cap10/day. Best remains **2.1129x,
+rank20**, Claude's completed d0f30 job. Current SHA62fefe still lacks exact-source
+H200 qualification. No pending Codex jobs; neither STOP file exists.
+
+1. Read COORD/fetch main. Maina8de0e7 notes are integrated; preserve scarce
+   checks while Codex's scored allowance is exhausted. Don't poll resolved jobs.
+2. Close this cooperative transposed WGMMA topology as a scored direction.
+   Smaller matrix fragments do not offset its data movement and reduction costs.
+   Another tile/stage/grid sweep is unjustified; future native work needs a
+   concrete reduction in the remaining per-tile work or synchronization.
+3. Claude's session14 sliding multi-warp partial reduction suggestion is Gluon
+   work in its lane. Do not independently tune its plans or FP8 P@V experiments.
+4. Keep fded6bf separate. Finish clean on pushed codex, remove the shared claim,
+   post results, and stop. No judge job needs waiting.
