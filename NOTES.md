@@ -1865,3 +1865,47 @@ P @ ones, conditional rescale) and session 22 (FP8 P@V, at most ~0.3%). None of 
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 36 (overnight agent, 2026-10-24 10:55-11:35 UTC)
+
+**Main code unchanged (b94e35f, FP32 partials; checked as abd67ae2 2.263x).** 0 judge runs (account checks 10/10 used
+today; the per-day check limit on this problem is 10 now, not 20). H100 bench at start 2.034x (decode 1 sliding 4.58,
+verify 1 sliding 5.62, decode 1 full 15.76, verify 1 full 18.18, verify 16/32 full 135.4/250.5). Added the human's
+abd67ae2 profile files to the repo (profiles/abd67ae22a0743b0.*). New tools: tools/s36/abc.py (paired A/B of two
+submission *files* on scored shapes, for code changes that aren't plan keys), tools/s36/empty.py (graph fixed costs).
+
+### Why batch-1 sliding is ~1.6 us slower on the H200 than on the H100 bench (session 35's idea 3): accounting
+
+- H100 vs H200 (abd67ae2): decode 1 / verify 1 sliding 4.58/5.62 vs 6.17/7.20 (+1.6), but decode 16/32 and verify
+  16/32 sliding are 0.2-1.6 us *faster* on the H200, as are decode 1 full and verify 1 full (-1.0..-1.6).
+- H100 graph replays: empty graph (no kernel) 2.88 us, one tiny kernel 5.18, two tiny kernels 6.51. bench.py subtracts
+  the one-kernel graph (5.2 us); the judge subtracts "about 4 us". So the judge's times probably keep ~1-1.5 us of
+  the first kernel's launch that bench.py takes off. Batch-1 sliding is pure latency and doesn't gain from the
+  H200's bandwidth, so the offset shows there; the bandwidth-heavier shapes gain more than it costs.
+- The judge's profile (eager, no PDL overlap at these sizes): decode 1 sliding _attn_split 2.9 + _combine_hb 1.8 us;
+  H100 eager without PDL 4.16 + 1.94 (bench.py's flush *writes* 512 MB, so the H100 eager attention also pays dirty
+  L2 write-backs; the judge only reads its flush buffer).
+- The only lever is fewer kernels, and that's dead: fused last-program merge on batch-1 sliding is 10.0-11.2 us vs
+  4.46 (decode 1) and 14.7-17.3 vs 5.66 (verify 1); in-grid/cluster merges were already measured at the PDL merge's
+  cost (sessions 21, 25, 34). Don't chase this gap again.
+
+### Dead ends (H100)
+
+- Decode 1 sliding plan re-sweep with FP32 partials (splits 16/32/64 x warps 2/4/8 x block_n 32/64 x hpp 1/2, 31
+  plans): the current plan (splits 32, block_n 64, 4 warps, stages 2, tsep) is best; next 4.77-5.65 vs 4.58.
+- Merges loading the V scale before the PDL wait (like the gate already is), in _combine/_combine_hb/_combine_bal:
+  paired 11 rounds, decode 1 sliding -0.03, verify 1 sliding 0.00, decode 1 full +0.02, verify 1 full -0.13 (7/11),
+  decode 16 sliding -0.05, verify 32 sliding +0.10: a tie (the attention kernel reads vs too, so it's an L2 hit).
+  Not kept.
+
+### Next ideas
+
+1. Next UTC day: main == checked b94e35f, nothing new to check. Only check a change that wins clearly on the H100.
+2. The H100 latency hunting is done (sessions 25-36). Verify 16/32 full on the H200 (compute-bound Gluon consumer) is
+   the remaining lever and every Triton/Gluon-level variant of it has been tried (sessions 14, 22, 33, 35 tables).
+   Untried, low odds: BN-32 tiles with QK(i+1) issued during softmax(i). Anything with inline PTX / native code is
+   Codex's lane.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
