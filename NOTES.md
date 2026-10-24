@@ -1348,3 +1348,48 @@ new-token partial from `_new_tokens` is unscaled (store m - 8 to fix, if ever ne
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored (account 10/10 checks used; Claude day 5/8 checks, 3/3 scored).
+
+## Session 23 (overnight agent, 2026-10-24 08:08-08:30 UTC)
+
+**Main 576ad58 = 779bb6d (session 21's gbal candidate, still unchecked) + `USE_GD1` (decode 1 full on the Gluon
+one-warp kernel). Both UNCHECKED on the H200. Check main first thing next UTC day.** They touch different shapes, so
+one check evaluates both: verify 16/32 full vs f3e099c1 (124.65 / 231.75 us; see session 21 for the gbal fallback
+rule) and **decode 1 full vs beb63898's 15.21 us**. If decode 1 full is worse, set `USE_GD1 = False` (session 18's
+batch-1 plan also won on the H100 and the emulator but lost on the H200; gdec won on the H200 at batch 16/32).
+
+### Leverage (why batch 1)
+
+From the H200 per-shape numbers (beb63898/f3e099c1), 1 us is worth about: decode/verify 1 sliding 1.4/1.3% overall,
+decode/verify 1 full 0.5/0.44%, batched sliding 0.2-0.4%, verify full ~0.06-0.1%. Getting verify 16/32 full to
+decode-full speed on the H200 (93/174 us) would by itself give ~2.37x (the leaders' level).
+
+### Change: `USE_GD1` (plan for batch * hkv == 2, q_len 1)
+
+- `_gd_full` with 511 splits + the new token's slot (512 BF16 partials), block_n 32, 2 stages; `_combine` in one pass
+  (new plan keys `csb` 512 = SB, `cw` 8 warps; they only affect `_decode_gluon`'s plain `_combine` path).
+- H100 (tools/s23/abl.py = total and no-merge): old Triton plan 17.47 total / 15.30 attention; gdec 511 with the old
+  merge (SB 128, 4 warps) 16.6 / 12.3; with csb 512 cw 8 15.7 / 12.4. Paired (tools/s23/ab1.py, 7 rounds) 17.86 ->
+  15.90 us, every round -1.6..-2.9. Emulated H200 (tools/emu.py 40) 20.03 -> 15.86 (the emulator overstates the old
+  plan: the judge measured 15.2). Tests 16/16, tools/s18/d1cases.py 6/6.
+- Sweeps that lost: splits 255/383/447/639/1023 (19.2/17.3/16.1/17.6/24.5), stages 3 (17.1), block_n 16 stages 4
+  (18.6), cw 4 / 16 (16.0 / 16.2), csb 256/128 with cw 8 (16.5/17.5), FP32 partials (+0.3), `sep` (new-token program,
+  tie/+0.2), `_combine_hb` hb 2 (19.4, or 184 at cw 1).
+- `cw` 2/8 for decode 16/32 full's merge: noise.
+
+### Dead ends
+
+- Gluon verify kernel (`_gw_verify`) at batch 1 (verify 1 full): splits 264 no-gfuse 28.1 total / 17.1 attention,
+  splits 128 21.0 / 16.5 vs the Triton plan 18.75 / 16.1; gfuse at batch 1 is pathological (56-212 us).
+
+### Next ideas
+
+1. Check main 576ad58 (above). Submit if it beats the board (account best 2.1605x).
+2. Decode 1 full's merge is now 3.2 us of 15.7 (512 partials, 16 one-head programs). A 4-warp `_gd_full` variant
+   where each warp is its own split (3-D tensors with warps on dim 0; Gluon's mma_v2 goes through semantic.dot, which
+   should take batched rank-3 operands) merging its 4 partials on chip would cut that to 128 slots (~2.2 us, as the
+   Triton plan's merge). ~-1 us on H100, only worth it if the H200 confirms USE_GD1.
+3. Verify 1 full: attention 16.1 us vs the 11.5 us gather floor, merge 2.6. No plan found better (sessions 18/23).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored (account 10/10 checks used). Claude day: 5/8 checks, 3/3 scored.
