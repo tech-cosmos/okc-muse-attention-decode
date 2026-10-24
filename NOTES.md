@@ -781,3 +781,65 @@ Decode full deeper pipelines (more bytes in flight, in case the H200 needs them)
 
 Budget (UTC day 2026-10-24): Claude 3/8 checks, 1/3 scored (unchanged this session). Account at 03:45: 8/10 checks,
 4/10 scored.
+
+## Session 13 (overnight agent, 2026-10-24 03:50-04:20 UTC)
+
+### Change (main 19b8ade): lighter merge on the Gluon verify-full path
+
+`_verify_gluon` merges with `_combine_hb` (2 heads per one-warp program, all slots in one pass) when splits + 1 <= 32
+(plan keys hb=2, cw=1; batch >= 12 at ctx 80K). H100 paired runs: verify 16 full 139.0 -> 137.3 us (repeated 3x),
+verify 32 full 258.7 -> 258.3; nearby batch 12/16/20/24/32/48/64: -2.7/-1.3/-0.7/-1.1/-0.8/-1.7/-2.0 us; batch
+6/8 (34+ slots) keep `_combine`. Bench 1.960 -> 1.979 (the rest is noise). 16/16 tests; new tools/gluon_cases.py
+(8 shapes that reach the Gluon path, which none of the judge's 16 tests do: batch 8-64, page 1/64, kv_scale, edges,
+mixed/agentic): 8/8 pass. Not checked on the H200 (expected ~+0.2% overall, inside the judge's CI; account had 2
+checks left today).
+
+### New tool: tools/emu.py (H200 per-SM bandwidth emulation)
+
+Parks a spinner kernel (1024 threads, 200 KB smem, one per SM) on 40 SMs and times graph replays on the other 92
+(H100 3.35 TB/s / 92 SMs ~= H200 4.8 TB/s / 132 SMs per SM), with `_num_sms` = 92 for planning.
+`python tools/emu.py 40 full ['{"plan": ...}']`. Gotchas: CUDA lazy module loading deadlocks against the spinner
+(every kernel must be loaded before it starts: the script sets CUDA_MODULE_LOADING=EAGER and warms up); never call
+torch.cuda.synchronize() while it spins. It does NOT reproduce H200 times (total bandwidth is still the H100's); it
+shows whether a kernel keeps HBM busy with H200-like per-SM demand. Watch wave quantization: decode plans don't scale
+splits with SMs, so a config with fewer programs/SM can fall into two waves at 92 SMs only (scale splits by 92/132
+to compare).
+
+Measured with it (decode 32 full; 132 SMs / 92 SMs): main 243.5 / 260; pure random gather (tools/gather.py kernel)
+236 / 241.6 at its best config (BN 64, 2 warps, 3 stages), but 237 / 263 at BN 32 x 1 warp x 4 stages. So at H200
+per-SM rates our decode-full kernel loses ~7% that a wide-gather kernel doesn't, plausibly part of why H200 decode 32
+full is 185 us (~74% of 4.8 TB/s). Every decode-full plan variant is still worse than main under emulation (stages
+8/10: 275/293; block_n 32: 318-324; warps 2 + block_n 32: 285; splits 48/64: 342/292; hpp 1: 427-449). So session
+12's "deeper pipelines might help on the H200" is dead without spending a check.
+
+### Dead ends (reverted; code on branch exp/tdec)
+
+- Transposed decode kernel `_attn_dec` (plan tdec): per head S^T = K Q^T [N, 8] and acc^T = V^T P^T [64, 8]
+  (mma N = 8, no padding rows and no off-head blocks; half the MMAs and accumulator registers of the hpp=2
+  block-diagonal form). Loading V as [D, N] directly (not tl.trans after the load) matters: 168 -> 142 regs, 349 ->
+  261 us. Best H100 decode 32 full 256.5 (block_n 32, stages 3) vs 243.5; emulated 273 vs 260. Dead.
+- FA4 lazy rescale in one-warp decode programs (warp-uniform branch, threshold 2^8): H100 tie (243.6 vs 243.5,
+  130.4 vs 130.5), emulated tie at equal waves (262 vs 262); it costs 202 vs 148 registers. Dead.
+- Gluon verify kernel at sliding length (proxy: full layer, ctx 2048, q_len 8, no RoPE): batch 32 21.0 vs Triton's
+  22.1 us, batch 16 14.5 vs 12.9. Not worth porting RoPE + window masks (~0.2% overall).
+
+### Load arithmetic (from check 2363a049, H200)
+
+Per load (ours / SGLang): decode 1 537/1427, decode 16 2065/4468, decode 32 3631/7596, verify 1 593/1597, verify 16
+2680/4648, verify 32 4707/7827. Per us saved: batch-1 sliding ~1.3-1.4% overall per us (Codex's native lane), batch-1
+full ~0.5%/us, verify full ~0.1%/us. If verify full ran at decode-full speed on the H200 (gap 32/55 us), overall would
+be ~2.27x. Verify full's compute (H100 compute-only 106 us at verify 16) is already ~FA3-hdim64 efficiency (42 GFLOP in
+106 us = ~400 TFLOPS fp16-equivalent); MUFU alone is ~40 us of floor there.
+
+### Next ideas
+
+1. Merge tail on verify full is still ~5 us (H100) / ~10 us (H200 profile: _gw_verify ends ~124, busy 133.7). An
+   in-kernel merge (per-pair arrival counter, the S CTAs of a pair each merge a slice of rows from L2 after all
+   arrive) only works for one-wave plans (co-residency) and needs the _new_tokens slot (PDL wait). Maybe 1%.
+2. Decode full on the H200: the emulator says wide gathers (BN 64 x 2 warps) keep HBM busier per SM; a decode-full
+   kernel with 64-key tiles that stays cheap per tile (unlike block_n 32-64 in the current kernel, which loses on
+   compute) would be the thing to build. Codex's lane if it needs hand-written code.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 3/8 checks, 1/3 scored. Account at 04:00: 8/10 checks, 4/10 scored.
