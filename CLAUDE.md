@@ -35,10 +35,11 @@ Real speedups only.
 
 ## Budget per UTC day (limits reset 00:00 UTC; check `okc problems --json` for what's left)
 
-The account allows 10 checks and 10 scored runs per UTC day (it was 20 checks; the API is the truth).
-Codex is out of usage until 2026-10-30, so the Claude agent gets most of it:
+The account's daily limits are whatever `okc problems --json` reports (on 2026-10-24 it showed 20
+checks and 10 scored runs). Codex is out of usage until 2026-10-30, so the Claude agent gets most of it:
 
-- `okc check submission.py --json`: at most 8 per UTC day. Checks are the scarce resource: the
+- `okc check submission.py --json`: **all of the account's checks** (the human decided this on
+  2026-10-24 while Codex is paused). Still spend them on real candidates. Checks are the scarce resource: the
   H100 does NOT always predict the H200 (batched-sliding hpp 2 won on the H100 and lost 0.8-1.1 us
   per shape on the H200). The judge reports per-shape times, so one check can test independent
   changes for different shapes at once: keep each change only for the shapes where it won.
