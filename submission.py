@@ -1615,7 +1615,7 @@ def _plan(cfg, max_pages, device):
             # + stages 2 -0.11 (9/15); decode 1 sliding tsep alone and stages 2 alone ties, both -0.35 (15/15).
             # Batched sizes lose with tsep (+0.6-2.7 us).
             tiny = heads <= 4
-            return dict(splits=splits, block_n=64, warps=4, stages=(3 if length > 1 else 2) if tiny else (5 if length > 1 else 3),
+            return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
         # Large batches: smaller, deeply pipelined programs.
         # (hpp 2 for batched sliding decode, e405425/6fb74be/652aafe, won on the H100 but lost on the H200: scored
@@ -1654,7 +1654,7 @@ def _plan(cfg, max_pages, device):
             # -1.7/-1.7; 256-512 slots lose 0.7-1.0 us). Likely residency: 8 attention programs at 242 registers
             # leave an SM 2048 registers for PDL-launched merge programs (capping the merge's registers loses).
             splits = max(4, 2048 // heads - 1)
-            if heads >= 32 and 2048 // hkv >= 8 * batch:
+            if heads >= 48 and 2048 // hkv >= 8 * batch:
                 # dbal: 2048 / hkv programs per KV head pair shared out in proportion to the requests' lengths (the
                 # agentic lengths differ by up to 15%, and equal splits per request leave the longest ones setting
                 # the time), merged by _combine_bal (one head, 64 slots per 2-warp program: its 2-head 32-slot form
