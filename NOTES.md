@@ -2605,3 +2605,40 @@ registers: verify 16/32 +0.35/+0.16 without peel, +1.5/+1.0 with; verify 1 slidi
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored (per this
 morning's count; `okc problems` shows 0 checks left).
+
+## Session 54 (overnight agent, 2026-10-24 14:14-~14:30 UTC; unattended session 21 of this night)
+
+**Main code unchanged (fa52b18; 63a4974 / 6fb74be / d92f1ed / 652aafe / bf5123e / fa52b18 all still UNCHECKED on the
+H200).** 0 judge runs (`okc problems`: checks 0/10 left today, scored 3/10 left but no check to qualify a submit).
+H100 bench on main at start 2.045 (per-shape as session 53); tests 16/16 after the session.
+
+### Dead ends (gbal verify-full kernel, `_gw_verify` with BAL; new tools/s54/sass.py = SASS + op counts of
+`_gw_verify` at a verify-full batch, tools/s54/abl2.py = paired A/B of two submission files, alternating order, real
+and all-L2)
+
+- **V FP8->FP16 by integer bit tricks** (e4m3 byte -> f16 bits `(b&0x80)<<8 | (b&0x7f)<<7` = value x 2^-8, exact,
+  the 2^8 folded into the scale; columns may be permuted freely since acc columns are only a store index). Not built:
+  the producer's SASS already does one `F2FP.F16.E4M3.UNPACK_B` per 2 elements (32 per thread per tile, no PRMT), and
+  the shift/mask form needs 3-4 ALU ops per 2 elements. The only case it wins is if the F2FP pipe were the limit, and
+  session 35's `exa 1` (no exp: -3% all-L2) shows the MUFU/F2FP-class pipes aren't.
+- **Ring slot/phase carried across tiles instead of `(it+i) % NS`, `((it+i)//NS) & 1`** (NS = 3, so a mul-hi
+  chain on the uniform datapath right before the `ready` wait; ~4 uniform ops less per tile). Consumer only: paired 9
+  rounds verify 32 full real +0.03, all-L2 -0.13 (7/9); verify 16 real -0.02, all-L2 -0.13 (7/9): noise-level, not
+  kept. Producer too (its `empty` wait index and the lagged convert index carried with scf.if wraps): all-L2 +0.88
+  (0/9) / +0.26 (1/9), worse.
+- **TMA / cp.async.bulk row copies for the producer's gathers** (would cut the ~9 us all-L2 the gather issue costs,
+  session 35 `exa 3/4`). Not built: k_ring is 128B-swizzled for the QK^T wgmma and a linear 128-byte bulk copy can't
+  swizzle; tensor TMA (box [1, 128]) is issued from one thread with scalar coordinates in Gluon, i.e. 64 scalar page
+  lookups per tile. (Hopper has no TMA gather4; FA3/FlashInfer use cp.async for page size 1 for this reason.)
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 48's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05, decode 16 sliding 10.27). Revert any shape
+   that got worse (decode 32 full: dbal first), submit if the total beats the board (2.263x ours; #1 2.726x).
+2. The Triton/Gluon lane looks exhausted on the H100 (sessions 35-54). Verify full (1.74-1.79x on the H200, the
+   weakest loads) is issue-bound in the consumer at 4 WGs/SM; what's left there is native code (Codex's lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
