@@ -1,0 +1,9 @@
+{
+  "rows": 32812,
+  "finite_values": 1049984,
+  "replays": 3,
+  "exact_numeric_max": true,
+  "exact_cpu_bit_roundtrip": true,
+  "nan_inputs": false,
+  "signed_zero_bit_identity_claim": false
+}

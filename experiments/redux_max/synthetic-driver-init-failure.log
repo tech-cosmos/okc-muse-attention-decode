@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/daytona/codex-repo/experiments/redux_max/synthetic.py", line 57, in <module>
+    fcntl.flock(lock,fcntl.LOCK_EX);run()
+                                    ^^^^^
+  File "/home/daytona/codex-repo/experiments/redux_max/synthetic.py", line 48, in run
+    assert torch.isfinite(actual).all() and rel<0.003,(dtype,pdl,s,rep,rel)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: (torch.float32, False, 1, 0, nan)

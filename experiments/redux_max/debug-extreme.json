@@ -1,0 +1,98 @@
+[
+  {
+    "name": "previous",
+    "maximum": -1e+30,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "candidate",
+    "maximum": -1e+30,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "previous",
+    "maximum": -1e+20,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "candidate",
+    "maximum": -1e+20,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "previous",
+    "maximum": -1000.0,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "candidate",
+    "maximum": -1000.0,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "previous",
+    "maximum": -70.0,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "candidate",
+    "maximum": -70.0,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "previous",
+    "maximum": 0.0,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "candidate",
+    "maximum": 0.0,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "previous",
+    "maximum": 70.0,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "candidate",
+    "maximum": 70.0,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "previous",
+    "maximum": 1e+20,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "candidate",
+    "maximum": 1e+20,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "previous",
+    "maximum": 1e+30,
+    "finite": true,
+    "zero": true
+  },
+  {
+    "name": "candidate",
+    "maximum": 1e+30,
+    "finite": true,
+    "zero": true
+  }
+]

@@ -1,0 +1,59 @@
+{
+  "production_sha256": "ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca",
+  "candidate_sha256": "c533826ff5e0965a362380ec0357ffe5ffe57b8b177c310eea3e241ddf1d47f5",
+  "only_native_merge_changed": true,
+  "main_helpers_identical": 20,
+  "suite_cases": 16,
+  "adjacent_pairs": 1760,
+  "comparison_references": 132,
+  "fresh_wrapper_replays": 128,
+  "fresh_changed_native_replays": 44,
+  "synthetic_plain_replays": 72,
+  "synthetic_plain_max_rel_l2": 0.0017722055066510254,
+  "synthetic_synccheck_replays": 72,
+  "synthetic_synccheck_max_rel_l2": 0.0017722055066510254,
+  "bitprobe": {
+    "rows": 32812,
+    "finite_values": 1049984,
+    "replays": 3,
+    "exact_numeric_max": true,
+    "exact_cpu_bit_roundtrip": true,
+    "nan_inputs": false,
+    "signed_zero_bit_identity_claim": false
+  },
+  "sass": {
+    "previous": [
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiii",
+        "static_instructions": 536,
+        "redux_sites": 0,
+        "shuffle_sites": 31,
+        "float_max_sites": 14
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiii",
+        "static_instructions": 544,
+        "redux_sites": 0,
+        "shuffle_sites": 31,
+        "float_max_sites": 14
+      }
+    ],
+    "candidate": [
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiii",
+        "static_instructions": 536,
+        "redux_sites": 1,
+        "shuffle_sites": 26,
+        "float_max_sites": 9
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiii",
+        "static_instructions": 536,
+        "redux_sites": 1,
+        "shuffle_sites": 26,
+        "float_max_sites": 9
+      }
+    ]
+  },
+  "source_and_results_pass": true
+}

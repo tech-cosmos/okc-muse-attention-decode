@@ -1,0 +1,45 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS (0, 'merged', 'eager')
+PASS (0, 'merged', 'capture')
+PASS (0, 'previous', 'eager')
+PASS (0, 'previous', 'capture')
+PASS (0, 'merged', 'after')
+PASS (0, 'previous', 'after')
+{"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 1, "dist": "coherent"}, "native": true, "splits": 126, "previous_us": 16.944000031799078, "merged_us": 17.008000519126654, "paired_delta_us": 0.01600012183189392}
+PASS (1, 'merged', 'eager')
+PASS (1, 'merged', 'capture')
+PASS (1, 'previous', 'eager')
+PASS (1, 'previous', 'capture')
+PASS (1, 'merged', 'after')
+PASS (1, 'previous', 'after')
+{"index": 1, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "dist": "coherent"}, "native": true, "splits": 126, "previous_us": 18.52800091728568, "merged_us": 18.432000186294317, "paired_delta_us": -0.0800006091594696}
+PASS (2, 'merged', 'eager')
+PASS (2, 'merged', 'capture')
+PASS (2, 'previous', 'eager')
+PASS (2, 'previous', 'capture')
+PASS (2, 'merged', 'after')
+PASS (2, 'previous', 'after')
+{"index": 2, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 64, "dist": "coherent"}, "native": true, "splits": 126, "previous_us": 16.927999444305897, "merged_us": 16.751999966800213, "paired_delta_us": -0.09599979966878891}
+PASS (3, 'merged', 'eager')
+PASS (3, 'merged', 'capture')
+PASS (3, 'previous', 'eager')
+PASS (3, 'previous', 'capture')
+PASS (3, 'merged', 'after')
+PASS (3, 'previous', 'after')
+{"index": 3, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "dist": "coherent"}, "native": true, "splits": 126, "previous_us": 18.047999124974012, "merged_us": 17.76000065729022, "paired_delta_us": -0.14400016516447067}
+PASS (4, 'merged', 'eager')
+PASS (4, 'merged', 'capture')
+PASS (4, 'previous', 'eager')
+PASS (4, 'previous', 'capture')
+PASS (4, 'merged', 'after')
+PASS (4, 'previous', 'after')
+{"index": 4, "shape": {"batch": 2, "ctx": 9000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "kv_scale": 0.015625, "dist": "edges"}, "native": true, "splits": 71, "previous_us": 10.015999898314476, "merged_us": 10.03200002014637, "paired_delta_us": -0.0800006091594696}
+PASS (5, 'merged', 'eager')
+PASS (5, 'merged', 'capture')
+PASS (5, 'previous', 'eager')
+PASS (5, 'previous', 'capture')
+PASS (5, 'merged', 'after')
+PASS (5, 'previous', 'after')
+{"index": 5, "shape": {"batch": 2, "ctx": 9000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 0.015625, "dist": "edges"}, "native": true, "splits": 71, "previous_us": 11.360000353306532, "merged_us": 11.344000231474638, "paired_delta_us": 0.09599979966878891}

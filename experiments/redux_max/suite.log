@@ -1,0 +1,32 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS 0 {'batch': 1, 'ctx': 10, 'heads': 'tp8', 'layer': 'sliding'} relative L2 error 5.319e-02 (worst row 5.319e-02) [bound 0.148: 2.5 x the reference's 0.05
+PASS 1 {'batch': 3, 'ctx': 2047, 'heads': 'tp8', 'layer': 'sliding'} relative L2 error 9.027e-02 (worst row 1.180e-01) [bound 0.150: 2.5 x the reference's 0.09
+PASS 2 {'batch': 5, 'ctx': 5000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 8, 'spread': 'mixed', 'page': 1} relative L2 error 7.836e-02 (worst row 1.153e-01) [bound 0.150: 2.5 x the reference's 0.07
+PASS 3 {'batch': 4, 'ctx': 3000, 'heads': 'tp8', 'layer': 'full'} relative L2 error 8.629e-02 (worst row 8.785e-02) [bound 0.150: 2.5 x the reference's 0.08
+PASS 4 {'batch': 8, 'ctx': 8192, 'heads': 'dp', 'layer': 'full', 'spread': 'mixed'} relative L2 error 8.408e-02 (worst row 9.219e-02) [bound 0.150: 2.5 x the reference's 0.08
+PASS 5 {'batch': 2, 'ctx': 100000, 'heads': 'tp8', 'layer': 'full', 'q_len': 8, 'page': 1} relative L2 error 9.332e-02 (worst row 1.112e-01) [bound 0.150: 2.5 x the reference's 0.09
+PASS 6 {'batch': 4, 'ctx': 6000, 'heads': 'tp8', 'layer': 'sliding', 'dist': 'edges', 'page': 1} relative L2 error 6.945e-02 (worst row 8.060e-02) [bound 0.150: 2.5 x the reference's 0.06
+PASS 7 {'batch': 4, 'ctx': 6000, 'heads': 'tp8', 'layer': 'full', 'q_len': 8, 'dist': 'edges'} relative L2 error 8.646e-02 (worst row 1.193e-01) [bound 0.150: 2.5 x the reference's 0.08
+PASS 8 {'batch': 1, 'ctx': 1048576, 'heads': 'tp8', 'layer': 'full', 'q_len': 8} relative L2 error 1.050e-01 (worst row 1.150e-01) [bound 0.150: 2.5 x the reference's 0.10
+PASS 9 {'batch': 3, 'ctx': 4000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 8, 'page': 1, 'kv_scale': 0.015625} relative L2 error 7.401e-02 (worst row 9.559e-02) [bound 0.150: 2.5 x the reference's 0.07
+PASS 10 {'batch': 2, 'ctx': 9000, 'heads': 'tp8', 'layer': 'full', 'kv_scale': 0.015625} relative L2 error 6.738e-02 (worst row 7.043e-02) [bound 0.150: 2.5 x the reference's 0.06
+PASS 11 {'batch': 4, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'spread': 'mixed', 'dist': 'soft'} relative L2 error 7.603e-02 (worst row 7.978e-02) [bound 0.150: 2.5 x the reference's 0.07
+PASS 12 {'batch': 4, 'ctx': 6000, 'heads': 'tp8', 'layer': 'sliding', 'q_len': 8, 'dist': 'soft', 'page': 1} relative L2 error 5.951e-02 (worst row 8.148e-02) [bound 0.150: 2.5 x the reference's 0.06
+PASS 13 {'batch': 2, 'ctx': 20000, 'heads': 'dp', 'layer': 'full', 'q_len': 8, 'dist': 'soft'} relative L2 error 6.873e-02 (worst row 7.395e-02) [bound 0.150: 2.5 x the reference's 0.06
+PASS 14 {'batch': 4, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'spread': 'mixed', 'dist': 'coherent', 'page': 1} relative L2 error 4.389e-02 (worst row 5.762e-02) [bound 0.125: 2.5 x the reference's 0.04
+PASS 15 {'batch': 2, 'ctx': 20000, 'heads': 'dp', 'layer': 'full', 'q_len': 8, 'dist': 'coherent'} relative L2 error 3.694e-02 (worst row 4.457e-02) [bound 0.107: 2.5 x the reference's 0.03
+decode 1   sliding      4.53 us   (sglang on H200   20.94)
+decode 1   full        16.88 us   (sglang on H200   31.23)
+decode 16  sliding     10.43 us   (sglang on H200   27.25)
+decode 16  full       129.33 us   (sglang on H200  200.06)
+decode 32  sliding     15.71 us   (sglang on H200   31.30)
+decode 32  full       242.58 us   (sglang on H200  383.65)
+verify 1   sliding      5.84 us   (sglang on H200   22.94)
+verify 1   full        18.61 us   (sglang on H200   35.92)
+verify 16  sliding     12.45 us   (sglang on H200   29.17)
+verify 16  full       137.20 us   (sglang on H200  204.18)
+verify 32  sliding     20.18 us   (sglang on H200   34.42)
+verify 32  full       257.78 us   (sglang on H200  387.94)
+H100 time vs SGLang-on-H200, geomean over loads: 2.005
