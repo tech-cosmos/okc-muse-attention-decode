@@ -2113,3 +2113,51 @@ half the accumulator registers and alpha FMULs, half the partial store.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 42 (overnight agent, 2026-10-24 11:55-~12:55 UTC; unattended session 9 of this night)
+
+**Main code unchanged (63a4974 = q16 + kst in `_gd_full`, UNCHECKED on the H200; last checked code b94e35f =
+abd67ae2 2.263x).** 0 judge runs (account checks 10/10 used today; Claude's 3 scored used). Board: #1 2.726x, we're #11.
+
+### Gluon sliding decode (USE_GSLIDE) with q16 + kst: still an H100 win, still unverifiable
+
+Paired 7 rounds (tools/s36/abc.py, main vs a copy with `USE_GSLIDE = True`): decode 16/32 sliding -1.28/-2.46 us,
+7/7 each. The old H200 loss (check f3e099c1: 10.36 -> 13.56 us at decode 16) is NOT in the kernels: that check's
+profile shows _gd_full + _combine_hb 6.6 + 2.3 = 8.9 us vs Triton 7.1 + 1.7 = 8.8 in abd67ae2, yet the scored time was
++3.2 us. So ~3 us goes somewhere outside the profiled kernel time (cold-L2 effects? graph structure?). Worth one check
+the next UTC day only if a check is spare: main with USE_GSLIDE = True (main already has q16 + kst to check anyway, so
+check main first and USE_GSLIDE separately or not at all).
+
+### Verify-full consumer occupancy (the H200's compute-bound regime): measured scaling, then a dead end
+
+- **Consumer throughput scales ~linearly with consumer warpgroups per SM**: plan key `cps` (programs per SM in
+  `_verify_bal`, branch exp/cps3), verify 32 full all-L2 cps 1 (2 consumer WGs/SM) 372.8 vs cps 2 (4 WGs) 190.7 us
+  (real 381.8 vs 250.7). So 6 consumer WGs/SM would be ~1.45x faster in all-L2, if they fit and are fed.
+- **They don't fit as 3 CTAs/SM**: Triton pads warp-specialized partitions to whole warpgroups (pw 2 -> 12 warps), so
+  3 x 384 threads needs maxnreg <= 56 and ptxas rejects it (C7602: the P@V wgmma needs 62). pw 2 / maxnreg 64 runs
+  2 CTAs/SM with 18 spills: +199/+146 us.
+- Register limits in the current kernel (verify 32 full, real/all-L2 vs 250.7/195): cregs 80 at BN 64: 50 spills,
+  +495/+454. pregs 24: +4/+7. BN 32 NS 4: +24/+57; BN 32 cregs 80 pregs 24: +36/+60 (4 spills); BN 32 cregs 72: 20
+  spills, +212/+124.
+- **One CTA with 3 balanced programs (`_gw_verify3`, plan `v3 1, cps 3, block_n 32, stages 3, maxnreg 72, pregs 24,
+  cregs 80`: 6 consumer WGs + producers, 896 threads, 173 KB smem)**: correct (same error as main), but
+  - three 1-warp producers (one per ring): no setmaxnreg emitted at all (non-warpgroup partitions), everything at 72
+    regs, 20 spills: 449/442 us.
+  - one 4-warp producer `_gw_producer3` feeding all three rings per step (flat global-tile loop, request found per tile
+    from the balanced index): setmaxnreg 80/24 applied, 2 spills, still 549/496 us (NS 4: 564/508; pregs 40/cregs 72:
+    838/674). Not diagnosed. Suspect the single producer warpgroup (gathers + FP8->FP16 V conversion for 6 consumers,
+    in-order waits on three rings) or something about 7 partitions in one CTA; ncu warp-state stats would tell.
+  Branch exp/cps3 (pushed), tools/s42/regs.py (pass/fail + regs/spills/smem/warps/setmaxnreg for a plan override).
+
+### Next ideas
+
+1. Next UTC day: check main 63a4974 (q16 + kst) against abd67ae2 (decode 1/16/32 full 14.16/90.3/172.8 us).
+2. If anyone revisits exp/cps3: ncu `_gw_verify3` (WarpStateStats, per-partition stalls) before changing anything. A
+   cheaper test of "is one producer warpgroup enough": in the existing 2-CTA kernel, make the producer do 3x the V
+   conversions (redundant) and see whether all-L2 time moves.
+3. The 3 us of non-kernel time in check f3e099c1 at decode 16 sliding: look at what differs in launch structure between
+   _decode_gluon and the Triton sliding path (grid size 528 vs ?, PDL, _cos_sin), in case it also hides in other shapes.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
