@@ -755,9 +755,20 @@ def _norm_rope(ptr, off, ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr
 
 
 @triton.jit
+def _lsum(l_i, alpha, p, LSUM: tl.constexpr):
+    """Row sums through the online softmax. LSUM: l_i is [rows, 8] thread-local partial sums (columns c and
+    c + 8k of an MMA tile sit in one thread), so no quad shuffles per tile; _finish reduces them once."""
+    if LSUM:
+        l_i = l_i * alpha[:, None] + tl.sum(tl.reshape(p, [p.shape[0], p.shape[1] // 8, 8]), 1)
+    else:
+        l_i = l_i * alpha + tl.sum(p, 1)
+    return l_i
+
+
+@triton.jit
 def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, MASKED: tl.constexpr,
           PAGE: tl.constexpr, ROW_W: tl.constexpr, D: tl.constexpr, WINDOW: tl.constexpr, QK8: tl.constexpr,
-          DOT: tl.constexpr):
+          DOT: tl.constexpr, LSUM: tl.constexpr = False):
     """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi."""
     if MASKED:
         # Past the end, gather the last valid row again (no load masks); the scores are masked.
@@ -781,7 +792,7 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
     m_new = tl.maximum(m_i, tl.max(s, 1) * scale)
     alpha = tl.exp2(m_i - m_new)
     p = tl.exp2(tl.fma(s, scale, -m_new[:, None]))
-    l_i = l_i * alpha + tl.sum(p, 1)
+    l_i = _lsum(l_i, alpha, p, LSUM)
     acc = acc * alpha[:, None] + tl.dot(p.to(DOT), v.to(DOT))
     return m_new, l_i, acc
 
@@ -790,7 +801,7 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
 def _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
          vc_ptr, vs_ptr, loc_ptr, HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr,
          L: tl.constexpr, L_PAD: tl.constexpr, MG: tl.constexpr, D: tl.constexpr, ROPE: tl.constexpr,
-         S: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr):
+         S: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr, LSUM: tl.constexpr = False):
     """Split 0 attends the block's own tokens (and stores them in the cache). Done before the
     cached keys, so these loads overlap the page-table and cache trips instead of following them."""
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
@@ -814,7 +825,7 @@ def _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs
         m_new = tl.maximum(m_i, tl.max(s, 1))
         alpha = tl.exp2(m_i - m_new)
         p = tl.exp2(s - m_new[:, None])
-        l_i = l_i * alpha + tl.sum(p, 1)
+        l_i = _lsum(l_i, alpha, p, LSUM)
         acc = acc * alpha[:, None] + tl.dot(p.to(DOT), vq.to(DOT))
         m_i = m_new
 
@@ -823,10 +834,12 @@ def _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs
 
 @triton.jit
 def _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV: tl.constexpr,
-            MG: tl.constexpr, D: tl.constexpr, S: tl.constexpr):
+            MG: tl.constexpr, D: tl.constexpr, S: tl.constexpr, LSUM: tl.constexpr = False):
     """Every split writes its partial (max, sum, accumulator) for KV heads hp0 .. hp0 + HPP - 1."""
     # Partials [B, HKV, S, MG]: each row's own head's D columns of acc.
     part = ((b * HKV + hp0 + hp) * S + split) * MG + rr
+    if LSUM:
+        l_i = tl.sum(l_i, 1)
     tl.store(pml_ptr + part * 2, m_i, mask=r_ok)
     tl.store(pml_ptr + part * 2 + 1, l_i, mask=r_ok)
     tl.store(pacc_ptr + part[:, None] * D + (c % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=q_ok)
@@ -841,7 +854,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
-                BALANCE: tl.constexpr = False):
+                BALANCE: tl.constexpr = False, LSUM: tl.constexpr = False):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -881,14 +894,14 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     scale = qk_scale * k_scale  # log2 units, applied to q . k_fp8
 
     m_i = tl.full([M_PAD], -1.0e30, tl.float32)
-    l_i = tl.zeros([M_PAD], tl.float32)
+    l_i = tl.zeros([M_PAD, 8] if LSUM else [M_PAD], tl.float32)
     acc = tl.zeros([M_PAD, C], tl.float32)
     m1, l1, acc1 = m_i, l_i, acc
     m_i, l_i, acc = _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
-                         vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+                         vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT, LSUM)
     if DUAL:
         m1, l1, acc1 = _new(split, b, seq, j, q1, m1, l1, acc1, hp0 + 1, c, scale, k_scale, qkv_ptr, cs_ptr,
-                            kc_ptr, vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+                            kc_ptr, vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT, LSUM)
 
     if WINDOW > 0:
         base = tl.maximum(seq - (WINDOW - 1), 0)
@@ -911,20 +924,20 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         full_end = lo
     for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT, LSUM)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
-                                 False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+                                 False, PAGE, ROW_W, D, WINDOW, QK8, DOT, LSUM)
     for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT, LSUM)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
-                                 True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+                                 True, PAGE, ROW_W, D, WINDOW, QK8, DOT, LSUM)
 
-    _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
+    _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, LSUM)
     if DUAL:
-        _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
+        _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, LSUM)
 
     if FUSE:
         # The last of this (request, head pair)'s S programs to finish merges the partials and
@@ -1249,7 +1262,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False),
+        LSUM=plan.get("tlsum", False), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
