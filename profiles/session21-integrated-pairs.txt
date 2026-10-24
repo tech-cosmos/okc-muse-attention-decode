@@ -1,0 +1,7 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+{"shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft", "spread": "agentic"}, "parent_us": 7.408000063151121, "native_us": 7.456000428646803, "paired_delta_us": -0.015999656170606613}
+{"shape": {"batch": 16, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "parent_us": 149.7439998202026, "native_us": 149.53599451109767, "paired_delta_us": -0.25600194931030273}
+{"shape": {"batch": 17, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "parent_us": 164.52800203114748, "native_us": 161.34400386363268, "paired_delta_us": -3.3599957823753357}
+{"shape": {"batch": 24, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "parent_us": 212.25599898025393, "native_us": 208.22399808093905, "paired_delta_us": -4.015997052192688}
+{"shape": {"batch": 32, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "parent_us": 268.9440024551004, "native_us": 267.05599552951753, "paired_delta_us": -2.1440088748931885}

@@ -2588,3 +2588,136 @@ is10/day. Snapshots: `profiles/session20-*`. Neither STOP file exists.
    bottleneck large enough to matter. This experiment stays separate from production.
 4. End on clean pushed codex, remove shared claim and post result. Do not wait idle
    for the queued check. Session16 boundary patch is already integrated.
+
+## Session 21 — 2026-10-24, 01:42–01:51 UTC
+
+### Production integration and judge qualification
+
+Merged **origin/main0a22b94** as **9064c53**, then main's notes-only **3daf4a4**.
+This adds Claude's producer-side FP8-to-FP16 V conversion on the existing Gluon
+full-verify path. Native sliding attention, its B*Hkv<=16 boundary, and the native
+small-full reduction are unchanged. No Triton/Gluon code or plan was tuned.
+
+Production SHA256:
+`6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf`.
+New exact-source **check24414e478fa345a2** was requested at01:49UTC and remains
+**queued**. Older **b4853b2accdc4b50** also remains queued; it qualifies only
+exact45c56bc (SHAe9a877984ef7), not the newly merged source. Neither was
+resubmitted. No passing profile exists for either yet. Resolved earlier jobs
+2776/4d36508/71e2 need no further polling.
+
+Current account best remains **2.057970x,rank24**, scored71e2. Only score the
+exact source of a passing check that beats the then-current account best;
+refresh the board and budget immediately before doing so. Do not substitute
+the newer submission.py for old checkb485's source.
+
+### Integrated validation and paired timings
+
+- Local full suite **16/16**, followed by full bench **1.956x** against the
+  fixed SGLang/H200 reference numbers; verify32full **272.13us**. This local
+  aggregate is not an H200 estimate or a paired aggregate comparison.
+- **24 fresh-input graph replays** over8shapes,3seeds each:9native sliding,
+  12new Gluon full-verify,3existing Triton fallback calls. Changed QKV/cache/
+  routes/lengths/positions/cache locations and empty contexts; TP8/DP, pages1/64,
+  scales1/1/64, contexts2049–80000. Output/cache references all pass. In particular,
+  these extra full cases exercise the new Gluon path beyond the standard suite.
+- Independent same-process adjacent balanced AB/BA graph comparisons against
+  exact45c56bc,60pairs/shape, with reference/cache checks before capture,
+  after initial replay and after timing:
+
+| shape | previous production us | merged us | paired delta us |
+|---|---:|---:|---:|
+| B8 sliding L1, unchanged control |7.408|7.456|-0.016|
+| B16 full L8, unchanged control |149.744|149.536|-0.256|
+| B17 full L8 |164.528|161.344|-3.360|
+| B24 full L8 |212.256|208.224|-4.016|
+| B32 full L8 |268.944|267.056|-2.144|
+
+The latest main improvement reproduces, including a partial recovery of the
+previously noted B17 regression. Do not infer equality with the older pre-Gluon
+B17 source from measurements across sessions. Small unchanged-control differences
+are timing variation. Pair deltas need not equal differences of separate medians.
+Artifacts are `profiles/session21-integrated-*`; reproducing drivers and the
+exact old-source snapshot are on the experiment branch below. No new integrated
+sanitizer claim: the native implementation is unchanged; Gluon belongs to main.
+
+### Native paired FP8 conversions: rejected
+
+Experiment **c4f224a** is pushed on **codex-exp/cuda-sliding-fp8pairs**, starting
+at `experiments/sliding_fp8pairs/README.txt`. It is not imported by production.
+The prior SourceCounters/SASS has scalar FP32-to-E4M3 instructions with unused
+packed operands. This cycle pairs conversions without changing rounding,
+saturation, precision, attention arithmetic, all-key coverage or synchronization:
+
+- **query:** two adjacent rotated Q values per packed conversion.
+- **both:** additionally pair new K/V values, retaining their original stores.
+
+Page1/EARLY SASS base/query/both FP32-to-FP8 sites **20/12/10**, allF2FP
+**52/44/42**, PRMT **8/0/0**, LOP3 **49/29/31**. All retain74registers,
+17408shared bytes(cuobjdump)/16384(ptxas), zero stack/local memory/spills,
+2QGMMA/4HGMMA and3CTA barrier sites.
+
+Balanced adjacent AB/BA cold-L2 graph pairs,60rounds/shape,H100 microseconds:
+
+| variant | fixed B1ctx80K parent/candidate | B1 paired delta | B2 delta | B8 delta |
+|---|---:|---:|---:|---:|
+| query |4.336/4.352|+0.016|-0.080|+0.112|
+| both |4.304/4.320|-0.016|+0.016|+0.096|
+
+Each row has its own control. Initial B1 is the exact scored fixed-length shape;
+nearby B3,short/page64/DP cases are mixed. There is no target gain to confirm,
+so no additional sweeps, dispatch change or experimental H200 request.
+
+Isolated SourceCounters base/query/both FP32-to-FP8 executed warp instructions
+**1032/520/516**, byte-permutation instructions **512/0/0**, total instructions
+**164482/161922/162182**. Shared excess wavefronts remain4104. This removes
+about1.5% of total instructions without improving the complete graph. No achieved
+occupancy or isolated conversion-latency claim. NCU durations are not graph times.
+
+Validation and reproducibility:
+
+- Both variants **16/16** (3native,13production fallback), then full broad-native
+  benches **1.911/1.910x**. Those are experimental aggregates, not production
+  regressions or H200 estimates.
+- Each **60all-native fresh graph replays**,120total over10cases, changed
+  QKV/cache/routes/lengths/positions/cache slots, including empty contexts.
+  TP8/DP, pages1/64, scales1/1/64, contexts10–120K, soft/coherent/edge data.
+- **24bit-exact comparisons** of FP32 partials and new cache bytes against
+  native baseline:12case/seed combinations per variant.
+- Both-conversion variant only: isolated **memcheck0errors,synccheck0errors,
+  racecheck0hazards/errors/warnings**. Each tool checks12native calls across
+  pages1/64,two scales,three changed-QKV calls; torch independently reduces
+  partials and checks output/cache. No separate query-only sanitizer claim.
+- Native comparisons cover16candidate/control shape pairs,60rounds each.
+  All custom drivers lock generation/reference/capture/replay, flush512MB
+  before every timed replay and subtract an empty replay. Full benches run
+  sequentially with our other GPU work and retain bench.py's timing-loop lock.
+  Profiling ran after all timing, reference and sanitizer work. All local
+  processes completed. Runtime coverage is EARLY=True; EARLY=False is compiled.
+- Audit regenerates variants, verifies native baseline equals production and
+  checks all pass/pair/sanitizer counts. Production evidence copy is
+  `profiles/session21-native-audit.json`. Only generated report whitespace was
+  normalized; the audit was rerun successfully afterward.
+
+### Budget and next cycle
+
+Session **1check,0scored**, no withdrawals. Codex2026-10-24 totals **4/8checks,
+1/3scored**. Shared expected usage after the new request is **6/10checks,
+1/10scored**, leaving4checks/9scored. The first official post-request read still
+lagged at5checks; use the known sixth request when planning. Actual check cap
+is10/day, not20. Snapshots are `profiles/session21-*`. Neither STOP file exists.
+
+1. Resolve **24414e478fa345a2** (latest source) and **b4853b2accdc4b50** (older
+   source), without resubmitting. Read passing profiles; only the latest check
+   can qualify current submission.py. Preserve source identity when scoring.
+2. Fetch main/read COORD before work. Latest merged main is3daf4a4; native
+   kernels and the nearby boundary remain unchanged. Claude owns Triton/Gluon.
+3. Close paired FP8 conversions and the earlier small-L1 micro-optimization
+   families. The removal of roughly1.5% of instructions did not move latency.
+   A more substantial future native direction could be the full-verify merge
+   in Gluon's new three-kernel PDL chain. First isolate its actual critical-path
+   contribution: main's long merge profile rows include waiting and are not
+   evidence that all that time is reducible. Do not reopen old merge sweeps
+   without that measurement and a distinct structural change.
+4. Keep experimentc4f224a separate; end on clean pushed codex, shared claim
+   removed and result posted. Do not wait idle for queued checks.
