@@ -1,6 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-24 ~20:45 UTC (session 72 = unattended session 4 of the #1-push brief).
+Updated 2026-10-24 ~21:25 UTC (session 73; before that session 72 = unattended session 4 of the #1-push brief).
 
 ## Board and best run
 
@@ -31,7 +31,7 @@ Updated 2026-10-24 ~20:45 UTC (session 72 = unattended session 4 of the #1-push 
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- Account: checks 12/20 used, scored 9/10 used (1 left). Claude may use all account checks (human, a084e9c): 8 left today;
+- Account: checks 13/20 used, scored 9/10 used (1 left) after session 73's check 8bd56b13. Claude may use all account checks (human, a084e9c): 8 left today;
   scored: only 1 left on the account. Resets 00:00 UTC.
 
 ## Current direction (session 69): native verify-full consumer (CUDA, inline-PTX wgmma)
@@ -52,7 +52,10 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Ranked ideas
 
-0. (s72) Cluster kernel follow-ups: batch 32 decode sliding (csl2 NC 8 needs register/load-order fixes); shave csl
+0. (s73) One-shot native kernels (csl8 for decode 32 sliding, cfl for decode 1 full) LOSE on the H100: compute and
+   merges land after the last gather (decode 32: loads 12.1 -> 16.8 us; decode 1 full: loads 12.2 -> 19.5). Native
+   wins need a pipelined multi-tile loop like Triton/Gluon's, not one shot. NOTES session 73.
+0b. (s72) Cluster kernel follow-ups: batch 32 decode sliding (csl2 NC 8 needs register/load-order fixes); shave csl
    (compute ~0.8, merge ~0.8, cluster launch ~0.45 us on H100). Verify sliding on mma.sync clusters LOST (7.6 vs 5.5 us
    H100: 8x partial volume + emulated FP8 mma); would need wgmma + few key splits. NOTES session 72.
 
@@ -66,11 +69,16 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Queued for checks
 
+- s73 check 8bd56b13: csl at batch 32 LOSES on the H200 (decode 32 sliding 14.10 vs 13.42 Triton); main keeps
+  CSL_MAX_BATCH 16. Main's kernel checked twice at 2.321/2.322 (7f45c5c6's 2.343 was a lucky run): submit needs +1%.
+
 - main c9b3242 (csl decode sliding) was checked once (a6081cf6, 2.322x, per-shape win); next UTC day: re-check with the
   next change and submit if > 2.343.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
 
+- s73: csl8 (8-CTA clusters, 2 chunks/warp, cp.async chunk B) decode 32 sliding 16.8 vs 15.9 us; csl at batch 32
+  with launch_bounds 4 (spills, 18.3); native decode-1 full cfl with a last-arriver cross-cluster merge 19 vs 15.8.
 - Cluster DSMEM merges: from Triton dead (s70), but native with st.async + mbarrier complete_tx WORKS (s72). Pitfalls:
   release cluster barriers (~0.5 us), and loads placed after page-table-dependent ones (in-order issue).
 

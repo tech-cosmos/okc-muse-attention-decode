@@ -3141,3 +3141,51 @@ partial volume; not obviously a win. Parked.
 ### Budget (UTC day 2026-10-24)
 
 This session: 1 check (a6081cf6), 0 scored. Claude day: 7/8 checks, scored 3/3 (account: 12/20 checks, 9/10 scored).
+
+## Session 73 (overnight agent, 2026-10-24 20:45-~22:00 UTC; unattended session 5 of the #1-push brief)
+
+Board at start: #1 colinlikescode 2.844x, #2 2.726x; ours #15 2.343x (7f45c5c6). Branch **exp/csl32**.
+
+### Batch-32 decode sliding on cluster kernels: all lose on the H100 (tools/s73/csl8.cu, csl8.py; s72 csl)
+
+- csl.cu (16-CTA clusters) at batch 32: 512 CTAs x 80 regs = 3 CTAs/SM, two waves. `__launch_bounds__(256, 4)`
+  gives 64 regs + 32 B stack (spills): 18.3 us; even with 32-bit gather offsets (12 fewer live regs) still 64 regs +
+  32 B stack, 18.4. MINB 3: 80 regs, 16.7. NB: `__launch_bounds__(256, 1)` compiles to 96 regs (plain 256 -> 80) and
+  makes decode 16 slower (9.2 -> 11.4 us): keep the plain bound.
+- csl8.cu: 8-CTA clusters, each CTA 256 keys, warp = (head, 2 chunks of 32 keys): chunk A gathered into registers
+  as csl, chunk B with cp.async into smem (V rows stride 80 B, conflict-free), 89 regs, 42.6 KB smem, 256 CTAs = one
+  wave. Correct (7 cases incl. batch 32, page 64, edges, kv_scale). H100: decode 1/16/32 sliding 4.75/9.2/16.8 us
+  vs main 3.8/9.2/15.9. Ablations at decode 32: loads only 12.1 (floor 10.9), + compute 14.8, + merge 16.8.
+  Online rescale (chunk A's softmax + P@V before waiting for B): no change (16.7): all loads land together.
+  One-shot kernels pay compute (~2.7 us) and merge (~2 us) after the last gather; Triton's pipelined loop hides it.
+
+### Native batch-1 decode full (tools/s73/cfl.cu, cfl.py): correct, slower (19 vs 15.8 us H100)
+
+NG clusters x 16 CTAs; n = seq + 1 keys in 128-key tiles spread evenly; per CTA up to NS = 3 tiles in flight via
+cp.async (K 64 B rows, V 64 B rows with a row/chunk XOR swizzle), online softmax per tile, cluster DSMEM merge
+(st.async + mbarrier), then a cross-cluster merge by the last-arriving cluster per query head (global partials,
+__threadfence + atomicAdd counter, the last one resets it, so graph replays stay consistent). Correct on 8 cases
+(ctx 10 / 127 / 3000 / 6000 edges / 9000 kv_scale / 80000 / 200000, page 1 and 64) for NG 8 and 16.
+H100 decode 1 full: main 15.8; NG 6/8/10/12/14 = 20.8/19.2/18.8/19.8/19.5, NG 15-16 = 24 (16-CTA clusters at
+2 CTAs/SM: only ~14 co-resident -> two waves). Ablations at NG 14: loads only 12.2, + compute 15.0, + merges 19.5.
+The two-level merge costs ~4.5 us (DSMEM merge, then store + fence + atomic + reload: ~3 L2 round trips), and the
+per-tile compute ~3 us is not hidden behind the gathers. Gluon `_gd_full` (12.4 attention + 3.2 merge) stays. Dead.
+
+### Check
+
+**H200 check 8bd56b13 (exp/csl32 b8d1a18 = main + CSL_MAX_BATCH 32): 2.321x [2.286, 2.355], 16/16.** decode 32
+sliding on csl **14.10 us** (profile: csl kernel 12.4) vs Triton 13.42 (a6081cf6) / 13.86 (7f45c5c6): loses, so
+CSL_MAX_BATCH stays 16 (main unchanged). csl shapes held: decode 1/16 sliding 5.68/8.39 us. Untouched shapes again
+slower than 7f45c5c6 (decode 1 full 14.32 vs 13.70, verify 16 full 118.69 vs 115.81): with two checks of main's
+kernel at 2.321-2.322, 7f45c5c6's 2.343 looks like a good-noise run. Not submitted (rule: check must beat 2.343).
+
+### Next ideas
+
+1. The board gap (+21%) is in verify full (1.73-1.80x) and needs a consumer redesign, not tweaks (STATE ideas 1).
+2. Native kernels must pipeline several tiles per CTA (Triton/Gluon-style ring) to beat the Triton/Gluon kernels at
+   batch 32 sliding / batch-1 full; one-shot gather-then-compute designs lose by 1-4 us.
+3. Next UTC day: main (csl decode sliding B <= 16) still unscored; re-check together with the next real change.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 1 check (8bd56b13), 0 scored. Account: 13/20 checks, 9/10 scored.
