@@ -313,9 +313,10 @@ if HAVE_GLUON:
     # per-SM bandwidth is higher (tools/emu.py: 137/261 -> 132/249 us; H100 itself: a tie).
     @gluon.jit
     def _gd_full(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
-                 HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
+                 cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
                  MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
-                 TPV: gl.constexpr = False):
+                 TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
+                 SEP: gl.constexpr = False):
         split = gl.program_id(0)
         b = gl.program_id(1)
         h = gl.program_id(2) * 2
@@ -338,9 +339,13 @@ if HAVE_GLUON:
         SH: gl.constexpr = gl.SwizzledSharedLayout(16, 1, 8, [1, 0])
 
         seq = gl.load(seq_ptr + b)
-        # Each request's cached keys in S equal tile-aligned chunks.
-        chunk = gl.cdiv(gl.cdiv(seq, S), BN) * BN
-        lo = split * chunk
+        # Each request's cached keys (sliding layers: the last WINDOW - 1) in S equal tile-aligned chunks.
+        if WINDOW > 0:
+            base = gl.maximum(seq - (WINDOW - 1), 0)
+        else:
+            base = seq * 0
+        chunk = gl.cdiv(gl.cdiv(seq - base, S), BN) * BN
+        lo = base + split * chunk
         hi = gl.minimum(lo + chunk, seq)
         ntiles = gl.cdiv(gl.maximum(hi - lo, 0), BN)
         pt_row = pt_ptr + b.to(gl.int64) * MAX_PAGES
@@ -371,7 +376,16 @@ if HAVE_GLUON:
         x = gl.load(qkv_ptr + b * QKV_W + ((h + hp) * G + r % G)[:, None] * D + (c_g % D)[None, :], mask=q_ok,
                     other=0.0).to(gl.float32)
         x = gl.where(q_ok, x, 0.0)
-        x8 = (x * gl.rsqrt(gl.sum(x * x, 1) / D + 1e-5)[:, None]).to(gl.float8e4nv)
+        rs = gl.rsqrt(gl.sum(x * x, 1) / D + 1e-5)[:, None]
+        if ROPE:
+            # Interleaved RoPE at position seq (the norm commutes with the rotation).
+            xp = gl.load(qkv_ptr + b * QKV_W + ((h + hp) * G + r % G)[:, None] * D + ((c_g % D) ^ 1)[None, :],
+                         mask=q_ok, other=0.0).to(gl.float32)
+            cs_off = seq * D + (c_g % D) // 2
+            cos = gl.load(cs_ptr + cs_off)[None, :]
+            sin = (gl.load(cs_ptr + cs_off + D // 2) * gl.where(c_g % 2 == 0, -1.0, 1.0))[None, :]
+            x = x * cos + xp * sin
+        x8 = (x * rs).to(gl.float8e4nv)
         q = gl.convert_layout(x8, QA)
         k_scale = gl.load(ks_ptr)
         scale = qk_scale * k_scale
@@ -428,6 +442,9 @@ if HAVE_GLUON:
         co = gl.arange(0, C, layout=gl.SliceLayout(0, MMA))
         part = ((b * HKV + h + ro // G) * (S + 1) + split) * G + ro % G
         own = (co // D)[None, :] == (ro // G)[:, None]
+        # SEP: an extra program (split S) only handles the new token; it stores no key partial.
+        keyp = split < S
+        own = own & keyp
         if TPV:
             dd = gl.arange(0, D, layout=gl.SliceLayout(1, MMA))
             gg = gl.arange(0, G, layout=gl.SliceLayout(0, MMA))
@@ -436,15 +453,20 @@ if HAVE_GLUON:
             gl.store(pacc_ptr + (pt0 + (S + 1) * G)[None, :] * D + dd[:, None], acc1.to(pacc_ptr.dtype.element_ty))
         else:
             gl.store(pacc_ptr + part[:, None] * D + (co % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=own)
-        gl.store(pml_ptr + part * 2, m_i)
-        gl.store(pml_ptr + part * 2 + 1, l_i)
-        if split == S - 1:
+        gl.store(pml_ptr + part * 2, m_i, mask=keyp)
+        gl.store(pml_ptr + part * 2 + 1, l_i, mask=keyp)
+        if split == (S if SEP else S - 1):
             # The step's new token for both KV heads: normalize K, store K and V as FP8 at cache_loc (row 0 of
             # each head's block), and write its one-key partial (max = its score, sum = 1, acc = V) to slot S.
             loc = gl.load(loc_ptr + b)
             zero = gl.zeros([M, C], gl.float32, BL)
             kx = gl.where(q_ok, gl.load(qkv_ptr + b * QKV_W + (HQ + h) * D + c_g)[None, :].to(gl.float32) + zero, 0.0)
-            kq = (kx * gl.rsqrt(gl.sum(kx * kx, 1) / D + 1e-5)[:, None] / k_scale).to(gl.float8e4nv)
+            krs = gl.rsqrt(gl.sum(kx * kx, 1) / D + 1e-5)[:, None]
+            if ROPE:
+                kxp = gl.where(q_ok, gl.load(qkv_ptr + b * QKV_W + (HQ + h) * D + (c_g ^ 1))[None, :].to(gl.float32)
+                               + zero, 0.0)
+                kx = kx * cos + kxp * sin
+            kq = (kx * krs / k_scale).to(gl.float8e4nv)
             vx = gl.load(qkv_ptr + b * QKV_W + (HQ + HKV + h) * D + c_g)[None, :].to(gl.float32) + zero
             vq = (gl.where(q_ok, vx, 0.0) / gl.load(vs_ptr)).to(gl.float8e4nv)
             first = q_ok & ((r % G) == 0)[:, None]
@@ -899,6 +921,14 @@ def _plan(cfg, max_pages, device):
     queries rounded to E4M3, as FA3 does with an FP8 cache)."""
     batch, length, hkv = cfg["batch"], cfg["q_len"], cfg["num_kv_heads"]
     heads = batch * hkv
+    pairs = heads // 2
+    if cfg["window"] and length == 1 and pairs >= 12 and HAVE_GLUON and USE_GDEC and hkv % 2 == 0 \
+            and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
+        # Batched sliding decode on the Gluon one-warp kernel (FP8 QK^T mma; a dedicated program per KV head
+        # pair for the new token, so the S key splits stay tile-aligned), up to ~800 programs (H100 decode
+        # 16/32 sliding 10.6/15.6 -> 9.3/13.9 us, B64 27.7 -> 23.2; at batch <= 8 it loses by 0.2-1.8 us).
+        splits = 32 if pairs * 32 <= 800 else (16 if pairs * 16 <= 800 else 8)
+        return dict(gdec=True, sep=True, splits=splits, block_n=32, stages=2, pdt="bf16", hb=2)
     if cfg["window"]:
         # Sliding layers: at most 2,047 cached keys; latency-bound.
         # The merge takes 2 query heads per one-warp program (hb, cw) and every split in one pass (sb):
@@ -1078,11 +1108,22 @@ def _decode_gluon(data, cfg, plan):
     pacc = torch.empty((batch, hkv, s, group, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, s, group, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
-    _gd_full[(splits, batch, hkv // 2)](
+    sep = plan.get("sep", False)
+    _gd_full[(splits + sep, batch, hkv // 2)](
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
         data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+        _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
         HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
-        BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), num_warps=1)
+        BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
+        ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1)
+    hb = plan.get("hb", 1)
+    if hb > 1:
+        _combine_hb[(batch, hq // hb)](
+            qkv, pacc, pml, data["v_scale"], out,
+            HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
+            SB=triton.next_power_of_2(s), HB=hb,
+            PDL=USE_PDL, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
+        return out
     _combine[(batch, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
