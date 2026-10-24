@@ -210,13 +210,13 @@ if HAVE_GLUON:
                 vh0.index(sj).store(vt.slice(0, D, 1).load(VL).to(gl.float16))
                 vh1.index(sj).store(vt.slice(D, D, 1).load(VL).to(gl.float16))
                 fence_async_shared()
-                gl.barrier()
+                # (mbarrier.arrive syncs the partition before its elected arrive.)
                 mbarrier.arrive(ready.index(sj))
 
     @gluon.jit
     def _gw_consumer_cv(q, k_ring, vh, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, hh, split,
                         HEAD: gl.constexpr, HKV: gl.constexpr, S: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
-                        BN: gl.constexpr, NS: gl.constexpr, PEEL: gl.constexpr):
+                        BN: gl.constexpr, NS: gl.constexpr, PEEL: gl.constexpr, LSUM: gl.constexpr = False):
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
                                                       instr_shape=[16, BN, 32])
         O_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
@@ -226,6 +226,10 @@ if HAVE_GLUON:
         l_i = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, S_L))
         acc = gl.zeros([M, D], gl.float32, layout=O_L)
         n_s = gl.arange(0, BN, layout=gl.SliceLayout(0, S_L))
+        if LSUM:
+            # Row sums kept per thread ([M, 8]: the 8 columns of each 8-wide group a quad holds), reduced
+            # across the quad once at the end, as FA3 does.
+            l8 = gl.sum(gl.reshape(gl.zeros([M, BN], gl.float32, S_L), [M, BN // 8, 8]), 1)
         for i in range(ntiles):
             s = i % NS
             mbarrier.wait(ready.index(s), (i // NS) & 1)
@@ -241,14 +245,19 @@ if HAVE_GLUON:
             m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
             alpha = gl.exp2(m_i - m_new)
             p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
-            l_i = l_i * alpha + gl.sum(p, 1)
+            if LSUM:
+                l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
+                    gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+            else:
+                l_i = l_i * alpha + gl.sum(p, 1)
             m_i = m_new
             acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
             p16 = gl.convert_layout(p.to(gl.float16), P_L)
             a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
             acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
-            gl.barrier()
             mbarrier.arrive(empty.index(s))
+        if LSUM:
+            l_i = gl.convert_layout(gl.sum(l8, 1), gl.SliceLayout(1, S_L))
         _gw_store(pacc_ptr, pml_ptr, b, hh, split, m_i, l_i, acc, HKV, S + 1, M, D, gl.SliceLayout(1, S_L), O_L)
 
     @gluon.jit
@@ -256,7 +265,7 @@ if HAVE_GLUON:
                    HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, D: gl.constexpr,
                    PAGE: gl.constexpr, MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr,
                    NS: gl.constexpr, PW: gl.constexpr, PREGS: gl.constexpr, CREGS: gl.constexpr,
-                   LAG: gl.constexpr = 0, PEEL: gl.constexpr = False):
+                   LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -308,9 +317,9 @@ if HAVE_GLUON:
         if LAG:
             gl.warp_specialize([
                 (_gw_consumer_cv, (q0, k_ring, vh0, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h,
-                                   split, 0, HKV, S, M, D, BN, NS, PEEL)),
+                                   split, 0, HKV, S, M, D, BN, NS, PEEL, LSUM)),
                 (_gw_consumer_cv, (q1, k_ring, vh1, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h + 1,
-                                   split, 1, HKV, S, M, D, BN, NS, PEEL)),
+                                   split, 1, HKV, S, M, D, BN, NS, PEEL, LSUM)),
                 (_gw_producer_cv, (pt_row, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready, empty,
                                    lo, hi, ntiles, PAGE, ROW_W, BN, C, D, NS, PW, LAG)),
             ], [4, PW], [CREGS, PREGS])
@@ -711,7 +720,7 @@ def _plan(cfg, max_pages, device):
         # The merge: with up to 32 partials, one-warp programs over 2 heads (H100 verify 16 full 139 -> 137.5 us).
         merge = dict(hb=2, cw=1) if splits + 1 <= 32 and (cfg["num_q_heads"] // hkv) % 2 == 0 else {}
         return dict(gluon=True, splits=splits, block_n=64, stages=3, lag=1, gpeel=True, pw=4,
-                    pregs=40, cregs=96, maxnreg=80, **merge)
+                    pregs=40, cregs=96, maxnreg=80, lsum=True, **merge)
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
@@ -796,7 +805,7 @@ def _verify_gluon(data, cfg, plan):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
+        LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), LSUM=plan.get("lsum", False), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
     s = splits + 1
     hb = plan.get("hb", 1)
     if hb > 1:
