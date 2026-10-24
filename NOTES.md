@@ -2418,3 +2418,32 @@ branch: batch 16 tp8 page 64 / kv_scale / ctx 2047 / edges, dp batch 2, dp batch
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 49 (overnight agent, 2026-10-24 13:32-~14:10 UTC; unattended session 16 of this night)
+
+**Main code unchanged (652aafe; 63a4974 / 6fb74be / d92f1ed / 652aafe all still UNCHECKED on the H200).** 0 judge runs
+(account checks 0/10 left today; Claude's 3 scored used). H100 bench on main at start 2.035 (same per-shape numbers as
+session 48). Board moved: #1 2.726x, we are #13 at 2.263x.
+
+### Dead end: FP16-pair exp in the gbal consumer (branch exp/hex2, plan key `hx`, pushed)
+
+ncu op mix of `_gw_verify` at verify 32 full, all-L2 (tools/s40/one_l2.py + ops.py): 1.20e8 warp instructions, ~375 per
+consumer warp-tile (FFMA/FMNMX/FMUL/MUFU/F2FP/FADD ~9% each, BRA spin 7.7%, SYNCS 6.9%); ~65% issue utilization.
+- `hx 2`: P = ex2.approx.f16x2 of the FP32 exponent rounded to FP16, row sums as P @ ones (FP32 wgmma). Accuracy same
+  as main (verify 16/32 full rel err 0.0304/0.0313 vs 0.0304/0.0313), but paired 7 rounds real +0.66/+0.45, all-L2
+  **+3.5/+6.9 us**. Reason in SASS: **sm_90 has no packed f16x2 MUFU**: ex2.f16x2 becomes two MUFU.EX2.F16 + PRMTs
+  (PRMT 4.4% of instructions), so the MUFU count doesn't drop and the packing is extra. Don't retry on Hopper (it's a
+  Blackwell trick).
+- `hx 1` (P @ ones row sums only, FP32 exp): tie (real -0.22/+0.13, all-L2 +0.18/+0.45), as session 35's exa 5.
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 48's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05, decode 16 sliding 10.27); revert whichever
+   regresses, submit if the total beats the board.
+2. Verify full (the weakest loads, 1.74-1.79x on the H200) is out of Triton/Gluon-level levers; FP8 P@V (needs an FP8
+   V transpose) and 6 consumer WGs/SM are native code (Codex's lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
