@@ -379,7 +379,7 @@ CSL_MAX_BATCH = 16  # decode sliding up to this batch on the cluster kernel (H10
 
 # Native verify-full variants (the session-71 kernel; tools/s77/nverify_src.cu = exp/nverify's _NV_SRC): (tag, macro
 # overrides). Built in one load_inline at import, one namespace per variant, launched without PDL.
-_DIAG_NV = [("nvd_full", {}), ("nvd_prod", {"NV_ABL": 2}), ("nvd_prodnt", {"NV_ABL": 3})]
+_DIAG_NV = [("nvd_full", {}), ("nvd_prod", {"NV_ABL": 2}), ("nvd_prodnt", {"NV_ABL": 3}), ("nvd_full_l2", {})]
 _NV_DEFAULTS = dict(NV_ABL=0, NV_NS=3, NV_PREGS=32, NV_CREGS=104, NV_LAZY=1, NV_LAG=1, NV_PFD=4, NV_TR=1)
 _NVD_SRC = r'''// Native verify-full attention (L 8, G 8, D 64, HKV 2): _gw_verify's balanced-split (gbal) program in CUDA.
 // One CTA per program p (2 per SM): warpgroup 0 gathers K/V rows with cp.async and transposes V to FP8 V^T,
@@ -2397,9 +2397,11 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
                 qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
                 data["seq_lens"], data["cache_loc"], dacc, dml, qk_scale, **{**base, **kw})
         if _NVD is not None and hkv == 2 and group == 8 and length == 8 and d == 64:
+            pt_l2 = page_table % 4096
             for tag, _ in _DIAG_NV:
                 _diag_flush(device)
-                getattr(_NVD, "run_" + tag)(qkv, data["k_cache"], data["v_cache"], data["k_scale"], page_table,
+                getattr(_NVD, "run_" + tag)(qkv, data["k_cache"], data["v_cache"], data["k_scale"],
+                                            pt_l2 if tag.endswith("l2") else page_table,
                                    data["seq_lens"], dacc, dml, qk_scale, progs, nid, cfg["page_size"])
     return out
 
