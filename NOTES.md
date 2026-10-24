@@ -1393,3 +1393,46 @@ decode-full speed on the H200 (93/174 us) would by itself give ~2.37x (the leade
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored (account 10/10 checks used). Claude day: 5/8 checks, 3/3 scored.
+
+## Session 24 (overnight agent, 2026-10-24 08:17-09:00 UTC)
+
+**Main de522ae = 576ad58 (session 21's gbal + session 23's USE_GD1, both still UNCHECKED) + one-warp merge programs
+for Gluon decode full (`cw` 1 when splits + 1 <= 128). All three UNCHECKED on the H200; they touch different shapes, so
+one check evaluates them all: verify 16/32 full vs f3e099c1 (124.65/231.75 us; gbal fallback rule in session 21),
+decode 1 full vs beb63898's 15.21 us (USE_GD1), decode 16/32 full vs f3e099c1 (92.63/173.84 us; if worse, drop the
+`cw` 1 line in `_plan`'s gdec branch).** The account had 0 checks left all session (10/10 for this problem today).
+
+### Change (de522ae): `cw` 1 for the gdec decode-full merge
+
+- Merge tails (total minus no-merge, tools/s23/abl.py, H100): decode 16/32 full 5.5/4.4 us (default `_combine` at
+  4/2 warps), sliding 1.6-3.4 us. The H200 profile of f3e099c1 showed ~6 us after `_gd_full` on decode 16/32 full.
+- One-warp `_combine` programs: paired (tools/s21/ab.py, 7 rounds) decode 16 full real -1.76 / all-L2 -0.98, decode
+  32 full -1.66 / -1.07. Nearby decode full (tools/s24/near.py '{}' '{"cw":1}'): B8/12/16/24/32/48/64
+  -1.7/-1.0/-1.7/-2.0/-2.1/-2.1/-1.0 us, B2/4 (256-512 slots) +1.0/+0.7, hence the 128-slot rule. Tests 16/16, all
+  nearby cases PASS. Bench decode 16/32 full 129.6/242.1 -> 128.1/241.4.
+- Why (unproven): `_gd_full` uses 242 registers, 8 programs per SM leave 2048 registers, so few PDL merge programs can
+  be resident before the attention grid drains. But capping registers doesn't help: `_gd_full` maxnreg 232/224/208
+  (temporary plan key `gmr`) tie/noise, merge maxnreg 64/40 +4/+11 us (spills), `csb` 32/16 +2 us, hb 2/4 at cw 1
+  tie / +3 at decode 16.
+
+### Measured, no change
+
+- Verify full `_combine_bal`: sb 16/8, hb 1, cw 2 all lose (+1..+2.9 us). Verify 16/32 sliding `_combine_hb`: hb 4/8,
+  cw 2 tie or lose. The merges other than decode full's are already at their best settings.
+- Window mask on unmasked sliding tiles (only split 0's first tile can need it): dropping it entirely (wrong-result
+  upper bound) gives verify 32 sliding -0.45, decode 32 -0.2 us, within noise (verify 16 moved -0.24 though it
+  never takes that path). Not worth peeling.
+- Per-load arithmetic from f3e099c1 (H200): decode 1/16/32 2.73/2.27/2.20x, verify 1/16/32 2.70/1.79/1.71x. Verify
+  16/32 full remains the weak spot (compute-bound consumer; see sessions 12/13/16/22 for everything tried there).
+  Board: #1 is at 2.726x, #10 at 2.317x; we're #21 at 2.161x.
+
+### Next ideas
+
+1. Check main de522ae (above) when the UTC day resets; submit if it beats the board (account best 2.1605x).
+2. Verify full consumer: still the only large lever (~+2% overall per 30 us at verify 32). Everything cheap in
+   Gluon has been tried; FP8 P@V with a conflict-free producer-side V transpose (session 22) is the remaining
+   Triton/Gluon-lane idea (~+0.3%).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
