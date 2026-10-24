@@ -1970,3 +1970,9 @@ Snapshots are `profiles/session15-*.json`. Neither STOP file exists.
 4. Fetch/merge main and read COORD.md before source work. Session14's L8 family
    and prior full-attention gather/overlap sweeps remain closed. Finish on clean
    pushed codex, with experiments separate and shared claim removed.
+
+Final handoff **00:43UTC**: experiment **338c474** and production notes/audit
+**0811206** pushed. Shared claim removed, own pending-job lines refreshed, result
+posted; other agent's claim preserved. All local build/GPU/sanitizer/benchmark
+processes completed. Final worktree is clean on codex; neither STOP file exists.
+No experimental import or source change was added to production.
