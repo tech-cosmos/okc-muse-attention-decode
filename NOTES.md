@@ -3216,3 +3216,57 @@ This session: 1 check (8bd56b13), 0 scored. Account: 13/20 checks, 9/10 scored.
 ### Budget (UTC day 2026-10-24)
 
 This session: 2 checks (5ff29fde, 9a22a5ae), 0 scored. Account: 15/20 checks, 9/10 scored.
+
+## Session 75 (overnight agent, 2026-10-24 22:10-~22:55 UTC; unattended session 7 of the #1-push brief)
+
+Board at start: #1 colinlikescode 2.844x, #2 2.726x; ours #16 2.343x (7f45c5c6, tied with #15). Budget at start
+(API): checks 15/20, scored 9/10. **Main kernel unchanged, 0 judge runs** (no candidate beat main on the H100, and a
+re-check of main's code would return its cached 2.322x). Tools in tools/s75.
+
+### Dead: cp.async (smem-staged) gathers in the csl decode-sliding cluster kernel (tools/s75/csla.cu, csla.py)
+
+Idea: csl loses at batch 32 only because K/V gathered into registers need 80 regs/thread (3 CTAs/SM, 21 of the 32
+16-CTA clusters resident, two waves). Variant: each thread cp.asyncs its own K (16 B x 4) / V (8 B x 8) fragments
+into its own shared-memory slots (32 KB dynamic smem per CTA) and reads them back after wait_group (same thread, no
+barrier; fragment layout unchanged). Correct on 7 cases (ctx 10 page 64, edges, kv_scale, mixed, batch 32).
+- Registers 71 (MINB 1) / 64 with no spills (`__launch_bounds__(256, 4)`), but `cudaOccupancyMaxActiveClusters`
+  says **only 28 16-CTA clusters fit even at 4 CTAs/SM** (GPC limit; 21 at 3/SM, 14 at 2/SM). So batch 32 can't
+  be one wave with 16-CTA clusters, whatever the register count.
+- And cp.async itself costs latency (H100 graph-timed, decode 1 sliding vs main 3.55-3.70 us): async K only
+  +0.2 us, async V only +0.3, both +0.4..+0.65. Batch 16: +0.6..+1.0; batch 32 (MINB 4): 16.4-16.6 vs Triton
+  15.8-16.2.
+  Keep LDG-to-register gathers in csl. A smem-staged one-wave batch-32 design would start ~0.6 us behind.
+
+### Measured: verify sliding is compute/chain-bound even with every row in L2 (tools/s75/alll2.py, H100)
+
+page_table % 4096 (all K/V rows L2 hits after first touch), whole / attention-only (merges as no-ops), us:
+
+| shape | real whole | real attn | all-L2 whole | all-L2 attn |
+|---|---|---|---|---|
+| decode 16 sliding (csl, no merge kernel) | 8.80 | 8.83 | 6.19 | 6.26 |
+| decode 32 sliding (Triton) | 16.00 | 14.46 | 11.50 | 10.21 |
+| verify 16 sliding | 12.94 | 11.18 | 11.15 | 9.10 |
+| verify 32 sliding | 19.04 | 16.45 | 15.63 | 13.44 |
+
+Verify 32 sliding runs 2048 64-key tiles over 132 SMs (15.5 per SM) at ~1.8 tiles/us/SM in Triton. Gluon
+`_gw_verify` does ~2.9 on verify full, and the native consumer-only microbench 3.8. The verify-sliding gap is the
+Triton consumer's per-tile chain (2 programs x 4 warps per SM), not DRAM.
+- Re-measured the Gluon proxy (tools/s75/proxy.py: full layer, ctx 2048, q_len 8, agentic): gw_verify gbal / non-bal
+  16.35/16.18 (batch 16) and 21.33/21.01 (batch 32) vs Triton verify sliding (real) 12.83/19.47. gw_verify's fixed
+  costs lose at this size, as in session 13.
+- Plan sweep (bench sweep): verify 32 sliding splits 6/8 (+3..+4 us), stages 3, maxnreg 128 (+0.3); verify 16
+  splits 12/16, stages 3, warps 8, maxnreg 128: all worse than main. More, shorter programs lose badly.
+
+### Next ideas
+
+1. Verify sliding needs a faster per-tile consumer at small fixed cost: a native kernel with the csl-style launch
+   (no warp-specialization setup, cluster DSMEM merge) but wgmma for the 64-row tiles (FP8 QK, FP16 or FP8 PV),
+   2-4 tiles per CTA pipelined. Upside if it reached gw's tile rate: verify 32 sliding ~-4 us, verify 16 ~-2
+   (H200 ~1.5-2% overall). Large build; the parts exist (tools/s69/cmicro.cu wgmma descriptors, s72 csl
+   cluster merge, s71 nverify FP8 V transpose).
+2. Unchanged: verify full consumer (STATE idea 1), merge tails.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Account: 15/20 checks, 9/10 scored (5 checks and 1 scored left unused at the
+00:00 UTC reset: there was no real candidate).

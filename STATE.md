@@ -1,10 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-24 ~22:30 UTC (session 74 = unattended session 6 of the #1-push brief).
+Updated 2026-10-24 ~22:55 UTC (session 75 = unattended session 7 of the #1-push brief).
 
 ## Board and best run
 
-- Board 2026-10-24 21:30Z: #1 colinlikescode 2.844x, #2 2.726x, #3 2.624x; **ours #15 2.343x**
+- Board 2026-10-24 22:10Z: #1 colinlikescode 2.844x, #2 2.726x, #3 2.624x; **ours #16 2.343x** (tied #15)
   (scored **7f45c5c6**, commit 14355d4 = main's kernel). Need ~+21% for #1.
 - Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
 
@@ -31,8 +31,8 @@ Updated 2026-10-24 ~22:30 UTC (session 74 = unattended session 6 of the #1-push 
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- Account: checks 15/20 used, scored 9/10 used after session 74's checks 5ff29fde, 9a22a5ae (5 checks, 1 scored left
-  until 00:00 UTC). Claude may use all account checks (human, a084e9c).
+- Account: checks 15/20 used, scored 9/10 used at the end of 2026-10-24 (session 75 ran no judge jobs). Resets at
+  00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
 ## Current direction (session 69): native verify-full consumer (CUDA, inline-PTX wgmma)
 
@@ -52,6 +52,11 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Ranked ideas
 
+000. (s75) Verify sliding is consumer-chain-bound, not DRAM-bound (H100 all-L2 attention verify 32/16 sliding 13.4/9.1 vs
+   real 16.5/11.2 us; Triton ~1.8 64-key tiles/us/SM vs Gluon gw 2.9 on verify full). gw_verify itself loses at
+   sliding size (fixed costs). The open design is a native wgmma verify-sliding kernel with csl-style low fixed
+   cost (no warp-spec setup, cluster DSMEM merge), 2-4 pipelined tiles per CTA: ~1.5-2% overall if it reached gw's
+   tile rate. NOTES session 75.
 00. (s74) H100-tied plan variants lose or tie on the H200 (4 of 4: verify 16 sliding splits 4 loses, csl TLB warm,
    decode 16 full dbal, verify 1 sliding stages 3 tie). Per-shape judge noise ~+-2%: don't spend checks on ties.
    Measured ceilings (NOTES s74): bulk-copy row gathers 2.35 TB/s (worse than LSU 2.77); in-cluster verify-volume
@@ -78,6 +83,9 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
 
+- s75: cp.async smem-staged gathers in csl (+0.2 us K, +0.3 V at batch 1; and 16-CTA clusters cap at 28 resident even
+  at 4 CTAs/SM, so batch 32 can't be one wave); Gluon gw_verify at sliding size (proxy 16.2/21.0 vs Triton
+  12.8/19.5 at batch 16/32); verify sliding splits 6/8/12/16, stages 3, warps 8, maxnreg 128.
 - s74: nverify at verify 1 full (17.8-20.9 vs 14.8 attn), page-table row prefetch in csl (+1.3 at B16), TLB warm,
   bulk-copy gathers (tools/s74/tgather.cu), native cluster merge for decode 1 full (tools/s74/cmg.cu, +0.56/+6.4),
   verify-volume cluster merge microbench (tools/s74/vmerge.cu).
