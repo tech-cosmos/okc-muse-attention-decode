@@ -1,0 +1,173 @@
+{
+  "previous_sha256": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "current_sha256": "62fefe79bd913e6dc1b12388ad7bec50139096cb07c7b61918b8031c0c93a86b",
+  "main_commit": "44e4e25",
+  "native_unchanged": true,
+  "matching_main_helpers": 20,
+  "unchanged_dispatch": true,
+  "suite_passes": 16,
+  "bench_shapes": 12,
+  "paired_comparisons": 800,
+  "paired_reference_checks": 60,
+  "fresh_replays": 80,
+  "results": [
+    {
+      "index": 0,
+      "shape": {
+        "batch": 8,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "full",
+        "q_len": 8,
+        "page": 1,
+        "spread": "agentic",
+        "dist": "coherent"
+      },
+      "previous_us": 80.80000011250377,
+      "merged_us": 80.9600013308227,
+      "paired_delta_us": -0.01600012183189392
+    },
+    {
+      "index": 1,
+      "shape": {
+        "batch": 12,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "full",
+        "q_len": 8,
+        "page": 1,
+        "spread": "agentic",
+        "dist": "coherent"
+      },
+      "previous_us": 111.42400233075023,
+      "merged_us": 108.73599676415324,
+      "paired_delta_us": -2.6559978723526
+    },
+    {
+      "index": 2,
+      "shape": {
+        "batch": 16,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "full",
+        "q_len": 8,
+        "page": 1,
+        "spread": "agentic",
+        "dist": "coherent"
+      },
+      "previous_us": 140.09599713608623,
+      "merged_us": 138.5600003413856,
+      "paired_delta_us": -1.5999972820281982
+    },
+    {
+      "index": 3,
+      "shape": {
+        "batch": 32,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "full",
+        "q_len": 8,
+        "page": 1,
+        "spread": "agentic",
+        "dist": "coherent"
+      },
+      "previous_us": 256.31998758763075,
+      "merged_us": 255.52000384777784,
+      "paired_delta_us": -0.6719976663589478
+    },
+    {
+      "index": 4,
+      "shape": {
+        "batch": 64,
+        "ctx": 40000,
+        "heads": "tp8",
+        "layer": "full",
+        "q_len": 8,
+        "page": 1,
+        "spread": "agentic",
+        "dist": "coherent"
+      },
+      "previous_us": 256.8640070967376,
+      "merged_us": 254.91199968382716,
+      "paired_delta_us": -2.400010824203491
+    },
+    {
+      "index": 5,
+      "shape": {
+        "batch": 16,
+        "ctx": 20000,
+        "heads": "tp8",
+        "layer": "full",
+        "q_len": 8,
+        "page": 64,
+        "kv_scale": 0.015625,
+        "dist": "edges"
+      },
+      "previous_us": 49.87199930474162,
+      "merged_us": 47.64800099655986,
+      "paired_delta_us": -1.8720012158155441
+    },
+    {
+      "index": 6,
+      "shape": {
+        "batch": 24,
+        "ctx": 9000,
+        "heads": "tp8",
+        "layer": "full",
+        "q_len": 8,
+        "page": 64,
+        "spread": "mixed",
+        "dist": "soft"
+      },
+      "previous_us": 40.80000100657344,
+      "merged_us": 39.67999992892146,
+      "paired_delta_us": -1.1520013213157654
+    },
+    {
+      "index": 7,
+      "shape": {
+        "batch": 2,
+        "ctx": 20000,
+        "heads": "dp",
+        "layer": "full",
+        "q_len": 8,
+        "page": 64,
+        "kv_scale": 0.015625,
+        "dist": "coherent"
+      },
+      "previous_us": 50.735998433083296,
+      "merged_us": 48.879999201744795,
+      "paired_delta_us": -1.4880001544952393
+    },
+    {
+      "index": 8,
+      "shape": {
+        "batch": 1,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "sliding",
+        "q_len": 1,
+        "page": 1,
+        "dist": "soft"
+      },
+      "previous_us": 4.352000076323748,
+      "merged_us": 4.352000076323748,
+      "paired_delta_us": 0.0
+    },
+    {
+      "index": 9,
+      "shape": {
+        "batch": 1,
+        "ctx": 80000,
+        "heads": "tp8",
+        "layer": "full",
+        "q_len": 8,
+        "page": 1,
+        "dist": "coherent"
+      },
+      "previous_us": 18.351999577134848,
+      "merged_us": 18.111999612301588,
+      "paired_delta_us": -0.23999996483325958
+    }
+  ]
+}

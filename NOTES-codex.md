@@ -4131,3 +4131,149 @@ qualification. No pending Codex judge jobs; neither STOP file exists.
 3. Any further native implementation needs a distinct measured dependency or
    redundant operation to remove. Keep fda33df separate; finish clean on pushed
    codex, remove the shared claim and post results. No judge job needs polling.
+
+## Session 34 — 2026-10-24, 04:10–04:26 UTC
+
+Completed native **computed RoPE** work and integrated Claude's late full-verify
+merge improvement. Both native arithmetic candidates lose, so neither enters
+production. **No judge requests.** Experiment **c8b85d5** is pushed separately
+on **codex-exp/native-rope-compute**; start with
+`experiments/rope_compute/README.md`. Sources, generator, arithmetic diagnostics,
+raw graph pairs, fresh checks, sanitizers, SASS/resources, NCU and CPU audit are
+archived. Production audit copy: `profiles/session34-native-audit.json`.
+
+### Production integration
+
+Initial main **2c681b3** was already merged. A late fetch found Claude's
+**19b8ade**, with notes through **44e4e25**, merged into codex as **f1c18dc**.
+This changes Gluon's full-verify merge to one-warp/two-head `_combine_hb` when
+there are at most 32 partial slots. Native attention/reduction implementations
+and their dispatch predicates are unchanged. Codex did not tune Triton/Gluon.
+
+Final production SHA256:
+`62fefe79bd913e6dc1b12388ad7bec50139096cb07c7b61918b8031c0c93a86b`.
+The previous SHA1bcf source is frozen in `profiles/session34-previous.py`.
+No experimental imports were introduced. The final source has **no exact-source
+H200 qualification**, and no Codex scored allowance remains today.
+
+Final integrated suite **16/16**, followed by all 12 bench shapes, **1.990x**
+against fixed SGLang/H200 times; verify16/32 full **137.82/258.82 us**. This is
+an unpaired local aggregate, not an H200 speedup estimate. The standard suite's
+DP2/L8 full cases do exercise Gluon after its earlier dispatch expansion; extra
+cases below cover larger TP8 batches and the new merge boundary too.
+
+Ten complete-graph comparisons against the previous source, 80 adjacent AB/BA
+pairs each, H100 microseconds:
+
+| Full L8 case | previous | merged | paired delta |
+|---|---:|---:|---:|
+| B8, 80K, page1 (unchanged merge control) |80.800|80.960|-0.016|
+| B12, 80K, page1 |111.424|108.736|-2.656|
+| B16, 80K, page1 |140.096|138.560|-1.600|
+| B32, 80K, page1 |256.320|255.520|-0.672|
+| B64, 40K, page1 |256.864|254.912|-2.400|
+| B16, 20K, page64, scale1/64, edges |49.872|47.648|-1.872|
+| B24, 9K, page64, mixed |40.800|39.680|-1.152|
+| DP2, 20K, page64, scale1/64 |50.736|48.880|-1.488|
+
+Unchanged B1 native sliding/full controls have paired deltas 0.000/-0.240 us,
+showing capture/allocation variation. Paired deltas need not equal differences
+of separate medians. No universal or H200 speedup claim.
+
+**800 adjacent pairs, 60 independent output/cache checks** at comparison
+checkpoints. **80 fresh graph replays**, 40 per source across ten shapes, changing
+QKV/cache/routes/lengths/positions/cache slots, including shortened and empty
+contexts. Of the 40 merged replays, 28 exercise the new grouped Gluon merge,
+4 the unchanged Gluon merge and 8 native-path controls. All pass. No new
+integrated sanitizer claim; existing native kernels are unchanged. Drivers and
+raw evidence: `profiles/session34-integration*.py` and `session34-integrated-*`.
+CPU audit verifies all 20 shared helpers against main44e4e25, exact unchanged
+native extension ASTs and `kernel_fn`, source hashes and complete result counts.
+
+### Native computed RoPE: rejected
+
+Session32's preparation interval motivated eliminating the position-dependent
+RoPE-table address. Both variants load a 32-element frequency vector through
+position-independent addresses and compute the same FP32 position-times-frequency
+angle. Frequencies depend only on configuration/device, never input data.
+
+- FP64 control: round turns and reduce the angle with an FP64 FMA before FP32
+  hardware sine/cosine.
+- Compensated FP32: two FP32 pieces of 2*pi and two explicit RN FMAs remove FP64
+  arithmetic/conversions while preserving cancellation accuracy.
+
+Both use PTX sine/cosine on a reduced angle near [-pi,pi], unlike the earlier
+libdevice attempt. Every key/value, FP8 query/cache precision, FP16 PV operands,
+FP32 partials, BF16 output, PDL, gathers, three barriers and native dispatch remain.
+No query-layout/load-placement/tile sweep. The unused arithmetic probe exists
+only in the experimental extension, never in production.
+
+**201,326,592 angle comparisons per variant**: all 2^21 supported positions,
+32 frequencies, theta500000/10000/1000000. Maximum absolute sine/cosine error
+against Torch's FP32-angle results is **5.365e-7 / 7.600e-7**, FP64/compensated.
+These are arithmetic errors, not output-relative errors or bit-exact FP8 claims.
+Complete attention also passes at contexts 1,048,576 and 2,097,151.
+
+18 shapes per variant, 60 adjacent AB/BA pairs per candidate/control contrast.
+H100 candidate-minus-production paired deltas, microseconds:
+
+| Sliding L1 case | FP64 | compensated FP32 |
+|---|---:|---:|
+| B1, 80K, page1 (scored) |+0.512|+0.448|
+| B8, 80K, page1 |+0.864|+0.608|
+| B1, 80K, page64 |+0.640|+0.512|
+| DP1, 4096, page64, scale1/64 |+0.704|+0.512|
+| B1, 2^21-1, page1 |+0.576|+0.512|
+
+All 18 shapes lose for both variants. Identical-production capture controls
+range -0.144 to +0.192 us. No favorable-repeat selection, fitted cutoff or
+experimental H200 request. Broad complete-wrapper bench aggregates 1.978/1.969x
+are experimental local results, not production regressions.
+
+Page1/EARLY static sites parent/FP64/compensated **1056/1136/1096**. Each computed
+variant removes 10 global load sites but adds 10 sine and 10 cosine sites plus
+range reduction. Compensated has no FP64 instructions. All use **74 registers,
+17408 shared bytes, zero stack/local allocation**, 2 QGMMA/4 HGMMA and 3 barriers.
+Three isolated NCU profiles, independently reference-checked: executed warp
+instructions **164482/172674/168578**; HBM reads **554752/555776/555008 bytes**;
+shared read/write bank conflicts all zero. This demonstrates added work without
+isolating its latency or attributing the entire graph loss to one instruction.
+Profiler durations are not graph timings; no achieved-occupancy claim.
+
+Validation: both **16/16** (3 native/13 fallback), each followed by all 12 bench
+shapes. **4320 adjacent graph pairs, 324 comparison output/cache checks**;
+**144 fresh native graph replays** across 18 shapes per variant, plus **24
+alternate-config output/cache checks** (16 graph, 8 eager). TP8/DP, pages1/64,
+scales1/1/64, soft/coherent/edges, contexts10–2^21-1, shortened/empty contexts.
+Each variant independently passes native **memcheck0 errors, synccheck0 errors,
+racecheck0 hazards/errors/warnings**, 24 fresh replays per tool. Torch independently
+reduces partials and checks output/cache; no Triton loader kernels. EARLY=True
+runtime coverage; EARLY=False compiled only. Source/count/SASS audit passes.
+
+Custom drivers lock generation/reference/capture/replay, flush512MB before each
+timed graph and subtract empty replay. Standard benches retain bench.py's timing
+lock and run sequentially with own work. NCU's parent acquires the lock before
+starting the profiler, after all native timing/fresh/sanitizer work. All processes
+finished. Only generated disassembly/report whitespace was normalized.
+
+### Budget and next cycle
+
+Session **0 checks, 0 scored**, no withdrawals. Codex2026-10-24 remains
+**5/8 checks, 3/3 scored**. Final official account **8/10 checks, 4/10 scored**,
+leaving **2 checks/6 scored**; actual account check cap10/day. Board best remains
+**2.1129x**, now **rank19**, Claude's completed d0f30 job. No pending Codex jobs;
+resolved older jobs need no polling. Neither STOP file exists.
+
+1. Read COORD/fetch main next cycle. Main44e4e25 is integrated. Current SHA62fefe
+   needs its own exact-source H200 check before any future scored submission;
+   neither main's older result nor any Codex older check qualifies it. Preserve
+   scarce shared checks while Codex's scored allowance is exhausted.
+2. Close computed native RoPE with these two reductions. Accurate arithmetic
+   does not make the lookup replacement faster. Earlier closed native
+   query-layout/load-placement/reduction/fusion/tile families stay closed.
+3. Main session13's wide-gather full-decode observation is a possible distinct
+   lead, not proof of a native win. Its H200 emulation is Claude's experiment,
+   not an H200 measurement. Any native follow-up needs complete attention with
+   low per-tile work, rather than another gather-only or large-single-tile sweep.
+4. Keep c8b85d5 separate. Finish on clean pushed codex, remove the claim and post
+   results. No judge job requires waiting.
