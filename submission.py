@@ -105,6 +105,16 @@ def _num_sms(device):
     return _SMS[device.index]
 
 
+# _gw_consumer_cv's conditional acc rescale: _WCR_PACK accumulators, their alphas and the warp's grow flag
+# (warp-uniform) per asm; the multiplies are branched over when the flag is 0.
+_WCR_P = 16
+_WCR_ASM = "{ .reg .pred p; setp.eq.f32 p, $%d, 0f00000000; @p bra.uni W${:uid}; %s W${:uid}: }" % (
+    4 * _WCR_P - 1, " ".join("mul.f32 $%d, $%d, $%d;" % (i, i, 2 * _WCR_P + i) for i in range(_WCR_P)))
+_WCR_CONS = tl.constexpr(",".join(["=f"] * _WCR_P + [str(i) for i in range(_WCR_P)] + ["f"] * (2 * _WCR_P)))
+_WCR_ASM = tl.constexpr(_WCR_ASM)
+_WCR_PACK = tl.constexpr(_WCR_P)
+
+
 # ---- Verify blocks on full layers (Gluon, warp-specialized) ----
 # One program per (split, request, KV head pair), FA3 style: a 4-warp producer gathers the pair's
 # 128-byte K and V rows (page indices, cp.async) into an NS-slot shared ring and signals `ready`
@@ -258,7 +268,8 @@ if HAVE_GLUON:
     @gluon.jit
     def _gw_consumer_cv(q, k_ring, vh, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, hh, split,
                         HEAD: gl.constexpr, HKV: gl.constexpr, S: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
-                        BN: gl.constexpr, NS: gl.constexpr, PEEL: gl.constexpr, LSUM: gl.constexpr = False):
+                        BN: gl.constexpr, NS: gl.constexpr, PEEL: gl.constexpr, LSUM: gl.constexpr = False,
+                        WCR: gl.constexpr = False):
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
                                                       instr_shape=[16, BN, 32])
         O_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
@@ -285,6 +296,14 @@ if HAVE_GLUON:
             else:
                 sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
             m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+            if WCR:
+                # FA4's conditional rescale, per warp: keep the old maxima (P <= 2^8) unless one of the
+                # warp's rows grew by more than 8 (log2 units); only then rescale acc. (pack 2: a thread's two rows.)
+                grow = gl.inline_asm_elementwise(
+                    "{ .reg .pred p, q; setp.gt.f32 p, $2, 0f41000000; setp.gt.or.f32 p, $3, 0f41000000, p; "
+                    "vote.sync.any.pred p, p, -1; selp.f32 $0, 0f3F800000, 0f00000000, p; mov.b32 $1, $0; }",
+                    "=f,=f,f,f", [m_new - m_i], dtype=gl.float32, is_pure=True, pack=2)
+                m_new = gl.where(grow != 0.0, m_new, m_i)
             alpha = gl.exp2(m_i - m_new)
             p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
             if LSUM:
@@ -293,7 +312,15 @@ if HAVE_GLUON:
             else:
                 l_i = l_i * alpha + gl.sum(p, 1)
             m_i = m_new
-            acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
+            if WCR:
+                ab = gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
+                gb = gl.convert_layout(grow, gl.SliceLayout(1, O_L))[:, None]
+                ab, acc = gl.broadcast(ab, acc)
+                gb, acc = gl.broadcast(gb, acc)
+                acc = gl.inline_asm_elementwise(_WCR_ASM, _WCR_CONS, [acc, ab, gb], dtype=gl.float32,
+                                                is_pure=True, pack=_WCR_PACK)
+            else:
+                acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
             p16 = gl.convert_layout(p.to(gl.float16), P_L)
             a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
             acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
@@ -309,7 +336,7 @@ if HAVE_GLUON:
                    NS: gl.constexpr, PW: gl.constexpr, PREGS: gl.constexpr, CREGS: gl.constexpr,
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
-                   R_PAD: gl.constexpr = 1):
+                   R_PAD: gl.constexpr = 1, WCR: gl.constexpr = False):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -361,9 +388,9 @@ if HAVE_GLUON:
         if LAG:
             gl.warp_specialize([
                 (_gw_consumer_cv, (q0, k_ring, vh0, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h,
-                                   split, 0, HKV, S, M, D, BN, NS, PEEL, LSUM)),
+                                   split, 0, HKV, S, M, D, BN, NS, PEEL, LSUM, WCR)),
                 (_gw_consumer_cv, (q1, k_ring, vh1, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h + 1,
-                                   split, 1, HKV, S, M, D, BN, NS, PEEL, LSUM)),
+                                   split, 1, HKV, S, M, D, BN, NS, PEEL, LSUM, WCR)),
                 (_gw_producer_cv, (pt_row, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready, empty,
                                    lo, hi, ntiles, PAGE, ROW_W, BN, C, D, NS, PW, LAG)),
             ], [4, PW], [CREGS, PREGS])
@@ -877,7 +904,7 @@ def _verify_gluon(data, cfg, plan):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), LSUM=plan.get("lsum", False), FUSE=fuse, cnt_ptr=_counters(pairs, device, "g"), out_ptr=out, RS=rs,
+        LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), LSUM=plan.get("lsum", False), WCR=plan.get("wcr", False), FUSE=fuse, cnt_ptr=_counters(pairs, device, "g"), out_ptr=out, RS=rs,
         R_PAD=triton.next_power_of_2(rs), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
     if fuse:
         return out
