@@ -1,0 +1,7 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+{"shape": {"batch": 17, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "variant": "striped", "serial": false, "parent_us": 162.4479996971786, "native_us": 163.95199624821544, "paired_delta_us": 1.5679970383644104}
+{"shape": {"batch": 24, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "variant": "striped", "serial": false, "parent_us": 208.31999508664012, "native_us": 208.25599459931254, "paired_delta_us": 0.06400048732757568}
+{"shape": {"batch": 32, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "variant": "striped", "serial": false, "parent_us": 267.40800170227885, "native_us": 267.7920046262443, "paired_delta_us": 0.527992844581604}
+{"shape": {"batch": 48, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "variant": "striped", "serial": false, "parent_us": 398.735988419503, "native_us": 400.0319871120155, "paired_delta_us": 0.9599924087524414}
+{"shape": {"batch": 64, "ctx": 80000, "heads": "tp8", "layer": "full", "page": 1, "q_len": 8, "dist": "coherent", "spread": "agentic"}, "variant": "striped", "serial": false, "parent_us": 510.1759764365852, "native_us": 510.8640226535499, "paired_delta_us": 0.7520020008087158}

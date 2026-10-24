@@ -1,0 +1,18 @@
+ninja: no work to do.
+PASS synthetic False 5 2 1.0 3 fresh graph replays
+PASS synthetic False 9 2 1.0 3 fresh graph replays
+PASS synthetic False 17 2 1.0 3 fresh graph replays
+PASS synthetic False 22 2 1.0 3 fresh graph replays
+PASS synthetic False 32 2 1.0 3 fresh graph replays
+PASS synthetic False 33 2 1.0 3 fresh graph replays
+PASS synthetic False 64 2 1.0 3 fresh graph replays
+PASS synthetic False 17 16 0.015625 3 fresh graph replays
+PASS synthetic True 5 2 1.0 3 fresh graph replays
+PASS synthetic True 9 2 1.0 3 fresh graph replays
+PASS synthetic True 17 2 1.0 3 fresh graph replays
+PASS synthetic True 22 2 1.0 3 fresh graph replays
+PASS synthetic True 32 2 1.0 3 fresh graph replays
+PASS synthetic True 33 2 1.0 3 fresh graph replays
+PASS synthetic True 64 2 1.0 3 fresh graph replays
+PASS synthetic True 17 16 0.015625 3 fresh graph replays
+PASS total 48

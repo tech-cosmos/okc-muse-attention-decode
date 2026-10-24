@@ -1,0 +1,68 @@
+{
+  "_Z10merge_rowsILi64ELb0EEvPK13__nv_bfloat16PKfS4_S4_PS0_iiiib": {
+    "instruction_lines": 1072,
+    "wait_index": 150,
+    "coherent_load_sites": 66,
+    "coherent_loads_after_wait": true,
+    "load_examples": [
+      "/*0970*/              @!P1 LDG.E.64.STRONG.GPU R8, desc[UR6][R14.64] ;              /* 0x000000060e089981 */",
+      "/*0980*/              @!P2 LDG.E.64.STRONG.GPU R10, desc[UR6][R24.64] ;             /* 0x00000006180aa981 */",
+      "/*0aa0*/               @P0 LDG.E.64.STRONG.GPU R16, desc[UR6][R18.64] ;             /* 0x0000000612100981 */"
+    ]
+  },
+  "_Z10merge_rowsILi32ELb0EEvPK13__nv_bfloat16PKfS4_S4_PS0_iiiib": {
+    "instruction_lines": 648,
+    "wait_index": 165,
+    "coherent_load_sites": 33,
+    "coherent_loads_after_wait": true,
+    "load_examples": [
+      "/*0a60*/              @!P0 LDG.E.64.STRONG.GPU R68, desc[UR6][R14.64] ;             /* 0x000000060e448981 */",
+      "/*0b00*/               @P1 LDG.E.64.STRONG.GPU R10, desc[UR6][R18.64] ;             /* 0x00000006120a1981 */",
+      "/*0b40*/               @P2 LDG.E.64.STRONG.GPU R66, desc[UR6][R12.64] ;             /* 0x000000060c422981 */"
+    ]
+  },
+  "_Z10merge_rowsILi16ELb0EEvPK13__nv_bfloat16PKfS4_S4_PS0_iiiib": {
+    "instruction_lines": 432,
+    "wait_index": 140,
+    "coherent_load_sites": 17,
+    "coherent_loads_after_wait": true,
+    "load_examples": [
+      "/*08d0*/              @!P1 LDG.E.64.STRONG.GPU R14, desc[UR4][R8.64] ;              /* 0x00000004080e9981 */",
+      "/*0ad0*/               @P2 LDG.E.64.STRONG.GPU R36, desc[UR4][R16.64] ;             /* 0x0000000410242981 */",
+      "/*0b60*/               @P1 LDG.E.64.STRONG.GPU R32, desc[UR4][R22.64] ;             /* 0x0000000416201981 */"
+    ]
+  },
+  "_Z10merge_rowsILi64ELb1EEvPK13__nv_bfloat16PKfS4_S4_PS0_iiiib": {
+    "instruction_lines": 936,
+    "wait_index": 138,
+    "coherent_load_sites": 48,
+    "coherent_loads_after_wait": true,
+    "load_examples": [
+      "/*0b40*/              @!P4 LDG.E.64.STRONG.GPU R12, desc[UR6][R24.64] ;             /* 0x00000006180cc981 */",
+      "/*0c10*/              @!P2 LDG.E.64.STRONG.GPU R14, desc[UR6][R22.64] ;             /* 0x00000006160ea981 */",
+      "/*0c40*/              @!P1 LDG.E.64.STRONG.GPU R16, desc[UR6][R30.64] ;             /* 0x000000061e109981 */"
+    ]
+  },
+  "_Z10merge_rowsILi32ELb1EEvPK13__nv_bfloat16PKfS4_S4_PS0_iiiib": {
+    "instruction_lines": 616,
+    "wait_index": 137,
+    "coherent_load_sites": 24,
+    "coherent_loads_after_wait": true,
+    "load_examples": [
+      "/*0a10*/              @!P6 LDG.E.64.STRONG.GPU R10, desc[UR6][R16.64] ;             /* 0x00000006100ae981 */",
+      "/*0ba0*/              @!P4 LDG.E.64.STRONG.GPU R30, desc[UR6][R24.64] ;             /* 0x00000006181ec981 */",
+      "/*0bd0*/              @!P3 LDG.E.64.STRONG.GPU R28, desc[UR6][R8.64] ;              /* 0x00000006081cb981 */"
+    ]
+  },
+  "_Z10merge_rowsILi16ELb1EEvPK13__nv_bfloat16PKfS4_S4_PS0_iiiib": {
+    "instruction_lines": 456,
+    "wait_index": 136,
+    "coherent_load_sites": 12,
+    "coherent_loads_after_wait": true,
+    "load_examples": [
+      "/*09f0*/              @!P3 LDG.E.64.STRONG.GPU R24, desc[UR6][R16.64] ;             /* 0x000000061018b981 */",
+      "/*0a70*/              @!P2 LDG.E.64.STRONG.GPU R26, desc[UR6][R12.64] ;             /* 0x000000060c1aa981 */",
+      "/*0ab0*/              @!P1 LDG.E.64.STRONG.GPU R28, desc[UR6][R10.64] ;             /* 0x000000060a1c9981 */"
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "production_sha256": "6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf",
+  "diagnostic_entries": 12,
+  "diagnostic_pairs_per_entry": 80,
+  "warp": {
+    "standard_fallback_passes": 16,
+    "native_fresh_replays": 42,
+    "local_bench_geomean": 1.949
+  },
+  "striped": {
+    "standard_fallback_passes": 16,
+    "native_fresh_replays": 42,
+    "local_bench_geomean": 1.958
+  },
+  "synthetic_replays": 48,
+  "sass_specializations_checked": 6,
+  "sanitizers": {
+    "memcheck": {
+      "synthetic_native_replays": 48,
+      "errors": 0
+    },
+    "synccheck": {
+      "synthetic_native_replays": 48,
+      "errors": 0
+    },
+    "racecheck": {
+      "synthetic_native_replays": 48,
+      "errors": 0
+    }
+  }
+}
