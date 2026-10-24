@@ -1,0 +1,1390 @@
+{
+  "sha256": {
+    "previous": "ee782c4d69edaf872132e3fc354ba522aaa30c237dcf40b5de525f204398db85",
+    "upstream": "f81d2cb17575d32d155a71619c79b52cd36c2432a359e38de0838502d0007e87",
+    "integrated": "16b6aa31ac9816b65177b08b68948fcc6d711cdc2169f4144c02fe874a9649c4"
+  },
+  "shared_definitions": 16,
+  "native_definitions_unchanged": 2,
+  "dispatcher_unchanged": true,
+  "suite_passes": 16,
+  "bench_shapes": 12,
+  "comparisons": {
+    "compare": [
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "coherent"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 17.055999487638474,
+            "integrated_us": 16.543999314308167,
+            "paired_delta_us": -0.4479996860027313
+          },
+          "upstream": {
+            "parent_us": 17.023999243974686,
+            "integrated_us": 16.48000068962574,
+            "paired_delta_us": -0.5599996075034142
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 64,
+          "kv_scale": 1.0,
+          "dist": "coherent"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 16.656000167131424,
+            "integrated_us": 16.88000001013279,
+            "paired_delta_us": 0.1600002869963646
+          },
+          "upstream": {
+            "parent_us": 17.311999574303627,
+            "integrated_us": 16.97599980980158,
+            "paired_delta_us": -0.4159994423389435
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 10,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "normal"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 1,
+            "native_full": false
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 1,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 1,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 4.8319995403289795,
+            "integrated_us": 5.024000070989132,
+            "paired_delta_us": 0.06400002166628838
+          },
+          "upstream": {
+            "parent_us": 5.024000070989132,
+            "integrated_us": 5.024000070989132,
+            "paired_delta_us": -0.09599979966878891
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 1000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 64,
+          "kv_scale": 1.0,
+          "dist": "edges"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 16,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 16,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 5.280000157654285,
+            "integrated_us": 5.727999843657017,
+            "paired_delta_us": 0.4479996860027313
+          },
+          "upstream": {
+            "parent_us": 5.568000487983227,
+            "integrated_us": 5.536000244319439,
+            "paired_delta_us": 0.0
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 4095,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 0.015625,
+          "dist": "soft"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 32,
+            "native_full": false
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 64,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 64,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 5.695999599993229,
+            "integrated_us": 5.98399993032217,
+            "paired_delta_us": 0.28800033032894135
+          },
+          "upstream": {
+            "parent_us": 5.951999686658382,
+            "integrated_us": 5.98399993032217,
+            "paired_delta_us": 0.031999312341213226
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 4096,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 0.015625,
+          "dist": "soft"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 33,
+            "native_full": false
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 5.791999399662018,
+            "integrated_us": 5.567999556660652,
+            "paired_delta_us": -0.28799986466765404
+          },
+          "upstream": {
+            "parent_us": 6.016000173985958,
+            "integrated_us": 5.59999980032444,
+            "paired_delta_us": -0.38400012999773026
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 8192,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 64,
+          "kv_scale": 0.015625,
+          "dist": "edges"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 5.951999686658382,
+            "integrated_us": 7.00799934566021,
+            "paired_delta_us": 0.9920001029968262
+          },
+          "upstream": {
+            "parent_us": 7.295999675989151,
+            "integrated_us": 7.023999467492104,
+            "paired_delta_us": -0.38399966433644295
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 33333,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 64,
+          "kv_scale": 0.015625,
+          "dist": "soft"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 87,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 105,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 105,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 10.751999914646149,
+            "integrated_us": 10.336000472307205,
+            "paired_delta_us": -0.36800000816583633
+          },
+          "upstream": {
+            "parent_us": 10.70399978198111,
+            "integrated_us": 10.320000583305955,
+            "paired_delta_us": -0.3519989550113678
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 120000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "coherent"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 118,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 23.34399987012148,
+            "integrated_us": 23.280000314116478,
+            "paired_delta_us": -0.01600012183189392
+          },
+          "upstream": {
+            "parent_us": 23.359999991953373,
+            "integrated_us": 23.19999970495701,
+            "paired_delta_us": -0.14400016516447067
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 8,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "coherent"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 18.52799952030182,
+            "integrated_us": 18.65600049495697,
+            "paired_delta_us": 0.06400048732757568
+          },
+          "upstream": {
+            "parent_us": 18.751999363303185,
+            "integrated_us": 18.52799952030182,
+            "paired_delta_us": -0.17600040882825851
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "sliding",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "soft"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 32,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 3,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 32,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 32,
+            "native_full": false
+          },
+          "upstream": {
+            "plan": {
+              "splits": 32,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 3,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 32,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 32,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 32,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 3,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 32,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 32,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 4.511999897658825,
+            "integrated_us": 4.447999410331249,
+            "paired_delta_us": -0.1759999431669712
+          },
+          "upstream": {
+            "parent_us": 4.927999339997768,
+            "integrated_us": 4.479999653995037,
+            "paired_delta_us": -0.4479996860027313
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 2,
+          "ctx": 9000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 8,
+          "page": 64,
+          "kv_scale": 0.015625,
+          "dist": "edges"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 71,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 71,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 71,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 9.983999654650688,
+            "integrated_us": 9.983999654650688,
+            "paired_delta_us": -0.01600012183189392
+          },
+          "upstream": {
+            "parent_us": 11.792000383138657,
+            "integrated_us": 10.03200002014637,
+            "paired_delta_us": -1.8400000408291817
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 5000,
+          "heads": "dp",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "normal"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 16,
+              "warps": 1,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 105,
+            "native_full": false
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 16,
+              "warps": 1,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 105,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 16,
+              "warps": 1,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 105,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 11.167999356985092,
+            "integrated_us": 11.231999844312668,
+            "paired_delta_us": 0.0959988683462143
+          },
+          "upstream": {
+            "parent_us": 11.28000020980835,
+            "integrated_us": 11.28000020980835,
+            "paired_delta_us": 0.03200024366378784
+          }
+        }
+      }
+    ],
+    "confirm": [
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "coherent"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 17.15199975296855,
+            "integrated_us": 16.447999980300665,
+            "paired_delta_us": -0.6879996508359909
+          },
+          "upstream": {
+            "parent_us": 16.99200039729476,
+            "integrated_us": 16.480000223964453,
+            "paired_delta_us": -0.5759987980127335
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 64,
+          "kv_scale": 1.0,
+          "dist": "coherent"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 16.879999544471502,
+            "integrated_us": 16.960000153630972,
+            "paired_delta_us": 0.03200024366378784
+          },
+          "upstream": {
+            "parent_us": 17.375999595969915,
+            "integrated_us": 16.895999666303396,
+            "paired_delta_us": -0.4160003736615181
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 4095,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 0.015625,
+          "dist": "soft"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 64,
+            "native_full": false
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 64,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 32,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 5.632000509649515,
+            "integrated_us": 5.856000352650881,
+            "paired_delta_us": 0.19199959933757782
+          },
+          "upstream": {
+            "parent_us": 5.919999442994595,
+            "integrated_us": 5.823999643325806,
+            "paired_delta_us": -0.09599979966878891
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 4096,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 0.015625,
+          "dist": "soft"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 33,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 6.047999486327171,
+            "integrated_us": 5.520000122487545,
+            "paired_delta_us": -0.38400012999773026
+          },
+          "upstream": {
+            "parent_us": 5.823999410495162,
+            "integrated_us": 5.31200016848743,
+            "paired_delta_us": -0.512000173330307
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 8192,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 64,
+          "kv_scale": 0.015625,
+          "dist": "edges"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 65,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 6.112000439316034,
+            "integrated_us": 6.944000255316496,
+            "paired_delta_us": 0.9920001029968262
+          },
+          "upstream": {
+            "parent_us": 9.120000060647726,
+            "integrated_us": 8.351999800652266,
+            "paired_delta_us": -0.7040007039904594
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 33333,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 64,
+          "kv_scale": 0.015625,
+          "dist": "soft"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 105,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 105,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 87,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 11.18400041013956,
+            "integrated_us": 10.351999662816525,
+            "paired_delta_us": -0.89599983766675
+          },
+          "upstream": {
+            "parent_us": 10.80000028014183,
+            "integrated_us": 10.223999619483948,
+            "paired_delta_us": -0.6240010261535645
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 120000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "coherent"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          },
+          "upstream": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 128,
+              "warps": 4,
+              "stages": 6,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 118,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 23.67999986745417,
+            "integrated_us": 23.4080005902797,
+            "paired_delta_us": -0.12800097465515137
+          },
+          "upstream": {
+            "parent_us": 23.727999534457922,
+            "integrated_us": 23.535999935120344,
+            "paired_delta_us": -0.4159994423389435
+          }
+        }
+      }
+    ]
+  },
+  "adjacent_pairs": 3200,
+  "reference_checks_in_pairs": 180,
+  "fresh_graph_replays": 156
+}

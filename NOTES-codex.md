@@ -5158,3 +5158,142 @@ qualification inferred from older main/Codex runs.
    merger; session39's instrumented wait dominates there. Do not infer removable
    work from the gather-floor gap or repeat closed native micro-optimizations.
 4. Finish clean on pushed codex,remove shared claim,post results and stop.
+
+## Session 43 — 2026-10-24, 06:03–06:15 UTC
+
+Rejected a native full-merge load-order experiment, then integrated two late main
+improvements: **9a43323** (paired KV heads for small full decode) and **8c4394f**
+(paired KV heads for larger sliding decode). Both existing native implementations,
+their dispatch predicates and the native-full FP32 guard remain unchanged.
+No judge requests. Final source integration **2ce4d90**, SHA256
+`a7a3db9737aa25b42695a31b4c16d4da3649d910b2366bcfc18453a6a5a9b9e3`.
+This exact source has **no H200 check qualification**.
+
+### Native experiment: rejected before integration
+
+Evidence **0df24b8**, pushed on **codex-exp/native-merge-load-issue**; start at
+`experiments/merge_load_issue/README.md`. Parent is session42 SHAee782c4d, before
+either new main change. Only the native full merger's source load order and
+extension name change. Move independent accumulator loads before consuming
+max/sum loads, keeping every read after the PDL wait and arithmetic unchanged.
+
+SASS disproves the proposed serial-memory-round-trip mechanism: production
+already issues16/17coherent loads before its first maximum and all17before its
+first exp2 in PDL mode. Candidate moves the remaining load before the maximum.
+Both have544static instruction sites,48registers,3200reported shared bytes,
+zero stack/local allocation. Non-PDL both have536sites,14loads before maximum,
+17before exp2. All17coherent loads remain after ACQBULK in both PDL versions.
+These are static scheduling observations, not measured stall durations.
+
+80adjacent AB/BA cold-L2 complete-graph pairs/case; candidate-minus-parent us,
+initial / second-seed reversed-capture confirmation:
+
+| Full case | delta |
+|---|---:|
+|B1 L1 80K page1|-0.016 / -0.080|
+|B1 L8 80K page1|-0.192 / +0.112|
+|B1 L1 80K page64|+0.032 / -0.016|
+|B1 L8 80K page64|+0.064 / -0.208|
+|B2 L8 9K page64 scaled edges|-0.048 / -0.032|
+|B2 L8 9K page1 scaled edges|+0.016 / +0.096|
+
+Two unchanged initial controls+0.032/+0.064us. No dependable material gain,
+promotion or cutoff. Candidate16/16then12bench(local2.020x),1120adjacent pairs,
+84independent output/cache checks,64fresh graph replays. Six native-full cases
+plus two unchanged controls; only two standard-suite cases use the modified
+native full kernel. CPU generation/AST/SASS/count/median audit passes. No new
+sanitizer/NCU claim. Do not reopen this load-order direction: the compiler already
+provides the proposed overlap. Production never imports this candidate.
+
+### Main integration: small full decode
+
+Source merge **c6e9fdf**, evidence **d339f55** on
+**codex-exp/d1-full-integration**, `experiments/d1_full_integration/README.md`.
+Main9a43323 changes its batch*Hkv<=2 full L1 plan to HPP2,BN64,stages5. Native
+producer/consumer FP32 contract remains intact; no Triton tuning. Integrated
+source before the second merge SHA16b6aa31. Three complete sources compared:
+previous Codex, new upstream, integrated Codex.
+
+80adjacent pairs/contrast/case; microseconds, initial/confirmation:
+
+| Full L1 TP8 | integrated minus previous | integrated minus new main |
+|---|---:|---:|
+|80K page1,scored|-0.448 / -0.688|-0.560 / -0.576|
+|80K page64|+0.160 / +0.032|-0.416 / -0.416|
+|4095 page1,scaled soft|+0.288 / +0.192|+0.032 / -0.096|
+|4096 page1,scaled soft|-0.288 / -0.384|-0.384 / -0.512|
+|8192 page64,scaled edges|+0.992 / +0.992|-0.384 / -0.704|
+|33333 page64,scaled soft|-0.368 / -0.896|-0.352 / -0.624|
+|120K page1|-0.016 / -0.128|-0.144 / -0.416|
+
+Retain scored improvement and native composition. The8K regression versus old
+production repeats, while native still improves new main there; report to
+Triton owner without fitting a cutoff. Main's plan changes split counts:
+4095has64splits/non-native;4096now65/native instead of33/non-native. Native
+comparison includes FP32 producer storage versus upstream BF16, not isolated
+merge arithmetic. Four unchanged-path controls range-0.176..+0.096us.
+
+Integrated16/16then12bench(local2.035x); all16standard cases have unchanged
+behavior for this new B1fullL1plan. Explicit13initial/7confirmation cases supply
+changed-path and boundary coverage:3200adjacent pairs,180independent output/cache
+checks.156fresh graph replays,13cases x4inputs x3sources; nine initial cases reach
+the changed plan,four are controls. All pass. Audit verifies16shared top-level
+function/class ASTs against main(includes nested helper bodies),unchanged native
+definitions/dispatcher/FP32 guard,source hashes and raw medians/counts.
+
+### Final main integration: large sliding decode
+
+Final fetch brought8c4394f; source merge **2ce4d90**, evidence **11a5846** on
+**codex-exp/sliding-hpp-integration**, `experiments/sliding_hpp_integration/README.md`.
+Main changes sliding L1 with batch*Hkv>32 to HPP2,BN64,4warps. Disjoint from native
+sliding(batch*Hkv<=16); both native definitions/dispatcher remain identical.
+No redundant native-versus-main retest or Triton tuning.
+
+Integrated-minus-previous H100 paired us, initial / reversed-capture confirmation:
+
+| Sliding L1 | delta |
+|---|---:|
+|B32 TP8 80K page1,scored|-0.576 / -0.416|
+|B24 TP8 80K page1|-1.008 / -0.736|
+|B48 TP8 80K page1|-1.936 / -1.920|
+|B32 TP8 80K page64,scaled edges|+0.480 / +0.448|
+|B3 DP6K page64,scaled edges|-0.016 / +0.704|
+|B17 TP8 5K page1,edges|-0.096 / +0.064|
+
+Retain scored/large-page1improvements; report repeated page64regression and mixed
+DP results to main owner, no fitted cutoff or uniform-nearby-improvement claim.
+Four unchanged initial controls-0.064..+0.032us; B1fullL1control0.000us.
+Final16/16then12bench(local2.006x). All16standard cases again avoid the newly
+changed large-sliding-L1plan; six explicit changed cases and four controls fill
+that gap.10initial+6confirmation cases:1280adjacent pairs,96output/cache checks.
+80fresh graph replays(10x4x2sources),allpass. CPU source/AST/count/median audit
+passes. The unpaired2.035/2.006bench totals differ on unchanged shapes and are
+not an integration regression estimate; use the paired comparisons.
+
+Across drivers,fresh data includes QKV,FP8cache,routes,lengths,positions,cache
+slots,halved/empty histories,pages1/64,scales1/1/64,TP8/DP,soft/coherent/edges.
+Custom drivers hold the shared GPU lock through generation/reference/capture/
+replay,flush512MB before measurement,subtract empty replay. Suite holds lock;
+standard bench retains its timing-loop lock. All own GPU/build work finished
+sequentially. No new sanitizer/profiling/H200 claim. Separate medians need not
+subtract to paired deltas. Evidence copies on codex:
+`profiles/session43-{native,integration,sliding-integration}-audit.json`.
+
+### Budget and next cycle
+
+Session **0checks,0scored**,no withdrawals; Codex2026-10-24 remains
+**5/8checks,3/3scored**. Last official account **9/10checks,5/10scored**,leaving
+1check/5scored; best **2.1383x,rank20**. No pending Codex jobs or STOP files.
+Pin this cycle at main8c4394f; a later upstream update belongs to the next cycle.
+
+1. Read COORD/fetch main. Preserve last shared check while Codex's scored share
+   is exhausted. Final exact SHAa7a3db9737aa needs its own H200 qualification;
+   earlier check/scored files do not qualify it.
+2. Retain native FP32 compatibility guard and both established native kernels.
+   Both late upstream integrations are validated; do not repeat their unchanged
+   audits without new code/evidence. Native source-load reordering is closed.
+3. Main owner has the new page64/short-context regression evidence above; do not
+   independently tune its Triton plans. Earlier closed native architectures and
+   micro-optimization families remain closed absent a distinct critical-work
+   reduction supported by generated assembly and complete graphs.
+4. Finish clean on pushed codex,remove claim,post result and stop. No job awaits.

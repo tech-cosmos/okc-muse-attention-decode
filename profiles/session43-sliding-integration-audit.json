@@ -1,0 +1,924 @@
+{
+  "sha256": {
+    "previous": "16b6aa31ac9816b65177b08b68948fcc6d711cdc2169f4144c02fe874a9649c4",
+    "upstream": "0fe79346d6a154fd76527ecee19ce3d0af1c2960f1a1389f2fa2603ba35edb78",
+    "integrated": "a7a3db9737aa25b42695a31b4c16d4da3649d910b2366bcfc18453a6a5a9b9e3"
+  },
+  "shared_definitions": 16,
+  "native_definitions_unchanged": 2,
+  "dispatcher_unchanged": true,
+  "suite_passes": 16,
+  "bench_shapes": 12,
+  "comparisons": {
+    "compare": [
+      {
+        "shape": {
+          "batch": 32,
+          "ctx": 80000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 15.583999920636415,
+            "integrated_us": 14.991999138146639,
+            "paired_delta_us": -0.5759987980127335
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 24,
+          "ctx": 80000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 14.11199988797307,
+            "integrated_us": 13.152000028640032,
+            "paired_delta_us": -1.0079992935061455
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 48,
+          "ctx": 80000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 22.704000119119883,
+            "integrated_us": 20.81599971279502,
+            "paired_delta_us": -1.9359998404979706
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 32,
+          "ctx": 80000,
+          "page": 64,
+          "heads": "tp8",
+          "kv_scale": 0.015625,
+          "dist": "edges",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 15.15199989080429,
+            "integrated_us": 15.552000142633915,
+            "paired_delta_us": 0.47999992966651917
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 3,
+          "ctx": 6000,
+          "page": 64,
+          "heads": "dp",
+          "kv_scale": 0.015625,
+          "dist": "edges",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 13.216000515967607,
+            "integrated_us": 13.311999384313822,
+            "paired_delta_us": -0.015999190509319305
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 17,
+          "ctx": 5000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "edges",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 11.295998934656382,
+            "integrated_us": 11.264000553637743,
+            "paired_delta_us": -0.0959988683462143
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 16,
+          "ctx": 80000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 16,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 3,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 16,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 16,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 16,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 3,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 16,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 16,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 10.304000694304705,
+            "integrated_us": 10.351999197155237,
+            "paired_delta_us": 0.03200024366378784
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 8,
+          "ctx": 80000,
+          "page": 64,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 16,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 3,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 16,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 16,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 16,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 3,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 16,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 16,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 7.280000019818544,
+            "integrated_us": 7.2639998979866505,
+            "paired_delta_us": -0.06400048732757568
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 32,
+          "ctx": 80000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 8,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "bf16"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "bf16"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 19.520000088959932,
+            "integrated_us": 19.55200033262372,
+            "paired_delta_us": -0.03200024366378784
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 1,
+          "ctx": 80000,
+          "heads": "tp8",
+          "layer": "full",
+          "q_len": 1,
+          "page": 1,
+          "kv_scale": 1.0,
+          "dist": "coherent"
+        },
+        "dispatch": {
+          "previous": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          },
+          "integrated": {
+            "plan": {
+              "splits": 128,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "pdt": "bf16"
+            },
+            "splits": 126,
+            "native_full": true
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 16.336000058799982,
+            "integrated_us": 16.2879996933043,
+            "paired_delta_us": 0.0
+          }
+        }
+      }
+    ],
+    "confirm": [
+      {
+        "shape": {
+          "batch": 32,
+          "ctx": 80000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 15.776000451296568,
+            "integrated_us": 15.37599926814437,
+            "paired_delta_us": -0.4159994423389435
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 24,
+          "ctx": 80000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 13.983999844640493,
+            "integrated_us": 13.296000193804502,
+            "paired_delta_us": -0.7360000163316727
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 48,
+          "ctx": 80000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "soft",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 22.88000052794814,
+            "integrated_us": 20.94400068745017,
+            "paired_delta_us": -1.9199997186660767
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 32,
+          "ctx": 80000,
+          "page": 64,
+          "heads": "tp8",
+          "kv_scale": 0.015625,
+          "dist": "edges",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 15.199999324977398,
+            "integrated_us": 15.743999741971493,
+            "paired_delta_us": 0.4479996860027313
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 3,
+          "ctx": 6000,
+          "page": 64,
+          "heads": "dp",
+          "kv_scale": 0.015625,
+          "dist": "edges",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 13.503999914973974,
+            "integrated_us": 14.175999443978071,
+            "paired_delta_us": 0.7039997726678848
+          }
+        }
+      },
+      {
+        "shape": {
+          "batch": 17,
+          "ctx": 5000,
+          "page": 1,
+          "heads": "tp8",
+          "kv_scale": 1.0,
+          "dist": "edges",
+          "q_len": 1,
+          "layer": "sliding",
+          "spread": "agentic"
+        },
+        "dispatch": {
+          "integrated": {
+            "plan": {
+              "splits": 8,
+              "block_n": 64,
+              "warps": 4,
+              "stages": 5,
+              "hpp": 2,
+              "fuse": false,
+              "qk8": true,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          },
+          "previous": {
+            "plan": {
+              "splits": 8,
+              "block_n": 32,
+              "warps": 2,
+              "stages": 5,
+              "hpp": 1,
+              "fuse": false,
+              "qk8": true,
+              "peel": false,
+              "hb": 2,
+              "sb": 8,
+              "cw": 1,
+              "pdt": "f32"
+            },
+            "splits": 8,
+            "native_full": false
+          }
+        },
+        "contrasts": {
+          "previous": {
+            "parent_us": 11.328000109642744,
+            "integrated_us": 11.47199934348464,
+            "paired_delta_us": 0.06399862468242645
+          }
+        }
+      }
+    ]
+  },
+  "adjacent_pairs": 1280,
+  "reference_checks_in_pairs": 96,
+  "fresh_graph_replays": 80
+}
