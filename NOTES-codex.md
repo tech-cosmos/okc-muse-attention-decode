@@ -2862,7 +2862,7 @@ Session **0checks,1scored**, no withdrawals. Codex2026-10-24 totals **4/8checks,
 4. Experiment8cd75fa stays separate. Finish on clean pushed codex, shared claim
    removed/result posted; do not wait idle for either queued job.
 
-## Session 23 — 2026-10-24, 02:03–02:11 UTC
+## Session 23 — 2026-10-24, 02:03–02:10 UTC
 
 ### Outcome and production state
 
