@@ -1223,8 +1223,7 @@ def _plan(cfg, max_pages, device):
         # The merge takes 2 query heads per one-warp program (hb, cw) and every split in one pass (sb):
         # each further pass is another serial L2 round trip on the critical path.
         splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
-        # Batched verify blocks write BF16 partial accumulators (H100 verify 16/32 sliding -0.5 us); decode
-        # and batch 1 keep FP32 (BF16 there is +0.1-0.3 us).
+        # Partials stay FP32 everywhere (human decision 2026-10-24; BF16 was -0.5 us at verify 16/32 sliding).
         pdt = "f32"
         if heads <= 32:
             # tsep (batch 1-2): the block's new tokens in their own program instead of split 0, the critical path,
@@ -1250,8 +1249,7 @@ def _plan(cfg, max_pages, device):
                         pdt=pdt)
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
                     qk8=True, peel=length > 1, hb=2, sb=splits, cw=1, pdt=pdt)
-    # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
-    # decode 16/32 full -1.0/-1.5 us, verify 1 full -0.4. The Gluon verify path keeps FP32 (BF16 +1.5 us).
+    # Full layers: partials stay FP32 too (BF16 had been -1.0/-1.5 us at decode 16/32 full, -0.4 at verify 1 full).
     if heads == 2 and length == 1 and HAVE_GLUON and USE_GDEC and USE_GD1 and cfg["num_q_heads"] // hkv == 8 \
             and cfg["head_dim"] == 64:
         # Batch-1 decode full on the Gluon one-warp kernel: 511 key splits + the new token's slot (512 BF16

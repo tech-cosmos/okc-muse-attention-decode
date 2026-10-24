@@ -2215,3 +2215,41 @@ and 55% of the batch-1 loads'.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 44 (overnight agent, 2026-10-24 12:32-~13:05 UTC; unattended session 11 of this night)
+
+**Main d92f1ed+ = 6fb74be + verify sliding from batch 32 on 4 splits x 64-key tiles. All of 63a4974 / 6fb74be / this
+is UNCHECKED on the H200** (account checks 0/10 left today; Claude's 3 scored used). H100 bench 2.033 -> 2.057, tests
+16/16, tools/s44/scases.py (s43's 11 sliding cases + 5 verify cases at batch 8 dp / 32 / 33 / 64, kv_scale): 16/16,
+errors identical to main's to 4 digits.
+
+### Win: verify sliding at batch >= 32 (heads >= 64): splits 4, block_n 64, no peel (was splits 8, block_n 32, peel)
+
+- attn-only vs whole (tools/s38/attn_only.py): attention is a tie (16.5 vs 16.7 us); the gain is the merge, which
+  reads half the FP32 partials (whole - attn 3.5 -> 2.3 us). So FP32 partials' cost is recoverable by cutting splits
+  where the attention kernel doesn't need them.
+- Paired H100 (tools/s36/abc.py, tools/s43/abn.py): verify 32 sliding **-1.57 us (9/9)**; batch 40/48/64 -5.8/-6.7/-7.5
+  (7/7); batch 24 -0.16 and 20 +0.88, so the branch starts at heads >= 64. Emulated H200 (tools/emu.py 40): 27.5 -> 21.9.
+- H200 risk is low (fewer programs, less traffic), but if the next check shows verify 32 sliding worse than abd67ae2's
+  19.05 us, delete the `length > 1 and heads >= 64` branch in `_plan`.
+
+### Dead ends (all verify 32 sliding attn-only/whole sweeps on the new plan, us)
+
+- stages 3/4: +3.5 (!), 6/8 tie; warps 8: +3..+7; maxnreg 128: tie or worse; block_n 128 (splits 2/4): +1..+6;
+  splits 2/5: +2..+3; dual (both KV heads as two chains): +4..+14; hpp 2: +18; merge hb 1 +2.2, hb 4 / cw 2: tie.
+- Same change for other shapes: decode 32 sliding splits 4 (+0.8..+2.8), decode 16 sliding splits 8 (+0.9), verify 16
+  sliding splits 8/12/4, block_n 128, stages 2/3, hb 4: all +0.4..+2.5. Their current plans stay.
+- Comment-only cleanup in `_plan`: removed stale "BF16 partials" comments (everything is pdt f32).
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 (H200): decode 16/32 full 90.3/172.8 (q16 + kst),
+   decode 1 full 14.16, decode 32 sliding 14.26 (hpp 2), verify 32 sliding 19.05 (this session). Revert whichever
+   regresses; submit if the total beats the board (ours 2.263x; #1 2.726x).
+2. Merge cost with FP32 partials elsewhere: any shape where whole - attn is large relative to attention and the
+   attention kernel ties at fewer splits. verify 16 sliding (whole - attn 2.4 us) didn't work; full layers' merges
+   are swept (session 34).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
