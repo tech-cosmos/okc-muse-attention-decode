@@ -1,0 +1,15 @@
+{
+  "sha256": {
+    "previous": "16b6aa31ac9816b65177b08b68948fcc6d711cdc2169f4144c02fe874a9649c4",
+    "upstream": "0fe79346d6a154fd76527ecee19ce3d0af1c2960f1a1389f2fa2603ba35edb78",
+    "integrated": "a7a3db9737aa25b42695a31b4c16d4da3649d910b2366bcfc18453a6a5a9b9e3"
+  },
+  "shared_definitions": 16,
+  "native_definitions_unchanged": 2,
+  "dispatcher_unchanged": true,
+  "suite_passes": 16,
+  "bench_shapes": 12,
+  "adjacent_pairs": 1280,
+  "reference_checks_in_pairs": 96,
+  "fresh_graph_replays": 80
+}

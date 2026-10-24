@@ -1,0 +1,44 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS (0, 'integrated', 'eager')
+PASS (0, 'integrated', 'capture')
+PASS (0, 'previous', 'eager')
+PASS (0, 'previous', 'capture')
+PASS (0, 'integrated', 'after')
+PASS (0, 'previous', 'after')
+{"shape": {"batch": 32, "ctx": 80000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "soft", "q_len": 1, "layer": "sliding", "spread": "agentic"}, "contrasts": {"previous": {"parent_us": 15.776000451296568, "integrated_us": 15.37599926814437, "paired_delta_us": -0.4159994423389435}}}
+PASS (1, 'integrated', 'eager')
+PASS (1, 'integrated', 'capture')
+PASS (1, 'previous', 'eager')
+PASS (1, 'previous', 'capture')
+PASS (1, 'integrated', 'after')
+PASS (1, 'previous', 'after')
+{"shape": {"batch": 24, "ctx": 80000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "soft", "q_len": 1, "layer": "sliding", "spread": "agentic"}, "contrasts": {"previous": {"parent_us": 13.983999844640493, "integrated_us": 13.296000193804502, "paired_delta_us": -0.7360000163316727}}}
+PASS (2, 'integrated', 'eager')
+PASS (2, 'integrated', 'capture')
+PASS (2, 'previous', 'eager')
+PASS (2, 'previous', 'capture')
+PASS (2, 'integrated', 'after')
+PASS (2, 'previous', 'after')
+{"shape": {"batch": 48, "ctx": 80000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "soft", "q_len": 1, "layer": "sliding", "spread": "agentic"}, "contrasts": {"previous": {"parent_us": 22.88000052794814, "integrated_us": 20.94400068745017, "paired_delta_us": -1.9199997186660767}}}
+PASS (3, 'integrated', 'eager')
+PASS (3, 'integrated', 'capture')
+PASS (3, 'previous', 'eager')
+PASS (3, 'previous', 'capture')
+PASS (3, 'integrated', 'after')
+PASS (3, 'previous', 'after')
+{"shape": {"batch": 32, "ctx": 80000, "page": 64, "heads": "tp8", "kv_scale": 0.015625, "dist": "edges", "q_len": 1, "layer": "sliding", "spread": "agentic"}, "contrasts": {"previous": {"parent_us": 15.199999324977398, "integrated_us": 15.743999741971493, "paired_delta_us": 0.4479996860027313}}}
+PASS (4, 'integrated', 'eager')
+PASS (4, 'integrated', 'capture')
+PASS (4, 'previous', 'eager')
+PASS (4, 'previous', 'capture')
+PASS (4, 'integrated', 'after')
+PASS (4, 'previous', 'after')
+{"shape": {"batch": 3, "ctx": 6000, "page": 64, "heads": "dp", "kv_scale": 0.015625, "dist": "edges", "q_len": 1, "layer": "sliding", "spread": "agentic"}, "contrasts": {"previous": {"parent_us": 13.503999914973974, "integrated_us": 14.175999443978071, "paired_delta_us": 0.7039997726678848}}}
+PASS (5, 'integrated', 'eager')
+PASS (5, 'integrated', 'capture')
+PASS (5, 'previous', 'eager')
+PASS (5, 'previous', 'capture')
+PASS (5, 'integrated', 'after')
+PASS (5, 'previous', 'after')
+{"shape": {"batch": 17, "ctx": 5000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "edges", "q_len": 1, "layer": "sliding", "spread": "agentic"}, "contrasts": {"previous": {"parent_us": 11.328000109642744, "integrated_us": 11.47199934348464, "paired_delta_us": 0.06399862468242645}}}
