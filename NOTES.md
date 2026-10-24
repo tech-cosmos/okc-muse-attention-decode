@@ -912,3 +912,55 @@ inside the judge's CI; account had 2 checks left today).
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 3/8 checks, 1/3 scored. Account at 04:35: 8/10 checks, 4/10 scored.
+
+## Session 16 (overnight agent, 2026-10-24 04:40-~05:30 UTC)
+
+### Change (main 06b7755): Gluon verify-full consumer, thread-local row sums + no duplicate barriers
+
+1. Plan key `lsum` (on for the Gluon path): `_gw_consumer_cv` keeps row sums per thread as `l8 = sum(reshape(p,
+   [M, BN/8, 8]), 1)`. In the wgmma accumulator layout column bits 3+ are registers, so that sum stays in
+   registers (no quad shuffles); `l8 *= alpha` each tile, and one quad reduction at the end (FA3's deferred
+   row_sum). No spills (80 regs, 0 spills; tools/s12/spills.py from branch exp/gluon-pipe).
+2. Dropped the explicit `gl.barrier()` before `mbarrier.arrive(empty)` (consumer) and after the producer's
+   `fence_async_shared()`: Gluon's arrive already emits `bar.sync <partition>, 128` right before its elected
+   arrive (checked in the PTX), so each was a second partition barrier per tile.
+
+H100, paired: verify 16 full 137.1 -> 136.6 us, verify 32 full 257.6 -> 256.8; **compute-only** (cp.async removed,
+the bound the H200 hits on verify full) 103.8 -> 101.0 (lsum) -> 100.2 (barriers). Bench 2.005 (other shapes noise).
+16/16 tests, gluon_cases 8/8.
+
+### Dead ends
+
+- Gluon store through a coalesced BlockedLayout (`gl.convert_layout` before the partial store), f32 or bf16:
+  verify 16 full 158+ us vs 137 (the convert's scratch smem presumably costs the 2nd CTA/SM). BF16 partials on the
+  Gluon path are now +1.2 us (was +1.5). Not kept.
+- Gluon path forced onto verify 1 full (splits 96/132/200/264): 20.2/20.2/21.7/28.1 vs Triton 18.7. Dead.
+- Not tried: the same lsum trick in Triton `_tile` (verify sliding); needs a 2-D l_i through `_new`/`_tile`/`_finish`
+  and Triton's reshape may insert layout converts. Each split there is only 4-8 tiles, so maybe a few 0.1 us.
+- Register split re-sweep after lsum (cregs/pregs 96/40, 100/36, 104/32): flat at 136.9-137.1 us.
+- `gl.exp2` already lowers to `ex2.approx.ftz.f32` (one MUFU, no denormal fixup), so nothing to gain there.
+
+### Judge (UTC day 2026-10-24)
+
+| job | code | speedup (95% CI) | notes |
+|---|---|---|---|
+| 22381fd8435f4fce (check) | 06b7755 + an unused `CVT` plan flag (default off; my uncommitted experiment rode along through `git checkout main`, same kernels at runtime) | **2.136x** (2.104-2.168) | 16/16; H200 verify 16 full 129.65 -> 125.34 us, verify 32 full 240.27 -> 234.66 (vs check 2363a049 of 824e52a). Noise elsewhere: verify 1 sliding 6.90 -> 7.86 (that path is unchanged), decode 1 full 15.3 -> 16.7, verify 1 full 17.2 -> 16.0 |
+
+The verify-full gain on the H200 (-3.3% / -2.3%) is about what the H100 compute-only ablation predicted, so on the H200
+verify full really is bound by consumer compute: keep using the no-gather ablation (cp.async skipped in the producer)
+as the metric for verify-full compute work.
+| beb63898dbb64991 (submit) | exactly the file checked as 22381fd8 | **2.138x** (2.106-2.170) | 16/16; new account best (was 2.113x d0f30dc0), board rank 20 |
+
+### Next ideas
+
+1. Verify full on the H200 is consumer-compute-bound: keep cutting per-tile consumer work and measure it with the
+   no-gather ablation. Left: the row-max quad reduction (2 shfl + 2 FMNMX per row, on the critical path), the acc
+   rescale (32 FMUL/thread/tile; FA4's conditional rescale lost in session 12 with a WG-wide vote, though a
+   warp-level vote would be enough because a row's quad sits inside one warp), and the ready-wait retries.
+2. The lsum trick in Triton `_tile` (verify sliding batch 16/32), if Triton's reshape stays in registers.
+3. As before: the merge tail on verify full (~6 us on H100), and decode full on the H200 (wide-tile gathers).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 1 check (22381fd8), 1 scored (beb63898). Claude day: 4/8 checks, 2/3 scored. Account after this session:
+9/10 checks, 5/10 scored.
