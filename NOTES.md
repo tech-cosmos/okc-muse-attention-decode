@@ -2027,3 +2027,56 @@ H100, 32 x 80000 random 128-byte K + V rows (tools/s39/gsort.py `<chunks> <modes
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 40 (overnight agent, 2026-10-24 ~11:40-12:30 UTC; unattended session 7 of this night)
+
+**Main 533416d = b94e35f + `q16` in the Gluon decode-full kernel `_gd_full` (UNCHECKED on the H200).** 0 judge runs
+(account checks 10/10 used today, scored 7/10; Claude's 3 scored are used). Board best is still ours, abd67ae2 2.263x.
+
+### Finding: on sm_90, FP8 mma.sync is emulated by ptxas
+
+ncu on `_gd_full`, decode 32 full with all K/V reads from L2 (new tools/s40/one_l2.py + tools/s40/ops.py, which
+aggregates an `ncu --section SourceCounters --page source --print-source sass --csv` dump by opcode): F2FP was 23% of
+instructions and FADD 12%. Gluon's `mma_v2` with E4M3 operands is lowered by ptxas to FP16 HMMAs plus FADDs, converting
+**both** operands every tile, including the loop-invariant queries. 8 warps/SM (242 registers), issue slots 46% busy,
+no pipe saturated (ALU 38%, tensor 24%): latency-bound at low occupancy, so fewer instructions help a little.
+
+### Win (main 533416d): `q16`, default on
+
+Queries converted to FP16 once before the loop (they're E4M3 values, so it's exact), and K loaded as FP8 in the same
+dot-operand layout (k_width 4) and upcast with `.to(float16)`. FP16 mma_v2 accepts k_width 4. The results are
+bit-identical (same errors in tools/s19/cases.py), with 13% fewer instructions (FADD 12% -> 3%). H100 paired
+(tools/s19/ab2.py, 3-4 rounds):
+- all-L2 (the H200's compute-bound regime): decode 16/32 full 69.2/133.8 -> 67.7/129.1 us, B64 266.1 -> 255.8, B8
+  39.1 -> 38.1, B1 10.6 -> 10.2.
+- real: decode 16/32 full 128.7/241.8 -> 128.4/241.3 (tie-ish); emulated H200 (92 SMs) 131.3/251.4 -> 130.6/249.4.
+- Tests 16/16, cases 9/9, bench 2.036-2.045 (noise on untouched shapes). Expected on the H200: decode 16/32 full maybe
+  -1..-4 us (~0.2-0.4% overall). Check it the next UTC day against abd67ae2: decode 16/32 full 90.3/172.8, decode 1 full
+  14.16. If any is worse, `q16: False` in the plan restores the old code path.
+
+### Dead ends
+
+- **Transposed QK^T** in `_gd_full` (branch exp/tqk, plan key `tqk`, pushed): per head S^T = K [BN, D] @ Q^T [D, G]
+  (A = K from smem, B = Q^T via smem; half the MMAs of the block-diagonal form), softmax over dim 0, then TPV's
+  transposed P@V. Correct (9/9), but all-L2 decode 16/32 79.4/149.6 vs 68.6/131.3 (tpv alone 75.7/142.9). The MMAs
+  aren't the cost; the column reductions and P^T layout conversions are.
+- **Same trick in Triton `_attn_split`** (queries E4M3-rounded then FP16, K upcast, `QK8 and not QF` to `_tile`/`_new`):
+  paired 9 rounds (tools/s36/abc.py), worse on every Triton shape: decode 1/16/32 sliding +0.22/+0.13/+0.16, verify
+  1/16/32 sliding +0.18/+0.75/+1.09, verify 1 full +0.98 us. Triton's own FP8 dot lowering is better than an explicit
+  upcast there. Not kept.
+- **One 128-byte row per thread for the `_gd_full` gathers** (BlockedLayout [1,16] x [32,1], so one row address per
+  thread per tile instead of 8): 1.5-2.4x slower (decode 32 full 570 vs 242 us). The cp.async pattern matters much more
+  than the address arithmetic. Not kept.
+
+### Next ideas
+
+1. Next UTC day: check main 533416d (q16) on the H200; compare decode 1/16/32 full with abd67ae2 (14.16/90.3/172.8).
+2. `_gd_full` remaining instruction mix (q16, all-L2): F2FP 22% (K and V upcasts, 64 each per 32-key tile, plus P),
+   FMUL 11% (acc * alpha over the block-diagonal [16, 128] accumulator, half of it unused columns), HMMA 10%, IMAD 8%.
+   A cheaper V path would need FP8 P@V with a transposed V (no b8 ldmatrix.trans on sm_90), which is Codex's lane.
+   Register use (242, so 8 warps/SM) caps latency hiding: a lighter accumulator (TPV-style [D, G] per head without TPV's
+   staging costs) is the only Triton/Gluon-side lever left that I can see.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
