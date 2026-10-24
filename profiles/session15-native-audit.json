@@ -1,0 +1,26 @@
+{
+  "kernel_sha256": "ba28b35c8302fd3b90e6df3f5b38794f6a7921aeea371488e2181843cd67d413",
+  "prefetched_sha256": "3a28ad189bfad2b54cfdce8331fab0bd2912758d65dad51eba322fb0865ca2b0",
+  "original": {
+    "tests": 16,
+    "native_tests": 3,
+    "fresh_native_replays": 48,
+    "comparison_entries": 16,
+    "pairs_per_entry": 40,
+    "sanitizer_calls_per_tool": 24
+  },
+  "-prefetched": {
+    "tests": 16,
+    "native_tests": 3,
+    "fresh_native_replays": 48,
+    "comparison_entries": 16,
+    "pairs_per_entry": 40,
+    "sanitizer_calls_per_tool": 24
+  },
+  "diagnostic_entries": 4,
+  "unchanged_production_sha256": "16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e",
+  "full_bench_geomeans": [
+    "1.716",
+    "1.803"
+  ]
+}

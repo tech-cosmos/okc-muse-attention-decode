@@ -1849,3 +1849,124 @@ as **01f390e**; production notes/audit **8a93715** pushed. Submission hash remai
 unchanged. All local build/GPU/profile processes exited. Neither STOP file
 exists. Shared claim removed, own pending-job lines refreshed, and results
 posted to COORD.md. Finish on clean pushed codex; no experimental import added.
+
+## Session 15 — 2026-10-24, 00:33–00:43 UTC
+
+### Outcome and source state
+
+Rejected native **L1 sliding last-CTA completion/reduction** on the current fast
+single-tile attention kernel. Separating partial loads from reduction recovers
+much of the first prototype's loss, but still loses to production. No production
+source change, new judge check, or scored request. Experiment **338c474** pushed
+on **codex-exp/cuda-sliding-completion**, with sources, reproducible generators,
+raw pairs, tests, fresh replays, sanitizers, disassembly and audit. Start with
+`experiments/sliding_completion/README.txt` on that branch.
+
+Main **8b0ac0c** was already merged and remained current at the final fetch.
+Production still matches source **3fb391f**, SHA256
+`16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e`.
+No Triton kernel or plan was tuned. Native small-sliding L1 attention and the
+small-full reduction remain as before. No redundant unchanged-production suite
+was run; both experimental suites exercise its fallback paths.
+
+### Completion design and measured result
+
+The session13 attention arithmetic is preserved. Each block writes FP32 partials;
+all writers threadfence, then synchronize with a leader that publishes through a
+device-scoped acquire/release atomic. The last CTA per request/KV head merges all
+splits, normalizes/gates and stores BF16 output. No CTA spins. Partial loads are
+volatile coherent inline PTX, after last-CTA detection. The scheduling counter
+returns to zero before kernel completion; no input-derived state is cached.
+
+Two forms: load/weight/reduce each split immediately, and separate source loops
+for loading partials and reducing them. SASS confirms the second issues **nine**
+128-bit partial loads before the first reduction FFMA versus **one** originally;
+it then interleaves further loads and math, rather than retaining all32 splits
+at once. The separate-merge control preserves the original PDL attention/merge.
+All native experimental dispatches are broad L1 sliding G8/D64/page1 or64 for
+measurement, not proposed production dispatches.
+
+Balanced adjacent cold-L2 CUDA graph pairs, H100 microseconds:
+
+| sliding L1 | parent / initial fused | parent / prefetched fused |
+|---|---:|---:|
+| B1 ctx80K page1 |4.384 /10.432|4.416 /6.576|
+| B2 ctx80K page1 |4.992 /10.944|5.040 /6.848|
+| B1 ctx4K page64 |4.432 /10.240|4.224 /6.528|
+| B2 ctx1024 page64 |4.144 /8.832|4.320 /6.016|
+| B1 ctx10 page1 |3.776 /7.008|3.872 /5.856|
+| B16 ctx80K page1 |10.416 /18.512|10.336 /14.992|
+| B32 ctx80K page1 |15.712 /27.264|15.792 /23.936|
+
+Compare each candidate with its own paired parent. Each comparison has40 AB/BA
+pairs per entry. B1/B2 prefetched paired deltas are **+2.128/+1.840us**; they need
+not equal differences of individual medians. B3 ctx4K fusion loses as well.
+Separate full experimental benches report **1.716x/1.803x**, initial/prefetched,
+versus fixed SGLang/H200 times. These are rejected experiments, not production
+regressions or judge results.
+
+Offline decomposition,60 pairs per entry: B1 attention-only **3.232us**, attention
+with completion tracking but no reduction **4.608**, complete fused **6.624**.
+B2 attention/completion-only **3.488/4.864**, attention/full-fused **3.424/6.944**.
+The completion-only paired increase is **1.376/1.408us** before final reduction.
+This measures fences, synchronization, atomic publication and last-CTA detection/
+reset together, not isolated atomic latency. The first two diagnostic modes
+intentionally omit the final output and CANNOT implement kernel_fn or be judged.
+They are confined to an offline diagnostic; torch independently reduces and
+reference-checks their partials/cache before/after capture and after timing.
+
+All custom GPU drivers hold the shared lock across generation, reference checks,
+capture and replay; flush512MB before every replay and subtract an empty graph.
+Full benches started after comparisons/tests/sanitizers finished and retain
+bench.py's own timing-loop lock. No NCU run was necessary. SASS/resource inspection
+does not launch kernels. All local subprocesses exited.
+
+### Validation and source evidence
+
+- Initial and prefetched each **16/16**, three native cases and13 fallbacks.
+- Each **48 all-native fresh graph replays**, eight shapes, six seeds each,
+  including empty contexts. TP8/DP, pages1/64, scales1/1/64, contexts10–120K,
+  soft/coherent/edge inputs; QKV/cache/routes/lengths/positions/cache slots change.
+- Each comparison has16 entries (eight candidates/eight controls), independent
+  reference/cache checks before and after capture,32 entries total.
+- Each candidate/tool checks24 isolated native calls: two contexts257/2048,
+  two pages, two scales, three fresh-QKV calls. Both candidates: **memcheck0,
+  synccheck0, racecheck0 hazards/errors/warnings**. No Triton loader involved.
+- Fresh and sanitizer drivers explicitly assert counters return to zero.
+- Generated source reproduction and reported logs are checked by `audit.py`;
+  production copy is `profiles/session15-native-audit.json`.
+
+Initial/prefetched fused use **74/78 registers**; both have **18468 shared bytes**
+from cuobjdump (17444 ptxas), zero stack/local memory and no spills. Controls are
+74regs/17408 shared bytes (16384 ptxas). Page1 SASS instruction counts:
+control1049, initial fused1813, prefetched1725. Attention's two QGMMA/four HGMMA
+remain; fused barrier instruction sites rise from3 to6. These are static counts,
+not an occupancy or measured instruction-throughput claim. Archived generated
+logs only had trailing whitespace/blank EOF lines trimmed for git hygiene.
+
+### Judge jobs, budget and next cycle
+
+At the final **00:41UTC** read both session13 jobs remain **queued**:
+**4d36508dda044b58** (older5641ff1) and **2776be989f794588** (exact current3fb391f).
+Neither was resubmitted; no passing profile exists yet. Only2776 can qualify
+current source for scoring. Refresh the board before acting on it.
+
+This cycle **0 checks,0 scored**, no withdrawals. Codex2026-10-24 remains
+**2/8 checks,0/3 scored**; official shared usage **3/10 checks,0/10 scored**.
+The actual account check cap is10/day, not20. Board best **2.020924x**, rank26.
+Snapshots are `profiles/session15-*.json`. Neither STOP file exists.
+
+1. Resolve both existing checks without resubmitting. Read passing profiles;
+   score exact current source only if2776 beats the then-current account best.
+   Any further main source merge needs its own combined-source qualification.
+2. Close last-CTA fusion on this L1 attention design. Improved partial-load
+   overlap cannot overcome completion/reduction costs here. Do not repeat
+   last-CTA, register, stage or small-merge sweeps without a new mechanism.
+3. One incidental nearby lead: at B3 ctx4K page1, separate-merge native control
+   runs **5.280/5.184us** versus parent **6.208/6.240** in the two comparisons.
+   This is outside production's B*Hkv<=4 dispatch and was not swept or promoted.
+   A future small-batch boundary survey could investigate it, respecting broad
+   nearby shapes; it is not a scored-load speedup. B16/32 native still loses.
+4. Fetch/merge main and read COORD.md before source work. Session14's L8 family
+   and prior full-attention gather/overlap sweeps remain closed. Finish on clean
+   pushed codex, with experiments separate and shared claim removed.
