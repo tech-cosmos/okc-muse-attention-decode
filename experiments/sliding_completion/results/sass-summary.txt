@@ -1,0 +1,8 @@
+native control 1049 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 3, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 4}
+first gather 06d0 first rsqrt 10d0
+native fused 1813 {'BAR.SYNC.DEFER_BLOCKING': 6, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS': 34, 'LDS.64': 4, 'MUFU.RSQ': 4, 'QGMMA.64': 2, 'STS': 5, 'STS.128': 4, 'STS.U8': 4}
+first gather 06b0 first rsqrt 10c0
+prefetched control 1049 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 3, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 4}
+first gather 06d0 first rsqrt 10d0
+prefetched fused 1725 {'BAR.SYNC.DEFER_BLOCKING': 6, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS': 34, 'LDS.64': 4, 'MUFU.RSQ': 4, 'QGMMA.64': 2, 'STS': 5, 'STS.128': 4, 'STS.U8': 4}
+first gather 06b0 first rsqrt 10c0

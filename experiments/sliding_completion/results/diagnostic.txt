@@ -1,0 +1,51 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=muse_completion_diagnostic_v1 -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/.cache/torch_extensions/py312_cu130/muse_completion_diagnostic_v1/main.cpp -o main.o
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=muse_completion_diagnostic_v1 -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo -Xptxas=-v -std=c++20 -c /home/daytona/.cache/torch_extensions/py312_cu130/muse_completion_diagnostic_v1/cuda.cu -o cuda.cuda.o
+/home/daytona/.cache/torch_extensions/py312_cu130/muse_completion_diagnostic_v1/cuda.cu(185): warning #128-D: loop is not reachable
+    for(int j=0;j<2;j++) {
+    ^
+          detected during instantiation of "void sliding<PAGE,EARLY,FUSE>(const __nv_bfloat16 *, const float *, unsigned char *, unsigned char *, const int *, const int *, const long *, const float *, const float *, float *, float *, int *, __nv_bfloat16 *, int, int, int, int, float) [with PAGE=1, EARLY=true, FUSE=2]" at line 235
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/home/daytona/.cache/torch_extensions/py312_cu130/muse_completion_diagnostic_v1/cuda.cu(185): warning #128-D: loop is not reachable
+    for(int j=0;j<2;j++) {
+    ^
+          detected during instantiation of "void sliding<PAGE,EARLY,FUSE>(const __nv_bfloat16 *, const float *, unsigned char *, unsigned char *, const int *, const int *, const long *, const float *, const float *, float *, float *, int *, __nv_bfloat16 *, int, int, int, int, float) [with PAGE=64, EARLY=true, FUSE=2]" at line 235
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb1ELi0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb1ELi0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 45.291 ms
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 78 registers, used 1 barriers, 17444 bytes smem
+ptxas info    : Compile time = 76.872 ms
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16388 bytes smem
+ptxas info    : Compile time = 45.016 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb1ELi0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb1ELi0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 41.998 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb1ELi1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 78 registers, used 1 barriers, 17444 bytes smem
+ptxas info    : Compile time = 74.848 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb1ELi2EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16388 bytes smem
+ptxas info    : Compile time = 42.490 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o muse_completion_diagnostic_v1.so
+{"batch": 1, "variant": "publish_only", "attention_only_us": 3.2319994643330574, "candidate_us": 4.607999697327614, "paired_delta_us": 1.3760002329945564}
+{"batch": 1, "variant": "full_fused", "attention_only_us": 3.2319994643330574, "candidate_us": 6.624000146985054, "paired_delta_us": 3.4080003388226032}
+{"batch": 2, "variant": "publish_only", "attention_only_us": 3.488000016659498, "candidate_us": 4.863999783992767, "paired_delta_us": 1.408000010997057}
+{"batch": 2, "variant": "full_fused", "attention_only_us": 3.42399999499321, "candidate_us": 6.944000255316496, "paired_delta_us": 3.488000016659498}

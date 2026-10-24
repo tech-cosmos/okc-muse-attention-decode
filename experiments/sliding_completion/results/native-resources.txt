@@ -1,0 +1,20 @@
+
+Fatbin elf code:
+================
+arch = sm_90a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /home/daytona/.cache/torch_extensions/py312_cu130/muse_completion_v1/cuda.cu
+
+Resource usage:
+ Common:
+  GLOBAL:28 CONSTANT[4]:224
+ Function _Z7slidingILi64ELb1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif:
+  REG:74 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi64ELb1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif:
+  REG:74 STACK:0 SHARED:18468 LOCAL:0 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi1ELb1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif:
+  REG:74 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi1ELb1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_PiPS0_iiiif:
+  REG:74 STACK:0 SHARED:18468 LOCAL:0 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0

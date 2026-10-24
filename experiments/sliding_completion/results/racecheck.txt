@@ -1,0 +1,12 @@
+========= COMPUTE-SANITIZER
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+PASS native-only fused 257 1 1.0 three fresh QKV calls
+PASS native-only fused 257 1 0.015625 three fresh QKV calls
+PASS native-only fused 257 64 1.0 three fresh QKV calls
+PASS native-only fused 257 64 0.015625 three fresh QKV calls
+PASS native-only fused 2048 1 1.0 three fresh QKV calls
+PASS native-only fused 2048 1 0.015625 three fresh QKV calls
+PASS native-only fused 2048 64 1.0 three fresh QKV calls
+PASS native-only fused 2048 64 0.015625 three fresh QKV calls
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

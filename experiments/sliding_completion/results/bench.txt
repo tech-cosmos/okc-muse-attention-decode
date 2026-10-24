@@ -1,0 +1,31 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+ninja: no work to do.
+VARIANT experiments.sliding_completion.native
+decode 1   sliding     10.62 us   (sglang on H200   20.94)
+decode 1   full        16.72 us   (sglang on H200   31.23)
+decode 16  sliding     18.69 us   (sglang on H200   27.25)
+decode 16  full       130.50 us   (sglang on H200  200.06)
+decode 32  sliding     27.25 us   (sglang on H200   31.30)
+decode 32  full       243.78 us   (sglang on H200  383.65)
+verify 1   sliding      5.82 us   (sglang on H200   22.94)
+verify 1   full        18.70 us   (sglang on H200   35.92)
+verify 16  sliding     12.96 us   (sglang on H200   29.17)
+verify 16  full       154.82 us   (sglang on H200  204.18)
+verify 32  sliding     20.46 us   (sglang on H200   34.42)
+verify 32  full       294.78 us   (sglang on H200  387.94)
+H100 time vs SGLang-on-H200, geomean over loads: 1.716
+VARIANT experiments.sliding_completion.prefetched
+decode 1   sliding      6.91 us   (sglang on H200   20.94)
+decode 1   full        17.15 us   (sglang on H200   31.23)
+decode 16  sliding     15.36 us   (sglang on H200   27.25)
+decode 16  full       130.69 us   (sglang on H200  200.06)
+decode 32  sliding     23.86 us   (sglang on H200   31.30)
+decode 32  full       243.78 us   (sglang on H200  383.65)
+verify 1   sliding      6.05 us   (sglang on H200   22.94)
+verify 1   full        18.58 us   (sglang on H200   35.92)
+verify 16  sliding     13.06 us   (sglang on H200   29.17)
+verify 16  full       156.13 us   (sglang on H200  204.18)
+verify 32  sliding     20.51 us   (sglang on H200   34.42)
+verify 32  full       296.96 us   (sglang on H200  387.94)
+H100 time vs SGLang-on-H200, geomean over loads: 1.803
