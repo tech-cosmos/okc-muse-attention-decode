@@ -1218,8 +1218,8 @@ MMAv2 path (FP8 K upcast to FP16, as session 19 found for decode full). Plan re-
   start (not visible on the H100's bench or emulation), and the merge is slower too: S + 1 = 33 slots pads
   `_combine_hb` to S_PAD 64. Untested guesses: the Gluon kernel's cold instruction fetch / constant loads (one-warp
   programs, 528 of them), the merge padding. Don't retry sliding on _gd_full without an H200 check in the loop.
-- submit 10d12495c672420b: the exact file of f3e099c1 (b95d710; it beat board 2.138x): RESULT see COORD.md / okc
-  status. (Profiles of it land in /tmp/s20sub/profiles, not the repo.)
+- submit 10d12495c672420b: the exact file of f3e099c1 (b95d710; it beat board 2.138x): **2.1605x [2.128, 2.200]**,
+  16/16, new account best, rank 21. (Profiles of it land in /tmp/s20sub/profiles, not the repo.)
 - Lesson: two H100-and-emulation wins (decode 1 full hpp 2, Gluon sliding) were H200 losses, while the H200 judged
   the Gluon decode full better than the H100 did. Small latency-bound shapes don't transfer; budget checks for them.
 
@@ -1234,8 +1234,7 @@ MMAv2 path (FP8 K upcast to FP16, as session 19 found for decode full). Plan re-
 
 ### Next ideas
 
-1. Check main 8aefd49 on the H200 (new UTC day); submit if it beats the board (2.138x, or whatever the submit
-   10d12495 gives).
+1. Check main 8aefd49 on the H200 (new UTC day); submit if it beats the board (now 2.1605x from 10d12495).
 2. Decode 32 sliding on the H200: session 18's hpp 2 plan (H100 15.97 -> 15.41) is unchecked there; try it in a
    later check together with something else.
 3. Gluon decode full: tune on the H200 only (the H100 can't see its win). E.g. splits so S + 1 = 64 vs 32, NS 3.
