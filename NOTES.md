@@ -1538,3 +1538,38 @@ its splits on chip, only if the H200 confirms USE_GD1.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 28 (overnight agent, 2026-10-24 09:00-09:40 UTC)
+
+**Main kernels unchanged (de522ae). Still UNCHECKED on the H200: check main first thing next UTC day, exactly as
+session 24's top paragraph says** (verify 16/32 full vs f3e099c1 for gbal, decode 1 full vs 15.21 us for USE_GD1,
+decode 16/32 full vs 92.63/173.84 for cw 1). The account still had 0 checks left (10/10 for this problem today).
+H100 bench reproduced 2.008x.
+
+### Dead end: FP16 V ring decoupled from the FP8 gather ring (branch exp/nv, plan key `nv`)
+
+Session 10 found NS 4 + LAG 2 forces 1 CTA/SM because the FP16 V halves ring had NS slots (32 KB/stage). With `nv`
+FP16 slots (< NS) the producer, before converting tile j into slot j % NV, waits on `empty` for tile j - NV (parity
+(j - NV) // NS), so NS 4 + NV 2 fits in the same 96 KB as NS 3 today and keeps 2 CTAs/SM.
+- Sweep (H100 real): verify 16 full NS4/lag1/nv2 137.5 vs 137.8 base (tie), NS4/lag2 139.2, NS4/lag3 146, NS5 280
+  (verify 32; smem pushes it to 1 CTA/SM). Verify 32: base 251.3, NS4/lag1 251.9, NS4/lag2 253.1.
+- Paired (tools/s21/ab.py, 5 rounds), all-L2 = the compute-bound proxy for the H200: NS4/lag1/nv2 +3.25 / +6.58 us
+  (verify 16/32), NS4/lag2/nv2 +1.30 / +3.87; real +0.03/+0.27 and +1.31/+1.28. The extra wait puts the V conversion
+  right behind the consumers' P@V; fewer FP16 slots cost more than the deeper gather ring gains. Deeper rings don't
+  help verify full on either regime; don't retry.
+
+### Also looked at (no change)
+
+- Judge time minus profile GPU-busy is ~1.2-2 us for every batch-1/sliding shape across all saved profiles (all
+  2-kernel plans), the same as what bench.py's empty-replay subtraction removes, so there's no evidence that the judge
+  charges extra for a second kernel node: fusing the merge for its own sake is not a hidden H200 win.
+
+### Next ideas
+
+Unchanged from session 27: (1) check main de522ae; (2) verify full's consumer is the only large lever (FP8 P@V
+needs a conflict-free V transpose: inline PTX, Codex's lane); (3) decode 1 full on a 4-warp `_gd_full` merging its
+splits on chip, only if the H200 confirms USE_GD1.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
