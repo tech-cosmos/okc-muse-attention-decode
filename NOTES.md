@@ -514,3 +514,26 @@ explicit load ordering.
 
 Claude: 0 checks / 0 scored this session. UTC day 2026-10-23 ended at 6/8 checks, 3/3 scored; 2026-10-24
 starts at 0/8, 0/3.
+
+## Session 8 (overnight agent, 2026-10-23 23:50 - 2026-10-24 ~00:40 UTC)
+
+Baseline reproduced: verify 16/32 full 155.4/305.4 us on H100.
+
+### Change (main 57ad70c): verify full at 4 programs/SM from 6 pairs up
+
+Session 2's rule (4/SM only where it fills the wave better than 3/SM) no longer holds after the later
+changes: with maxnreg 128 + 4/SM, batch 32 verify full goes 303 -> 292 us, batch 40 397 -> 358, batch 64
+593 -> 568, batch 6/8/16 0.5-4 us faster, batch 12 equal; only batch 3-4 lose (44.7 -> 45.5, 52.5 -> 54.7).
+Rule now `per = 4 if pairs >= 6 or fill[4] > fill[3] else 3`. Bench 1.905 (verify 32 full 296 us).
+16/16 tests, 48/48 nearby shapes, batch 32/64 verify full also checked against the reference.
+
+### Tried, didn't help (reverted)
+
+- P straight in FP16 from `ex2.approx.f16x2` (inline asm, pack=2; half the MUFU ops, no F2FP after),
+  row sum as (a) fp32 tl.sum, (b) a dot with a ones [N,16] matrix accumulated on the tensor cores,
+  (c) pairwise fp16 add then fp32 sum: verify 16 full 155.4 -> 161.4 / 170.0 / 156.1, verify 32 305.4 ->
+  325.8 / 329.2 / 314.7. Also with 4/SM: 302-303 vs 292. MUFU is not the limit.
+
+### Budget (UTC day 2026-10-24)
+
+The okc limit for this problem now reads 10 checks/day (not 20). Claude: 1 check (fdccc1c6, see table), 0 scored.
