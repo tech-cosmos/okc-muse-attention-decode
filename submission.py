@@ -872,7 +872,8 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
-                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False):
+                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
+                FM: tl.constexpr = 0):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -897,6 +898,13 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         pf_p = tl.minimum(split * CHUNK // PAGE + tl.arange(0, PF_N) * 32, MAX_PAGES - 1)
         pf = tl.sum(tl.load(pt_ptr + b.to(tl.int64) * MAX_PAGES + pf_p), 0)
     seq = tl.load(seq_ptr + b)
+    if FM > 0 and FM == MG and HPP == 1:
+        # Fused merge in one chunk: every program loads its gate rows now, off the merge's critical path.
+        gr = tl.arange(0, FM)
+        gate0 = tl.load(qkv_ptr + (b * L + gr // G)[:, None] * QKV_W + (HQ + 2 * HKV) * D
+                        + ((hp0 * G + gr % G)[:, None] * D + tl.arange(0, D)[None, :])).to(tl.float32)
+    else:
+        gate0 = 0.0
     c = tl.arange(0, C)
     r = tl.arange(0, M_PAD)
     hp = r // MG
@@ -971,7 +979,12 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         # The last of this (request, head pair)'s S programs to finish merges the partials and
         # writes the output, then resets the counter for the next call.
         cnt = cnt_ptr + b * (HKV // HPP) + hp0 // HPP
-        if tl.atomic_add(cnt, 1, sem="acq_rel") == S - 1:
+        if FM > 0:
+            if tl.atomic_add(cnt, 1, sem="acq_rel") == S + SEP - 1:
+                _fused_merge(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, b, hp0, HQ, HKV, HPP, G, L, MG, D,
+                             S + SEP, triton.next_power_of_2(S + SEP), FM, gate0)
+                tl.atomic_xchg(cnt, 0)
+        elif tl.atomic_add(cnt, 1, sem="acq_rel") == S - 1:
             first = ((b * HKV + hp0 + hp) * S) * MG + rr
             # All splits' maxima and sums at once: [S_PAD, M_PAD].
             si = tl.arange(0, S_PAD)
@@ -991,6 +1004,39 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
             _norm_gate_store(o / tl.where(r_ok, denom, 1.0)[:, None] * tl.load(vs_ptr), qkv_ptr, out_ptr,
                              b * L + j, (hp0 + hp) * G + rr % G, c, q_ok, HQ, HKV, D)
             tl.atomic_xchg(cnt, 0)
+
+
+@triton.jit
+def _fused_merge(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, b, hp0, HQ: tl.constexpr, HKV: tl.constexpr,
+                 HPP: tl.constexpr, G: tl.constexpr, L: tl.constexpr, MG: tl.constexpr, D: tl.constexpr,
+                 SS: tl.constexpr, SS_PAD: tl.constexpr, RB: tl.constexpr, gate0):
+    """The last program of a (request, KV head group) merges its SS slots, RB rows at a time: every slot's
+    [RB, D] block loaded in one pass (one L2 round trip per chunk), then RMSNorm and the gate."""
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    s = tl.arange(0, SS_PAD)
+    rb = tl.arange(0, RB)
+    d = tl.arange(0, D)
+    ok = (s < SS)[:, None]
+    for hh in tl.static_range(HPP):
+        for k in tl.static_range(MG // RB):
+            rr = k * RB + rb
+            tok = b * L + rr // G
+            col = ((hp0 + hh) * G + rr % G)[:, None] * D + d[None, :]
+            if RB == MG and HPP == 1:
+                gate = gate0
+            else:
+                gate = tl.load(qkv_ptr + tok[:, None] * QKV_W + (HQ + 2 * HKV) * D + col).to(tl.float32)
+            at = ((b * HKV + hp0 + hh) * SS * MG + rr)[None, :] + (s * MG)[:, None]  # [SS_PAD, RB]
+            m = tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30, cache_modifier=".cg")
+            l = tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0, cache_modifier=".cg")
+            a = tl.load(pacc_ptr + at[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0,
+                        cache_modifier=".cg")
+            m_max = tl.max(m, 0)
+            w = tl.exp2(m - m_max[None, :])
+            denom = tl.sum(w * l, 0)
+            o = tl.sum(w[:, :, None] * a, 0) / denom[:, None] * tl.load(vs_ptr)
+            o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
+            tl.store(out_ptr + tok[:, None] * HQ * D + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
 
 
 @triton.jit
@@ -1344,9 +1390,10 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     rope = bool(cfg["rope_theta"])
     cs = _cos_sin(cfg["rope_theta"], d, device) if rope else qkv
 
-    fuse = plan["fuse"] and splits <= 64 and not dual  # the fused merge unrolls over splits
+    fm = plan.get("fm", 0) if group * length % max(plan.get("fm", 1), 1) == 0 else 0
+    fuse = (plan["fuse"] or fm > 0) and splits <= 64 and not dual  # the fused merge unrolls over splits
     # tsep: the block's new tokens in an extra program (partial slot S) instead of split 0.
-    sep = int(bool(plan.get("tsep")) and not fuse)
+    sep = int(bool(plan.get("tsep")) and (not fuse or fm > 0))
     pacc = torch.empty((batch, hkv, splits + sep, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, splits + sep, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
@@ -1358,7 +1405,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
         FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
-        PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"), num_warps=plan["warps"],
+        PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"), FM=fm if fuse else 0,
+        num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
