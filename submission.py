@@ -452,7 +452,7 @@ if HAVE_GLUON:
                  cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
                  MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
-                 SEP: gl.constexpr = False, Q16: gl.constexpr = True):
+                 SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True):
         split = gl.program_id(0)
         b = gl.program_id(1)
         h = gl.program_id(2) * 2
@@ -539,6 +539,12 @@ if HAVE_GLUON:
             vh = gl.allocate_shared_memory(gl.float16, [BN, C], gl.SwizzledSharedLayout(8, 1, 8, [1, 0]))
             acc0 = gl.zeros([D, G], gl.float32, layout=MMA)
             acc1 = gl.zeros([D, G], gl.float32, layout=MMA)
+        elif KST:
+            # Heads stacked along the P@V reduction: acc [M, D] = P_0 @ V_0 + P_1 @ V_1, P_j = P with the other
+            # head's rows zeroed. Same MMAs as the block-diagonal form, half the accumulator and alpha multiplies.
+            # Bit-identical; H100 all-L2 decode 16/32/64 full 66.7/126.7/253.9 -> 63.4/120.4/241.8 us, real tie.
+            acc = gl.zeros([M, D], gl.float32, layout=MMA)
+            row0 = (gl.arange(0, M, layout=gl.SliceLayout(1, PA)) < G)[:, None]
         else:
             acc = gl.zeros([M, C], gl.float32, layout=MMA)
         n_s = gl.arange(0, BN, layout=gl.SliceLayout(0, MMA))
@@ -575,6 +581,17 @@ if HAVE_GLUON:
                 gl.barrier()
                 acc0 = mma_v2(vh.slice(0, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p0, PB), acc0)
                 acc1 = mma_v2(vh.slice(D, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p1, PB), acc1)
+            elif KST:
+                acc = acc * alpha[:, None]
+                ph = gl.convert_layout(p.to(gl.float16), PA)
+                # The FP16 V tile as one B operand, then split per head in registers (loading the two [BN, D] halves
+                # from smem separately costs register shuffles: all-L2 +3%).
+                v = gl.convert_layout(v_ring.index(s).load(BL).to(gl.float16), VB)
+                v0, v1 = gl.split(gl.permute(gl.reshape(v, [BN, 2, D]), (0, 2, 1)))
+                v0 = gl.convert_layout(v0, VB)
+                v1 = gl.convert_layout(v1, VB)
+                acc = mma_v2(gl.where(row0, ph, 0.0), v0, acc)
+                acc = mma_v2(gl.where(row0, 0.0, ph), v1, acc)
             else:
                 acc = acc * alpha[:, None]
                 v = gl.convert_layout(v_ring.index(s).load(BL).to(gl.float16), VB)
@@ -595,6 +612,10 @@ if HAVE_GLUON:
             pt0 = ((b * HKV + h) * (S + 1) + split) * G + gg
             gl.store(pacc_ptr + pt0[None, :] * D + dd[:, None], acc0.to(pacc_ptr.dtype.element_ty))
             gl.store(pacc_ptr + (pt0 + (S + 1) * G)[None, :] * D + dd[:, None], acc1.to(pacc_ptr.dtype.element_ty))
+        elif KST:
+            cd = gl.arange(0, D, layout=gl.SliceLayout(0, MMA))
+            gl.store(pacc_ptr + part[:, None] * D + cd[None, :], acc.to(pacc_ptr.dtype.element_ty),
+                     mask=keyp & (cd[None, :] >= 0))
         else:
             gl.store(pacc_ptr + part[:, None] * D + (co % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=own)
         gl.store(pml_ptr + part * 2, m_i, mask=keyp)
@@ -1449,7 +1470,8 @@ def _decode_gluon(data, cfg, plan):
         _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
         HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
-        ROPE=bool(cfg["rope_theta"]), SEP=sep, Q16=plan.get("q16", True), num_warps=1)
+        ROPE=bool(cfg["rope_theta"]), SEP=sep, Q16=plan.get("q16", True),
+        KST=plan.get("kst", True), num_warps=1)
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch, hq // hb)](
