@@ -1148,10 +1148,13 @@ def _plan(cfg, max_pages, device):
         # and batch 1 keep FP32 (BF16 there is +0.1-0.3 us).
         pdt = "bf16" if length > 1 and heads > 4 else "f32"
         if heads <= 32:
-            # tsep (batch-1 verify): the block's new tokens in their own program instead of split 0, the critical
-            # path (H100 paired: verify 1 sliding -0.14 us, 8/9 rounds twice; decode 1 a tie). Batched: +0.6-2.7.
-            return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
-                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=heads <= 4 and length > 1)
+            # tsep (batch 1-2): the block's new tokens in their own program instead of split 0, the critical path,
+            # with 2 stages (one tile per split). H100 paired: verify 1 sliding tsep -0.14 us (8/9 rounds twice),
+            # + stages 2 -0.11 (9/15); decode 1 sliding tsep alone and stages 2 alone ties, both -0.35 (15/15).
+            # Batched sizes lose with tsep (+0.6-2.7 us).
+            tiny = heads <= 4
+            return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
+                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
         # Large batches: smaller, deeply pipelined programs. (hpp 2 for decode won on the H100, decode 32 sliding
         # 16.0 -> 15.4 us, but is unchecked on the H200; reverted with session 18's decode 1 full plan.)
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
