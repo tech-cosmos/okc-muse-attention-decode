@@ -2233,3 +2233,99 @@ Session **0 checks,1 scored**, no withdrawals. Codex2026-10-24 totals
 4. End on clean pushed codex; experimental branch remains separate, shared claim
    removed/results recorded. Neither STOP file exists. Do not wait idle for the
    queued scored job; carry its exact ID into the next session.
+
+## Session 18 — 2026-10-24, 01:08–01:16 UTC
+
+### Outcome and source state
+
+Rejected native **single-tile sliding L1 QK/V scheduling** changes: actual
+instruction overlap, but no useful scored-shape gain. No production change and
+no new judge requests. Experiment **5b842c0** is pushed on
+**codex-exp/cuda-sliding-qk-overlap**, starting at
+`experiments/sliding_qk_overlap/README.txt`. Reproducible source, graph pairs,
+validation, sanitizer logs and SASS are archived there. Audit copy on production:
+`profiles/session18-native-audit.json`.
+
+Fetched main at start and end; **origin/main e4e037c** was already merged.
+Read Claude's active Gluon warp-specialization claim and stayed in the native
+lane. Production remains exact **3fb391f**, SHA256
+`16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e`.
+No Triton source/plans or production dispatch changed. Session16's nearby
+B*Hkv<=16 patch remains separate and unintegrated.
+
+### Mechanism and measured rejection
+
+The native sliding kernel originally converts/stages V, issues QK and waits,
+then computes softmax/PV. This session tests that single-tile latency path,
+not session12's rejected full-attention producer/consumer loop:
+
+- **overlap:** issue/commit QK before V conversion; fence/publish V, then wait.
+- **late:** wait for QK and compute softmax before converting/publishing V.
+- **pinned:** overlap with explicit post-wait compiler liveness for register Q
+  operands. Page1/EARLY SASS instruction lines are identical to overlap.
+
+New-token K stores have an async-proxy fence before the existing CTA barrier;
+V retains its own fence/barrier. Matrix operations remain converged, scores
+are compiler-pinned until completion, all keys/cache writes are preserved,
+and the production PDL merge is unchanged. FP8 queries/cache, FP16 P/V,
+FP32 partials and BF16 output precision remain unchanged.
+
+Balanced adjacent AB/BA graph pairs,60 pairs/shape,H100 microseconds:
+
+| variant | B1 parent/candidate | B1 paired delta | B2 parent/candidate | B2 delta |
+|---|---:|---:|---:|---:|
+| overlap |4.464/4.480|0.000|5.024/4.992|-0.048|
+| late |4.320/4.320|0.000|5.088/5.056|-0.016|
+| pinned |4.384/4.384|-0.016|5.024/4.960|-0.096|
+
+Each row has its own paired control; small cross-run differences are not gains.
+Nearby B3/8 and short B1 can regress. B16/32 comparisons force the old native
+path, which already loses to production there; tiny improvements over that
+control do not justify dispatch. No candidate was promoted or sent to H200.
+
+Disassembly confirms QGMMA before V's four STS.128 operations and QK wait after
+those stores for overlap/pinned. Late's QK wait precedes V stores; ptxas overlaps
+some conversion with softmax. Baseline/candidates all use74 registers,
+17408 shared bytes (cuobjdump;16384 ptxas), zero stack/local memory or spills.
+Page1/EARLY static instructions1049->1045; matrix counts2QGMMA/4HGMMA,
+32EX2 and3CTA barrier sites stay unchanged. No NCU, achieved occupancy,
+dynamic-instruction or isolated matrix-latency claim is made.
+
+### Validation and handoff
+
+- All three variants **16/16**, each3 native/13 production fallback tests,
+  followed by full benches. Broad-native aggregates **1.909/1.899/1.895x**
+  (overlap/late/pinned) are experiments, not production regressions.
+- Pinned/late each **60 all-native fresh graph replays**,120 total,10 shapes
+  each; changed QKV/cache/routes/lengths/positions/cache slots and empty contexts.
+  TP8/DP, pages1/64, scales1/1/64, contexts10–120K, soft/coherent/edge inputs.
+- Pinned/late each isolated **memcheck0 errors, synccheck0 errors,
+  racecheck0 hazards/errors/warnings**. Each tool/variant checks12 native calls
+  at B6ctx2048, two pages/scales and three changed-QKV calls; torch independently
+  reduces partials and checks output/cache. No Triton loader. Overlap has no
+  separate fresh/sanitizer claim. Only EARLY=True is runtime-validated here.
+- **60 comparison entries**,30 candidate/control pairs of shapes,60 AB/BA
+  rounds per pair; independent reference/cache checks before capture, after
+  replay and after timing. Custom drivers lock generation/reference/capture/
+  replay and flush512MB before every timed replay, subtracting empty graphs.
+  Full benches run sequentially with our other GPU work and retain bench.py's
+  timing-loop lock. No profiler ran. All local processes completed.
+- Audit reproduces sources, verifies unchanged production hash, checks complete
+  logs and SASS ordering. Generated reports only had whitespace/EOF cleanup.
+
+Scored **71e2eaa7b52c407f remains queued at01:16UTC**. It is session17's
+exact checked production source; no resubmission and no passing profile yet.
+Do not poll the already resolved checks2776/4d36508 again. Current account
+best remains **2.020924x**, rank27. Session **0 checks,0 scored**, no withdrawals;
+Codex2026-10-24 remains **2/8 checks,1/3 scored**. Official shared account
+**3/10 checks,1/10 scored**; the problem's actual check cap is10/day, not20.
+Snapshots are `profiles/session18-*`. Neither STOP file exists.
+
+Next cycle: resolve71e2 without resubmitting; read its passing profile if ready.
+Fetch main/read COORD before source work. Close this L1 scheduling family along
+with the earlier full QK/V overlap, padded-row, warp-MMA, last-CTA and small-merge
+sweeps. Further native work needs a distinct, profiled bottleneck; moving these
+same instructions again is not justified. Preserve session16's nearby-boundary
+patch for a future substantive production update requiring its own exact-source
+check. End this cycle on clean pushed codex, with experiment separate and shared
+claim removed/results recorded; do not wait idle for the scored queue.
