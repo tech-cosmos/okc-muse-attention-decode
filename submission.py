@@ -1058,8 +1058,12 @@ def _plan(cfg, max_pages, device):
         if heads <= 32:
             return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt)
-        # Large batches: smaller, deeply pipelined programs.
-        return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
+        # Large batches: smaller, deeply pipelined programs (decode: both KV heads per program, whole 128-byte
+        # rows; H100 decode 32 sliding 16.0 -> 15.4 us).
+        if length == 1:
+            return dict(splits=splits, block_n=64, warps=4, stages=5, hpp=2, fuse=False, qk8=True, hb=2, sb=splits,
+                        cw=1, pdt=pdt)
+        return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=1, fuse=False,
                     qk8=True, peel=length > 1, hb=2, sb=splits, cw=1, pdt=pdt)
     # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
     # decode 16/32 full -1.0/-1.5 us, verify 1 full -0.4. The Gluon verify path keeps FP32 (BF16 +1.5 us).
