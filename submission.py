@@ -550,6 +550,128 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
 
 
 @triton.jit
+def _qt(ptr, off, d, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr):
+    """Transposed rows: x [D, R] at ptr + off (one head per column), rmsnorm over D, RoPE at pos."""
+    x = tl.load(ptr + off).to(tl.float32)
+    r = tl.rsqrt(tl.sum(x * x, 0) / D + 1e-5)
+    if ROPE:
+        xp = tl.load(ptr + (off ^ 1)).to(tl.float32)
+        cs_off = pos * D + d // 2
+        cos = tl.load(cs_ptr + cs_off)[:, None]
+        sin = tl.load(cs_ptr + cs_off + D // 2)[:, None]
+        x = x * cos + tl.where(d % 2 == 0, -1.0, 1.0)[:, None] * xp * sin
+    return x * r[None, :]
+
+
+@triton.jit
+def _tile_t(t, hi, pt_row, kc_ptr, vc_ptr, h, d, qt, m_i, l_i, acc, scale, MASKED: tl.constexpr,
+            PAGE: tl.constexpr, ROW_W: tl.constexpr, D: tl.constexpr, DOT: tl.constexpr):
+    """_tile for one decode token, transposed: scores S^T = K Q^T [N, G] and acc^T += V^T P^T [D, G], so
+    the MMAs have M = keys / head dim and N = the G query heads (no padding rows, no off-head blocks)."""
+    if MASKED:
+        t_ld = tl.minimum(t, hi - 1)
+    else:
+        t_ld = t
+    page = tl.load(pt_row + t_ld // PAGE)
+    row = (page.to(tl.int64) * PAGE + t_ld % PAGE) * ROW_W + h * D
+    k = tl.load(kc_ptr + row[:, None] + d[None, :])
+    vt = tl.load(vc_ptr + row[None, :] + d[:, None])
+    s = tl.dot(k, qt)
+    if MASKED:
+        s = tl.where((t < hi)[:, None], s, float("-inf"))
+    m_new = tl.maximum(m_i, tl.max(s, 0) * scale)
+    alpha = tl.exp2(m_i - m_new)
+    p = tl.exp2(tl.fma(s, scale, -m_new[None, :]))
+    l_i = l_i * alpha + tl.sum(p, 0)
+    acc = acc * alpha[None, :] + tl.dot(vt.to(DOT), p.to(DOT))
+    return m_new, l_i, acc
+
+
+@triton.jit
+def _new_t(b, seq, h, d, qt, m_i, l_i, acc, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, vs_ptr, loc_ptr,
+           HQ: tl.constexpr, HKV: tl.constexpr, D: tl.constexpr, ROPE: tl.constexpr):
+    """Split 0 of _attn_dec: the step's own token for KV head h (normalize, store as FP8, attend)."""
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    ROW_W: tl.constexpr = HKV * D
+    k_off = b * QKV_W + (HQ + h) * D + d
+    kn = _qt(qkv_ptr, k_off[:, None], d, seq, cs_ptr, ROPE, D)
+    kq = (kn / k_scale).to(tl.float8e4nv)
+    vq = (tl.load(qkv_ptr + k_off + HKV * D).to(tl.float32) / tl.load(vs_ptr)).to(tl.float8e4nv)
+    slot = tl.load(loc_ptr + b) * ROW_W + h * D
+    tl.store(kc_ptr + slot + d[:, None], kq)
+    tl.store(vc_ptr + slot + d, vq)
+    s = tl.sum(qt.to(tl.float32) * kq.to(tl.float32), 0) * scale
+    m_new = tl.maximum(m_i, s)
+    alpha = tl.exp2(m_i - m_new)
+    p = tl.exp2(s - m_new)
+    l_i = l_i * alpha + p
+    acc = acc * alpha[None, :] + vq.to(tl.float32)[:, None] * p.to(tl.float16).to(tl.float32)[None, :]
+    return m_new, l_i, acc
+
+
+@triton.jit
+def _attn_dec(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
+              HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, D: tl.constexpr, PAGE: tl.constexpr,
+              MAX_PAGES: tl.constexpr, WINDOW: tl.constexpr, ROPE: tl.constexpr, S: tl.constexpr,
+              CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr, PDL: tl.constexpr,
+              DOT: tl.constexpr):
+    """Decode steps (one token): one program per (split, request, KV head pair) like _attn_split with hpp 2,
+    but each head runs its own transposed chain (_tile_t) on its 64-byte half of the cache rows."""
+    split = tl.program_id(0)
+    b = tl.program_id(1)
+    h0 = tl.program_id(2) * 2
+    if PDL:
+        gdc_launch_dependents()
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    ROW_W: tl.constexpr = HKV * D
+    seq = tl.load(seq_ptr + b)
+    d = tl.arange(0, D)
+    g = tl.arange(0, G)
+    q_off = b * QKV_W + (h0 * G + g)[None, :] * D + d[:, None]
+    q0 = _qt(qkv_ptr, q_off, d, seq, cs_ptr, ROPE, D).to(tl.float8e4nv)
+    q1 = _qt(qkv_ptr, q_off + G * D, d, seq, cs_ptr, ROPE, D).to(tl.float8e4nv)
+    k_scale = tl.load(ks_ptr)
+    scale = qk_scale * k_scale
+    m0 = tl.full([G], -1.0e30, tl.float32)
+    l0 = tl.zeros([G], tl.float32)
+    a0 = tl.zeros([D, G], tl.float32)
+    m1, l1, a1 = m0, l0, a0
+    if split == 0:
+        m0, l0, a0 = _new_t(b, seq, h0, d, q0, m0, l0, a0, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, vs_ptr,
+                            loc_ptr, HQ, HKV, D, ROPE)
+        m1, l1, a1 = _new_t(b, seq, h0 + 1, d, q1, m1, l1, a1, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr, vc_ptr,
+                            vs_ptr, loc_ptr, HQ, HKV, D, ROPE)
+    if WINDOW > 0:
+        base = tl.maximum(seq - (WINDOW - 1), 0)
+    else:
+        base = seq * 0
+    lo = base + split * CHUNK
+    hi = tl.minimum(lo + CHUNK, seq)
+    pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
+    n = tl.arange(0, BLOCK_N)
+    full_end = lo + tl.maximum(hi - lo, 0) // BLOCK_N * BLOCK_N
+    for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
+        m0, l0, a0 = _tile_t(start + n, hi, pt_row, kc_ptr, vc_ptr, h0, d, q0, m0, l0, a0, scale, False, PAGE, ROW_W,
+                             D, DOT)
+        m1, l1, a1 = _tile_t(start + n, hi, pt_row, kc_ptr, vc_ptr, h0 + 1, d, q1, m1, l1, a1, scale, False, PAGE,
+                             ROW_W, D, DOT)
+    for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
+        m0, l0, a0 = _tile_t(start + n, hi, pt_row, kc_ptr, vc_ptr, h0, d, q0, m0, l0, a0, scale, True, PAGE, ROW_W,
+                             D, DOT)
+        m1, l1, a1 = _tile_t(start + n, hi, pt_row, kc_ptr, vc_ptr, h0 + 1, d, q1, m1, l1, a1, scale, True, PAGE,
+                             ROW_W, D, DOT)
+    # Partials [B, HKV, S, G(, D)], as _finish writes them for one token.
+    part = ((b * HKV + h0) * S + split) * G + g
+    tl.store(pml_ptr + part * 2, m0)
+    tl.store(pml_ptr + part * 2 + 1, l0)
+    tl.store(pacc_ptr + part[None, :] * D + d[:, None], a0)
+    part = part + S * G
+    tl.store(pml_ptr + part * 2, m1)
+    tl.store(pml_ptr + part * 2 + 1, l1)
+    tl.store(pacc_ptr + part[None, :] * D + d[:, None], a1)
+
+
+@triton.jit
 def _new_tokens(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
                 HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, MG: tl.constexpr,
                 L_PAD: tl.constexpr, D: tl.constexpr, S: tl.constexpr, DOT: tl.constexpr):
@@ -734,16 +856,25 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     pacc = torch.empty((batch, hkv, splits, rows, d), dtype=torch.float32, device=device)
     pml = torch.empty((batch, hkv, splits, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
-    fuse = plan["fuse"] and splits <= 64 and not dual  # the fused merge unrolls over splits
-    _attn_split[(splits, batch, hkv // (2 if dual else hpp))](
-        qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
-        data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
-        cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
-        HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
-        L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
-        WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
-        **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
+    if plan.get("tdec") and length == 1 and hkv % 2 == 0 and group in (8, 16):
+        _attn_dec[(splits, batch, hkv // 2)](
+            qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
+            data["seq_lens"], data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+            HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages, WINDOW=cfg["window"], ROPE=rope,
+            S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"], PDL=USE_PDL, DOT=DOT_DTYPE,
+            num_warps=plan["warps"])
+        fuse = False
+    else:
+        fuse = plan["fuse"] and splits <= 64 and not dual  # the fused merge unrolls over splits
+        _attn_split[(splits, batch, hkv // (2 if dual else hpp))](
+            qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
+            data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
+            cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+            HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
+            L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
+            WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
+            FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
+            **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
     hb = plan.get("hb", 1) if group % plan.get("hb", 1) == 0 else 1
