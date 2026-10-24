@@ -4562,3 +4562,122 @@ Claude's d0f30 score. No pending Codex jobs; neither STOP file exists.
    BF16 plans as permission to pass BF16 memory to a float-pointer kernel.
 4. Finish clean on pushed codex, remove claim and post results. No judge job
    needs waiting; all session work is complete.
+
+## Session 37 — 2026-10-24, 04:58–05:11 UTC
+
+Completed a focused **native BF16 partial-merge** cycle. Three correct
+implementations fail to provide a consistent whole-wrapper win. **No production
+change and no judge requests.** Experiment **3f9a2fe** is pushed separately on
+**codex-exp/native-bf16-merge**; start with `experiments/bf16_merge/README.md` on
+that branch. Frozen sources, raw graph pairs, fresh checks, sanitizer logs,
+SASS/resources, source generator and CPU audit are archived. Production evidence
+copy: `profiles/session37-native-audit.json`.
+
+Main **06b7755** was already integrated at both fetches. Production remains
+code **d125df9**, SHA256
+`ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca`.
+The existing **FP32 allocation guard for native full merge is retained**.
+No native dispatch, native body, inherited helper or plan changed in production.
+Session36's exact-source validation still applies; no redundant unchanged-source
+suite or new production sanitizer claim. No experimental import was added.
+
+### Mechanism and decision
+
+Main's `pdt` selects BF16 split storage on its Triton full paths. Session36
+preserved FP32 for the native small-full merger's float-pointer interface. This
+experiment templates that merger for FP32/BF16 storage and removes the guard.
+Coherent BF16 pair loads remain after the PDL wait; all merging is FP32, max/sum
+storage stays FP32. Attention, cache insertion, every-key coverage, query/cache
+formats, grids, launch count and eight-warp topology are unchanged. Tensor dtype
+checks inspect metadata only; all20 Python helpers match pinned main, no Triton
+tuning. This follows main's BF16-storage interpretation, not a new organizer
+ruling; none of the experimental precision changes is promoted.
+
+1. **initial:** convert the loaded pair using CUDA BF16 intrinsics.
+2. **bits:** widen with exact integer bit operations, avoiding an observed
+   redundant shift in the intrinsic expansion.
+3. **packed:** keep each pair in one packed register until weighted accumulation.
+   This reduces BF16 registers from56/57 (non-PDL/PDL) to32/32, but delays widening
+   onto the arithmetic path. Lower register use does not establish lower latency.
+
+H100,80adjacent AB/BA complete-graph pairs/case; microseconds:
+
+| Fixed80K full case | old / bits | paired delta | old / packed | paired delta |
+|---|---:|---:|---:|---:|
+|B1,L1,page1|16.944/17.600|+0.704|16.976/17.520|+0.528|
+|B1,L8,page1|18.640/18.256|-0.432|18.496/18.688|+0.224|
+|B1,L1,page64|16.640/17.152|+0.384|16.544/17.040|+0.464|
+|B1,L8,page64|18.000/17.568|-0.480|17.952/18.144|+0.224|
+
+Packed confirmation uses a second seed and reverses module/capture order:
+paired deltas **+0.448/+0.336/+0.096/+0.256us** for those four cases.
+B2,L8,20K,page64,scale1/64,edges regresses **+0.736us** with bits and
+**+1.984/+2.048us** with packed initial/confirmation. No dtype or shape cutoff
+promoted to select the favorable cases.
+
+Mixed-length verify cases can win: B1,nominal80K,page1 saves1.696us packed and
+2.064us bits. `spread=mixed` allows contexts up to4x nominal; these are nearby
+measurements, not scored80K results. Initial comparison covered19cases including
+mixed-length B1; later23-case runs explicitly added four fixed80K cases. Keep
+that distinction when reusing these artifacts. Paired deltas need not equal
+separate-median differences.
+
+Each variant's full-wrapper bench after16/16 was **2.014/1.986/2.014x** against
+fixed SGLang/H200 times. Those unpaired local totals are neither H200 estimates
+nor evidence of a production regression. The paired results reject promotion.
+
+### Validation and evidence
+
+- Each variant **16/16**, then all12benchmark shapes. The standard suite reaches
+  the changed native full merger on2cases (S112/127); its14other cases are controls,
+  including3unchanged native-sliding cases. Do not call all16tests native.
+- **5680adjacent graph pairs,426independent output/cache checks** across
+  19initial +23bits +23packed +6confirmation cases,80pairs each.
+- **184fresh full-wrapper graph replays**,92/source over23cases. **68final
+  native-BF16 calls** and68old native-FP32 controls; other calls exercise unchanged
+  paths. Fresh QKV/cache/routes/lengths/positions/cache slots, shortened and empty
+  history, TP8/DP,pages1/64,scales1/1/64,soft/coherent/edges.
+- Final isolated merger:24cases x3fresh graph replays =72, each FP32/BF16 and
+  PDL on/off, S1/16/64/65/76/128, L1/8, TP8/DP, empty partial groups, large
+  unnormalized numerators, scales1/1/64. Independent Torch reduction checks
+  output; max rel-L2 **0.0017934**, including BF16 output rounding.
+- Final candidate independently **memcheck0errors,synccheck0errors,racecheck0
+  hazards/errors/warnings**, **72fresh isolated-native replays per tool**.
+  No Triton loader kernels. These synthetic checks validate the merger, not a
+  separate end-to-end attention implementation. No fresh/sanitizer claim for
+  the rejected initial/direct-bits variants.
+- FP32 SASS is instruction-identical to previous production for both PDL modes.
+  All four specializations use3200reported shared bytes, no local/stack.
+  Final BF16 has568static instructions vs624initial-PDL. All17coherent load sites
+  follow ACQBULK in each PDL version. No profiler-duration or occupancy claim.
+- CPU audit checks frozen source provenance, all20helper identities, unchanged
+  native sliding, generated packed source, exact bit widening, SASS order,
+  register/resource reports, raw medians and complete result counts. Passed.
+
+Custom drivers lock generation/reference/capture/replay, flush512MB before every
+measured graph and subtract empty replay. Suite holds the shared GPU lock;
+standard benchmark retains its timing-loop lock. All own GPU work sequential.
+No NCU profiling was needed; only generated SASS whitespace was normalized.
+All own build/GPU/sanitizer processes finished.
+
+### Budget and next cycle
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 stays
+**5/8checks,3/3scored**. Refreshed official account **9/10checks,4/10scored**,
+leaving1check/6scored; actual account check cap10/day. Best remains
+**2.1129x,rank20**. COORD now identifies the ninth check as Claude's
+**22381fd8435f4fce**, marked pending by its owner; no polling or qualification
+inference from that job. No pending Codex jobs. Neither STOP file exists.
+
+1. Read COORD/fetch main next cycle. Current SHAed5bde6e still requires its own
+   exact-source H200 check before any future scored request. Preserve the scarce
+   shared check while today's Codex scored allowance is exhausted.
+2. Keep the native-full FP32 compatibility guard. BF16 storage is not an automatic
+   win with this merger: early expansion adds work/registers; packed expansion
+   reduces registers but still loses complete-graph latency. Close this uniform
+   BF16-native adapter and small widening/dtype-cutoff variations.
+3. Keep3f9a2fe separate. A future native partial-format proposal needs a concrete
+   reduction in producer-plus-merger critical work, not just fewer bytes or
+   registers. Earlier native attention/gather/query/fusion families stay closed.
+4. Finish clean on pushed codex, remove shared claim, post results and stop.
+   No judge job requires waiting; all session work is complete.

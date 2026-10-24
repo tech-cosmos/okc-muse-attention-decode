@@ -1,0 +1,227 @@
+{
+  "source_sha256": "bd81ce59842547fa75a1b72eaead0f29e8d6e12cb38dc8fab06ed9ac69898e79",
+  "shared_helpers": 20,
+  "native_sliding_unchanged": true,
+  "conversion_exact": true,
+  "float_sass_identical_to_previous": true,
+  "sass": {
+    "native-initial.sass": [
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0EfEvPK13__nv_bfloat16PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 536,
+        "coherent_loads": 17,
+        "wait_indices": []
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1EfEvPK13__nv_bfloat16PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 544,
+        "coherent_loads": 17,
+        "wait_indices": [
+          151
+        ]
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0E13__nv_bfloat16EvPKS0_PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 632,
+        "coherent_loads": 17,
+        "wait_indices": []
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1E13__nv_bfloat16EvPKS0_PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 624,
+        "coherent_loads": 17,
+        "wait_indices": [
+          298
+        ]
+      }
+    ],
+    "native-bits.sass": [
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0EfEvPK13__nv_bfloat16PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 536,
+        "coherent_loads": 17,
+        "wait_indices": []
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1EfEvPK13__nv_bfloat16PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 544,
+        "coherent_loads": 17,
+        "wait_indices": [
+          151
+        ]
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0E13__nv_bfloat16EvPKS0_PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 616,
+        "coherent_loads": 17,
+        "wait_indices": []
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1E13__nv_bfloat16EvPKS0_PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 616,
+        "coherent_loads": 17,
+        "wait_indices": [
+          301
+        ]
+      }
+    ],
+    "native.sass": [
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0EfEvPK13__nv_bfloat16PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 536,
+        "coherent_loads": 17,
+        "wait_indices": []
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1EfEvPK13__nv_bfloat16PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 544,
+        "coherent_loads": 17,
+        "wait_indices": [
+          151
+        ]
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0E13__nv_bfloat16EvPKS0_PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 568,
+        "coherent_loads": 17,
+        "wait_indices": []
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1E13__nv_bfloat16EvPKS0_PKT2_PK6float2PKfPS0_iiiii",
+        "instructions": 568,
+        "coherent_loads": 17,
+        "wait_indices": [
+          152
+        ]
+      }
+    ]
+  },
+  "resources": {
+    "resources-initial.txt": [
+      [
+        48,
+        0,
+        3200,
+        0
+      ],
+      [
+        48,
+        0,
+        3200,
+        0
+      ],
+      [
+        56,
+        0,
+        3200,
+        0
+      ],
+      [
+        57,
+        0,
+        3200,
+        0
+      ]
+    ],
+    "resources-bits.txt": [
+      [
+        48,
+        0,
+        3200,
+        0
+      ],
+      [
+        48,
+        0,
+        3200,
+        0
+      ],
+      [
+        56,
+        0,
+        3200,
+        0
+      ],
+      [
+        57,
+        0,
+        3200,
+        0
+      ]
+    ],
+    "resources.txt": [
+      [
+        48,
+        0,
+        3200,
+        0
+      ],
+      [
+        48,
+        0,
+        3200,
+        0
+      ],
+      [
+        32,
+        0,
+        3200,
+        0
+      ],
+      [
+        32,
+        0,
+        3200,
+        0
+      ]
+    ]
+  },
+  "pair_results": {
+    "pairs-37571.json": {
+      "cases": 23,
+      "pairs": 1840,
+      "reference_checks": 138
+    },
+    "pairs-37572.json": {
+      "cases": 6,
+      "pairs": 480,
+      "reference_checks": 36
+    },
+    "pairs-bits.json": {
+      "cases": 23,
+      "pairs": 1840,
+      "reference_checks": 138
+    },
+    "pairs-initial.json": {
+      "cases": 19,
+      "pairs": 1520,
+      "reference_checks": 114
+    }
+  },
+  "paired_graph_pairs": 5680,
+  "comparison_reference_checks": 426,
+  "fresh_replays": 184,
+  "fresh_native_candidate_replays": 68,
+  "synthetic": {
+    "plain": {
+      "cases": 24,
+      "replays": 72,
+      "max_rel_l2": 0.001793320756405592
+    },
+    "memcheck": {
+      "cases": 24,
+      "replays": 72,
+      "max_rel_l2": 0.001793320756405592
+    },
+    "synccheck": {
+      "cases": 24,
+      "replays": 72,
+      "max_rel_l2": 0.001793320756405592
+    },
+    "racecheck": {
+      "cases": 24,
+      "replays": 72,
+      "max_rel_l2": 0.001793320756405592
+    }
+  }
+}
