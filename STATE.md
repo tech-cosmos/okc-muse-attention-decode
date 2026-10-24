@@ -1,6 +1,12 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-24 ~23:40 UTC (session 76 = unattended session 8 of the #1-push brief).
+Updated 2026-10-24 ~23:50 UTC (session 77 = unattended session 10 of the #1-push brief).
+
+**s77: H200 per-kernel diagnostics** (branch exp/h200diag, tools/s77/README.md): extra renamed kernel copies in a
+check are timed by the judge's profile, so ONE check measures ~10 variants on the real H200, paired. Verify 32 full
+on the H200: consumer-only ~171, gathers-only ~167, producer-only ~174, combined ~209 cold (warm 203). Both halves
+must improve; page-table prefetch and TLB warm are dead. Native speculative-max softmax: consumer -4.4% in the
+microbench (tools/s77/cspec) but no register room in nverify. NOTES session 77.
 
 **s76: tools/bench.py now mirrors the judge** (read flush, truly empty graph subtracted; BENCH_OLD=1 = old). The old
 bench under-counted every shape by ~2 us (it subtracted one kernel launch) and penalized DRAM-bound shapes with
@@ -10,7 +16,7 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
 
 ## Board and best run
 
-- Board 2026-10-24 22:10Z: #1 colinlikescode 2.844x, #2 2.726x, #3 2.624x; **ours #16 2.343x** (tied #15)
+- Board 2026-10-24 22:50Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.624x; **ours 2.343x (below #16)**
   (scored **7f45c5c6**, commit 14355d4 = main's kernel). Need ~+21% for #1.
 - Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
 
@@ -37,7 +43,7 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- Account: checks 16/20 used, scored 9/10 used at the end of 2026-10-24 (s76: check dea06af0 = USE_GSLIDE re-test,
+- Account: checks 20/20 used (s77: 4 diagnostics), scored 9/10 used at the end of 2026-10-24 (s76: check dea06af0 = USE_GSLIDE re-test,
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
@@ -85,12 +91,18 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Queued for checks
 
+- (s77) First check of 2026-10-25: exp/h200diag variant sweep of nverify macros + `_gw_verify` constexprs (NOTES s77
+  Next 1). Then score main c9b3242 once (human-approved).
+
 - (s76) USE_GSLIDE now ties on the H200 (dea06af0): don't re-check it.
 
 - Nothing new. main c9b3242 = 2.320-2.322x in three checks (a6081cf6, 8bd56b13 kernel-equal, 9a22a5ae near-equal);
   submit only after a real change lifts a check above 2.343.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s77: page-table L2 prefetch in the gbal producer (ptpf, H200 flushed pairs: tie); TLB touch before verify full
+  (noise); speculative max inside nverify (C7512/C7511 at 104 regs).
 
 - s75: cp.async smem-staged gathers in csl (+0.2 us K, +0.3 V at batch 1; and 16-CTA clusters cap at 28 resident even
   at 4 CTAs/SM, so batch 32 can't be one wave); Gluon gw_verify at sliding size (proxy 16.2/21.0 vs Triton

@@ -3320,3 +3320,77 @@ main): decode 1 sliding 5.25, decode 16 sliding 8.30, decode 1 full 14.27, verif
 ### Budget (UTC day 2026-10-24)
 
 This session: 1 check (dea06af06fa34abd), 0 scored. Account: 16/20 checks, 9/10 scored at the 00:00 UTC reset.
+
+## Session 77 (unattended session 10, 2026-10-24 22:47-~23:50 UTC): H200 per-kernel diagnostics for verify full
+
+Board 22:50Z: **#1 pjmullin3 2.910x** (new), #2 colinlikescode 2.844x, #3 2.624x; ours 2.343x (below #16 now).
+Main kernel unchanged (c9b3242). 4 checks, all DIAGNOSTIC (scores meaningless by design, never to be submitted).
+
+### New method: time many kernel variants on the H200 in one check (branch exp/h200diag, tools/s77/README.md)
+
+The judge's check output has a per-kernel GPU-time profile for each scored shape. Launch extra, separately named
+copies of a kernel (Gluon/Triton: `_renamed()` = same code under a new function name; native: one namespace per
+variant) after the real work, on scratch outputs, each after an L2 flush (2 GB torch.sum) -> the profile times each
+variant on the real H200 in the same process, paired. Copies of the same kernel agree to ~1-2 us. Don't launch the
+copies with PDL (check c3c16ec6: nverify copies overlapped their predecessors, times invalid). This replaces "H100
+predicts H200" for any kernel-level decision: one check = up to ~10 variants per shape.
+
+### H200 facts, verify 32 / verify 16 full (us; checks 7f073300, c3c16ec6, 364740e4, 772b5adc)
+
+| variant of `_gw_verify` (gbal) | verify 32 | verify 16 |
+|---|---|---|
+| real launch in the timed call (PDL after _new_tokens, cold) | 210.7-214.4 | 110.4-114.0 |
+| copy after an L2 flush | 208.4-210.6 | 108.3-111.6 |
+| copy right after another copy (warm, no flush) | 202.0-205.7 | 104.2-107.5 |
+| producer only (consumers just handshake), warm | 170.9-176.9 | 87.5-89.5 |
+| gathers only (no V convert, consumers idle), warm | 163.4-170.8 | 84.7-87.9 |
+| consumer only (no gathers, no convert) | 169.6-172.7 | 88.3-91.3 |
+| no softmax (P = S) | 175.1-180.4 | 92.3-93.5 |
+| no V convert | 195.5-199.4 | 101.2-102.9 |
+| all-L2 (page_table % 4096) | 189.5-192.6 | 98.3-99.7 |
+| all-L2, producer only | 96.4 | 49.1 |
+| all-L2, no softmax | 146.0 | 74.7 |
+| decode 32 full `_gd_full` (same bytes, for reference) | 168.3 | |
+
+Reading: on the H200 **the consumer alone (~171) and the gathers alone (~167) each take about the decode-full time**,
+and the combined kernel is ~209 cold: overlap loss ~38 us. To reach ~175 BOTH sides must improve: the consumer must
+get well under 170 (it is latency-bound: H100 ncu issue 53%, XU 47%, tensor 33%, eligible 1.24 warps/scheduler) and
+the producer's interference must drop. The softmax costs ~25-30 us of the combined time (no-softmax 175-180).
+The V convert costs ~5-7 us. Page-table prefetch and TLB are not the cold penalty:
+- `ptpf` (exp/ptpf: L2 prefetch of each gbal segment's page-table entries in the producer): flushed 209.4/208.4
+  (off) vs 210.4/210.3 (512 lines) / 210.6 (256): no gain (H100 paired: tie). Dead.
+- TLB touch (1 byte per 64 KB of K and V in a 2-4 us kernel right before): 208.0 vs 209.0 flushed: noise. Dead.
+- The flushed-vs-warm gap (~6 us) remains unexplained (not page table, not TLB); the real launch is another ~2-5
+  us above the flushed copies (PDL start overlapping _new_tokens counts as its time).
+
+H100 ncu of `_gw_verify` verify 32 full (real data, DRAM-bound 78%): 119.5M warp instructions: consumers 80.3M
+(per warp-tile: MUFU 34, FMNMX 36, FFMA 36, FMUL 34 = non-lazy acc rescale, FADD 30, F2FP 16, ~60 uniform/overhead
+= 248), producer 28.5M (F2FP 5.2M, SYNCS 3.8M, LDS 2.4M, LDGSTS 1.3M), spin loops 10.6M.
+
+### Speculative-max softmax (native microbench: a real consumer win; not yet usable in nverify)
+
+tools/s77/cspec.{cu,py} (= s70 cmicro8 + SPEC): after the first tile, compute the exps with the running maxima at
+once; the tile max and a warp vote run alongside, and only a warp with a row grown by > 8 (P > 2^8) takes the normal
+path. Takes the max reduction/shuffles/vote off the per-tile dependency chain. Native consumer-only (PV8, LAZY,
+pipelined, verify-32 size, H100): **149.5 -> 143.0 us (-4.4%, 3 repeats)**; 1 CTA/SM 150.3 -> 144.2; unpipelined it
+loses (157.8 -> 163.0). Inside the full nverify kernel (104-reg consumer cap from setmaxnreg at 2 CTAs/SM) it does
+not fit: keeping s and e live costs +32 regs -> ptxas C7512 (wgmma serialized), all-L2 197 -> 237 us; an in-place
+variant (e overwrites s, rescale e by exp2(m_old - m_new) on growth) spills 1.4 KB + C7511
+(tools/s77/nverify_spec_wip.cu). Needs a register-lean consumer (e.g. no separate pa/pb P double buffer, or 1
+CTA/SM with 3 WGs) before it can pay. Precision note for any production version: the in-place variant needs a
+fallback for growth > 126 (ex2 overflow) to stay correct for all inputs.
+
+### Next (verify full, per the human's direction)
+
+1. First check of the new UTC day: an exp/h200diag variant sweep of the native nverify (NV_LAG/NV_PFD/NV_NS/NV_LAZY/
+   NV_TR, CREGS/PREGS splits) and Gluon `_gw_verify` constexprs (CREGS/PREGS/maxnreg, LAG) with 2 baseline copies,
+   to find which knobs move the H200 at all. Cheap: one check, ~10 variants.
+2. Consumer redesign for register headroom so the speculative max (-4.4% consumer) and FP8 P@V (-8%) fit together:
+   e.g. 1 CTA/SM with 2 consumer WGs at 240 regs + BN 128 (half the per-tile overhead), producer 1 WG. Time the
+   pieces on the H200 with the harness before integrating.
+3. Score main c9b3242 once (approved by the human after 00:00 UTC; csl decode sliding is a real per-shape win).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 4 checks (7f0733008d9d4064, c3c16ec6d4f848b9, 364740e41acd4e66, 772b5adc659d47b3; all diagnostics),
+0 scored. Account at the 00:00 UTC reset: 20/20 checks, 9/10 scored.
