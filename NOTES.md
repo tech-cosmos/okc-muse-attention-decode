@@ -1085,3 +1085,64 @@ decode 1 / verify 1 full: all 17.6 / 18.6; no merge launch 15.6 / 15.6; no KV ti
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 4/8 checks, 2/3 scored. Account at 05:47: 9/10 checks, 5/10 scored.
+
+## Session 19 (overnight agent, 2026-10-24 06:13-~08:00 UTC)
+
+Main unchanged (8c4394f kernels). 0 checks, 0 scored (account had 1 check left today, kept for Codex).
+New work on branch **exp/gdec** (a10906f, pushed): a Gluon decode-full kernel. **Check it on the H200 first thing next
+UTC day**; if it wins there, merge exp/gdec into main (it only touches decode full layers at batch * hkv > 2).
+
+### Finding: decode full is compute-bound on the H200, not only gather-bound
+
+tools/s19/cbound.py times each full-layer shape as is and with `page_table % 4096` (every K/V read hits L2, so
+what's left is the kernel's own work). H100, main: decode 16/32 full 129.4/241.8 real vs **83.4/157.0 all-L2**;
+verify 16/32 full 136.3/256.2 vs 110.3/210.5. The H200 judge has the same SM count and clocks, and its decode 32
+full kernel time is 181 us (check beb63898), so the 157 us of kernel work is close to the H200 bound. The pure
+gather kernel (tools/s19/gl2.py) is 79-83 us all-L2 at the same size, so our decode kernel's work is ~2x a plain
+gather's. Why: Triton's decode-full tile (1 warp, block_n 16, hpp 2, 149 regs, 12.4 KB smem) uses mma v2 (M=16), and
+on sm_90 Triton's MMAv2 path **upcasts every FP8 K byte to FP16** (ttgir: tt.fp_to_fp before tt.dot; SASS 302 F2FP,
+256 LDS (V read a byte at a time into the dot-operand layout), 88 HMMA); K/V ring is only 2 tiles of 16 rows.
+
+### exp/gdec: `_gd_full` (plan key `gdec`, module flag `USE_GDEC`)
+
+Gluon, one warp per program, same grid as Triton's (splits x batch x KV-head pairs, 1024 programs), block-diagonal
+[16, 128] queries as before, but:
+- QK^T as **native FP8 `mma.sync m16n8k32 e4m3`** via Gluon's `ampere.mma_v2` with fp8 DotOperandLayouts (k_width 4;
+  works on sm_90, exact): no K conversion.
+- V read from smem 16 bytes per thread (BlockedLayout [1,16]), converted to FP16, `convert_layout` to the B operand.
+- Explicit cp.async ring (block_n 32, NS 2, rows past hi zero-filled by the mask, no clamped re-reads), page
+  indices one tile ahead, per-request balanced chunks.
+- The step's new token: written to the cache and attended (one-key partial into slot S) by the last split's program,
+  so no `_new_tokens` launch (that launch + its PDL chain cost ~5-8 us). Merge: `_combine` over S + 1 slots, with
+  splits = 2048 // heads - 1 so S + 1 is a power of two; BF16 partials.
+- Gluon pitfall: `gl.convert_layout` of an FP8 [16, 128] tensor from BlockedLayout([1, 4], [2, 16]) into the FP8 A
+  DotOperandLayout gave wrong values (zeros became 384.0); from BlockedLayout([1, 16], [4, 8]) it is right.
+
+Results (all paired, same session):
+- All-L2 work, H100: decode 16/32 full 84/157 -> 69/132 us.
+- **H200 emulation** (tools/emu.py, 40 SMs parked, splits scaled 92/132 for both; tools/s19/ab.py): B8/16/32/64
+  77.8/137.3/261.2/504.5 -> 75.6/131.6/250.2/486.0 us (-2.7/-4.1/-4.2/-3.7%).
+- **H100 real**: B8/16/32/64 74.1/129.2/241.8/464.4 -> 74.4/131.3/243.9/469.8 (+0.4..+1.5%). So the H100 bench will
+  show it as a small loss (~-0.2% bench geomean); only the judge can say. Expected on the H200 if the emulation
+  holds: decode 16/32 full ~-4 / -9 us, ~+1.2% overall.
+- Tests 16/16; tools/s19/cases.py (9 decode-full shapes through `kernel_fn`, batch 2-64, page 1/64, kv_scale,
+  edges, ctx 100-80K) 9/9 pass.
+- Dead variants: block_n 16 (NS 4-5): all-L2 time up (99-196 us); block_n 64 (NS 2): 160-301 us real; splits 31/47
+  at decode 16 or 23/47 at decode 32: worse; page indices two tiles ahead: no change; V straight from fp8 smem into
+  the dot-operand layout (byte loads, as Triton does): all-L2 +2-3 us.
+
+### Next ideas
+
+1. Check exp/gdec on the H200 (compare decode 16/32 full against check beb63898: 98.46 / 185.10 us). If it wins,
+   merge to main and tell Codex (it changes `_plan` for decode full at batch * hkv > 2; Codex's native batch-1 path is
+   B * Hkv <= 4, so batch 2 decode full moves from Triton to gdec on main).
+2. Make `_gd_full` win on the H100 too: 168 registers / 17 KB smem per program. A transposed P@V (O^T = V^T P^T with
+   only the two diagonal 64 x 8 blocks: half the PV MMAs and a 32-register accumulator instead of 64, P^T straight from
+   the S accumulator registers) would cut registers and per-tile work further.
+3. The same FP8-QK^T Gluon tile for **decode sliding** at batch 16/32 (Triton's sliding decode path also runs mma v2
+   with upcast K), and check whether verify sliding (M = 64, wgmma) has a similar hidden conversion.
+4. Verify full: all-L2 time is 210 us vs 233 on the H200, so it's even more compute-bound than decode full there.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 4/8 checks, 2/3 scored. Account at 06:15: 9/10 checks, 5/10 scored.
