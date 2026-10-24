@@ -1,0 +1,72 @@
+{
+  "production_sha256": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "source_sha256": {
+    "generate.py": "39acafe08232f26b888dd0d5cffec1d3dc67b0ffe376a06f299248d95b508019",
+    "tile256.cu": "215fcea98bc52a144a502c046df98139def9d32f0e5b45e664beb3dc7aaf5074",
+    "binding.cpp": "d18d882286b46b08c44a038d5295686cf474ddd50cd8f345325e7ae528fa7370",
+    "cluster.cu": "875243c42c016fa5ce0a56d7f82adcd082d9d4e76da65543606c534f91310648",
+    "cluster_binding.cpp": "357826bb12d59295616827dd0a110825e320d4931119e3674e402b87e9f1efd0"
+  },
+  "shape_count": 18,
+  "paired_graphs": 2160,
+  "comparison_reference_checks": 162,
+  "fresh_replays": 144,
+  "native_sanitizer_replays_per_tool": 24,
+  "resources": {
+    "cluster": [
+      [
+        "236",
+        "0",
+        "1024",
+        "0"
+      ],
+      [
+        "236",
+        "0",
+        "1024",
+        "0"
+      ],
+      [
+        "236",
+        "0",
+        "1024",
+        "0"
+      ],
+      [
+        "236",
+        "0",
+        "1024",
+        "0"
+      ]
+    ],
+    "unfused": [
+      [
+        "223",
+        "0",
+        "1024",
+        "0"
+      ],
+      [
+        "223",
+        "0",
+        "1024",
+        "0"
+      ],
+      [
+        "223",
+        "0",
+        "1024",
+        "0"
+      ],
+      [
+        "223",
+        "0",
+        "1024",
+        "0"
+      ]
+    ]
+  },
+  "all_candidate_deltas_positive": true,
+  "production_unchanged": true,
+  "generator_reproducible": true
+}

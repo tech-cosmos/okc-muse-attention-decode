@@ -1,0 +1,262 @@
+[
+  {
+    "index": 0,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 1,
+    "shape": {
+      "batch": 2,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "replays": 4
+  },
+  {
+    "index": 2,
+    "shape": {
+      "batch": 8,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "replays": 4
+  },
+  {
+    "index": 3,
+    "shape": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "replays": 4
+  },
+  {
+    "index": 4,
+    "shape": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "replays": 4
+  },
+  {
+    "index": 5,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 6,
+    "shape": {
+      "batch": 2,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "replays": 4
+  },
+  {
+    "index": 7,
+    "shape": {
+      "batch": 8,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "replays": 4
+  },
+  {
+    "index": 8,
+    "shape": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "replays": 4
+  },
+  {
+    "index": 9,
+    "shape": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "replays": 4
+  },
+  {
+    "index": 10,
+    "shape": {
+      "batch": 1,
+      "ctx": 10,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1,
+      "dist": "edges",
+      "spread": "fixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 11,
+    "shape": {
+      "batch": 2,
+      "ctx": 63,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "soft",
+      "spread": "mixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 12,
+    "shape": {
+      "batch": 3,
+      "ctx": 2047,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1,
+      "dist": "edges",
+      "spread": "mixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 13,
+    "shape": {
+      "batch": 8,
+      "ctx": 2049,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "edges",
+      "spread": "mixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 14,
+    "shape": {
+      "batch": 1,
+      "ctx": 4096,
+      "heads": "dp",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 15,
+    "shape": {
+      "batch": 1,
+      "ctx": 4096,
+      "heads": "dp",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 16,
+    "shape": {
+      "batch": 2,
+      "ctx": 120000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 0.015625,
+      "dist": "coherent",
+      "spread": "mixed"
+    },
+    "replays": 4
+  },
+  {
+    "index": 17,
+    "shape": {
+      "batch": 4,
+      "ctx": 4000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 1,
+      "dist": "soft",
+      "spread": "mixed"
+    },
+    "replays": 4
+  }
+]
