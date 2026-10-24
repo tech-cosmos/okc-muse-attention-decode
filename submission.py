@@ -705,7 +705,7 @@ if HAVE_GLUON:
     def _gw_consumer_bal(qkv_ptr, q_s, k_ring, vh, ready, empty, seq_ptr, pid, h, scale, pacc_ptr, pml_ptr,
                          HEAD: gl.constexpr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr,
                          B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, NID: gl.constexpr, M: gl.constexpr,
-                         D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr):
+                         D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr, SPEC: gl.constexpr = 0):
         """_gw_consumer_cv (PEEL, LSUM) over the program's segments: each loads its request's queries and stores
         its partial at id p + b."""
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
@@ -739,13 +739,36 @@ if HAVE_GLUON:
                 sc = warpgroup_mma_wait(0, deps=[s_tok])
                 if lo + (i + 1) * BN > hi:
                     sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
-                m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
-                alpha = gl.exp2(m_i - m_new)
-                p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
-                l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
-                    gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
-                m_i = m_new
-                acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
+                if SPEC:
+                    # Lazy max (FA4's lazy rescale, without the per-tile row max): exponentiate against the running
+                    # maxima; P <= 2^8 everywhere iff every thread's partial row sums are <= 2^8 (P >= 0), and
+                    # then the maxima, l and acc stay as they are (exact online softmax with a stale offset).
+                    # Otherwise (first tile, or a row grew by > 8) the usual update, from the scores recomputed
+                    # out of the K tile still in the ring (keeping them live would spill).
+                    p = gl.exp2(gl.fma(sc, scale, -m_i[:, None]))
+                    ps = gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                    if gl.max(gl.max(ps, 1), 0) > 256.0:
+                        s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                              gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                        sc = warpgroup_mma_wait(0, deps=[s_tok])
+                        if lo + (i + 1) * BN > hi:
+                            sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                        m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+                        alpha = gl.exp2(m_i - m_new)
+                        p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
+                        ps = gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                        l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None]
+                        m_i = m_new
+                        acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
+                    l8 = l8 + ps
+                else:
+                    m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+                    alpha = gl.exp2(m_i - m_new)
+                    p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
+                    l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
+                        gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                    m_i = m_new
+                    acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
                 p16 = gl.convert_layout(p.to(gl.float16), P_L)
                 a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
                 acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
@@ -997,7 +1020,8 @@ if HAVE_GLUON:
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
                    R_PAD: gl.constexpr = 1, BAL: gl.constexpr = False, B: gl.constexpr = 1,
-                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1):
+                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1,
+                   SPEC: gl.constexpr = False):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -1054,9 +1078,9 @@ if HAVE_GLUON:
         if BAL:
             gl.warp_specialize([
                 (_gw_consumer_bal, (qkv_ptr, q0, k_ring, vh0, ready, empty, seq_ptr, split, h, scale, pacc_ptr,
-                                    pml_ptr, 0, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS)),
+                                    pml_ptr, 0, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, SPEC)),
                 (_gw_consumer_bal, (qkv_ptr, q1, k_ring, vh1, ready, empty, seq_ptr, split, h, scale, pacc_ptr,
-                                    pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS)),
+                                    pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, SPEC)),
                 (_gw_producer_bal, (seq_ptr, pt_ptr, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready,
                                     empty, split, B, B_PAD, NP, MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW,
                                     LAG)),
@@ -1847,7 +1871,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=progs,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
+        LAG=plan.get("lag", 1), BAL=True, SPEC=plan.get("spec", False), B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
         launch_pdl=True)
     hb = plan.get("hb", 2)
     _combine_bal[(batch * length, hq // hb)](
