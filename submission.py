@@ -760,6 +760,9 @@ def _plan(cfg, max_pages, device):
     # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
     # decode 16/32 full -1.0/-1.5 us, verify 1 full -0.4. The Gluon verify path keeps FP32 (BF16 +1.5 us).
     if heads <= (2 if length == 1 else 4):
+        if length == 1:
+            # Both KV heads per program (whole 128-byte rows): H100 decode 1 full 17.4 -> 16.8 us.
+            return dict(splits=128, block_n=64, warps=4, stages=5, hpp=2, fuse=False, qk8=True, pdt="bf16")
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16")
     if length == 1:
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
