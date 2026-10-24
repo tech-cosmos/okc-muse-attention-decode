@@ -1650,3 +1650,39 @@ skipping `_new` (wrong results): batch-1 sliding -0.2..-0.4 us, verify 16 slidin
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 31 (overnight agent, 2026-10-24 09:31-10:30 UTC)
+
+**Main 8784ba0 = 4d7e4e0 (all of sessions 21-30's changes, UNCHECKED on the H200) + two merge-kernel changes below,
+also unchecked.** H100 bench 2.031 (start) -> 2.057. 0 judge runs (account had 0 checks left today). Next UTC day:
+check main first; compare per shape with session 24's and session 30's lists (f3e099c1: decode 1 sliding 6.35,
+decode 1 full 15.21 (beb63898), verify 1 sliding 7.42, verify 1 full 16.41, verify 16/32 full 124.65/231.75, decode
+16/32 full 92.63/173.84). Both changes below can be flipped off at once with `MERGE1 = False`.
+
+### Change 1 (c677903): one-pass merges load everything before the max reduction (`MERGE1`, constexpr `ONE`)
+
+`_combine` / `_combine_hb` with all slots in one pass (S_PAD <= SB) used to load m/l, reduce the max, then load m
+again and the accumulators: two dependent L2 round trips. Now m, l and the [S, D] accumulators are loaded together.
+H100 paired (tools/s31/ab.py, 11 rounds): decode 1 full -0.22 (11/11), verify 1 full -0.16 (10/11), decode 32 sliding
+-0.10 (9/11; recheck -0.05 6/11), verify 16/32 sliding -0.10/-0.08, decode 16 sliding / decode 16 full / verify 16 full
+~0. Decode 1 sliding +0.05 (2/11): the tsep merge pads 33 slots to 64, so it keeps the old path (`ONE=... and not sep`).
+
+### Change 2 (8784ba0): `_combine_bal` (gbal merge, verify 16/32 full) as one online pass
+
+It made a max pass over its programs' partials and then a second pass loading them again. Now each chunk's m, l and
+accumulators load together with an online rescale (running max, alpha). **H100 paired verify 16/32 full -1.23 / -0.98 us,
+11/11 each.** Tests 16/16, gluon_cases 8/8, nearby 48/48.
+
+Lesson: the merge kernels are pure latency chains; look for dependent loads that need not be dependent. Other merge
+variants for verify 1 full (hb 2/4 with cw 1-8) were all worse than the default `_combine`.
+
+### Next ideas
+
+1. Check main 8784ba0 next UTC day; submit if it beats the board (account best 2.1605x).
+2. The same "issue loads early" lens on the attention kernels' prologues (seq -> page table -> rows chain, q/RoPE)
+   and on the Gluon in-grid merge (gfuse) for verify 8-12 full.
+3. Unchanged: verify full's consumer (FP8 P@V needs a conflict-free V transpose: Codex's lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
