@@ -452,10 +452,33 @@ if HAVE_GLUON:
                  cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
                  MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
-                 SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True):
-        split = gl.program_id(0)
-        b = gl.program_id(1)
+                 SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True,
+                 BAL: gl.constexpr = False, B: gl.constexpr = 1, B_PAD: gl.constexpr = 32, NP: gl.constexpr = 1,
+                 NID: gl.constexpr = 1):
         h = gl.program_id(2) * 2
+        if BAL:
+            # Length-proportional splits (plan dbal, full layers): the NP programs of a KV head pair go to the
+            # requests in proportion to their tiles, request b taking ids [c_b, c_b+1) with
+            # c_b = b + (NP - B) * excl_b // T (at least one each), so every program gets about T / (NP - B)
+            # tiles and none spans requests. Partials by id: key partial p at p + b, new token at NP + B + b
+            # (_combine_bal's layout).
+            pid = gl.program_id(0)
+            LY: gl.constexpr = gl.BlockedLayout([max(1, B_PAD // 32)], [32], [1], [0])
+            idx = gl.arange(0, B_PAD, layout=LY)
+            tl_v = (gl.load(seq_ptr + idx, mask=idx < B, other=0).to(gl.int32) + (BN - 1)) // BN
+            excl_v = gl.associative_scan(tl_v, 0, _gw_add) - tl_v
+            tt = gl.maximum(gl.sum(tl_v, 0), 1)
+            c_v = idx + (NP - B) * excl_v // tt
+            b = gl.sum(((c_v <= pid) & (idx < B)).to(gl.int32), 0) - 1
+            c_b = gl.sum(gl.where(idx == b, c_v, 0), 0)
+            c_n = gl.sum(gl.where(idx == b + 1, c_v, 0), 0)
+            c_n = gl.where(b + 1 < B, c_n, NP)
+            split = pid - c_b
+            nsp = c_n - c_b
+        else:
+            split = gl.program_id(0)
+            b = gl.program_id(1)
+            nsp = S
         # Let the merge kernel launch now (programmatic dependent launch); it waits for this grid.
         gl.inline_asm_elementwise("griddepcontrol.launch_dependents;", "=r", [], dtype=gl.int32, is_pure=False,
                                   pack=1)
@@ -480,7 +503,7 @@ if HAVE_GLUON:
             base = gl.maximum(seq - (WINDOW - 1), 0)
         else:
             base = seq * 0
-        chunk = gl.cdiv(gl.cdiv(seq - base, S), BN) * BN
+        chunk = gl.cdiv(gl.cdiv(seq - base, nsp), BN) * BN
         lo = base + split * chunk
         hi = gl.minimum(lo + chunk, seq)
         ntiles = gl.cdiv(gl.maximum(hi - lo, 0), BN)
@@ -601,10 +624,13 @@ if HAVE_GLUON:
         # Partials [B, HKV, S + 1, G, D]: each row's own head's D columns of acc.
         ro = gl.arange(0, M, layout=gl.SliceLayout(1, MMA))
         co = gl.arange(0, C, layout=gl.SliceLayout(0, MMA))
-        part = ((b * HKV + h + ro // G) * (S + 1) + split) * G + ro % G
+        if BAL:
+            part = ((h + ro // G) * NID + pid + b) * G + ro % G
+        else:
+            part = ((b * HKV + h + ro // G) * (S + 1) + split) * G + ro % G
         own = (co // D)[None, :] == (ro // G)[:, None]
         # SEP: an extra program (split S) only handles the new token; it stores no key partial.
-        keyp = split < S
+        keyp = split < nsp
         own = own & keyp
         if TPV:
             dd = gl.arange(0, D, layout=gl.SliceLayout(1, MMA))
@@ -620,7 +646,7 @@ if HAVE_GLUON:
             gl.store(pacc_ptr + part[:, None] * D + (co % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=own)
         gl.store(pml_ptr + part * 2, m_i, mask=keyp)
         gl.store(pml_ptr + part * 2 + 1, l_i, mask=keyp)
-        if split == (S if SEP else S - 1):
+        if split == (nsp if SEP else nsp - 1):
             # The step's new token for both KV heads: normalize K, store K and V as FP8 at cache_loc (row 0 of
             # each head's block), and write its one-key partial (max = its score, sum = 1, acc = V) to slot S.
             loc = gl.load(loc_ptr + b)
@@ -639,7 +665,10 @@ if HAVE_GLUON:
             gl.store(kc_ptr + dst, kq, mask=first)
             gl.store(vc_ptr + dst, vq, mask=first)
             sn = gl.sum(x8.to(gl.float32) * kq.to(gl.float32), 1) * scale
-            pn = ((b * HKV + h + hp) * (S + 1) + S) * G + r % G
+            if BAL:
+                pn = ((h + hp) * NID + NP + B + b) * G + r % G
+            else:
+                pn = ((b * HKV + h + hp) * (S + 1) + S) * G + r % G
             gl.store(pacc_ptr + pn[:, None] * D + (c_g % D)[None, :], vq.to(gl.float32).to(pacc_ptr.dtype.element_ty),
                      mask=q_ok)
             gl.store(pml_ptr + pn * 2, sn)
@@ -1131,7 +1160,8 @@ def _combine_hb(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
 def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
                  HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
                  D: tl.constexpr, B: tl.constexpr, B_PAD: tl.constexpr, P: tl.constexpr, NID: tl.constexpr,
-                 BN: tl.constexpr, SB: tl.constexpr, HB: tl.constexpr, ONE: tl.constexpr = True):
+                 BN: tl.constexpr, SB: tl.constexpr, HB: tl.constexpr, ONE: tl.constexpr = True,
+                 PROP: tl.constexpr = False):
     """_combine_hb for balanced splits (_gw_bal): request b's partials are at ids p + b for the programs p whose
     tile range meets b's tiles, and its new tokens at P + B + b."""
     tok = tl.program_id(0)
@@ -1151,6 +1181,10 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     # Programs p with start(p) < incl, end(p) > excl, end(p) > start(p) (a superset range, then the test).
     p_lo = tl.maximum((excl + 1) * P // tt - 1, 0)
     p_hi = tl.minimum((incl * P) // tt + 1, P - 1)
+    if PROP:
+        # _gd_full's length-proportional splits (plan dbal): request b owns programs [c_b, c_b+1) exactly.
+        p_lo = b + (P - B) * excl // tt
+        p_hi = b + (P - B) * incl // tt
     gdc_wait()
     row = (h * NID + b) * M + (tok % L) * G + head0 % G + hb  # [HB] rows at id b (p = 0)
     nrow = row + (P + B) * M
@@ -1164,7 +1198,10 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
             pp = i + sb
             st = pp * tt // P
             en = (pp + 1) * tt // P
-            ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
+            if PROP:
+                ok = (pp <= p_hi)[:, None]
+            else:
+                ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
             at = row[None, :] + (pp * M)[:, None]
             m = tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30)
             l = tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0)
@@ -1181,7 +1218,10 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
             pp = i + sb
             st = pp * tt // P
             en = (pp + 1) * tt // P
-            ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
+            if PROP:
+                ok = (pp <= p_hi)[:, None]
+            else:
+                ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
             at = row[None, :] + (pp * M)[:, None]
             m_max = tl.maximum(m_max, tl.max(tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30), 0))
         wn = tl.exp2(tl.load(pml_ptr + nrow * 2) - m_max)
@@ -1191,7 +1231,10 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
             pp = i + sb
             st = pp * tt // P
             en = (pp + 1) * tt // P
-            ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
+            if PROP:
+                ok = (pp <= p_hi)[:, None]
+            else:
+                ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
             at = row[None, :] + (pp * M)[:, None]
             w = tl.exp2(tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30) - m_max[None, :])
             denom += tl.sum(w * tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0), 0)
@@ -1280,6 +1323,15 @@ def _plan(cfg, max_pages, device):
             # -1.7/-1.7; 256-512 slots lose 0.7-1.0 us). Likely residency: 8 attention programs at 242 registers
             # leave an SM 2048 registers for PDL-launched merge programs (capping the merge's registers loses).
             splits = max(4, 2048 // heads - 1)
+            if heads >= 48 and 2048 // hkv >= 8 * batch:
+                # dbal: 2048 / hkv programs per KV head pair shared out in proportion to the requests' lengths (the
+                # agentic lengths differ by up to 15%, and equal splits per request leave the longest ones setting
+                # the time), merged by _combine_bal (one head, 64 slots per 2-warp program: its 2-head 32-slot form
+                # costs +1.3 us of merge tail). H100 paired, seed-7 data, decode 24/32/48/64 full: real
+                # -3.5/-3.5/-3.7/+0.5 us, all-L2 -6.6/-7.5/-16.6/-14.5; on the bench's data decode 32 full real +0.4,
+                # all-L2 -4.9 (the H200 sits between). Batch 4-16 lose (real +0.8..+3.2).
+                return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="f32", dbal=True, dprogs=2048 // hkv,
+                            hb=1, sb=64, cw=2)
             return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="f32", **({"cw": 1} if splits < 128 else {}))
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
@@ -1475,6 +1527,30 @@ def _decode_gluon(data, cfg, plan):
     page_table = data["page_table"]
     splits = plan["splits"]
     s = splits + 1
+    if plan.get("dbal"):
+        # Length-proportional splits: the plan's splits * batch programs per KV head pair (or as many as fit, 8 per
+        # SM), shared out by request length; merged by _combine_bal.
+        progs = plan.get("dprogs", splits * batch)
+        nid = progs + 2 * batch
+        b_pad = max(32, triton.next_power_of_2(batch))
+        pacc = torch.empty((hkv, nid, group, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
+        pml = torch.empty((hkv, nid, group, 2), dtype=torch.float32, device=device)
+        out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
+        _gd_full[(progs, 1, hkv // 2)](
+            qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
+            data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+            _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
+            HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
+            BN=plan["block_n"], NS=plan["stages"], WINDOW=cfg["window"], ROPE=bool(cfg["rope_theta"]),
+            Q16=plan.get("q16", True), KST=plan.get("kst", True), BAL=True, B=batch, B_PAD=b_pad, NP=progs, NID=nid,
+            num_warps=1)
+        hb = plan.get("hb", 2)
+        _combine_bal[(batch, hq // hb)](
+            qkv, data["seq_lens"], pacc, pml, data["v_scale"], out,
+            HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, B=batch, B_PAD=b_pad, P=progs, NID=nid,
+            BN=plan["block_n"], SB=plan.get("sb", min(128, triton.next_power_of_2(2 * progs // batch + 1))), HB=hb,
+            ONE=MERGE1, PROP=True, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
+        return out
     pacc = torch.empty((batch, hkv, s, group, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, s, group, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
