@@ -391,7 +391,7 @@ DOT_DTYPE = tl.float16
 USE_PDL = True
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
-USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
+USE_GSLIDE = True  # batched sliding decode on _gd_full (H100 win, H200 loss in f3e099c1; re-checked s76 after q16/kst)
 USE_GD1 = True  # decode full at batch * hkv == 2 on _gd_full too (511 splits, 8-warp one-pass merge); unchecked on H200
 USE_GBAL = True  # verify full from 16 KV head pairs: balanced splits over the whole batch (_gw_bal); unchecked on H200
 # Split partials' accumulator dtype (plan key pdt). FP32 only: SGLang's FA3 keeps its split partials in
