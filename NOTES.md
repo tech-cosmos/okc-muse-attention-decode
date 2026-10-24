@@ -843,3 +843,42 @@ be ~2.27x. Verify full's compute (H100 compute-only 106 us at verify 16) is alre
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 3/8 checks, 1/3 scored. Account at 04:00: 8/10 checks, 4/10 scored.
+
+## Session 14 (overnight agent, 2026-10-24 04:20-05:20 UTC)
+
+No change to main (kernel = 19b8ade). 0 checks, 0 scored. H100 bench at start 1.982 (decode 16/32 sliding
+10.53/15.84, verify 16/32 sliding 12.91/20.24, verify 16/32 full 137.5/258.4).
+
+### Sliding layers at batch 16/32: where the time over the gather floor goes (H100)
+
+- Pure random-row gather at sliding size under a graph, cold L2, best config (/tmp-style script: tools/gather.py
+  kernel with N = batch x 2048 rows): batch 32 9.7 us, batch 16 6.0 us. So decode 32 sliding is ~6 us over the
+  floor, verify 32 ~10.5, verify 16 ~7, decode 16 ~4.5.
+- Ablations (us; decode 16 / decode 32 / verify 16 / verify 32): base 10.7/15.7/12.7/20.4; no merge launch
+  9.2/14.7/11.0/17.9; zero KV tiles 4.6/4.9/7.2/9.7; zero tiles + no merge 2.6/3.0/5.2/6.7, and on top of that
+  no partial writes 2.5/2.9/4.1/4.5 (verify 32's fp32 partials are 8.4 MB, same order as its 16.8 MB of K/V),
+  no `_new` -/-/3.9/5.3, no q RoPE 2.6/2.8/3.9/5.4.
+- nsys, verify 32 sliding: _attn_split ~18 us (grid 8x32x2), merge tail after it ~2.4 us.
+
+### Dead ends
+
+- Two independent softmax chains per program over the two halves of its split, merged in registers (plan `ch2`,
+  halves the partials at equal parallelism): verify 32 sliding splits 4 20.2-20.8 vs 19.9-20.4; splits 8 26.7;
+  verify 16 14.3+ vs 13.0; decode 32 16.9-17.6 vs 16.1-17.4; decode 16 11.7+ vs 10.7. Code not kept.
+- FP8 P@V in the Gluon verify-full kernel (branch exp/pv8, plan `pv8`): P rounded to E4M3 (FA3-style; torch emulation
+  adds <= 0.04 rel-L2 even on peaked rows, and 2 forced-Gluon cases pass at 0.033/0.086 vs bounds 0.082/0.150), the
+  producer stages V^T per head as K-major FP8 instead of converting V to FP16. The transposed smem store is the
+  problem: best layout 149 us vs 137.5 (others 151-851; NVMMASharedLayout(transposed=True) 191-241). A wrong-result
+  ablation without the transpose is 136.5, so even a free transpose saves only ~1 us on H100. Not worth more unless
+  the H200's compute-bound verify (240 vs ~185 decode-equivalent) is shown to gain much more.
+
+### Next ideas
+
+1. Verify 32 sliding's fixed costs (partials 2.2 us + merge 2.4 us + `_new` 1.4 + RoPE 1.2 at zero tiles) are the
+   biggest sliding lever left; an in-CTA multi-warp split merge (warps own key ranges, merge through smem, one
+   partial per CTA) needs Gluon (warp_specialize partitions with different ranges), not Triton.
+2. As before: decode full on the H200 (wide-tile gathers) and the merge tail on verify full.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 3/8 checks, 1/3 scored. Account at 04:30: 8/10 checks, 4/10 scored.
