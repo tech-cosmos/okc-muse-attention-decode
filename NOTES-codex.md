@@ -2702,9 +2702,9 @@ Validation and reproducibility:
 ### Budget and next cycle
 
 Session **1check,0scored**, no withdrawals. Codex2026-10-24 totals **4/8checks,
-1/3scored**. Shared expected usage after the new request is **6/10checks,
-1/10scored**, leaving4checks/9scored. The first official post-request read still
-lagged at5checks; use the known sixth request when planning. Actual check cap
+1/3scored**. Final official shared usage is **6/10checks,1/10scored**, leaving4checks/9scored.
+The first post-request read lagged at5checks; the final read now includes the
+sixth request. Actual check cap
 is10/day, not20. Snapshots are `profiles/session21-*`. Neither STOP file exists.
 
 1. Resolve **24414e478fa345a2** (latest source) and **b4853b2accdc4b50** (older
