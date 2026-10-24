@@ -46,7 +46,7 @@ Evidence:
   Float64 reference maximum relative L2 0.00177221 including BF16 output rounding.
 - Synccheck separately repeats all72 isolated replays: zero errors. No new
   memcheck/racecheck/NCU claim; addresses and memory synchronization unchanged.
-- `bitprobe.py`:1049984finite FP32 bit patterns in32812rows, including negative
+- `bitprobe.py`:1049984sampled finite FP32 values in32812rows, including negative
   values, subnormals, extrema, ties and signed zeros. Exact CPU bit roundtrip and
   numeric maximum; three GPU graph replays with rotated lanes give exact numeric
   maxima. No signed-zero bit identity or NaN-input claim.
