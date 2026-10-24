@@ -3463,3 +3463,138 @@ today regardless of account balance. Board best **2.091142x,rank20**. No STOP fi
    implementation needs a distinct mechanism and broad complete-graph evidence.
 4. Keep experimenta511b1f separate, finish clean on pushed codex, remove claim and
    post results. Do not wait idle for the running judge job.
+
+## Session 28 — 2026-10-24, 02:56–03:12 UTC
+
+### Outcome and production state
+
+Resolved the remaining Codex judge check and rejected a distinct native
+**full-attention L1 single-large-key-tile** design. **No production kernel or
+dispatch change; no new judge requests.** Experiment **081f126** is pushed on
+**codex-exp/cuda-full-decode-tile**. Start with
+`experiments/full_decode_tile/README.md`; source generation, frozen sources,
+raw graph pairs, reference/fresh/sanitizer logs, SASS and CPU audit are there.
+Production evidence copy: `profiles/session28-native-audit.json`.
+
+Fetched main at start and end. Initial **824e52a** was already merged; late
+**ab141cd** adds only Claude's session11 notes and was merged into codex.
+Read those notes: no further kernel update. Production remains SHA256
+`1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548`.
+Native small-sliding and small-full kernels, all Triton/Gluon helpers/plans and
+production dispatch are unchanged. Existing session26 integrated16/16 and bench
+validation applies; no redundant unchanged-production run or new production
+sanitizer claim. No experimental imports were introduced.
+
+### Resolved H200 check
+
+**3e786669e1bb41a8: 16/16,2.107493x**, CI **[2.075881,2.139105]**,
+no flags/rejections/errors. Read all12 passing profiles; full artifacts saved as
+`profiles/submission.3e786669e1bb41a8.*`, status snapshots under session28.
+This is **8c35564/SHA6f0fcb357146**, maina794ac6 plus native, content_hash
+`b20f39f4b465efaed561959a77cf7a502b68f6f3174a76c4951ed3bd80b74047`.
+It predates main824e52a's last-tile mask and **cannot qualify current SHA1bcf**.
+No resubmission: Codex's scored allowance is exhausted today. Its interval
+also overlaps the account best; do not claim a statistically established rank
+improvement or attribute independent aggregate differences to native code.
+
+H200 decode1 sliding/full **5.585/15.198us**; verify1 full **16.327us**;
+verify16/32 full **141.642/264.970us**. Final Gluon profile: attention259.0us,
+merge225.5us,newtokens3.2us,GPUbusy267.5us. PDL rows overlap and include waits;
+do not add them as graph latency. **No pending Codex jobs remain.** Claude's
+separate check2363a04971ab46b1 is its job/source, not an exact Codex check.
+
+### Native full-decode experiment
+
+The earlier native attention pipelines targeted L8. This cycle instead tests
+L1 full attention as independent128/256-key tiles: each128-thread CTA issues
+all gathers before query normalization, uses FP8 m64n128/m64n256 QK and FP16
+PV, and produces FP32 partials without a streaming loop or running softmax.
+The new token is inserted/written in its natural tile. All keys and values are
+included, FP8 query/cache precision and BF16 output preserved. The unchanged
+inherited merge uses PDL; no Triton/Gluon plan or source was tuned. Both wrappers
+are intentionally broad L1/full experiments, not proposed production dispatches.
+
+60 adjacent balanced AB/BA cold-L2 graph pairs per shape/width, H100 us:
+
+| full L1 | parent/tile128 | paired delta | parent/tile256 | paired delta |
+|---|---:|---:|---:|---:|
+|B1 80K page1|16.976/22.944|+6.000|17.040/25.584|+8.560|
+|B2 80K agentic page1|28.336/41.968|+13.440|28.432/44.064|+15.600|
+|B16 80K agentic page1|129.920/229.552|+99.600|129.760/256.624|+126.752|
+|B32 80K agentic page1|240.928/448.016|+206.816|240.848/501.904|+261.248|
+|B1 80K page64|16.720/22.672|+6.032|16.640/23.936|+7.200|
+|B2 9K page64,scale1/64|11.088/8.544|-2.608|11.184/10.048|-1.136|
+|B1 ctx10 page1|5.072/4.448|-0.608|5.072/5.824|+0.704|
+|DP1 ctx4096 page64,scale1/64|11.584/12.528|+1.056|11.504/14.848|+3.360|
+
+Each width has its own paired parent. Deltas need not equal differences of
+separate medians. Scored losses are decisive; no favorable-seed repeat or
+parameter sweep. Incidental short-context gains do not establish a general
+dispatch rule. Broad-wrapper full benches **1.619/1.541x** versus fixed
+SGLang/H200 times are experimental results, not production regressions.
+
+Page1/EARLY uses112/224registers,32768/65536dynamic shared bytes plus1024static
+bytes reported by cuobjdump; zero stack/local allocation and spills. SASS has
+two QGMMA each and8/16HGMMA,LDGSTS,vector V stores and raw-V loads. No NCU,
+achieved-occupancy or isolated cost claim. Larger tiles remove streaming work
+but expand matrix/softmax work, register pressure and the total number of
+partials versus production. This topology does not win on scored full decode.
+
+### Validation and a generator bug
+
+Both corrected wrappers **16/16**, each5actual-native/11fallback cases; each
+followed by the full12-shape bench. **72 independent output/cache checks** in
+8shape/3mode comparisons (before capture,after first replay,after timing),
+**960 adjacent graph pairs**. **48 actual-native fresh graph replays**,6shapes
+x4inputs x2widths, with changed QKV/cache/routes/lengths/positions/cache slots,
+shortened and empty contexts, DP,pages1/64,scales1/1/64.
+
+Final isolated native **memcheck0errors,synccheck0errors,racecheck0hazards/errors/
+warnings**;24fresh graph calls per tool, both widths/pages/scales, including
+empty contexts. Torch independently reduces FP32 partials and checks output/
+cache reference; no Triton loader kernels. Eight additional final128-width
+boundary output/cache checks and independent partial comparisons pass at
+contexts10/63/64/127/128/255/256/1024.
+
+Initial128-key generated source FAILED correctness before timing. Broad
+sequential replacements changed gather2->4, then accidentally4->8 while
+widening the conversion loop:256rows copied into128-row buffers, overwriting
+adjacent shared arrays. QK scores/maxima matched while V/PV failed. Pinning
+probability registers and synchronous PV controls did not fix it. The final
+generator scopes the conversion edit; audit checks exact gather byte capacity
+and disjoint shared buffers. Final source uses dynamic shared memory for both
+widths, enabling the256-key variant's64KB allocation.
+
+Pre-fix sources/debug logs are explicitly invalid evidence in the README.
+The early memcheck reported zero address errors while numerical checks failed;
+it did not catch logical-array overlap inside shared allocation, and is NOT
+final correctness coverage. No failed source was timed/submitted, no withdrawal.
+
+Custom GPU drivers lock generation/reference/capture/replay;512MB flush before
+each timed graph and empty replay subtraction. Standard suite/bench drivers
+retain bench.py's timing-loop lock, with no concurrent own GPU work. All local
+processes completed. CPU audit reproduces generated sources, verifies frozen
+production identity and14 shared top-level helpers against main, checks counts
+and sanitizer logs. This is not an all-nested-helper AST audit. SASS and raw
+reports are archived; no further production validation claim is implied.
+
+### Budget and next cycle
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 totals remain
+**5/8checks,3/3scored**. Official account **8/10checks,3/10scored**, leaving
+2checks/7scored account-wide; actual check cap10/day. Account best remains
+**2.091142x,rank20**. Neither STOP file exists. CLI is the existing
+`/home/daytona/.okc/bin/okc`; venv activation alone does not add it to PATH.
+
+1. All Codex judge jobs are resolved. Do not poll/resubmit3e786 or older jobs.
+   CurrentSHA1bcf still has no exact-source H200 check. Preserve remaining shared
+   checks while no new scored allowance remains; Claude2363 is a different source.
+2. Read COORD/fetch main. Close large single-tile native full-decode as a scored
+   optimization. Existing closed sliding instruction/reduction/PDL families
+   remain closed; future work needs a distinct measured mechanism.
+3. The short-context B2 gain is only one scaled/page64 observation plus B1ctx10;
+   no short-context cutoff is justified. Any investigation must first cover
+   broad contexts, pages, scales, batches and complete graph controls. It has no
+   demonstrated scored benefit and should not alone consume scarce checks.
+4. Keep experiment081f126 separate. Finish clean on pushed codex, remove the
+   shared claim and post results. No pending Codex job requires waiting.

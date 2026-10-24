@@ -1,0 +1,20 @@
+{
+  "production_sha256": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "sources": {
+    "tile128.cu": "d1d2e8a40ed7c55b5988c448a848eb2001ac212d001c4968c62566fc6a4219d6",
+    "tile256.cu": "472a9205631ce655b3b344b486e4253f8c6770c22452e67f851f4a1fdb1bc0a0",
+    "binding.cpp": "d18d882286b46b08c44a038d5295686cf474ddd50cd8f345325e7ae528fa7370"
+  },
+  "shared_helpers": 14,
+  "timing_shapes": 8,
+  "native_variants": 2,
+  "adjacent_pairs": 960,
+  "comparison_reference_checks": 72,
+  "full_suite_passes": 32,
+  "full_suite_native_cases_per_variant": 5,
+  "fresh_native_replays": 48,
+  "sanitizer_native_replays_per_tool": 24,
+  "boundary_reference_checks": 8,
+  "production_changed": false,
+  "judge_requests": 0
+}
