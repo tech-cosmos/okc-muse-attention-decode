@@ -1,0 +1,1096 @@
+[
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 0,
+    "label": "no_clock",
+    "previous_us": 16.89599920064211,
+    "probe_us": 16.89599920064211,
+    "paired_delta_us": 0.01600012183189392,
+    "warp_cycles": []
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 1,
+    "label": "prologue",
+    "previous_us": 17.167999874800444,
+    "probe_us": 17.264000605791807,
+    "paired_delta_us": 0.09599979966878891,
+    "warp_cycles": [
+      1330.5,
+      1331.0,
+      1334.0,
+      1329.5,
+      1349.0,
+      1339.5,
+      1344.0,
+      1343.5
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 2,
+    "label": "pdl_wait",
+    "previous_us": 17.072000540792942,
+    "probe_us": 16.97599980980158,
+    "paired_delta_us": -0.1440010964870453,
+    "warp_cycles": [
+      27206.0,
+      27203.5,
+      27201.5,
+      27205.0,
+      27206.0,
+      27203.0,
+      27197.5,
+      27199.5
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 3,
+    "label": "stats_weights",
+    "previous_us": 17.008000053465366,
+    "probe_us": 17.568000592291355,
+    "paired_delta_us": 0.5440004169940948,
+    "warp_cycles": [
+      858.0,
+      871.5,
+      826.5,
+      732.0,
+      731.5,
+      730.0,
+      718.5,
+      722.5
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 4,
+    "label": "partial_load_fma",
+    "previous_us": 16.911999322474003,
+    "probe_us": 17.375999130308628,
+    "paired_delta_us": 0.4960000514984131,
+    "warp_cycles": [
+      981.5,
+      983.0,
+      982.5,
+      982.0,
+      983.0,
+      961.0,
+      967.5,
+      917.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 5,
+    "label": "publication_barrier",
+    "previous_us": 17.15199975296855,
+    "probe_us": 17.39199971780181,
+    "paired_delta_us": 0.07999967783689499,
+    "warp_cycles": [
+      61.0,
+      61.0,
+      61.0,
+      61.0,
+      61.0,
+      61.0,
+      61.0,
+      61.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 6,
+    "label": "crosswarp",
+    "previous_us": 16.959999687969685,
+    "probe_us": 17.120000906288624,
+    "paired_delta_us": 0.22400077432394028,
+    "warp_cycles": [
+      372.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 7,
+    "label": "norm_gate_store",
+    "previous_us": 16.832000575959682,
+    "probe_us": 16.991999931633472,
+    "paired_delta_us": 0.12800097465515137,
+    "warp_cycles": [
+      257.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 8,
+    "label": "whole",
+    "previous_us": 17.1999994199723,
+    "probe_us": 17.296000150963664,
+    "paired_delta_us": 0.06400048732757568,
+    "warp_cycles": [
+      30895.5,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 9,
+    "label": "clock_control",
+    "previous_us": 16.832000575959682,
+    "probe_us": 17.215999774634838,
+    "paired_delta_us": 0.3519989550113678,
+    "warp_cycles": [
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": -1,
+    "label": "identical_capture",
+    "previous_us": 16.927999444305897,
+    "probe_us": 17.072000540792942,
+    "paired_delta_us": 0.11199992150068283,
+    "warp_cycles": []
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 0,
+    "label": "no_clock",
+    "previous_us": 18.43199972063303,
+    "probe_us": 18.352000042796135,
+    "paired_delta_us": -0.09599979966878891,
+    "warp_cycles": []
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 1,
+    "label": "prologue",
+    "previous_us": 18.256000243127346,
+    "probe_us": 18.159999512135983,
+    "paired_delta_us": -0.17600040882825851,
+    "warp_cycles": [
+      1613.0,
+      1611.5,
+      1603.5,
+      1604.0,
+      1613.0,
+      1613.0,
+      1608.0,
+      1606.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 2,
+    "label": "pdl_wait",
+    "previous_us": 18.304000608623028,
+    "probe_us": 18.240000121295452,
+    "paired_delta_us": -0.01600012183189392,
+    "warp_cycles": [
+      28154.0,
+      28150.5,
+      28154.5,
+      28153.5,
+      28152.5,
+      28147.0,
+      28149.0,
+      28152.5
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 3,
+    "label": "stats_weights",
+    "previous_us": 18.5759998857975,
+    "probe_us": 18.687999807298183,
+    "paired_delta_us": 0.22400077432394028,
+    "warp_cycles": [
+      1005.0,
+      999.0,
+      989.0,
+      997.0,
+      956.0,
+      958.0,
+      954.0,
+      950.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 4,
+    "label": "partial_load_fma",
+    "previous_us": 18.383999355137348,
+    "probe_us": 18.736000172793865,
+    "paired_delta_us": 0.4159994423389435,
+    "warp_cycles": [
+      1432.5,
+      1408.0,
+      1399.5,
+      1434.5,
+      1410.5,
+      1390.5,
+      1418.5,
+      1293.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 5,
+    "label": "publication_barrier",
+    "previous_us": 18.27200036495924,
+    "probe_us": 18.304000608623028,
+    "paired_delta_us": -0.04800036549568176,
+    "warp_cycles": [
+      61.0,
+      61.0,
+      61.0,
+      61.0,
+      61.0,
+      61.0,
+      61.0,
+      61.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 6,
+    "label": "crosswarp",
+    "previous_us": 18.28800025396049,
+    "probe_us": 18.495999975129962,
+    "paired_delta_us": 0.14400016516447067,
+    "warp_cycles": [
+      382.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 7,
+    "label": "norm_gate_store",
+    "previous_us": 18.447999842464924,
+    "probe_us": 18.32000073045492,
+    "paired_delta_us": -0.11200085282325745,
+    "warp_cycles": [
+      257.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 8,
+    "label": "whole",
+    "previous_us": 18.207999877631664,
+    "probe_us": 18.447999842464924,
+    "paired_delta_us": 0.28800033032894135,
+    "warp_cycles": [
+      32411.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": 9,
+    "label": "clock_control",
+    "previous_us": 18.432000186294317,
+    "probe_us": 18.591999541968107,
+    "paired_delta_us": 0.11199992150068283,
+    "warp_cycles": [
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "coherent"
+    },
+    "phase": -1,
+    "label": "identical_capture",
+    "previous_us": 18.36800016462803,
+    "probe_us": 18.319999799132347,
+    "paired_delta_us": -0.14399923384189606,
+    "warp_cycles": []
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 0,
+    "label": "no_clock",
+    "previous_us": 11.136000044643879,
+    "probe_us": 11.311999522149563,
+    "paired_delta_us": 0.17600040882825851,
+    "warp_cycles": []
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 1,
+    "label": "prologue",
+    "previous_us": 11.263999156653881,
+    "probe_us": 11.648000217974186,
+    "paired_delta_us": 0.3519989550113678,
+    "warp_cycles": [
+      2073.0,
+      2076.5,
+      2075.5,
+      2077.0,
+      2082.5,
+      2082.0,
+      2081.5,
+      2080.5
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 2,
+    "label": "pdl_wait",
+    "previous_us": 11.136000044643879,
+    "probe_us": 11.648000217974186,
+    "paired_delta_us": 0.5119992420077324,
+    "warp_cycles": [
+      5260.0,
+      5262.0,
+      5262.0,
+      5260.5,
+      5255.5,
+      5257.0,
+      5256.0,
+      5253.5
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 3,
+    "label": "stats_weights",
+    "previous_us": 11.232000775635242,
+    "probe_us": 12.416000477969646,
+    "paired_delta_us": 1.1520003899931908,
+    "warp_cycles": [
+      977.0,
+      973.0,
+      974.0,
+      986.5,
+      924.0,
+      452.0,
+      453.0,
+      445.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 4,
+    "label": "partial_load_fma",
+    "previous_us": 11.232000775635242,
+    "probe_us": 11.551999486982822,
+    "paired_delta_us": 0.3200005739927292,
+    "warp_cycles": [
+      1423.0,
+      1419.5,
+      1440.0,
+      1482.0,
+      1122.5,
+      799.5,
+      799.0,
+      827.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 5,
+    "label": "publication_barrier",
+    "previous_us": 11.200000066310167,
+    "probe_us": 11.504000518471003,
+    "paired_delta_us": 0.31999871134757996,
+    "warp_cycles": [
+      61.0,
+      61.0,
+      62.0,
+      63.0,
+      65.0,
+      65.0,
+      66.0,
+      66.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 6,
+    "label": "crosswarp",
+    "previous_us": 11.103999800980091,
+    "probe_us": 11.359999887645245,
+    "paired_delta_us": 0.22399984300136566,
+    "warp_cycles": [
+      321.5,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 7,
+    "label": "norm_gate_store",
+    "previous_us": 11.136000044643879,
+    "probe_us": 11.392000131309032,
+    "paired_delta_us": 0.23999996483325958,
+    "warp_cycles": [
+      257.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 8,
+    "label": "whole",
+    "previous_us": 11.439999099820852,
+    "probe_us": 11.519999708980322,
+    "paired_delta_us": 0.09599979966878891,
+    "warp_cycles": [
+      9971.5,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 9,
+    "label": "clock_control",
+    "previous_us": 11.18400041013956,
+    "probe_us": 12.128000147640705,
+    "paired_delta_us": 0.9280005469918251,
+    "warp_cycles": [
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": -1,
+    "label": "identical_capture",
+    "previous_us": 11.3279998768121,
+    "probe_us": 11.391999432817101,
+    "paired_delta_us": 0.04799943417310715,
+    "warp_cycles": []
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 0,
+    "label": "no_clock",
+    "previous_us": 10.111999697983265,
+    "probe_us": 10.048000141978264,
+    "paired_delta_us": -0.06400048732757568,
+    "warp_cycles": []
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 1,
+    "label": "prologue",
+    "previous_us": 10.015999898314476,
+    "probe_us": 9.952000342309475,
+    "paired_delta_us": -0.03200024366378784,
+    "warp_cycles": [
+      1537.0,
+      1530.0,
+      1532.0,
+      1527.0,
+      1538.5,
+      1534.0,
+      1534.5,
+      1531.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 2,
+    "label": "pdl_wait",
+    "previous_us": 10.111999697983265,
+    "probe_us": 9.8879998549819,
+    "paired_delta_us": -0.2560000866651535,
+    "warp_cycles": [
+      4163.5,
+      4168.0,
+      4164.0,
+      4161.5,
+      4154.0,
+      4149.0,
+      4154.0,
+      4152.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 3,
+    "label": "stats_weights",
+    "previous_us": 9.951999876648188,
+    "probe_us": 10.591999627649784,
+    "paired_delta_us": 0.6720004603266716,
+    "warp_cycles": [
+      998.0,
+      1000.5,
+      1001.0,
+      1003.0,
+      945.0,
+      457.0,
+      457.0,
+      452.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 4,
+    "label": "partial_load_fma",
+    "previous_us": 10.015999898314476,
+    "probe_us": 10.080000385642052,
+    "paired_delta_us": 0.06400048732757568,
+    "warp_cycles": [
+      1475.0,
+      1479.0,
+      1463.0,
+      1533.0,
+      1143.0,
+      884.0,
+      1013.5,
+      824.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 5,
+    "label": "publication_barrier",
+    "previous_us": 10.143999475985765,
+    "probe_us": 10.175999719649553,
+    "paired_delta_us": 0.03199884667992592,
+    "warp_cycles": [
+      62.0,
+      62.0,
+      63.0,
+      64.0,
+      65.0,
+      65.0,
+      66.0,
+      67.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 6,
+    "label": "crosswarp",
+    "previous_us": 10.015999898314476,
+    "probe_us": 10.160000063478947,
+    "paired_delta_us": 0.19200053066015244,
+    "warp_cycles": [
+      316.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 7,
+    "label": "norm_gate_store",
+    "previous_us": 10.080000385642052,
+    "probe_us": 10.143999941647053,
+    "paired_delta_us": 0.12799911201000214,
+    "warp_cycles": [
+      259.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 8,
+    "label": "whole",
+    "previous_us": 10.015999898314476,
+    "probe_us": 10.127999819815159,
+    "paired_delta_us": 0.0800001434981823,
+    "warp_cycles": [
+      8411.0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": 9,
+    "label": "clock_control",
+    "previous_us": 10.175999719649553,
+    "probe_us": 10.368000250309706,
+    "paired_delta_us": 0.22399984300136566,
+    "warp_cycles": [
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0,
+      2.0
+    ]
+  },
+  {
+    "shape": {
+      "batch": 2,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "dist": "edges",
+      "kv_scale": 0.015625
+    },
+    "phase": -1,
+    "label": "identical_capture",
+    "previous_us": 10.015999432653189,
+    "probe_us": 10.112000163644552,
+    "paired_delta_us": 0.0800006091594696,
+    "warp_cycles": []
+  }
+]

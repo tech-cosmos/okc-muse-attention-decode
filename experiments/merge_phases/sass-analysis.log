@@ -1,0 +1,256 @@
+[
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi9EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 9,
+    "instructions": 592,
+    "clocks": [
+      139,
+      140
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi9EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 9,
+    "instructions": 592,
+    "clocks": [
+      140,
+      141
+    ],
+    "waits": [
+      55
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi8EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 8,
+    "instructions": 592,
+    "clocks": [
+      1,
+      533
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi8EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 8,
+    "instructions": 592,
+    "clocks": [
+      1,
+      534
+    ],
+    "waits": [
+      161
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi7EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 7,
+    "instructions": 592,
+    "clocks": [
+      493,
+      536
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi7EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 7,
+    "instructions": 592,
+    "clocks": [
+      494,
+      537
+    ],
+    "waits": [
+      151
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi6EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 6,
+    "instructions": 592,
+    "clocks": [
+      418,
+      493
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi6EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 6,
+    "instructions": 592,
+    "clocks": [
+      420,
+      495
+    ],
+    "waits": [
+      151
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi5EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 5,
+    "instructions": 592,
+    "clocks": [
+      405,
+      419
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi5EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 5,
+    "instructions": 592,
+    "clocks": [
+      407,
+      421
+    ],
+    "waits": [
+      151
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi4EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 4,
+    "instructions": 592,
+    "clocks": [
+      180,
+      406
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi4EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 4,
+    "instructions": 592,
+    "clocks": [
+      181,
+      407
+    ],
+    "waits": [
+      151
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi3EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 3,
+    "instructions": 592,
+    "clocks": [
+      138,
+      179
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi3EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 3,
+    "instructions": 592,
+    "clocks": [
+      139,
+      180
+    ],
+    "waits": [
+      54
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi2EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 2,
+    "instructions": 592,
+    "clocks": [
+      139,
+      140
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi2EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 2,
+    "instructions": 592,
+    "clocks": [
+      139,
+      141
+    ],
+    "waits": [
+      140
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 1,
+    "instructions": 592,
+    "clocks": [
+      1,
+      140
+    ],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 1,
+    "instructions": 592,
+    "clocks": [
+      1,
+      140
+    ],
+    "waits": [
+      142
+    ],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb0ELi0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": false,
+    "phase": 0,
+    "instructions": 536,
+    "clocks": [],
+    "waits": [],
+    "coherent_loads": 17
+  },
+  {
+    "name": "_Z13reduce_kernelILi8ELi16ELb1ELi0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiiiPy",
+    "pdl": true,
+    "phase": 0,
+    "instructions": 544,
+    "clocks": [],
+    "waits": [
+      151
+    ],
+    "coherent_loads": 17
+  }
+]
