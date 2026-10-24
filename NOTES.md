@@ -1245,7 +1245,7 @@ MMAv2 path (FP8 K upcast to FP16, as session 19 found for decode full). Plan re-
 This session: 1 check (f3e099c1), 1 scored (10d12495). Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks,
 6/10 scored.
 
-## Session 21 (overnight agent, 2026-10-24 07:31- UTC)
+## Session 21 (overnight agent, 2026-10-24 07:31-08:00 UTC)
 
 **Main 779bb6d = session 20's candidate 8aefd49 + balanced splits for verify full (`USE_GBAL`). Still UNCHECKED on the
 H200. Check it first thing next UTC day** (this problem's account limit is 10 checks/day, not 20, and all 10 were
@@ -1282,16 +1282,21 @@ bandwidth-bound; all-L2 (page_table % 4096, compute-bound like the H200): decode
 ### Next ideas
 
 1. Check main 779bb6d (see top of this section); submit if it beats the board (account best 2.1605x).
-2. In-grid merge for gbal (worth ~1-4 us at batch 8-16 on the H100, gfuse's gain): participants of request b are
-   programs ((excl_b+1)*P-1)//T .. (incl_b*P-1)//T if every request has >= 1 tile and P <= T (use P_eff = min(P, T),
-   tiles = max(cdiv(seq, 64), 1)); only a program's first and last segments are shared, so arrive on both first
-   (two counter words, generation scheme as gfuse), then merge row slices by rank p - p_first. Middle segments have
-   one participant (no atomics). Must NOT arrive-wait-merge per segment in order (serial chain over all requests).
-   Load the merge's partials in unrolled blocks (a dynamic loop of dependent L2 loads costs ~0.2 us per partial).
+2. (Tried, dead: see below) in-grid merge for gbal.
 3. The same balancing for decode full (`_gd_full`, all-L2 decode 16 full 70.9 -> ~68.3): needs segments in the
    one-warp kernel; ~0.3% overall at best.
 4. Two-segment programs pay a q reload (dependent on the lengths load); the consumer could prefetch the second
    segment's queries (no smem left for a second q buffer at 2 CTAs/SM: 106.8 KB each).
+
+### Dead end: in-grid merge for gbal (exp/bal, plan keys bfuse/rpad/mu, off)
+
+`_gw_bal_fuse`: with tiles >= 1 per request and pe = min(P, T) working programs (also on exp/bal, not on main),
+request b's programs are ((excl_b+1)*pe-1)//T .. (incl_b*pe-1)//T; only a program's first and last segments can be
+shared, so it arrives on both counters first (gfuse's generation words), waits, then merges its rank's R_PAD-row
+chunks of each segment (online over the partials, U unrolled loads). Correct (cases 8/8) but slower than gbal's
+separate `_combine_bal`: B16/32 real +1.6/+2.5 us, all-L2 +2.8/+4.0 (rpad 16 the same, rpad 4 worse, mu 16/32 the
+same; regs/spills/smem unchanged). Versus the old gfuse plan at small batch: B8 tie, B12 +2.4. Cause not found.
+(Arrive-wait-merge one segment at a time would chain every request's merge behind the previous one's: avoid.)
 
 ### Budget (UTC day 2026-10-24)
 
