@@ -1,11 +1,16 @@
 """GPU harness mirroring the judge: the 16 tests against reference.py, and the 12 scored shapes
 timed as CUDA-graph replays with a cold L2 before each, median of reps, minus an empty replay.
+(Session 76: the cold L2 now comes from READING a 512 MB buffer, as the judge does, and the subtracted replay is a truly
+empty graph, as the judge's ~4 us fixed cost is; BENCH_OLD=1 restores the old write-flush / one-tiny-kernel baseline,
+which under-counted every shape by ~2.3 us of kernel launch and over-counted DRAM-bound shapes by dirty-line write-backs.)
 
   python bench.py test                 # correctness, the judge's 16 tests at full size
   python bench.py bench                # the scored shapes with submission._plan as is
   python bench.py sweep '<json>'       # {"shape filter": [plan override, ...]}: time each override
 """
-import fcntl, importlib, json, math, statistics, sys, torch
+import fcntl, importlib, json, math, os, statistics, sys, torch
+
+OLD = os.environ.get("BENCH_OLD") == "1"
 
 sys.path.insert(0, ".")
 import reference
@@ -60,6 +65,7 @@ def test():
 
 
 _FLUSH = None
+_SINK = torch.zeros((), dtype=torch.int64, device="cuda")
 
 
 def time_graph(fn, reps=40):
@@ -82,7 +88,10 @@ def time_graph(fn, reps=40):
     with open("/tmp/okc-gpu.lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         for _ in range(reps):
-            _FLUSH.zero_()
+            if OLD:
+                _FLUSH.zero_()
+            else:
+                torch.sum(_FLUSH.view(torch.int64), 0, out=_SINK)
             a, b = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
             a.record()
             g.replay()
@@ -99,7 +108,7 @@ def empty_cost():
     global _EMPTY
     if _EMPTY is None:
         x = torch.zeros(1, device="cuda")
-        _EMPTY = time_graph(lambda: x.add_(1), reps=100)
+        _EMPTY = time_graph((lambda: x.add_(1)) if OLD else (lambda: None), reps=100)
     return _EMPTY
 
 

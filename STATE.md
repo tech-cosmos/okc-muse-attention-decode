@@ -1,6 +1,12 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-24 ~22:55 UTC (session 75 = unattended session 7 of the #1-push brief).
+Updated 2026-10-24 ~23:40 UTC (session 76 = unattended session 8 of the #1-push brief).
+
+**s76: tools/bench.py now mirrors the judge** (read flush, truly empty graph subtracted; BENCH_OLD=1 = old). The old
+bench under-counted every shape by ~2 us (it subtracted one kernel launch) and penalized DRAM-bound shapes with
+dirty-line write-backs. New H100 bench of main: decode 1/16/32 sliding 6.02/9.55/15.22, full 15.28/127.0/244.9;
+verify 1/16/32 sliding 7.87/14.16/18.94, full 18.02/135.8/256.4 (geomean 1.939). Compare only against new-bench
+numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOTES s76).
 
 ## Board and best run
 
@@ -31,7 +37,8 @@ Updated 2026-10-24 ~22:55 UTC (session 75 = unattended session 7 of the #1-push 
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- Account: checks 15/20 used, scored 9/10 used at the end of 2026-10-24 (session 75 ran no judge jobs). Resets at
+- Account: checks 16/20 used, scored 9/10 used at the end of 2026-10-24 (s76: check dea06af0 = USE_GSLIDE re-test,
+  2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
 ## Current direction (session 69): native verify-full consumer (CUDA, inline-PTX wgmma)
@@ -77,6 +84,8 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 3. Merge tail on verify full (~7 us on the H200 at verify 16/32 = ~0.8% overall at most).
 
 ## Queued for checks
+
+- (s76) USE_GSLIDE now ties on the H200 (dea06af0): don't re-check it.
 
 - Nothing new. main c9b3242 = 2.320-2.322x in three checks (a6081cf6, 8bd56b13 kernel-equal, 9a22a5ae near-equal);
   submit only after a real change lifts a check above 2.343.

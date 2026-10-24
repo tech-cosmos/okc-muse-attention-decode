@@ -3270,3 +3270,53 @@ Triton consumer's per-tile chain (2 programs x 4 warps per SM), not DRAM.
 
 This session: 0 checks, 0 scored. Account: 15/20 checks, 9/10 scored (5 checks and 1 scored left unused at the
 00:00 UTC reset: there was no real candidate).
+
+## Session 76 (unattended session 8, 2026-10-24 22:30-~23:40 UTC)
+
+Board 22:30Z: #1 colinlikescode 2.844x, #2 2.726x; ours 2.343x (now ~#17). Main kernel c9b3242 unchanged.
+
+### The bench was not measuring what the judge measures (fixed; tools/bench.py, tools/s76/)
+
+The judge "reads a buffer larger than L2" and subtracts "a graph replay's fixed cost". bench.py **wrote** 512 MB
+(`_FLUSH.zero_()`) and subtracted a graph holding **one tiny kernel** (`x.add_(1)`). Both were wrong:
+- A kernel launch inside a graph costs ~2 us by itself (tools/s76/launch.py, H100, read flush, over a truly empty
+  graph of 2.85 us): empty kernel 1x32 1.9-2.1 us, 132x256 1.95, 1024x64 2.46, 2048x256 3.0, 2048x32 3.1 (CTA
+  dispatch ~0.55 ns/CTA beyond ~256 CTAs); one cold DRAM load +0.35, a 3-deep pointer chase +1.0; 8-CTA cluster
+  +0; **a second kernel +0.9 us without PDL, +1.0 with PDL** (dependent on the first's store; 132x128 grids +1.3).
+  Without any flush the empty kernel still costs 1.5 us, so most of it is launch, not cold code/constant misses.
+- The write flush leaves L2 full of dirty lines whose write-backs steal DRAM bandwidth: decode 1 full 15.9 (write)
+  vs 13.15 (read) us of kernel time; decode 32 full 252 -> 245.
+New default: flush by `torch.sum` over the buffer, subtract an empty graph (BENCH_OLD=1 for the old way). H100 bench now
+vs H200 judge (a6081cf6): decode 1 sliding 6.02 / 5.63, verify 1 sliding 7.87 / 7.09, decode 16 sliding 9.55 / 8.70,
+verify 16 sliding 14.16 / 12.92 (before: 3.62, 5.65, 8.94, 13.10, i.e. the H100 numbers for latency-bound shapes
+were ~2 us too optimistic, which is why "H200 is slower than H100 at batch 1" seemed true). Full layers: decode 1/16/32
+15.28/127.0/244.9, verify 1/16/32 18.02/135.8/256.4; geomean vs SGLang-H200 1.939 (was 2.038 with the old method).
+Sanity: batched sliding hpp 2 (H100 win, H200 loss) now ties (14.98 vs 15.02 at decode 32); Gluon batched sliding
+(USE_GSLIDE, H200 loss in f3e099c1) still wins on the H100 but by ~1.0 us instead of 2.0 (13.8 vs 14.9). Plan
+re-sweeps on the new bench: decode 32 full dbal / dprogs 768 / 1280, decode 16 full splits 31/127, decode 1 full Triton
+path / splits 255: current plans still best.
+
+What it means for the score: the batch-1 sliding shapes are the biggest per-us levers (decode 1 sliding: 1 us = 9% of
+that load = ~1.5% overall; verify 1 sliding ~1.3%; decode 1 full ~0.5%), and ~2 us of each is launch we can't
+remove, ~1 us more per extra kernel. Merge kernels on the new bench (tools/s38/attn_only.py, whole vs merge as
+no-op): verify 1 sliding 7.79 vs 5.92, decode 1 full 15.34 vs 12.16, verify 1 full 17.71 vs 15.22, verify 32
+sliding 18.85 vs 16.40; i.e. 1.9-3.2 us each, of which ~1.0 is the second launch's floor.
+
+### H200 check dea06af06fa34abd (exp/gslide2 = main + USE_GSLIDE True): 2.328x [2.293, 2.363], 16/16
+
+Only decode 32 sliding changed (Gluon `_gd_full` with sep, 16 splits): **13.27 us vs 13.42 (a6081cf6) / 13.86
+(7f45c5c6)**: -1%, inside per-shape noise. A tie now (it lost 0.8 us in f3e099c1, before q16/kst), as the new bench
+predicted in direction but not size (H100 -1.0 us). Not merged: USE_GSLIDE stays False. Other shapes (same code as
+main): decode 1 sliding 5.25, decode 16 sliding 8.30, decode 1 full 14.27, verify 1 sliding 7.47 (noise range).
+
+### Next ideas
+
+1. Batch-1 shapes are where the per-us value is (above). Every extra kernel costs ~1 us of launch even with PDL; the
+   merges cost 1.9-3.2 us. Verify 1 sliding (2 kernels, 7.1-7.5 us H200) would gain most from a one-kernel design
+   (csl-style cluster, but wgmma for the 64 rows and few key splits; STATE idea 000), decode 1 full from cutting its
+   512-slot merge (3.2 us).
+2. Use the new bench numbers as the baseline from now on; old-bench numbers in NOTES are ~2 us lower on small shapes.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 1 check (dea06af06fa34abd), 0 scored. Account: 16/20 checks, 9/10 scored at the 00:00 UTC reset.
