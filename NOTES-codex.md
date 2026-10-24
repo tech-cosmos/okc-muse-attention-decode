@@ -3702,3 +3702,96 @@ No Codex jobs remain pending. Neither STOP file exists.
    demonstrated scored benefit.
 3. Keep experimenta93b1ed separate. Finish on clean pushed codex; remove the
    shared claim and post results. No pending Codex job requires waiting.
+
+## Session 30 — 2026-10-24, 03:20–03:27 UTC
+
+Completed a focused **native sliding CTA traversal-order** cycle. **No production
+change or judge request.** Experiment **ee958a2** is pushed separately on
+**codex-exp/native-cta-order**. Start with `experiments/cta_order/README.md` on
+that branch; frozen sources, raw graph pairs, validation logs, disassembly,
+resource reports and NCU counters are archived. Production audit copy:
+`profiles/session30-native-audit.json`.
+
+Fetched main at start and end; **origin/main ab141cd** is already merged.
+Production SHA256 remains
+`1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548`.
+Native implementations/dispatch, Triton/Gluon and plans remain unchanged.
+Session26 production validation still applies; no redundant production-only
+suite or new sanitizer claim. No experimental import was introduced.
+
+### Experiment and result
+
+Changed native grid `(S,B,Hkv)` to `(Hkv,S,B)`, with matching block-coordinate
+reads, to launch the two KV heads of each split next to each other. The hypothesis
+was improved cache-row locality; actual hardware scheduling is not guaranteed.
+The generator makes exactly those two source changes plus the extension name.
+Attention, all keys, precision, cache writes, partial layout and PDL are identical.
+This is not a Triton plan change or a repeat of in-kernel load-order experiments.
+
+Sixteen shapes, two complete-graph contrasts each (candidate and identical-code
+capture control), 80 adjacent AB/BA pairs. Eight representative cases repeated
+at a second seed with reversed capture order, 120 pairs/contrast. H100 paired
+deltas in microseconds, candidate minus production, initial/confirmation:
+
+| Shape | Candidate | Identical-code control |
+|---|---:|---:|
+| B1,80K,page1 (scored) | 0.000/-0.096 | +0.080/-0.032 |
+| B2,80K,page1 | -0.032/-0.128 | +0.032/-0.080 |
+| B8,80K,page1 | -0.112/-0.096 | +0.032/0.000 |
+| B1,80K,page64 | +0.048/0.000 | 0.000/-0.192 |
+| B8,80K,page64 | -0.192/-0.288 | +0.048/-0.128 |
+| DP1,4096,page1 | +0.032/-0.128 | +0.160/-0.096 |
+| DP1,4096,page64,scale1/64 | 0.000/-0.192 | -0.016/-0.096 |
+
+Small offsets between identical implementations limit interpretation. B8 has a
+modest nearby gain, but no clear scored improvement warrants promotion/checks.
+No cutoff or additional traversal sweep. Paired deltas are not differences of
+independent medians. Candidate full bench **1.980x** against fixed SGLang/H200
+numbers is unpaired experimental evidence, not a production regression or H200
+speedup estimate.
+
+### Mechanism and validation
+
+Both sources use74registers and17408shared bytes (cuobjdump), zero local/stack
+allocation. Among4232 decoded SASS sites across all four page/EARLY variants,
+only12 coordinate reads change; all other instruction text is identical.
+CPU audit verifies this and all21 Python helper/function ASTs, including nested
+Gluon functions. EARLY=True is runtime tested; EARLY=False is compiled only.
+
+Six isolated NCU launches, after all timing/fresh work, with independent output/
+cache checks. Production/candidate HBM read bytes: B1page1 **553216/553472**,
+B8page1 **4300032/4299776**, B8page64 **4236288/4236544**. Executed instructions
+are identical within each pair (164482/1315856/1336336 by shape); L2 read sectors
+have no consistent reduction. This does not support an HBM read-amplification
+bottleneck. No achieved-occupancy or isolated cache-latency attribution, and no
+profiler duration is treated as graph timing.
+
+- Candidate **16/16**, three actual-native/thirteen fallback cases, followed by
+  all12 benchmark shapes.
+- **4480 adjacent graph pairs**, **216 independent output/cache reference checks**
+  at timing checkpoints, plus six profiler output/cache checks.
+- **64 actual-native fresh graph replays**,16shapes x4inputs, TP8/DP,pages1/64,
+  scales1/1/64,soft/coherent/edges,contexts10–120K. QKV/cache/routes/lengths/
+  positions/cache slots change; shortened and empty contexts included.
+- Custom drivers lock generation/reference/capture/replay, flush512MB before
+  every timed graph and subtract empty replay cost. Suite/bench uses bench.py's
+  timing-loop lock, with no concurrent own GPU work. All processes completed.
+- No new sanitizer run: this is a bijective CTA remapping, with unchanged address
+  formulas, allocations and synchronization. Frozen-source/count/SASS audit passes.
+  Only whitespace/EOF normalization was applied to generated text reports.
+
+### Budget and next cycle
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 stays **5/8checks,
+3/3scored**. Official account **8/10checks,4/10scored**, leaving2checks/6scored;
+actual check cap10/day. Board best remains **2.091142x,rank20**. Claude's scored
+**d0f30dc0d435455d** belongs to its owner; no duplicate polling/request. No pending
+Codex jobs. Neither STOP file exists.
+
+1. Read COORD/fetch main next cycle. Current SHA1bcf still has no exact-source
+   H200 check. Preserve shared checks and respect exhausted Codex scored budget.
+2. Close head-adjacent native traversal as a scored direction: no traffic win,
+   only modest nearby gains. Do not extend into grid-order or cutoff micro-sweeps.
+   Earlier closed attention/reduction/load-placement families stay closed.
+3. Keep ee958a2 separate, finish on clean pushed codex, remove shared claim and
+   post results. No Codex judge job requires waiting.
