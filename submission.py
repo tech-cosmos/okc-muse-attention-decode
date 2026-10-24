@@ -790,12 +790,12 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
 def _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
          vc_ptr, vs_ptr, loc_ptr, HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr,
          L: tl.constexpr, L_PAD: tl.constexpr, MG: tl.constexpr, D: tl.constexpr, ROPE: tl.constexpr,
-         S: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr):
-    """Split 0 attends the block's own tokens (and stores them in the cache). Done before the
+         S: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr, SEP: tl.constexpr = False):
+    """Split 0 (or with SEP the extra program S, which has no cached keys) attends the block's own tokens (and stores them in the cache). Done before the
     cached keys, so these loads overlap the page-table and cache trips instead of following them."""
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
     ROW_W: tl.constexpr = HKV * D
-    if split == 0:
+    if split == (S if SEP else 0):
         # The block's own tokens: normalize, store as FP8, attend causally.
         jn = tl.arange(0, L_PAD)
         jn_ok = jn < L
@@ -823,10 +823,10 @@ def _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs
 
 @triton.jit
 def _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV: tl.constexpr,
-            MG: tl.constexpr, D: tl.constexpr, S: tl.constexpr):
+            MG: tl.constexpr, D: tl.constexpr, S: tl.constexpr, SEP: tl.constexpr = False):
     """Every split writes its partial (max, sum, accumulator) for KV heads hp0 .. hp0 + HPP - 1."""
     # Partials [B, HKV, S, MG]: each row's own head's D columns of acc.
-    part = ((b * HKV + hp0 + hp) * S + split) * MG + rr
+    part = ((b * HKV + hp0 + hp) * (S + SEP) + split) * MG + rr
     tl.store(pml_ptr + part * 2, m_i, mask=r_ok)
     tl.store(pml_ptr + part * 2 + 1, l_i, mask=r_ok)
     tl.store(pacc_ptr + part[:, None] * D + (c % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=q_ok)
@@ -841,7 +841,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
-                BALANCE: tl.constexpr = False):
+                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -885,10 +885,10 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     acc = tl.zeros([M_PAD, C], tl.float32)
     m1, l1, acc1 = m_i, l_i, acc
     m_i, l_i, acc = _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs_ptr, kc_ptr,
-                         vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+                         vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT, SEP)
     if DUAL:
         m1, l1, acc1 = _new(split, b, seq, j, q1, m1, l1, acc1, hp0 + 1, c, scale, k_scale, qkv_ptr, cs_ptr,
-                            kc_ptr, vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT)
+                            kc_ptr, vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT, SEP)
 
     if WINDOW > 0:
         base = tl.maximum(seq - (WINDOW - 1), 0)
@@ -922,9 +922,9 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
                                  True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
 
-    _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
+    _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
     if DUAL:
-        _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
+        _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
 
     if FUSE:
         # The last of this (request, head pair)'s S programs to finish merges the partials and
@@ -1148,8 +1148,10 @@ def _plan(cfg, max_pages, device):
         # and batch 1 keep FP32 (BF16 there is +0.1-0.3 us).
         pdt = "bf16" if length > 1 and heads > 4 else "f32"
         if heads <= 32:
+            # tsep (batch-1 verify): the block's new tokens in their own program instead of split 0, the critical
+            # path (H100 paired: verify 1 sliding -0.14 us, 8/9 rounds twice; decode 1 a tie). Batched: +0.6-2.7.
             return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
-                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt)
+                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=heads <= 4 and length > 1)
         # Large batches: smaller, deeply pipelined programs. (hpp 2 for decode won on the H100, decode 32 sliding
         # 16.0 -> 15.4 us, but is unchecked on the H200; reverted with session 18's decode 1 full plan.)
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
@@ -1165,7 +1167,10 @@ def _plan(cfg, max_pages, device):
     if heads <= (2 if length == 1 else 4):
         # (Session 18's hpp 2 / block_n 64 for decode 1 full won on the H100, 18.0 -> 17.4 us, but lost on the
         # H200: check f3e099c1 decode 1 full 15.2 -> 17.6 us.)
-        return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16")
+        # tsep as on sliding layers (verify 1 full paired -0.11 us, 9/11 rounds), with 127 splits so the merge sees
+        # at most 128 slots in one pass (-0.08, 8/11).
+        return dict(splits=127 if length > 1 else 128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16",
+                    tsep=length > 1)
     if length == 1:
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
             # Gluon one-warp programs (FP8 QK^T mma, new token in the last split): 1024 programs (one wave),
@@ -1238,24 +1243,29 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     rope = bool(cfg["rope_theta"])
     cs = _cos_sin(cfg["rope_theta"], d, device) if rope else qkv
 
-    pacc = torch.empty((batch, hkv, splits, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
-    pml = torch.empty((batch, hkv, splits, rows, 2), dtype=torch.float32, device=device)
-    out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
     fuse = plan["fuse"] and splits <= 64 and not dual  # the fused merge unrolls over splits
-    _attn_split[(splits, batch, hkv // (2 if dual else hpp))](
+    # tsep: the block's new tokens in an extra program (partial slot S) instead of split 0.
+    sep = int(bool(plan.get("tsep")) and not fuse)
+    pacc = torch.empty((batch, hkv, splits + sep, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
+    pml = torch.empty((batch, hkv, splits + sep, rows, 2), dtype=torch.float32, device=device)
+    out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
+    _attn_split[(splits + sep, batch, hkv // (2 if dual else hpp))](
         qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
         data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
         cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
+    splits += sep
     hb = plan.get("hb", 1) if group % plan.get("hb", 1) == 0 else 1
     if hb > 1:
         sb = plan.get("sb", max(1, min(triton.next_power_of_2(splits), 32 // hb)))
+        if sep:
+            sb = triton.next_power_of_2(max(sb, splits))
         _combine_hb[(batch * length, hq // hb)](
             qkv, pacc, pml, data["v_scale"], out,
             HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=splits, S_PAD=triton.next_power_of_2(splits),
