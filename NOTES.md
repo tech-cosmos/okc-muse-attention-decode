@@ -1302,3 +1302,49 @@ same; regs/spills/smem unchanged). Versus the old gfuse plan at small batch: B8 
 
 This session: 0 checks, 0 scored (none left: account 10/10 checks for this problem). Claude day: 5/8 checks, 3/3
 scored.
+
+## Session 22 (overnight agent, 2026-10-24 07:55-~09:05 UTC)
+
+**Main unchanged: 779bb6d's kernels (session 21's candidate) are still UNCHECKED on the H200. Check main first thing
+next UTC day** (see session 21's top paragraph for what to compare). The account had 0 checks left all session.
+
+Experiments on branch **exp/par** (pushed; plan keys `par`, `pv8`, both off, plus an env `PSCALE`). Both
+are dead ends at their current form. Tools: tools/s22/spills.py (regs/spills/converts of the Gluon verify kernel for
+plan overrides; `LOAD=` picks the shape), tools/s22/ptx.py (dump its PTX). On exp/par only.
+
+### Dead end: 1 CTA/SM with 4 consumer warpgroups (plan par 2)
+
+Idea: 2 consumer WGs per KV head taking alternate ring tiles (own m/l/acc, PAR partial sets merged by
+`_combine_bal`), so BN 128 tiles (half the per-key rescale/reduction/barrier work) fit at the same 4 consumer WGs/SM.
+Correct (forced gbal cases 8/8), but slow (paired tools/s21/ab.py, all-L2 = page_table % 4096):
+- BN 64, NS 6, PW 4: verify 16/32 all-L2 120.9/225.2 vs 103.8/194.3 base; PW 8 (maxnreg 80): 117.4/217.1. So the
+  1-CTA layout itself loses ~13% at equal tile size (cause not found; not the producer).
+- BN 128, NS 3: 230-264 (all-L2), 300-600 real; 36-46 bytes of spills at maxnreg 96 (20 warps cap it at 96).
+- BN 128 can't run at 2 CTAs/SM either: ~64 KB smem per stage (fp8 K, V + fp16 V halves).
+- Register fact (corrects a guess I made mid-session): ptxas does allocate past the launch count in setmaxnreg regions
+  (base kernel: "Used 80 registers" but SASS uses up to R99), so `cregs` really is the consumer's compile budget.
+
+### Measured ceiling: FP8 P@V on the gbal path (plan pv8)
+
+`pv8 1` = P as E4M3 (`p.to(fp8)` into a k_width-4 dot operand, O_L instr k 32) and the producer stages V^T as FP8
+(transposed NVMMASharedLayout) instead of converting V to FP16. Correct at PSCALE 0 (errors 0.030/0.036/0.073/0.051 vs
+FP16 P 0.025/0.030/0.072/0.042 on the batch 12/16/32/64 cases). Scaling P by 2^8 (PSCALE 8) breaks results: the
+new-token partial from `_new_tokens` is unscaled (store m - 8 to fix, if ever needed).
+- `pv8 2` (wrong-result ablation: no transpose, same bytes): verify 16/32 all-L2 103.7/196.2 -> 99.6/186.3 us, real
+  137.3/251.1 -> 136.9/250.9. With 4 stages (fits now): no further gain. So a free transpose is worth ~-4/-10 us
+  compute-only, maybe -2/-5 us on the H200 (~+0.3% overall).
+- `pv8 1` with the simple VT register layout ([4,1] per thread, threads along keys): 788/1549 us (shared-memory bank
+  conflicts: 32 threads read the same bank of 32 rows 128 B apart, byte-wide).
+- To make it pay, the producer needs FA3's FP8 V transpose (SmemTransposeFp8_64x64: ldmatrix.trans b16 + byte PRMT +
+  stmatrix), or a 4x4-byte register transpose with a swizzled v_ring (cp.async to `chunk ^ (row % 8)`) so the
+  LDS.32/STS.32 are conflict-free. Gluon may not expose ldmatrix.trans for this; inline asm would be needed.
+
+### Next ideas
+
+1. Check main 779bb6d (session 21's candidate) when checks are available; submit if it beats the board (2.1605x).
+2. FP8 P@V with a conflict-free V transpose in the producer (above). ~+0.3% at best; precision margin shrinks a little.
+3. Session 21's ideas 3-4 (balanced decode full, second-segment q prefetch) are still open.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored (account 10/10 checks used; Claude day 5/8 checks, 3/3 scored).
