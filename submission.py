@@ -314,7 +314,8 @@ if HAVE_GLUON:
     @gluon.jit
     def _gd_full(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
                  HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
-                 MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr):
+                 MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
+                 TPV: gl.constexpr = False):
         split = gl.program_id(0)
         b = gl.program_id(1)
         h = gl.program_id(2) * 2
@@ -330,6 +331,8 @@ if HAVE_GLUON:
         KB: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=MMA, k_width=4)
         PA: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=MMA, k_width=2)
         VB: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=MMA, k_width=2)
+        VA: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=MMA, k_width=2)
+        PB: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=MMA, k_width=2)
         # 16 bytes per thread. (Converting FP8 queries into QA from a [1, 4]-per-thread layout gave wrong values.)
         BL: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [1, 1], [1, 0])
         SH: gl.constexpr = gl.SwizzledSharedLayout(16, 1, 8, [1, 0])
@@ -375,7 +378,14 @@ if HAVE_GLUON:
 
         m_i = gl.full([M], -1.0e30, gl.float32, layout=gl.SliceLayout(1, MMA))
         l_i = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, MMA))
-        acc = gl.zeros([M, C], gl.float32, layout=MMA)
+        if TPV:
+            # Transposed P@V per head: O^T [D, G] += V^T [D, BN] @ P^T [BN, G] (only the diagonal blocks: half the
+            # MMAs and accumulator registers of the block-diagonal form). V staged once per tile as FP16.
+            vh = gl.allocate_shared_memory(gl.float16, [BN, C], gl.SwizzledSharedLayout(8, 1, 8, [1, 0]))
+            acc0 = gl.zeros([D, G], gl.float32, layout=MMA)
+            acc1 = gl.zeros([D, G], gl.float32, layout=MMA)
+        else:
+            acc = gl.zeros([M, C], gl.float32, layout=MMA)
         n_s = gl.arange(0, BN, layout=gl.SliceLayout(0, MMA))
         for i in range(ntiles):
             sj = (i + NS - 1) % NS
@@ -398,9 +408,19 @@ if HAVE_GLUON:
             p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
             l_i = l_i * alpha + gl.sum(p, 1)
             m_i = m_new
-            acc = acc * alpha[:, None]
-            v = gl.convert_layout(v_ring.index(s).load(BL).to(gl.float16), VB)
-            acc = mma_v2(gl.convert_layout(p.to(gl.float16), PA), v, acc)
+            if TPV:
+                a0, a1 = gl.split(gl.permute(gl.reshape(alpha, [2, G]), (1, 0)))
+                acc0 = acc0 * gl.convert_layout(a0, gl.SliceLayout(0, MMA))[None, :]
+                acc1 = acc1 * gl.convert_layout(a1, gl.SliceLayout(0, MMA))[None, :]
+                p0, p1 = gl.split(gl.permute(gl.reshape(p.to(gl.float16), [2, G, BN]), (2, 1, 0)))
+                vh.store(v_ring.index(s).load(BL).to(gl.float16))
+                gl.barrier()
+                acc0 = mma_v2(vh.slice(0, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p0, PB), acc0)
+                acc1 = mma_v2(vh.slice(D, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p1, PB), acc1)
+            else:
+                acc = acc * alpha[:, None]
+                v = gl.convert_layout(v_ring.index(s).load(BL).to(gl.float16), VB)
+                acc = mma_v2(gl.convert_layout(p.to(gl.float16), PA), v, acc)
         cp.wait_group(0)
 
         # Partials [B, HKV, S + 1, G, D]: each row's own head's D columns of acc.
@@ -408,7 +428,14 @@ if HAVE_GLUON:
         co = gl.arange(0, C, layout=gl.SliceLayout(0, MMA))
         part = ((b * HKV + h + ro // G) * (S + 1) + split) * G + ro % G
         own = (co // D)[None, :] == (ro // G)[:, None]
-        gl.store(pacc_ptr + part[:, None] * D + (co % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=own)
+        if TPV:
+            dd = gl.arange(0, D, layout=gl.SliceLayout(1, MMA))
+            gg = gl.arange(0, G, layout=gl.SliceLayout(0, MMA))
+            pt0 = ((b * HKV + h) * (S + 1) + split) * G + gg
+            gl.store(pacc_ptr + pt0[None, :] * D + dd[:, None], acc0.to(pacc_ptr.dtype.element_ty))
+            gl.store(pacc_ptr + (pt0 + (S + 1) * G)[None, :] * D + dd[:, None], acc1.to(pacc_ptr.dtype.element_ty))
+        else:
+            gl.store(pacc_ptr + part[:, None] * D + (co % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=own)
         gl.store(pml_ptr + part * 2, m_i)
         gl.store(pml_ptr + part * 2 + 1, l_i)
         if split == S - 1:
@@ -1055,7 +1082,7 @@ def _decode_gluon(data, cfg, plan):
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
         data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
         HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
-        BN=plan["block_n"], NS=plan["stages"], num_warps=1)
+        BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), num_warps=1)
     _combine[(batch, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
