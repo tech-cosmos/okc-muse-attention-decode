@@ -1,0 +1,47 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS (0, 'control', 'eager')
+PASS (0, 'control', 'capture')
+PASS (0, 'candidate', 'eager')
+PASS (0, 'candidate', 'capture')
+PASS (0, 'parent', 'eager')
+PASS (0, 'parent', 'capture')
+PASS (0, 'control', 'after')
+PASS (0, 'candidate', 'after')
+PASS (0, 'parent', 'after')
+{"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "fixed"}, "variant": "candidate", "implementation": "candidate", "seed": 33207, "reverse_capture": true, "parent_us": 4.31999983265996, "candidate_us": 4.799999762326479, "paired_delta_us": 0.4479996860027313}
+{"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "fixed"}, "variant": "control", "implementation": "candidate", "seed": 33207, "reverse_capture": true, "parent_us": 4.31999983265996, "candidate_us": 4.256000276654959, "paired_delta_us": -0.09599979966878891}
+PASS (3, 'control', 'eager')
+PASS (3, 'control', 'capture')
+PASS (3, 'candidate', 'eager')
+PASS (3, 'candidate', 'capture')
+PASS (3, 'parent', 'eager')
+PASS (3, 'parent', 'capture')
+PASS (3, 'control', 'after')
+PASS (3, 'candidate', 'after')
+PASS (3, 'parent', 'after')
+{"index": 3, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "candidate", "implementation": "candidate", "seed": 33207, "reverse_capture": true, "parent_us": 7.455999497324228, "candidate_us": 7.648000027984381, "paired_delta_us": 0.1759999431669712}
+{"index": 3, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft", "spread": "agentic"}, "variant": "control", "implementation": "candidate", "seed": 33207, "reverse_capture": true, "parent_us": 7.519999984651804, "candidate_us": 7.375999819487333, "paired_delta_us": -0.12800004333257675}
+PASS (4, 'control', 'eager')
+PASS (4, 'control', 'capture')
+PASS (4, 'candidate', 'eager')
+PASS (4, 'candidate', 'capture')
+PASS (4, 'parent', 'eager')
+PASS (4, 'parent', 'capture')
+PASS (4, 'control', 'after')
+PASS (4, 'candidate', 'after')
+PASS (4, 'parent', 'after')
+{"index": 4, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "fixed"}, "variant": "candidate", "implementation": "candidate", "seed": 33207, "reverse_capture": true, "parent_us": 4.31999983265996, "candidate_us": 5.007999483495951, "paired_delta_us": 0.7039997726678848}
+{"index": 4, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "dist": "soft", "spread": "fixed"}, "variant": "control", "implementation": "candidate", "seed": 33207, "reverse_capture": true, "parent_us": 4.352000076323748, "candidate_us": 4.31999983265996, "paired_delta_us": -0.03200024366378784}
+PASS (13, 'control', 'eager')
+PASS (13, 'control', 'capture')
+PASS (13, 'candidate', 'eager')
+PASS (13, 'candidate', 'capture')
+PASS (13, 'parent', 'eager')
+PASS (13, 'parent', 'capture')
+PASS (13, 'control', 'after')
+PASS (13, 'candidate', 'after')
+PASS (13, 'parent', 'after')
+{"index": 13, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "coherent", "spread": "fixed"}, "variant": "candidate", "implementation": "candidate", "seed": 33207, "reverse_capture": true, "parent_us": 7.2639998979866505, "candidate_us": 7.583999540656805, "paired_delta_us": 0.31999964267015457}
+{"index": 13, "shape": {"batch": 1, "ctx": 4096, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "coherent", "spread": "fixed"}, "variant": "control", "implementation": "candidate", "seed": 33207, "reverse_capture": true, "parent_us": 7.2639998979866505, "candidate_us": 7.215999532490969, "paired_delta_us": -0.047999899834394455}

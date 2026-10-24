@@ -1,0 +1,101 @@
+{
+  "production_sha256": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "shared_functions": 21,
+  "layout": {
+    "linear": {
+      "packed_words": 128,
+      "read_bank_multiplicity": [
+        4,
+        4,
+        4,
+        4
+      ]
+    },
+    "swizzled": {
+      "packed_words": 128,
+      "read_bank_multiplicity": [
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  },
+  "counts": {
+    "initial": {
+      "pairs": 1920,
+      "reference_checks": 144
+    },
+    "swizzled-initial": {
+      "pairs": 1920,
+      "reference_checks": 144
+    },
+    "swizzled-confirmation": {
+      "pairs": 1920,
+      "reference_checks": 72
+    },
+    "linear-confirmation": {
+      "pairs": 960,
+      "reference_checks": 36
+    },
+    "distributed-initial": {
+      "pairs": 1920,
+      "reference_checks": 144
+    },
+    "distributed-confirmation": {
+      "pairs": 1920,
+      "reference_checks": 72
+    },
+    "fresh": 64,
+    "swizzled-fresh": 64,
+    "distributed-fresh": 64,
+    "suite": {
+      "tests": 16,
+      "bench_shapes": 12
+    },
+    "swizzled-suite": {
+      "tests": 16,
+      "bench_shapes": 12
+    },
+    "distributed-suite": {
+      "tests": 16,
+      "bench_shapes": 12
+    },
+    "memcheck": 24,
+    "synccheck": 24,
+    "racecheck": 24,
+    "distributed-memcheck": 24,
+    "distributed-synccheck": 24,
+    "distributed-racecheck": 24
+  },
+  "profiles": {
+    "parent": {
+      "dram__bytes_read.sum": 556032.0,
+      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum": 0.0,
+      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum": 0.0,
+      "launch__registers_per_thread": 74.0,
+      "smsp__inst_executed.sum": 164482.0
+    },
+    "linear": {
+      "dram__bytes_read.sum": 551680.0,
+      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum": 768.0,
+      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum": 0.0,
+      "launch__registers_per_thread": 74.0,
+      "smsp__inst_executed.sum": 169546.0
+    },
+    "swizzled": {
+      "dram__bytes_read.sum": 552448.0,
+      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum": 0.0,
+      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum": 0.0,
+      "launch__registers_per_thread": 74.0,
+      "smsp__inst_executed.sum": 171402.0
+    },
+    "distributed": {
+      "dram__bytes_read.sum": 551936.0,
+      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_ld.sum": 0.0,
+      "l1tex__data_bank_conflicts_pipe_lsu_mem_shared_op_st.sum": 0.0,
+      "launch__registers_per_thread": 74.0,
+      "smsp__inst_executed.sum": 185546.0
+    }
+  }
+}

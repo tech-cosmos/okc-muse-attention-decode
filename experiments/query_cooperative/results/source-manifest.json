@@ -1,0 +1,10 @@
+{
+  "production_snapshot.py": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "candidate.py": "0b78117bfd400968428528176afb9fd269dc1ae0388d9fa3cab4fef37d0bee2b",
+  "candidate.cu": "9b31fc637f4b8573bd01b94de6a872a70a7e9318abfb60ad4ceac7181581f730",
+  "swizzled.py": "9e3a2e30a66d910168b24c9441e9db84ce4d79ec1e63000684461ceff2235469",
+  "swizzled.cu": "580cea5245427eacba51a7b47a11ff3d277260c285273207ba8f3bba40e2b5ea",
+  "distributed.py": "d9c7bce80de27c423a31e16bc9226a3c3ddea4ce10d23fa809d83a1c50dcd099",
+  "distributed.cu": "9f2eafe5ceb56d87beb9dd2aa34b670916d960e4ac12dc335941dd62d590a049",
+  "binding.cpp": "d18d882286b46b08c44a038d5295686cf474ddd50cd8f345325e7ae528fa7370"
+}
