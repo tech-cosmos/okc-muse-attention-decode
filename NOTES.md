@@ -2521,3 +2521,40 @@ arrives on `empty` after issuing P@V. BN 32, NS 4, maxnreg 72 (896 threads), cre
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 52 (overnight agent, 2026-10-24 13:55-~14:45 UTC; unattended session 19 of this night)
+
+**Main bf5123e = 652aafe + `dbal` for decode full from heads 48 (batch >= 24 at tp8). 63a4974 / 6fb74be / d92f1ed /
+652aafe / bf5123e all UNCHECKED on the H200.** 0 judge runs (account checks 0/10 left today; Claude's 3 scored used).
+H100 bench 2.043 at start, 2.035 after (noise; decode 32 full 241.2 -> 240.4). Tests 16/16, tools/s52/cases.py 8/8
+(new: short/mixed/edges/kv_scale/batch 128 cases that reach dbal), tools/s19/cases.py 9/9.
+
+### Win (H200-leaning): length-proportional splits for the Gluon decode-full kernel (plan key `dbal`, session 21's idea 3)
+
+- `_gd_full` with `BAL`: grid (P, 1, hkv/2), P = 2048 / hkv programs per KV head pair. Request b owns program ids
+  [c_b, c_b+1), c_b = b + (P - B) * excl_tiles_b // T_tiles (>= 1 each; no program spans requests, so no extra pipeline
+  prologues, unlike gbal's segments). Partials by id in `_combine_bal`'s layout (key partial at p + b, new token at
+  P + B + b); `_combine_bal` got `PROP` (exact [c_b, c_b+1) range instead of gbal's predicate).
+- H100 paired (tools/s52/ab.py = plan A/B real + all-L2 on bench data; tools/s52/near.py = nearby batches, seed 7):
+  decode 32 full (bench data) real +0.4, all-L2 -4.9 us; seed 7 decode 24/32/48/64 real -3.5/-3.5/-3.7/+0.5, all-L2
+  -6.6/-7.5/-16.6/-14.5. Batch 4/8/12/16 lose (real +0.8..+3.2), so it's gated at heads >= 48 (decode 16 unchanged).
+- Merge matters: `_combine_bal` with 2 heads x 32 slots per one-warp program cost +1.3 us of merge tail at decode 32
+  (requests get 31-35 programs: two passes); 1 head x 64 slots, 2 warps (hb 1, sb 64, cw 2) is +0.2. Program count
+  matters too: dprogs 960 loses, 1056 is far worse (+26..+60, residency with the PDL merge), 1024 best.
+- Real-mode A/Bs on the bench's data swing ~1.5 us between runs on this shape (BW-bound on the H100); trust all-L2
+  plus both-order paired runs. tools/s36/abc.py runs A then B in fixed order: run it both ways.
+- H200 expectation: decode 32 full -1..-3 us of 172.8 (~0.1-0.2% overall). If the next check shows decode 32 full
+  worse than abd67ae2's 172.8, drop the `heads >= 48` dbal branch in `_plan` first.
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 48's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05, decode 16 sliding 10.27); revert any shape
+   that got worse (decode 32 full: dbal first, then kst/q16), submit if the total beats the board.
+2. decode 16 full: dbal loses on the H100 at batch <= 16 (real +0.9, all-L2 -0.9..-1.8). The merge for ~64 slots per
+   request may be the cost; a 2-pass-free layout (sb 64/128 with cw 4) was tried at 1008/1024 programs without a clear
+   real win. Low odds.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
