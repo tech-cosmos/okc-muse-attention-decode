@@ -2161,3 +2161,57 @@ check main first and USE_GSLIDE separately or not at all).
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 43 (overnight agent, 2026-10-24 12:05-~12:45 UTC; unattended session 10 of this night)
+
+**Main 6fb74be = 63a4974 (q16 + kst in `_gd_full`) + batched sliding decode on hpp 2 from batch 24. All UNCHECKED on the
+H200** (account checks 0/10 left today; Claude's 3 scored used). Board: #1 2.726x; we're #11 at 2.263x (abd67ae2).
+H100 bench 2.033, tests 16/16, tools/s43/scases.py (11 sliding cases incl. batch 24/40, dp, edges, kv_scale) 11/11.
+
+### Per-load view of abd67ae2 (H200, ours/SGLang, per-load speedup)
+
+decode 1 510/1476 (2.89x), decode 16 1916/4436 (2.32x), decode 32 3420/7580 (2.22x), verify 1 606/1625 (2.68x),
+verify 16 2455/4607 (1.88x), verify 32 4337/7794 (1.80x). Sliding is 19-25% of the batched loads' time (weight 46)
+and 55% of the batch-1 loads'.
+
+### Win (main 6fb74be): hpp 2 for sliding decode at batch >= 24
+
+- New graph-timed gather floor on the real inputs (tools/s43/sfloor.py: bench.time_graph, cold L2, minus empty; each
+  program sums its chunk's K and V rows through the page table): decode 32 sliding **10.7 us with whole 128-byte rows,
+  12.0 with 64-byte halves**; decode 16 sliding 6.7 / 7.3. Ours: 16.0 / 10.6 (including ~1.6 us of merge launch;
+  tools/s43 no-merge ablation: -1.55/-1.60 us).
+- So the batched sliding decode plan (hpp 1: each program reads one head's 64-byte half) now uses hpp 2 (block-diagonal
+  queries, the whole row) when batch * hkv >= 48: splits 8, block_n 32, 4 warps, 5 stages. Paired H100
+  (tools/s36/abc.py, tools/s43/abn.py on nearby batches): decode 32 sliding **-0.66 us (9/9)**, batch 24/40/48/64
+  -0.5/-2.4/-3.6/-6.0 (7/7 each); batch 20 +0.2 (kept on hpp 1), decode 16 tie (kept), verify sliding unchanged.
+- H200 risk: session 18's hpp 2 for *decode 1 full* won on the H100 and lost on the H200. This one is a bandwidth
+  effect that grows with batch, but if the next check shows decode 32 sliding worse than abd67ae2's 14.26 us, revert
+  the `heads >= 48` branch in `_plan`.
+
+### Dead ends
+
+- **Triton `kst`** (hpp 2 with heads stacked along the P@V reduction, acc [rows, D], as session 41 did in Gluon):
+  splitting the [N, 2D] V tile in registers (reshape/permute/split) **miscompiles at 1-2 warps** (wrong-ish values:
+  decode 32 worst row 0.171 vs 0.095; bit-identical at 4 warps). Loading the halves separately is correct but slower:
+  decode 32 sliding 16.0 vs 15.1 us (plain hpp 2); hpp 2 + kst for verify sliding 22.8 / 17.4 vs 20.7 / 13.1 (verify
+  32 / 16). Code not kept (diff was in /tmp only).
+- Decode 32 sliding ablations (paired): constant queries (no qkv/RoPE hop) -0.72 us (an upper bound), no cos/sin load
+  -0.26, no new-token work +0.13. Nothing big on the query side.
+- **Why the fused last-program merge (plan `fuse`) costs +6 us on batch-1 sliding** (10-11 vs 4.5; the kernel itself
+  12.6 vs 4.3 us, tools/s43/prof2.py): not the atomic. Fused with the merge body removed (atomic + reset kept):
+  +0.19 us vs the two-kernel path, i.e. a tie. Merge body without the atomic: +5.95. The unrolled
+  `static_range(S)` merge serializes into one L2 round trip per split (all 32 [16, 64] FP32 loads at once would need
+  ~256 registers/thread). A one-round-trip fused merge would still cost an L2 round trip + compute on top of the tie,
+  so it can't beat the PDL merge kernel. Fused merges stay dead; this is the reason.
+
+### Next ideas
+
+1. Next UTC day: check main 6fb74be against abd67ae2: decode 16/32 full 90.3/172.8 (q16 + kst), decode 1 full 14.16,
+   decode 32 sliding 14.26 (hpp 2). Revert whichever regresses; submit if the total beats the board.
+2. Batched sliding is 1.5-1.8x its gather floor (decode 32: ~14.4 us of attention vs 10.7 floor). The gap is the
+   per-tile chain at M = 8-16 rows on Triton's mma-v2 path; Gluon `_gd_full` closes part of it on the H100 but lost
+   on the H200 for unexplained cold-start reasons (session 20). Don't retry without an H200 check in the loop.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
