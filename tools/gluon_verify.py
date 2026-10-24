@@ -4,7 +4,11 @@ Writes the same partials as submission._attn_split (m, l in log2 units, unnormal
 cached keys only (no new tokens). Compares against the Triton kernel's partials for splits >= 1
 (split 0 also holds the new tokens there) and times both.
 
-  python tools/gluon_verify.py ["verify 16"] [S] [NS]
+  python tools/gluon_verify.py "verify 16" S NS MODE MAXNREG BN PF VHB
+    MODE: serial (single head, default) | pipe | defer | pf | pf2 | pf3 | dual (_gv2, both heads)
+  Best so far (H100): python tools/gluon_verify.py "verify 16" 33 4 dual 128 32 pf 1  -> 154 us
+                      python tools/gluon_verify.py "verify 32" 16 4 dual 128 32 pf 1  -> 304 us
+  (Triton main: 155/294 us for the whole kernel_fn, ~149/287 attn only.)
 """
 import fcntl, statistics, sys
 import torch
@@ -32,10 +36,25 @@ def _issue(i, lo, hi, pt_row, kc_ptr, vc_ptr, k_ring, v_ring, h, n_g, c_g,
 
 
 @gluon.jit
+def _pages(i, lo, hi, pt_row, n_g, BN: gl.constexpr):
+    return gl.load(pt_row + gl.minimum(lo + i * BN + n_g, hi - 1))
+
+
+@gluon.jit
+def _issue_pg(i, page, kc_ptr, vc_ptr, k_ring, v_ring, h, c_g, ROW_W: gl.constexpr, D: gl.constexpr,
+              NS: gl.constexpr):
+    off = (page.to(gl.int64) * ROW_W + h * D)[:, None] + c_g[None, :]
+    cp.async_copy_global_to_shared(k_ring.index(i % NS), kc_ptr + off)
+    cp.async_copy_global_to_shared(v_ring.index(i % NS), vc_ptr + off)
+    cp.commit_group()
+
+
+@gluon.jit
 def _gv(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk_scale,
         HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, D: gl.constexpr,
         MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
-        PIPE: gl.constexpr = False):
+        PIPE: gl.constexpr = False, DEFER: gl.constexpr = False,
+        PF: gl.constexpr = 0):
     M: gl.constexpr = L * G
     split = gl.program_id(0)
     b = gl.program_id(1)
@@ -110,7 +129,7 @@ def _gv(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk_
             acc_tok = warpgroup_mma(p16, vh.index(i % 2), acc, is_async=True)
             s_tok = s_next
         acc, s = warpgroup_mma_wait(0, deps=[acc_tok, s_tok])
-    else:
+    elif DEFER:
         # PV of tile i is waited for only after QK^T of tile i+1 has been issued.
         acc_tok = warpgroup_mma_init(acc)
         for i in range(ntiles):
@@ -136,6 +155,53 @@ def _gv(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk_
             gl.barrier()
             acc_tok = warpgroup_mma(p16, vh.index(i % 2), acc, is_async=True)
         acc = warpgroup_mma_wait(0, deps=[acc_tok])
+    elif PF:
+        # Page indices of tile i + NS - 1 were loaded one iteration earlier.
+        pg = _pages(NS - 1, lo, hi, pt_row, n_g, BN)
+        pg2 = _pages(NS, lo, hi, pt_row, n_g, BN)
+        pg3 = _pages(NS + 1, lo, hi, pt_row, n_g, BN)
+        for i in range(ntiles):
+            cp.wait_group(NS - 2)
+            fence_async_shared()
+            gl.barrier()
+            s_tok = warpgroup_mma(q_smem, k_ring.index(i % NS).permute((1, 0)), gl.zeros([M, BN], gl.float32, S_L),
+                                  use_acc=False, is_async=True)
+            v8 = v_ring.index(i % NS).load(VL)
+            vh.index(i % 2).store(v8.to(gl.float16))
+            fence_async_shared()
+            _issue_pg(i + NS - 1, pg, kc_ptr, vc_ptr, k_ring, v_ring, h, c_g, ROW_W, D, NS)
+            if PF == 1:
+                pg = _pages(i + NS, lo, hi, pt_row, n_g, BN)
+            elif PF == 2:
+                pg = pg2
+                pg2 = _pages(i + NS + 1, lo, hi, pt_row, n_g, BN)
+            else:
+                pg = pg2
+                pg2 = pg3
+                pg3 = _pages(i + NS + 2, lo, hi, pt_row, n_g, BN)
+            s = warpgroup_mma_wait(0, deps=[s_tok])
+            t = lo + i * BN + n_s
+            m_i, l_i, acc, p16 = _softmax(s, t, hi, m_i, l_i, acc, scale, S_L, O_L, P_L)
+            gl.barrier()
+            acc_tok = warpgroup_mma(p16, vh.index(i % 2), acc, is_async=True)
+            acc, p16 = warpgroup_mma_wait(0, deps=[acc_tok, p16])
+    else:
+        for i in range(ntiles):
+            cp.wait_group(NS - 2)
+            fence_async_shared()
+            gl.barrier()
+            s_tok = warpgroup_mma(q_smem, k_ring.index(i % NS).permute((1, 0)), gl.zeros([M, BN], gl.float32, S_L),
+                                  use_acc=False, is_async=True)
+            v8 = v_ring.index(i % NS).load(VL)
+            vh.index(i % 2).store(v8.to(gl.float16))
+            fence_async_shared()
+            _issue(i + NS - 1, lo, hi, pt_row, kc_ptr, vc_ptr, k_ring, v_ring, h, n_g, c_g, ROW_W, D, BN, NS)
+            s = warpgroup_mma_wait(0, deps=[s_tok])
+            t = lo + i * BN + n_s
+            m_i, l_i, acc, p16 = _softmax(s, t, hi, m_i, l_i, acc, scale, S_L, O_L, P_L)
+            gl.barrier()
+            acc_tok = warpgroup_mma(p16, vh.index(i % 2), acc, is_async=True)
+            acc, p16 = warpgroup_mma_wait(0, deps=[acc_tok, p16])
     cp.wait_group(0)
 
     ro = gl.arange(0, M, layout=gl.SliceLayout(1, O_L))
@@ -186,7 +252,8 @@ def _store_part(pacc_ptr, pml_ptr, b, hh, split, m_i, l_i, acc, HKV: gl.constexp
 @gluon.jit
 def _gv2(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk_scale,
          HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, D: gl.constexpr,
-         MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr):
+         MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
+         PF: gl.constexpr = False, VHB: gl.constexpr = 2):
     """Both KV heads of a pair per program: one 128-byte row gather per key for K and for V, both
     heads' QK^T against the same [BN, 2D] K tile (queries zero outside their head's D columns),
     two independent softmax chains."""
@@ -206,6 +273,7 @@ def _gv2(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk
     SH8: gl.constexpr = gl.NVMMASharedLayout(swizzle_byte_width=128, element_bitwidth=8, rank=2)
     SH16: gl.constexpr = gl.NVMMASharedLayout(swizzle_byte_width=128, element_bitwidth=16, rank=2)
     VSH: gl.constexpr = gl.SwizzledSharedLayout(1, 1, 1, [1, 0])
+    SQ: gl.constexpr = gl.NVMMASharedLayout(swizzle_byte_width=64, element_bitwidth=8, rank=2)
 
     seq = gl.load(seq_ptr + b)
     chunk = gl.cdiv(gl.cdiv(seq, S), BN) * BN
@@ -216,26 +284,21 @@ def _gv2(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk
 
     k_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, BN, C], SH8)
     v_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, BN, C], VSH)
-    vh0 = gl.allocate_shared_memory(gl.float16, [2, BN, D], SH16)
-    vh1 = gl.allocate_shared_memory(gl.float16, [2, BN, D], SH16)
+    vh0 = gl.allocate_shared_memory(gl.float16, [VHB, BN, D], SH16)
+    vh1 = gl.allocate_shared_memory(gl.float16, [VHB, BN, D], SH16)
     n_g = gl.arange(0, BN, layout=gl.SliceLayout(1, GLY))
     c_g = gl.arange(0, C, layout=gl.SliceLayout(0, GLY))
     kbase = kc_ptr + h * D
     vbase = vc_ptr + h * D
     r = gl.arange(0, M, layout=gl.SliceLayout(1, QL))
-    cq = gl.arange(0, C, layout=gl.SliceLayout(0, QL))
-    # Query row r of head h + hp occupies columns hp*D .. hp*D + D - 1; the rest is 0.
-    q_off = (b * L + r // G)[:, None] * QKV_W + (h * G + r % G)[:, None] * D + (cq % D)[None, :]
-    first = (cq < D)[None, :]
-    x0 = gl.where(first, gl.load(qkv_ptr + q_off).to(gl.float32), 0.0)
+    cq = gl.arange(0, D, layout=gl.SliceLayout(0, QL))
+    q_off = (b * L + r // G)[:, None] * QKV_W + (h * G + r % G)[:, None] * D + cq[None, :]
+    x0 = gl.load(qkv_ptr + q_off).to(gl.float32)
     x0 = x0 * gl.rsqrt(gl.sum(x0 * x0, 1) / D + 1e-5)[:, None]
-    # (Zero after the FP8 cast: casting the zeroed fp32 half gives nonzero bytes here, a compiler bug.)
-    x0 = x0.to(gl.float8e4nv)
-    q0 = gl.allocate_shared_memory(gl.float8e4nv, [M, C], SH8, gl.where(first, x0, gl.zeros_like(x0)))
-    x1 = gl.where(first, 0.0, gl.load(qkv_ptr + q_off + G * D).to(gl.float32))
+    q0 = gl.allocate_shared_memory(gl.float8e4nv, [M, D], SQ, x0.to(gl.float8e4nv))
+    x1 = gl.load(qkv_ptr + q_off + G * D).to(gl.float32)
     x1 = x1 * gl.rsqrt(gl.sum(x1 * x1, 1) / D + 1e-5)[:, None]
-    x1 = x1.to(gl.float8e4nv)
-    q1 = gl.allocate_shared_memory(gl.float8e4nv, [M, C], SH8, gl.where(first, gl.zeros_like(x1), x1))
+    q1 = gl.allocate_shared_memory(gl.float8e4nv, [M, D], SQ, x1.to(gl.float8e4nv))
     scale = qk_scale * gl.load(ks_ptr)
     for i in gl.static_range(NS - 1):
         _issue2(i, lo, hi, pt_row, kbase, vbase, k_ring, v_ring, n_g, c_g, ROW_W, BN, NS)
@@ -246,26 +309,35 @@ def _gv2(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk
     a0 = gl.zeros([M, D], gl.float32, layout=O_L)
     m1, l1, a1 = m0, l0, a0
     n_s = gl.arange(0, BN, layout=gl.SliceLayout(0, S_L))
+    pg = _pages(NS - 1, lo, hi, pt_row, n_g, BN)
+    pg2 = _pages(NS, lo, hi, pt_row, n_g, BN)
     for i in range(ntiles):
         cp.wait_group(NS - 2)
         fence_async_shared()
         gl.barrier()
-        kt = k_ring.index(i % NS).permute((1, 0))
-        s0t = warpgroup_mma(q0, kt, gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
-        s1t = warpgroup_mma(q1, kt, gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+        kt = k_ring.index(i % NS)
+        s0t = warpgroup_mma(q0, kt.slice(0, D, 1).permute((1, 0)), gl.zeros([M, BN], gl.float32, S_L),
+                            use_acc=False, is_async=True)
+        s1t = warpgroup_mma(q1, kt.slice(D, D, 1).permute((1, 0)), gl.zeros([M, BN], gl.float32, S_L),
+                            use_acc=False, is_async=True)
         vt = v_ring.index(i % NS)
-        vh0.index(i % 2).store(vt.slice(0, D, 1).load(VL).to(gl.float16))
-        vh1.index(i % 2).store(vt.slice(D, D, 1).load(VL).to(gl.float16))
+        vh0.index(i % VHB).store(vt.slice(0, D, 1).load(VL).to(gl.float16))
+        vh1.index(i % VHB).store(vt.slice(D, D, 1).load(VL).to(gl.float16))
         fence_async_shared()
         gl.barrier()
-        _issue2(i + NS - 1, lo, hi, pt_row, kbase, vbase, k_ring, v_ring, n_g, c_g, ROW_W, BN, NS)
+        if PF:
+            _issue_pg(i + NS - 1, pg, kbase, vbase, k_ring, v_ring, 0, c_g, ROW_W, D, NS)
+            pg = pg2
+            pg2 = _pages(i + NS + 1, lo, hi, pt_row, n_g, BN)
+        else:
+            _issue2(i + NS - 1, lo, hi, pt_row, kbase, vbase, k_ring, v_ring, n_g, c_g, ROW_W, BN, NS)
         t = lo + i * BN + n_s
         s0 = warpgroup_mma_wait(1, deps=[s0t])
         m0, l0, a0, p0 = _softmax(s0, t, hi, m0, l0, a0, scale, S_L, O_L, P_L)
-        a0t = warpgroup_mma(p0, vh0.index(i % 2), a0, is_async=True)
+        a0t = warpgroup_mma(p0, vh0.index(i % VHB), a0, is_async=True)
         s1 = warpgroup_mma_wait(1, deps=[s1t])
         m1, l1, a1, p1 = _softmax(s1, t, hi, m1, l1, a1, scale, S_L, O_L, P_L)
-        a1t = warpgroup_mma(p1, vh1.index(i % 2), a1, is_async=True)
+        a1t = warpgroup_mma(p1, vh1.index(i % VHB), a1, is_async=True)
         a0, a1, p0, p1 = warpgroup_mma_wait(0, deps=[a0t, a1t, p0, p1])
     cp.wait_group(0)
     _store_part(pacc_ptr, pml_ptr, b, h, split, m0, l0, a0, HKV, S, M, D, S_L, O_L)
@@ -274,7 +346,7 @@ def _gv2(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk
 
 
 
-def run_gluon2(data, S, BN=32, NS=4, warps=4, maxnreg=None):
+def run_gluon2(data, S, BN=32, NS=4, warps=4, maxnreg=None, pf=False, vhb=2):
     cfg = data["config"]
     batch, length, hq, hkv, d = cfg["batch"], cfg["q_len"], cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
     g = hq // hkv
@@ -287,7 +359,7 @@ def run_gluon2(data, S, BN=32, NS=4, warps=4, maxnreg=None):
         _gv2[(S, batch, hkv // 2)](data["qkv"], data["k_cache"], data["v_cache"], data["k_scale"], pt,
                                    data["seq_lens"], pacc, pml,
                                    cfg["sm_scale"] * cfg["qk_scale_factor"] * 1.4426950408889634,
-                                   HQ=hq, HKV=hkv, G=g, L=length, D=d, MAX_PAGES=pt.shape[1], S=S, BN=BN, NS=NS,
+                                   HQ=hq, HKV=hkv, G=g, L=length, D=d, MAX_PAGES=pt.shape[1], S=S, BN=BN, NS=NS, PF=pf, VHB=vhb,
                                    num_warps=warps, **({'maxnreg': maxnreg} if maxnreg else {}))
     return fn, pacc, pml
 
@@ -304,7 +376,7 @@ def run_gluon(data, S, BN=32, NS=4, warps=4, pipe=False, maxnreg=None):
     def fn():
         _gv[(S, batch, hkv)](data["qkv"], data["k_cache"], data["v_cache"], data["k_scale"], pt, data["seq_lens"],
                              pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * 1.4426950408889634,
-                             HQ=hq, HKV=hkv, G=g, L=length, D=d, MAX_PAGES=pt.shape[1], S=S, BN=BN, NS=NS, PIPE=pipe,
+                             HQ=hq, HKV=hkv, G=g, L=length, D=d, MAX_PAGES=pt.shape[1], S=S, BN=BN, NS=NS, PIPE=pipe == True, DEFER=pipe == "defer", PF={"pf": 1, "pf2": 2, "pf3": 3}.get(pipe, 0) if isinstance(pipe, str) else 0,
                              num_warps=warps, **({'maxnreg': maxnreg} if maxnreg else {}))
     return fn, pacc, pml
 
@@ -349,14 +421,20 @@ if __name__ == "__main__":
     cap = triton_partials(data)
     S = int(sys.argv[2]) if len(sys.argv) > 2 else cap["S"]
     NS = int(sys.argv[3]) if len(sys.argv) > 3 else 4
-    pipe = len(sys.argv) > 4 and sys.argv[4] == "pipe"
-    mr = int(sys.argv[5]) if len(sys.argv) > 5 else None
+    pipe = {"pipe": True, "defer": "defer", "pf": "pf", "pf2": "pf2", "pf3": "pf3"}.get(sys.argv[4] if len(sys.argv) > 4 else "", False)
+    mr = (int(sys.argv[5]) or None) if len(sys.argv) > 5 else None
     if pipe == "dual" or (len(sys.argv) > 4 and sys.argv[4] == "dual"):
-        fn, pacc, pml = run_gluon2(data, S, NS=NS, maxnreg=mr)
+        fn, pacc, pml = run_gluon2(data, S, BN=int(sys.argv[6]) if len(sys.argv) > 6 else 32, NS=NS, maxnreg=mr, pf=len(sys.argv) > 7 and sys.argv[7] == "pf",
+                                  vhb=int(sys.argv[8]) if len(sys.argv) > 8 else 2)
     else:
-        fn, pacc, pml = run_gluon(data, S, NS=NS, pipe=pipe, maxnreg=mr)
+        BN = int(sys.argv[6]) if len(sys.argv) > 6 else 32
+        fn, pacc, pml = run_gluon(data, S, BN=BN, NS=NS, pipe=pipe, maxnreg=mr)
     fn()
     torch.cuda.synchronize()
+    for kern in (_gv, _gv2):
+        for cache in kern.device_caches.values():
+            for ck in cache[0].values():
+                print(kern.__name__, "regs", ck.n_regs, "spills", ck.n_spills, "smem", ck.metadata.shared)
     # Compare cached-key attention excluding the new tokens: triton splits >= 1 vs gluon. Splits differ in
     # count, so compare the merge over keys >= triton's split-1 start? Simplest: when S matches, compare
     # splits >= 1 merged.
