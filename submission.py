@@ -953,6 +953,67 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
 
 
 @triton.jit
+def _attn_rows(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, out_ptr, qk_scale,
+               HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, MG: tl.constexpr,
+               RM: tl.constexpr, M_PAD: tl.constexpr, L_PAD: tl.constexpr, D: tl.constexpr, PAGE: tl.constexpr,
+               MAX_PAGES: tl.constexpr, WINDOW: tl.constexpr, ROPE: tl.constexpr, BLOCK_N: tl.constexpr,
+               STAGES: tl.constexpr, QK8: tl.constexpr, DOT: tl.constexpr):
+    """Sliding verify blocks without key splits: program (ri, b, h) takes RM of KV head h's MG query rows
+    over the whole window and writes the output directly (no partials, no merge launch)."""
+    ri = tl.program_id(0)
+    b = tl.program_id(1)
+    hp0 = tl.program_id(2)
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    ROW_W: tl.constexpr = HKV * D
+    seq = tl.load(seq_ptr + b)
+    c = tl.arange(0, D)
+    r = tl.arange(0, M_PAD)
+    r_ok = r < RM
+    rr = tl.minimum(ri * RM + r, MG - 1)
+    j = rr // G
+    pos = seq + j
+    q_off = (b * L + j)[:, None] * QKV_W + (hp0 * G + rr % G)[:, None] * D + c[None, :]
+    q_ok = r_ok[:, None] & (c[None, :] < D)
+    q = _norm_rope(qkv_ptr, q_off, q_ok, c, pos, cs_ptr, ROPE, D, 1)
+    q = q.to(tl.float8e4nv) if QK8 else q.to(DOT)
+    k_scale = tl.load(ks_ptr)
+    scale = qk_scale * k_scale
+
+    # The block's own tokens (every program attends them; program 0 stores them in the cache).
+    jn = tl.arange(0, L_PAD)
+    jn_ok = jn < L
+    tok = b * L + jn
+    kn_off = (tok * QKV_W + (HQ + hp0) * D)[:, None] + c[None, :]
+    kn = _norm_rope(qkv_ptr, kn_off, jn_ok[:, None], c, seq + jn, cs_ptr, ROPE, D, 1)
+    vn = tl.load(qkv_ptr + kn_off + HKV * D, mask=jn_ok[:, None], other=0.0)
+    kq = (kn / k_scale).to(tl.float8e4nv)
+    vq = (vn.to(tl.float32) / tl.load(vs_ptr)).to(tl.float8e4nv)
+    if ri == 0:
+        slot = tl.load(loc_ptr + tok, mask=jn_ok, other=0) * ROW_W + hp0 * D
+        tl.store(kc_ptr + slot[:, None] + c[None, :], kq, mask=jn_ok[:, None])
+        tl.store(vc_ptr + slot[:, None] + c[None, :], vq, mask=jn_ok[:, None])
+    s = tl.dot(q, tl.trans(kq if QK8 else kq.to(DOT))) * scale
+    s = tl.where(jn_ok[None, :] & (jn[None, :] <= j[:, None]), s, float("-inf"))
+    m_i = tl.max(s, 1)
+    p = tl.exp2(s - m_i[:, None])
+    l_i = tl.sum(p, 1)
+    acc = tl.dot(p.to(DOT), vq.to(DOT))
+
+    base = tl.maximum(seq - (WINDOW - 1), 0)
+    pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
+    n = tl.arange(0, BLOCK_N)
+    full_end = base + (seq - base) // BLOCK_N * BLOCK_N
+    for start in tl.range(base, full_end, BLOCK_N, num_stages=STAGES):
+        m_i, l_i, acc = _tile(start + n, seq, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
+                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+    if full_end < seq:
+        m_i, l_i, acc = _tile(full_end + n, seq, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
+                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+    o = acc / l_i[:, None] * tl.load(vs_ptr)
+    _norm_gate_store(o, qkv_ptr, out_ptr, b * L + j, hp0 * G + rr % G, c, q_ok, HQ, HKV, D)
+
+
+@triton.jit
 def _new_tokens(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
                 HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, MG: tl.constexpr,
                 L_PAD: tl.constexpr, D: tl.constexpr, S: tl.constexpr, DOT: tl.constexpr, NID: tl.constexpr = 0,
@@ -1226,6 +1287,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         return _verify_gluon(data, cfg, plan)
     if plan.get("gdec"):
         return _decode_gluon(data, cfg, plan)
+    if plan.get("rows"):
+        return _verify_rows(data, cfg, plan)
     span = max_pages * cfg["page_size"]
     if cfg["window"]:
         span = min(span, cfg["window"])
@@ -1267,6 +1330,25 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         # Up to 128 splits in one pass, so every partial's load is in flight at once.
         SB=min(128, triton.next_power_of_2(splits)), PDL=USE_PDL, num_warps=4 if splits > 32 else 2,
         launch_pdl=USE_PDL)
+    return out
+
+
+def _verify_rows(data, cfg, plan):
+    batch, length = cfg["batch"], cfg["q_len"]
+    hq, hkv, d = cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
+    group = hq // hkv
+    qkv = data["qkv"]
+    rows = length * group
+    rm = triton.cdiv(rows, plan["rows"])
+    out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=qkv.device)
+    _attn_rows[(triton.cdiv(rows, rm), batch, hkv)](
+        qkv, _cos_sin(cfg["rope_theta"], d, qkv.device) if cfg["rope_theta"] else qkv, data["k_cache"], data["v_cache"], data["k_scale"],
+        data["v_scale"], data["page_table"], data["seq_lens"], data["cache_loc"], out,
+        cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+        HQ=hq, HKV=hkv, G=group, L=length, MG=rows, RM=rm, M_PAD=max(16, triton.next_power_of_2(rm)),
+        L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"],
+        MAX_PAGES=data["page_table"].shape[1], WINDOW=cfg["window"], ROPE=bool(cfg["rope_theta"]), BLOCK_N=plan["block_n"],
+        STAGES=plan["stages"], QK8=plan.get("qk8", True), DOT=DOT_DTYPE, num_warps=plan["warps"])
     return out
 
 
