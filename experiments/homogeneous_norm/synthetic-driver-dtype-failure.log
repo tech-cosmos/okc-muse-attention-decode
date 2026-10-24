@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/home/daytona/codex-repo/experiments/homogeneous_norm/synthetic.py", line 54, in <module>
+    fcntl.flock(lock,fcntl.LOCK_EX);run()
+                                    ^^^^^
+  File "/home/daytona/codex-repo/experiments/homogeneous_norm/synthetic.py", line 46, in run
+    torch.testing.assert_close(actual,expected,atol=.016,rtol=.012)
+  File "/home/daytona/okc/lib/python3.12/site-packages/torch/testing/_comparison.py", line 1689, in assert_close
+    raise error_metas[0].to_error(msg)
+AssertionError: The values for attribute 'dtype' do not match: torch.float32 != torch.float64.

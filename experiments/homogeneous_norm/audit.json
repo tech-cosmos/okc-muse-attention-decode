@@ -1,0 +1,42 @@
+{
+  "production_sha256": "ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca",
+  "candidate_sha256": "2105f1e8eea5531ef66355085b294d592e0d157345a60585adfd015f8313d640",
+  "only_native_merge_changed": true,
+  "suite_cases": 16,
+  "adjacent_pairs": 1760,
+  "comparison_references": 132,
+  "fresh_wrapper_replays": 128,
+  "synthetic_replays": 72,
+  "synthetic_max_rel_l2": 0.001768298042206954,
+  "sass": {
+    "previous": [
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiii",
+        "static_instructions": 536,
+        "reciprocal_sites": 7,
+        "exponential_sites": 11
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiii",
+        "static_instructions": 544,
+        "reciprocal_sites": 7,
+        "exponential_sites": 11
+      }
+    ],
+    "candidate": [
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb0EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiii",
+        "static_instructions": 536,
+        "reciprocal_sites": 6,
+        "exponential_sites": 11
+      },
+      {
+        "name": "_Z13reduce_kernelILi8ELi16ELb1EEvPK13__nv_bfloat16PKfPK6float2S4_PS0_iiiii",
+        "static_instructions": 536,
+        "reciprocal_sites": 6,
+        "exponential_sites": 11
+      }
+    ]
+  },
+  "source_and_results_pass": true
+}
