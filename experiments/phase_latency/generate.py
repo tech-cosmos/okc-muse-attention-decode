@@ -45,6 +45,7 @@ a=' if(page==1){if(early){RUN(1,true);}else{RUN(1,false);}}else{if(early){RUN(64
 assert cu.count(a)==1
 switch=' switch(phase) {\n'+''.join(f' case {p}: if(page==1){{RUN(1,{p});}}else{{RUN(64,{p});}}break;\n' for p in range(-1,12))+' default: TORCH_CHECK(false,"invalid diagnostic phase");\n }'
 cu=cu.replace(a,switch)
+cu='\n'.join(line.rstrip() for line in cu.splitlines()).rstrip()+'\n'
 (ROOT/'diagnostic.cu').write_text(cu)
 (ROOT/'binding.cpp').write_text(cpp)
 (ROOT/'results/source-manifest.json').write_text(json.dumps({f:hashlib.sha256((ROOT/f).read_bytes()).hexdigest() for f in ['production_snapshot.py','diagnostic.cu','binding.cpp']},indent=2)+'\n')

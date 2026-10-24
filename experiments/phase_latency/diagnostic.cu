@@ -181,7 +181,7 @@ __global__ __launch_bounds__(128) void sliding(const __nv_bfloat16* qkv,const fl
   }
   if(lane%4==0){pm[(outbase+lane/4)*2]=mx[0];pm[(outbase+lane/4)*2+1]=sum[0];}
  }
- 
+
  if constexpr(PHASE==9 || PHASE==10) asm volatile("mov.u64 %0, %%clock64;" : "=l"(tend) :: "memory");
  if constexpr(PHASE>=0) if(lane==0) {
   long at=(((long)b*HKV+h)*S+split)*8+warp*2;

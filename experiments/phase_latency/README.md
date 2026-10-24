@@ -122,5 +122,5 @@ python experiments/phase_latency/audit.py
 Redirect logs to their matching paths in `results` as in the archive. NCU binaries
 are excluded; exported complete source/metric CSVs are retained. Audit reproduces
 sources, checks frozen production identity, counts, paired medians, trace bounds,
-SASS clock placement/identity and profile completion. SASS/resource text only had
-trailing whitespace/EOF normalization. No diagnostic import enters production.
+SASS clock placement/identity and profile completion. SASS/resource text and the generated CUDA archive only had
+trailing whitespace/EOF normalization after testing (no token changes). No diagnostic import enters production.
