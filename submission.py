@@ -73,6 +73,8 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
+# Split partials' accumulator dtype (plan key pdt).
+_PDT = {"f32": torch.float32, "bf16": torch.bfloat16, "f16": torch.float16}
 print(f"env: torch {torch.__version__}, triton {triton.__version__}", flush=True)
 
 
@@ -135,7 +137,7 @@ if HAVE_GLUON:
         ro = gl.arange(0, M, layout=gl.SliceLayout(1, A_L))
         co = gl.arange(0, D, layout=gl.SliceLayout(0, A_L))
         part = ((b * HKV + hh) * SP + split) * M + ro
-        gl.store(pacc_ptr + part[:, None] * D + co[None, :], acc)
+        gl.store(pacc_ptr + part[:, None] * D + co[None, :], acc.to(pacc_ptr.dtype.element_ty))
         rs = gl.arange(0, M, layout=R_L)
         parts = ((b * HKV + hh) * SP + split) * M + rs
         gl.store(pml_ptr + parts * 2, m_i)
@@ -426,7 +428,7 @@ def _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pm
     part = ((b * HKV + hp0 + hp) * S + split) * MG + rr
     tl.store(pml_ptr + part * 2, m_i, mask=r_ok)
     tl.store(pml_ptr + part * 2 + 1, l_i, mask=r_ok)
-    tl.store(pacc_ptr + part[:, None] * D + (c % D)[None, :], acc, mask=q_ok)
+    tl.store(pacc_ptr + part[:, None] * D + (c % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=q_ok)
 
 
 @triton.jit
@@ -543,7 +545,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 at1 = first + i * MG
                 w = tl.exp2(tl.load(pml_ptr + at1 * 2, mask=r_ok, other=-1.0e30, cache_modifier=".cg") - m_max)
                 o += w[:, None] * tl.load(pacc_ptr + at1[:, None] * D + (c % D)[None, :], mask=q_ok, other=0.0,
-                                          cache_modifier=".cg")
+                                          cache_modifier=".cg").to(tl.float32)
             _norm_gate_store(o / tl.where(r_ok, denom, 1.0)[:, None] * tl.load(vs_ptr), qkv_ptr, out_ptr,
                              b * L + j, (hp0 + hp) * G + rr % G, c, q_ok, HQ, HKV, D)
             tl.atomic_xchg(cnt, 0)
@@ -613,7 +615,8 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     for i in range(0, S, SB):
         si = i + sb
         w = tl.exp2(tl.load(pml_ptr + (row + si * M) * 2, mask=si < S, other=-1.0e30) - m_max)
-        a = tl.load(pacc_ptr + (row + si * M)[:, None] * D + d[None, :], mask=(si < S)[:, None], other=0.0)
+        a = tl.load(pacc_ptr + (row + si * M)[:, None] * D + d[None, :], mask=(si < S)[:, None],
+                    other=0.0).to(tl.float32)
         acc += tl.sum(w[:, None] * a, 0)
     o = acc / denom * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
@@ -653,7 +656,7 @@ def _combine_hb(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
         at1 = row[None, :] + (si * M)[:, None]
         ok = (si < S)[:, None]
         w = tl.exp2(tl.load(pml_ptr + at1 * 2, mask=ok, other=-1.0e30) - m_max[None, :])
-        a = tl.load(pacc_ptr + at1[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0)
+        a = tl.load(pacc_ptr + at1[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0).to(tl.float32)
         acc += tl.sum(w[:, :, None] * a, 0)
     o = acc / denom[:, None] * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
@@ -672,18 +675,23 @@ def _plan(cfg, max_pages, device):
         # The merge takes 2 query heads per one-warp program (hb, cw) and every split in one pass (sb):
         # each further pass is another serial L2 round trip on the critical path.
         splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
+        # Batched verify blocks write BF16 partial accumulators (H100 verify 16/32 sliding -0.5 us); decode
+        # and batch 1 keep FP32 (BF16 there is +0.1-0.3 us).
+        pdt = "bf16" if length > 1 and heads > 4 else "f32"
         if heads <= 32:
             return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
-                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1)
+                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt)
         # Large batches: smaller, deeply pipelined programs.
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
-                    qk8=True, peel=length > 1, hb=2, sb=splits, cw=1)
+                    qk8=True, peel=length > 1, hb=2, sb=splits, cw=1, pdt=pdt)
+    # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
+    # decode 16/32 full -1.0/-1.5 us, verify 1 full -0.4. The Gluon verify path keeps FP32 (BF16 +1.5 us).
     if heads <= (2 if length == 1 else 4):
-        return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True)
+        return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16")
     if length == 1:
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
-                    fuse=False, qk8=True)
+                    fuse=False, qk8=True, pdt="bf16")
     # Verify blocks: each program runs both KV heads as two independent 64-row chains (dual), which
     # hides latency better than more programs; 3 fit per SM (160 registers), or 4 when capped at 128
     # (no spills). The splits fill exactly one wave, and each request's context is cut into equal
@@ -707,7 +715,7 @@ def _plan(cfg, max_pages, device):
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
-                qk8=True, peel=True, dual=True, balance=True, maxnreg=128 if per == 4 else None)
+                qk8=True, peel=True, dual=True, balance=True, maxnreg=128 if per == 4 else None, pdt="bf16")
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:
@@ -734,7 +742,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     rope = bool(cfg["rope_theta"])
     cs = _cos_sin(cfg["rope_theta"], d, device) if rope else qkv
 
-    pacc = torch.empty((batch, hkv, splits, rows, d), dtype=torch.float32, device=device)
+    pacc = torch.empty((batch, hkv, splits, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, splits, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
     fuse = plan["fuse"] and splits <= 64 and not dual  # the fused merge unrolls over splits
@@ -775,7 +783,7 @@ def _verify_gluon(data, cfg, plan):
     device = qkv.device
     page_table = data["page_table"]
     splits = plan["splits"]
-    pacc = torch.empty((batch, hkv, splits + 1, rows, d), dtype=torch.float32, device=device)
+    pacc = torch.empty((batch, hkv, splits + 1, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, splits + 1, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
     qk_scale = cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E
