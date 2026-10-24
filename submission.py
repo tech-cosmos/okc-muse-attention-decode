@@ -1874,6 +1874,10 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         for name, ptpf, fl in _DIAG:
             if fl:
                 torch.sum(_DFLUSH[0], 0, out=_DFLUSH[1][0])
+            if fl == 2:
+                kc8, vc8 = data["k_cache"].view(-1).view(torch.uint8), data["v_cache"].view(-1).view(torch.uint8)
+                npg = triton.cdiv(kc8.numel(), 1 << 16)
+                _tlb_touch[(triton.cdiv(npg, 128),)](kc8, vc8, _DFLUSH[1], kc8.numel(), npg, BLK=128, num_warps=4)
             _gw_diag(name)[(progs, 1, hkv // 2)](
                 qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
                 data["cache_loc"], dacc, dml, qk_scale,
@@ -1886,8 +1890,17 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
 
 _DFLUSH = None
 # (name, PTPF, flush first)
-_DIAG = [("_gwp_0a", 0, True), ("_gwp_512a", 512, True), ("_gwp_0b", 0, True), ("_gwp_512b", 512, True),
-         ("_gwp_256a", 256, True), ("_gwp_0warm", 0, False), ("_gwp_512warm", 512, False)]
+_DIAG = [("_gwt_flush_a", 0, 1), ("_gwt_touch_a", 0, 2), ("_gwt_flush_b", 0, 1), ("_gwt_touch_b", 0, 2),
+         ("_gwt_warm", 0, 0)]
+
+
+@triton.jit
+def _tlb_touch(kc, vc, sink, n, npg, BLK: tl.constexpr):
+    # One byte per 64 KB of the K and V caches (diagnostic: warms the TLBs for the gathers that follow).
+    i = tl.program_id(0) * BLK + tl.arange(0, BLK)
+    off = tl.minimum(i.to(tl.int64) << 16, n - 1)
+    x = tl.load(kc + off, mask=i < npg, other=0).to(tl.int32) + tl.load(vc + off, mask=i < npg, other=0).to(tl.int32)
+    tl.store(sink + i * 0, tl.sum(x, 0).to(tl.int64), mask=i == -1)
 _DIAG_FNS = {}
 
 
