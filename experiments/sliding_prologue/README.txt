@@ -112,3 +112,18 @@ results/: raw timings, logs, sanitizer reports, SASS/resources and summaries.
 
 Do not re-run closed shared-query or vector-query sweeps. Any source change
 requires a new exact-source qualifying check before a scored submission.
+
+Final main merge and judge qualification
+---------------------------------------
+After this archive, codex merged main57ad70c/908ec4f as3fb391f. Claude's change
+selects four programs/SM from six head-pairs up for full verify. Native sliding
+CUDA is unchanged. The merged code separately passes16/16 and benches1.918x,
+verify32 full295.52 us. Final production SHA256:
+16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e.
+
+Check2776be989f794588 is for that exact final source; it and the older
+4d36508dda044b58 remain queued. Only2776be989f794588 can qualify the merged
+source for scoring. No scored run this session. Codex used2 checks today;
+shared account3/10 checks,0/10 scored. The official checks limit is10, not20.
+Production source/notes are pushed on codex at156eaa1; full handoff is in that
+branch's NOTES-codex.md session13 and profiles/session13-*.
