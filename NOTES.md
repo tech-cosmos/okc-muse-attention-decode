@@ -731,3 +731,53 @@ no output (the job still runs: find it with `okc jobs` / `okc status <job>`).
    On the H200 verify 16/32 full are 129.6/240.3 us vs decode 97.8/185.3, so verify is compute-bound again there: the compute-only ablation (106 / 202 us on
    H100) is the bound to attack (consumer issue rate: softmax ops/element; e.g. FA4-style conditional
    rescale with a warp-uniform vote via inline asm, or exp2 emulation for part of the tile).
+
+## Session 12 (overnight agent, 2026-10-24 03:33-~04:00 UTC)
+
+No change to main (still 824e52a's kernel). 0 checks, 0 scored. Experiments on branch exp/gluon-pipe (df6bd0b,
+all behind plan flags that default off); scripts in tools/s12 there (forced-Gluon tests, no-gather ablation copy,
+ncu SASS-mix and spill/regs readers).
+
+### Where the Gluon verify-full time goes (H100, verify 16 full, base 139 us)
+
+- No gathers (cp.async removed, everything else kept) 106 us; minus V conversion 99; minus exp 101; minus P@V 94;
+  no softmax at all 71. No merge kernel at all: 133 (verify 32: 254 vs 259), so the merge tail is ~6 us.
+- ncu, no-gather variant: issue slots 50% busy, 1.1 eligible of 5.5 warps/scheduler. Per score element ~1.1 each of
+  FADD (row sum), FMNMX (max), FMUL (acc rescale; D == BN so it's 1/element), FFMA, MUFU, plus 1.0 F2FP (P and V).
+  Top stalls: wgmma waits (DEPBAR, ~9%), shuffle-reduction chains (short_sb on FMNMX/FADD), producer waiting on
+  `empty`. Consumers retry the `ready` wait ~2x per tile. It is latency-bound, not issue- or MUFU-bound.
+- Register split under warp_specialize: the DEFAULT partition (consumer of head 0) gets
+  (maxnreg * 12 warps - 4 * sum(worker regs)) / 4, not CREGS. Base cregs 96 / pregs 40 => head 0 gets 104, head 1 96.
+  Balanced is cregs 104 / pregs 32 (same speed as base). Read regs/spills with tools/s12/spills.py.
+
+### Dead ends (do not retry at 2 CTAs/SM)
+
+| variant | verify 16 full (H100) | compute-only |
+|---|---|---|
+| base | 139.1 | 105.6 |
+| FA3 pipelining (QK(i+1) issued before softmax(i)), cregs 112/pregs 32 | 145.6 (96-104: 157-178) | 113.5 |
+| same at 1 CTA/SM (cregs 200, splits 8, NS 5, LAG 2) | 149.2 | 129.4 (unpipelined: 141) |
+| P@V(i) and QK(i+1) issued together, one wait | 171-233 (spills at <= 104 regs) | 160 |
+| FA4 conditional rescale (skip acc*alpha unless a row max grows > 2^8; WG-wide vote) | - | 116.7 |
+| FP8 QK^T into an FP16 accumulator (HMNMX2/HFMA2, ex2.approx.f16) | 144.0 (verify 32 267.8 vs 259) | 121-122 |
+| same + row sums as P @ ones on the tensor cores | - | 114.5 |
+| row sums as P @ ones alone (f32 path) | - | 106.3 (tie) |
+
+Why FP16 scores lose: Hopper has no packed f16x2 MUFU (ex2.approx.f16x2 becomes two MUFU.EX2.F16) and the
+half-packing costs ~2 PRMT per element; total instructions went up (48.5M -> 51.6-60.6M).
+
+Decode full deeper pipelines (more bytes in flight, in case the H200 needs them): all slower on H100
+(decode 32 full: stages 7/8 251 vs 243; block_n 32 249-251; splits 128 265). Can't tell the H200 effect without a check.
+
+### Next ideas
+
+1. Verify full: the consumer can't hold a second S tile at <= 104 regs. Only remaining compute lever I see is fewer
+   live registers per consumer (e.g. M=64 split as two m64n32 halves with separate maxima, or acc in the producer's
+   freed regs) so FA3 pipelining fits; or a native CUTLASS/FA3-style kernel (Codex lane).
+2. The merge tail (~6 us of verify full, ~4%): FP16 normalized partials (acc / l) would halve its bytes and the main
+   kernel's partial writes; needs _gw_store, _new_tokens and _combine to agree. Maybe 2-3 us.
+3. H200-only effects (bytes in flight) are invisible here; a check comparing deeper decode-full pipelines would tell,
+   but only worth it with spare checks.
+
+Budget (UTC day 2026-10-24): Claude 3/8 checks, 1/3 scored (unchanged this session). Account at 03:45: 8/10 checks,
+4/10 scored.
