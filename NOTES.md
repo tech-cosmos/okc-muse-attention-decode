@@ -3189,3 +3189,30 @@ kernel at 2.321-2.322, 7f45c5c6's 2.343 looks like a good-noise run. Not submitt
 ### Budget (UTC day 2026-10-24)
 
 This session: 1 check (8bd56b13), 0 scored. Account: 13/20 checks, 9/10 scored.
+- **Native 4-CTA cluster merge for decode 1 full** (tools/s74/cmg.cu, drop-in for `_combine` at 512 slots, PDL
+  after `_gd_full`, st.async push to rank 0): shuffle-reduce version +0.56 us paired (0/9), smem column-reduce version
+  +6.4 (cause not chased). Merge exposure on H100 is 3.0 us (whole 15.66 vs attention only 12.70); `_combine` cw 4/16
+  worse. Dead.
+
+### Checks (H200)
+
+- **5ff29fde** (exp/s74 5cbed05 = main + csl TLB warm at batch 1 + verify 16 sliding 4 splits): **2.298x**
+  [2.263, 2.343]. decode 1 sliding 5.7 us 3.661x (vs 3.660-3.680 without: no gain); verify 16 sliding **13.5 us
+  2.168x** (vs 2.26-2.33 at 8 splits: loses). Both reverted.
+- **9a22a5ae** (exp/s74 55602b4 = main + decode 16 full dbal + verify 1 sliding stages 3): **2.320x** [2.285, 2.355].
+  decode 16 full 89.6 us 2.241x (vs 2.21-2.25: tie); verify 1 sliding 7.0 us 3.226x (vs 3.16-3.27: tie). Not kept.
+- Main's kernel (c9b3242) has now been measured at 2.320-2.322x three times; 7f45c5c6's 2.343 was a good-noise run.
+  Main was NOT submitted (rule: a check must beat 2.343).
+
+### Lessons / next
+
+- Per-shape H200 judge noise is ~+-2% per run, so H100-tied plan variants are not worth checks: none of 4 won.
+- What's left is structural. The biggest lever is still verify full (1.73-1.79x). Cheaper per-row gathers via bulk
+  copies are ruled out, and the FP8 V transpose / FP16 convert pass can't be avoided (FP8 wgmma needs K-major on
+  both operands). The next attempt needs a different consumer formulation, not producer tricks.
+- Batch-1 shapes pay ~1.6 us of judge-side overhead over the profiled kernel time (csl: kernel 4.0, judged 5.6-5.7;
+  verify 1 sliding: kernels 5.5, judged 7.0-7.2). Single-kernel designs only save the second launch's share.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 2 checks (5ff29fde, 9a22a5ae), 0 scored. Account: 15/20 checks, 9/10 scored.
