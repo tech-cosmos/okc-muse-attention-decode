@@ -1436,3 +1436,42 @@ decode 1 full vs beb63898's 15.21 us (USE_GD1), decode 16/32 full vs f3e099c1 (9
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 25 (overnight agent, 2026-10-24 08:27-09:05 UTC)
+
+**Main unchanged (de522ae kernels). Still UNCHECKED on the H200: check main first thing next UTC day, exactly as
+session 24's top paragraph says** (verify 16/32 full vs f3e099c1 for gbal, decode 1 full vs 15.21 us for USE_GD1,
+decode 16/32 full vs 92.63/173.84 for cw 1). The account had 0 checks left (10/10 for this problem today).
+Baseline reproduced: H100 bench 2.014x (decode 1 sliding 4.86, verify 1 sliding 5.92 us).
+
+### Dead end: in-grid merge via a thread-block cluster (batch-1 sliding)
+
+Idea: batch-1 sliding pays ~1.4 us for the separate PDL merge kernel (session 5: total minus attention-only), at
+~1.4% overall per us. Hopper clusters (up to 16 CTAs) could merge the splits in-grid behind a hardware cluster barrier
+instead of a grid boundary. Probes in tools/s25/ (no change to submission.py):
+- Gluon can launch clusters: `num_ctas=NC` gives a cluster of NC CTAs along grid x (program_id(0) = cluster index);
+  every layout then needs `cga_layout` bases (log2 NC of them). The rank comes from
+  `inline_asm_elementwise("mov.u32 $0, %cluster_ctarank;")`. Broadcast bases ([0, ...]) mean "replicated": global
+  stores from such a layout are done by CTA 0 only (probe.py). A CTA-split leading dim ([1 << i, 0, ...]) gives each
+  CTA its own slice (probe2.py). 16-CTA clusters launch fine.
+- Reductions over a CTA-split dim compile to DSMEM (`mapa`, `ld.shared::cluster`, many `barrier.cluster`) and are
+  correct, but need a monkeypatch: Gluon 3.8 crashes comparing layouts whose cga_layout is a list
+  (`'list' object has no attribute 'type'` in core._type_for_tuple_values; probe5.py wraps lists as constexpr).
+- Cost (tools/s25/cmerge.py, warm back-to-back launches, 2 clusters, partials [NC, 16, 64] fp32): plain copy
+  1.33/1.45 us (NC 8/16); DSMEM reduction merge 6.44/7.97 us (hopeless); exchange through L2 (each CTA stores its
+  slice, `cluster.barrier()`, all reload in a broadcast layout and reduce locally) 2.78/3.17 us, i.e. +1.45/+1.7 us
+  over the copy: the same as the PDL merge kernel it would replace. On top of that it would need 16 splits of 128 keys
+  (one cluster per KV head), which the Triton path already showed is slower than 32 x 64 (session 6). Not worth
+  building.
+- Also checked: `_gd_full` (Gluon one-warp) at decode 1 sliding is 7.0 us (splits 31) vs Triton's 4.8; the merge
+  kernels already preload the gate before `gdc_wait`.
+
+### Next ideas
+
+1. Check main de522ae (session 24's list); submit if it beats the board (account best 2.1605x).
+2. Unchanged from session 24: verify full's consumer is the only large lever; FP8 P@V needs a conflict-free V
+   transpose (inline PTX: Codex's lane, or hand it over via COORD.md).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
