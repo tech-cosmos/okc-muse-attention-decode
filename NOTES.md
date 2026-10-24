@@ -912,3 +912,28 @@ inside the judge's CI; account had 2 checks left today).
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 3/8 checks, 1/3 scored. Account at 04:35: 8/10 checks, 4/10 scored.
+
+## Session 16 (overnight agent, 2026-10-24 04:40-~05:30 UTC)
+
+### Change (main 06b7755): Gluon verify-full consumer, thread-local row sums + no duplicate barriers
+
+1. Plan key `lsum` (on for the Gluon path): `_gw_consumer_cv` keeps row sums per thread as `l8 = sum(reshape(p,
+   [M, BN/8, 8]), 1)`. In the wgmma accumulator layout column bits 3+ are registers, so that sum stays in
+   registers (no quad shuffles); `l8 *= alpha` each tile, and one quad reduction at the end (FA3's deferred
+   row_sum). No spills (80 regs, 0 spills; tools/s12/spills.py from branch exp/gluon-pipe).
+2. Dropped the explicit `gl.barrier()` before `mbarrier.arrive(empty)` (consumer) and after the producer's
+   `fence_async_shared()`: Gluon's arrive already emits `bar.sync <partition>, 128` right before its elected
+   arrive (checked in the PTX), so each was a second partition barrier per tile.
+
+H100, paired: verify 16 full 137.1 -> 136.6 us, verify 32 full 257.6 -> 256.8; **compute-only** (cp.async removed,
+the bound the H200 hits on verify full) 103.8 -> 101.0 (lsum) -> 100.2 (barriers). Bench 2.005 (other shapes noise).
+16/16 tests, gluon_cases 8/8.
+
+### Dead ends
+
+- Gluon store through a coalesced BlockedLayout (`gl.convert_layout` before the partial store), f32 or bf16:
+  verify 16 full 158+ us vs 137 (the convert's scratch smem presumably costs the 2nd CTA/SM). BF16 partials on the
+  Gluon path are now +1.2 us (was +1.5). Not kept.
+- Gluon path forced onto verify 1 full (splits 96/132/200/264): 20.2/20.2/21.7/28.1 vs Triton 18.7. Dead.
+- Not tried: the same lsum trick in Triton `_tile` (verify sliding); needs a 2-D l_i through `_new`/`_tile`/`_finish`
+  and Triton's reshape may insert layout converts. Each split there is only 4-8 tiles, so maybe a few 0.1 us.
