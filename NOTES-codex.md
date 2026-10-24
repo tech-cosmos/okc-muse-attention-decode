@@ -3598,3 +3598,107 @@ Session **0checks,0scored**, no withdrawals. Codex2026-10-24 totals remain
    demonstrated scored benefit and should not alone consume scarce checks.
 4. Keep experiment081f126 separate. Finish clean on pushed codex, remove the
    shared claim and post results. No pending Codex job requires waiting.
+
+## Session 29 — 2026-10-24, 03:12–03:20 UTC
+
+### Outcome and production state
+
+Audited session28's short-context full-L1 tile128 gains and tested composition
+with the existing native full merge. **No production kernel/dispatch change,
+no judge request.** Experiment **a93b1ed** is pushed separately on
+**codex-exp/full-decode-neighborhood**; start with
+`experiments/full_decode_neighborhood/README.md`. Frozen sources, complete raw
+graph pairs, fresh checks, suite/bench logs, and CPU audit are archived there.
+Production audit copy: `profiles/session29-native-audit.json`.
+
+Fetched main at start and end; **origin/main ab141cd** is already merged.
+Production remains SHA256
+`1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548`.
+No native CUDA kernel, Triton/Gluon helper or plan changed. Current production's
+session26 validation remains applicable; no redundant production run or new
+sanitizer claim. No experimental imports were introduced.
+
+### Broad short-context audit
+
+Unchanged session28 tile128 wrapper versus production across **74 shapes**:
+B1/2/4/8, contexts128/1024/4096/9K/16K/32768, pages1/64; matched9K
+scale/distribution controls; DP, tile boundaries and80K controls. Initial60
+adjacent AB/BA pairs each;22 representative cases confirmed with100pairs each
+at a second seed. H100 paired deltas, initial/confirmation, microseconds:
+
+| batch/context/page | tile128 minus production |
+|---|---:|
+|1/4096/1|-0.480/-0.352|
+|1/9K/1|+0.208/+0.224|
+|1/9K/64|0.000/+0.160|
+|2/4096/1|-1.824/-2.048|
+|2/9K/1|-2.000/-2.240|
+|2/9K/64|-2.864/-2.912|
+|2/16K/1|+0.048/-0.672|
+|4/9K/1|+0.352/+0.016|
+|8/4096/1|+0.816/+0.192|
+
+B2/9K wins across both scales(1,1/64), pages, soft/coherent distributions:
+initial-3.056 to-2.000us, confirmation-3.040 to-2.192us. Thus session28's gain
+was not confined to one scaled/page64 input. It does not generalize uniformly
+across batch/context. Both DP/4096 controls lose(+1.248/+0.848us).
+B1/80K scored control still loses6.448us; B2/80K/page64 loses10.448us.
+No context cutoff or production extension was fitted/promoted.
+
+### Existing-native-merge composition
+
+Production's existing native full merge applies when B*Hkv<=4 and64<S<=128,
+but the frozen tile wrapper always used Triton merge. Applied the **same
+predicate** to the tile wrapper's actual S without changing either kernel.
+Sixteen B1/2 cases at4096/8192/9K/16K, both pages, compare the composition with
+both production and original tile.80pairs/contrast; a second seed reverses
+graph capture order and repeats all contrasts.10cases activate native merge,
+6are identical-code controls. Wrapper AST audit verifies this sole change
+besides its default tile width.
+
+Composition minus original tile: active cases save0.512–0.656us initially and
+0.416–0.768us on confirmation. B1/9K now beats production:
+page1-0.272/-0.464us, page64-0.208/-0.528us. This explains part of the earlier
+batch-dependent boundary; it is not an isolated hardware latency attribution.
+Identical-code controls initially had+0.016 to+0.160us offsets, reversing to
+-0.064 to+0.016us under new seed/reversed capture order. Fine timing differences
+remain sensitive to allocation/capture effects. No favorable-repeat selection.
+
+The composition leaves the losing scored80K topology unchanged. Its broad
+wrapper bench1.622x against fixed SGLang/H200 numbers is an experimental result,
+not a production regression/H200 estimate. Preserve it as a useful short-context
+implementation building block, not a scored candidate or a justified cutoff.
+
+### Validation, budget and next cycle
+
+**11,760 adjacent graph pairs**, **864 independent output/cache checks** at
+comparison checkpoints. Original tile64 fresh replays plus composition64:
+changed QKV/cache/routes/lengths/positions/cache slots, shortened/empty contexts.
+40composed replays use native merge;24retain Triton merge. Composed full suite
+**16/16**,5native-attention cases,1also using native merge; followed by all12
+bench shapes. No CUDA kernel changed and no sanitizer run was added.
+
+Custom GPU drivers lock generation/reference/capture/timing, flush512MB before
+every timed replay and subtract empty replay cost. Suite/bench retains bench.py's
+timing-loop lock, with no overlapping own GPU work. All processes completed.
+Audit verifies exact inherited sources against081f126, unchanged production,
+wrapper AST difference, all counts and paired medians. Bootstrap intervals in
+the archive describe within-run variation only, not H200 or multiple comparisons.
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 remains
+**5/8checks,3/3scored**. Final official account **8/10checks,4/10scored**, leaving
+2checks/6scored account-wide; actual check cap10/day. Account best still
+**2.091142x,rank20**. COORD reports Claude check2363 resolved16/16,2.130x and
+its exact-source scored request **d0f30dc0d435455d** pending. These are Claude's
+source/jobs, not an exact Codex qualification; no duplicate request or polling.
+No Codex jobs remain pending. Neither STOP file exists.
+
+1. Read COORD/fetch main; leave Claude's pending score to its owner. Current
+   production SHA1bcf still lacks an exact-source H200 check; preserve scarce
+   checks and do not exceed exhausted Codex scored allowance today.
+2. Close this short-context audit as a scored direction. No repeat tile-width,
+   stage, merge-microarchitecture or fitted-cutoff sweep is justified. The
+   existing-merge composition may help future generality work, but provides no
+   demonstrated scored benefit.
+3. Keep experimenta93b1ed separate. Finish on clean pushed codex; remove the
+   shared claim and post results. No pending Codex job requires waiting.
