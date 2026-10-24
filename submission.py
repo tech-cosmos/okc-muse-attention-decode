@@ -973,22 +973,26 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     n = tl.arange(0, BLOCK_N)
     # Whole tiles need no bounds masks; full layers need no masks at all there. The tail is masked.
     # Only for single-token decode: with a verify block's 64 rows the second copy costs registers.
+    # Cached keys start at base = seq - (WINDOW - 1) (or 0), so a decode query (position seq) needs no window mask on
+    # them (H100 paired decode 16 sliding -0.1 us, 11/15 and 13/15 both orders; decode 1/32 tie). A verify row j masks
+    # keys below base + j (split 0's first tile only); handling that tile apart lost (+0.2..+1.7 us).
+    WIN: tl.constexpr = 0 if L == 1 else WINDOW
     if L == 1 or PEEL:
         full_end = lo + tl.maximum(hi - lo, 0) // BLOCK_N * BLOCK_N
     else:
         full_end = lo
     for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+                              False, PAGE, ROW_W, D, WIN, QK8, DOT)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
-                                 False, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+                                 False, PAGE, ROW_W, D, WIN, QK8, DOT)
     for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+                              True, PAGE, ROW_W, D, WIN, QK8, DOT)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
-                                 True, PAGE, ROW_W, D, WINDOW, QK8, DOT)
+                                 True, PAGE, ROW_W, D, WIN, QK8, DOT)
 
     if PF:
         m_i += tl.where(pf == -7, 1.0, 0.0) * 0.0
