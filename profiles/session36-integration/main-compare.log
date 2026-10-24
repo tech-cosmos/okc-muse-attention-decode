@@ -1,0 +1,73 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS (0, 'previous', 'eager')
+PASS (0, 'previous', 'capture')
+PASS (0, 'merged', 'eager')
+PASS (0, 'merged', 'capture')
+PASS (0, 'previous', 'after')
+PASS (0, 'merged', 'after')
+{"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 1, "dist": "coherent"}, "previous_us": 17.744000535458326, "merged_us": 17.039999831467867, "paired_delta_us": -0.6080009043216705}
+PASS (1, 'previous', 'eager')
+PASS (1, 'previous', 'capture')
+PASS (1, 'merged', 'eager')
+PASS (1, 'merged', 'capture')
+PASS (1, 'previous', 'after')
+PASS (1, 'merged', 'after')
+{"index": 1, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 64, "dist": "coherent"}, "previous_us": 17.136000096797943, "merged_us": 16.704000532627106, "paired_delta_us": -0.36800000816583633}
+PASS (2, 'previous', 'eager')
+PASS (2, 'previous', 'capture')
+PASS (2, 'merged', 'eager')
+PASS (2, 'merged', 'capture')
+PASS (2, 'previous', 'after')
+PASS (2, 'merged', 'after')
+{"index": 2, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "dist": "coherent"}, "previous_us": 18.464000429958105, "merged_us": 18.256000708788633, "paired_delta_us": -0.22399984300136566}
+PASS (3, 'previous', 'eager')
+PASS (3, 'previous', 'capture')
+PASS (3, 'merged', 'eager')
+PASS (3, 'merged', 'capture')
+PASS (3, 'previous', 'after')
+PASS (3, 'merged', 'after')
+{"index": 3, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "dist": "coherent"}, "previous_us": 18.65600049495697, "merged_us": 17.984000965952873, "paired_delta_us": -0.7039997726678848}
+PASS (4, 'previous', 'eager')
+PASS (4, 'previous', 'capture')
+PASS (4, 'merged', 'eager')
+PASS (4, 'merged', 'capture')
+PASS (4, 'previous', 'after')
+PASS (4, 'merged', 'after')
+{"index": 4, "shape": {"batch": 1, "ctx": 40000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "dist": "soft"}, "previous_us": 12.751999776810408, "merged_us": 12.47999956831336, "paired_delta_us": -0.36800000816583633}
+PASS (5, 'previous', 'eager')
+PASS (5, 'previous', 'capture')
+PASS (5, 'merged', 'eager')
+PASS (5, 'merged', 'capture')
+PASS (5, 'previous', 'after')
+PASS (5, 'merged', 'after')
+{"index": 5, "shape": {"batch": 1, "ctx": 120000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "kv_scale": 0.015625, "dist": "edges"}, "previous_us": 24.959999602288008, "merged_us": 23.983999621123075, "paired_delta_us": -1.1199992150068283}
+PASS (6, 'previous', 'eager')
+PASS (6, 'previous', 'capture')
+PASS (6, 'merged', 'eager')
+PASS (6, 'merged', 'capture')
+PASS (6, 'previous', 'after')
+PASS (6, 'merged', 'after')
+{"index": 6, "shape": {"batch": 2, "ctx": 9000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "spread": "agentic", "dist": "soft"}, "previous_us": 11.80800050497055, "merged_us": 10.592000558972359, "paired_delta_us": -1.247999258339405}
+PASS (7, 'previous', 'eager')
+PASS (7, 'previous', 'capture')
+PASS (7, 'merged', 'eager')
+PASS (7, 'merged', 'capture')
+PASS (7, 'previous', 'after')
+PASS (7, 'merged', 'after')
+{"index": 7, "shape": {"batch": 2, "ctx": 40000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "spread": "agentic", "dist": "coherent"}, "previous_us": 25.05600079894066, "merged_us": 24.36799928545952, "paired_delta_us": -0.6240000948309898}
+PASS (8, 'previous', 'eager')
+PASS (8, 'previous', 'capture')
+PASS (8, 'merged', 'eager')
+PASS (8, 'merged', 'capture')
+PASS (8, 'previous', 'after')
+PASS (8, 'merged', 'after')
+{"index": 8, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "dist": "soft"}, "previous_us": 4.959999583661556, "merged_us": 4.544000141322613, "paired_delta_us": -0.4159994423389435}
+PASS (9, 'previous', 'eager')
+PASS (9, 'previous', 'capture')
+PASS (9, 'merged', 'eager')
+PASS (9, 'merged', 'capture')
+PASS (9, 'previous', 'after')
+PASS (9, 'merged', 'after')
+{"index": 9, "shape": {"batch": 16, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 1, "spread": "agentic", "dist": "coherent"}, "previous_us": 128.864002879709, "merged_us": 128.92799591645598, "paired_delta_us": -0.048004090785980225}

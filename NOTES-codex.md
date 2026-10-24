@@ -4388,3 +4388,139 @@ H200 qualification. No pending Codex jobs; neither STOP file exists.
    work in its lane. Do not independently tune its plans or FP8 P@V experiments.
 4. Keep fded6bf separate. Finish clean on pushed codex, remove the shared claim,
    post results, and stop. No judge job needs waiting.
+
+## Session 36 — 2026-10-24, 04:39–04:52 UTC
+
+Completed native **deferred denominator reductions** and integrated main's new
+BF16 partial-storage policy with a native-interface guard. No judge requests.
+Native experiment **e2c54fd** (source/results4d5f548) is pushed separately on
+**codex-exp/native-deferred-denominator**. Start with
+`experiments/deferred_denominator/README.md`; raw graphs, generated CUDA,
+reference/fresh/sanitizer logs, SASS/resources, NCU and CPU audit are archived.
+Production evidence copy: `profiles/session36-native-audit.json`.
+
+### Production integration
+
+Maina8de0e7 was already merged at start. Late fetch found **32b1762/da388d1**:
+Claude's BF16 unnormalized partial accumulators on selected Triton paths.
+Merged as **23432d0**, preserving **FP32 partial allocation whenever the existing
+native full merger is selected**, since that C++ interface uses data_ptr<float>().
+The native predicate is factored into `native_full`; kernel bodies and dispatch
+coverage stay unchanged. Native sliding retains its existing FP32 allocation.
+Other paths inherit main's dtype policy. All20 shared Python helpers match main,
+and both native extension ASTs match previous production. No Triton tuning by Codex.
+
+Final production SHA256:
+`793a8476e50a4716b562abae1f1ce0609343d38cb444bedcc0303739047baa70`.
+Frozen previous/current/main and reproducible integration evidence are under
+`profiles/session36-integration/`. This exact source has **no H200 qualification**.
+
+Integrated suite **16/16**, then all12bench shapes, local aggregate **1.987x**
+versus fixed SGLang/H200 times. Paired previous/current H100 microseconds:
+
+| Case | previous | integrated | paired delta |
+|---|---:|---:|---:|
+|decode16full|130.432|129.360|-0.912|
+|decode32full|242.816|241.392|-1.696|
+|verify16sliding|12.512|12.384|-0.176|
+|verify32sliding|20.192|19.584|-0.560|
+|unchanged native decode1full|16.960|16.960|0.000|
+|unchanged Gluon verify16full|139.056|139.392|+0.512|
+
+Keep the unchanged Gluon offset as variation, not a kernel regression.
+Sixteen previous/current cases cover native/F32/BF16 boundaries, pages1/64,
+DP, scales1/1/64 and distributions. Separate ten-case comparison against new
+main preserves native advantages: B1/page1 decode17.744->17.040us (paired-0.608),
+verify18.464->18.256 (-0.224); page64 decode/verify deltas-0.368/-0.704us.
+All eight tested native-full cases win, native sliding B1 wins0.416us; unchanged
+BF16 decode16full control-0.048us. No universal nearby-speedup claim, and no
+claim that these new cases erase earlier narrow nearby weaknesses.
+
+**2080 adjacent AB/BA pairs,156 independent output/cache checks**, plus
+**128 fresh graph replays**,64per old/current source across16shapes. Fresh QKV,
+cache/routes/lengths/positions/cache slots, including shortened/empty contexts.
+No new integrated sanitizer claim: native kernels unchanged. Local aggregate
+is not an H200 estimate; paired deltas need not equal separate-median differences.
+Source/AST/count/median audit passes.
+
+Precision review: old NOTES session2 asserted FP32-only partial storage without
+citing organizer clarification. TASK and the published full rules do not
+explicitly specify split scratch dtype; their BF16 activation/cache/query
+requirements are recorded with the rules link in the integration README.
+Followed main's BF16 storage interpretation, retaining FP32 accumulation,
+max/sum and native interfaces. This is not an organizer ruling or a claim that
+passing numerical tolerance alone resolves policy. No experimental precision
+change was introduced in the native work and no judge request was made.
+
+### Native denominator deferral: improves prototype, still rejected
+
+Session35's natural-V transposed decode performs a shared cross-warp denominator
+sum every tile. All lanes use the same running maximum and rescale alpha, so
+local FP32 denominators can be rescaled independently and combined once at exit.
+The first variant defers only cross-warp sums; the second also defers within-warp
+sum shuffles. Both remove one per-tile stats-reuse barrier and add an epilogue
+publication/reduction. No change to maxima, numerators, precision, every-key
+coverage, gathers, cache insertion, grid,64-key tile,three stages or PDL merge.
+This is a concrete redundant-work removal, not a tile/stage/grid sweep.
+
+Eight cases per variant/control,60adjacent pairs each, H100 microseconds:
+
+| Full L1,80K,page1 | production / lane-local | lane minus production | natural / lane-local | lane minus natural |
+|---|---:|---:|---:|---:|
+|B1|16.992/20.912|+3.984|21.904/20.880|-1.104|
+|B16|128.736/173.072|+44.192|181.808/173.040|-8.224|
+|B32|239.904/315.744|+76.000|333.440/315.312|-18.336|
+
+Cross-warp-only saves0.768/4.352/8.400us against natural atB1/16/32, but loses
+4.176/48.528/86.736us against production. Nearby short-context gains remain
+incidental. No candidate/cutoff promoted and no H200 request justified.
+Broad-wrapper bench1.760/1.788x is experimental local evidence, not a production
+regression or H200 estimate.
+
+Page1/page64 registers stay94/80,69,632dynamic+1,024static shared bytes, zero
+stack/local for all three sources. Page1 static sites1362/1354/1362, all4QGMMA,
+8HGMMA and54SHFL sites. Isolated reference-checked B16/page1 NCU executed warp
+instructions natural/cross-warp/lane **47,833,256/45,110,464/43,344,312**;
+HBM reads330,934,016/330,932,480/330,930,944bytes. Shared-store conflicts remain
+about1.2M; barrier-stall percentages5.77/5.97/6.58 do not isolate barrier latency.
+Dynamic instructions expose the loop-work reduction that static counts hide.
+No profiler-duration or achieved-occupancy speedup claim.
+
+- Both16/16,5actual-native/11fallback; each then all12bench shapes.
+- **1920 adjacent graph pairs,192 independent output/cache checks**.
+- **64 fresh native graph replays plus64 separate production controls** across
+  eight shapes per variant, changed values/routes/lengths/positions/cache slots,
+  shortened/empty contexts; TP8/DP,pages1/64,scales1/1/64,soft/coherent/edges.
+- **32 direct partial comparisons**,contexts63–1,048,576,pages1/64,scales1/1/64:
+  bit-exact numerators/maxima/cache, denominator max relative difference
+  **2.088428e-6**. Long recurrence checks compare partials to natural; not a
+  separate million-token output-reference claim. Lane also16boundary smoke cases.
+- Each variant independently **memcheck0errors,synccheck0errors,racecheck0
+  hazards/errors/warnings**,24fresh native replays/tool. Torch independently
+  reduces partials and checks output/cache; no Triton loader launches.
+- CPU source/count/median/resource audit passes. Only generated report whitespace
+  normalized. A follow-up commit removed accidentally staged Python bytecode;
+  no history rewrite. All own GPU/build/profiler processes finished.
+
+Custom drivers lock generation/reference/capture/replay, flush512MB before each
+timed graph and subtract empty replay. Standard bench retains its timing-loop
+lock. All own work sequential; NCU parent takes the lock before spawning children.
+
+### Budget and next cycle
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 remains
+**5/8checks,3/3scored**. Official account **8/10checks,4/10scored**, leaving
+2checks/6scored; actual account check cap10/day. Best remains **2.1129x,rank20**,
+Claude's d0f30 score. No pending Codex jobs; neither STOP file exists.
+
+1. Read COORD/fetch main. New SHA793a8476 requires its own exact-source H200
+   check before any future scored request; old main/Codex results do not qualify
+   it. Preserve scarce shared checks while today's Codex scored allowance is gone.
+2. Close native denominator deferral as a scored direction. It removes real
+   work but leaves a large gap; no further tile/stage/grid/reduction sweep is
+   justified. The algebra may be useful in Claude's Gluon lane, not Codex tuning.
+3. Keep e2c54fd separate. Native full merge still requires FP32 producer storage;
+   preserve that interface when merging future dtype changes. Do not treat main
+   BF16 plans as permission to pass BF16 memory to a float-pointer kernel.
+4. Finish clean on pushed codex, remove claim and post results. No judge job
+   needs waiting; all session work is complete.
