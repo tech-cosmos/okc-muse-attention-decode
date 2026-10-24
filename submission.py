@@ -23,6 +23,7 @@ try:  # Gluon (Triton's low-level dialect, ships with triton 3.8): the verify fu
     from triton.experimental.gluon.language.nvidia.hopper import (fence_async_shared, mbarrier, warpgroup_mma,
                                                                     warpgroup_mma_wait)
     from triton.experimental.gluon.language.nvidia.ampere import async_copy as cp
+    from triton.experimental.gluon.language.nvidia.ampere import mma_v2
     HAVE_GLUON = True
 except ImportError:
     HAVE_GLUON = False
@@ -73,6 +74,8 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
+USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
+USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
 # Split partials' accumulator dtype (plan key pdt).
 _PDT = {"f32": torch.float32, "bf16": torch.bfloat16, "f16": torch.float16}
 print(f"env: torch {torch.__version__}, triton {triton.__version__}", flush=True)
@@ -301,6 +304,182 @@ if HAVE_GLUON:
         if LSUM:
             l_i = gl.convert_layout(gl.sum(l8, 1), gl.SliceLayout(1, S_L))
         _gw_store(pacc_ptr, pml_ptr, b, hh, split, m_i, l_i, acc, HKV, S + 1, M, D, gl.SliceLayout(1, S_L), O_L)
+
+    # ---- Decode steps (q_len 1) on full layers at batch * hkv > 2 (Gluon, one warp per program) ----
+    # Like _attn_split's hpp-2 programs (one split of one request's keys for a KV head pair, block-diagonal
+    # queries [2G, 2D] against whole 128-byte rows), but QK^T runs as FP8 mma.sync (Triton's MMAv2 path upcasts
+    # every K byte to FP16 on sm_90), V is read from shared memory 16 bytes at a time, and the pair's new token is
+    # written and attended by the last split into its own partial slot S (no separate launch). Same bytes, ~15-20%
+    # less work per key (H100, all reads from L2: decode 16/32 full 84/157 -> 69/132 us), which pays where
+    # per-SM bandwidth is higher (tools/emu.py: 137/261 -> 132/249 us; H100 itself: a tie).
+    @gluon.jit
+    def _gd_full(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
+                 cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
+                 MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
+                 TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
+                 SEP: gl.constexpr = False):
+        split = gl.program_id(0)
+        b = gl.program_id(1)
+        h = gl.program_id(2) * 2
+        # Let the merge kernel launch now (programmatic dependent launch); it waits for this grid.
+        gl.inline_asm_elementwise("griddepcontrol.launch_dependents;", "=r", [], dtype=gl.int32, is_pure=False,
+                                  pack=1)
+        C: gl.constexpr = 2 * D
+        M: gl.constexpr = 2 * G
+        QKV_W: gl.constexpr = (2 * HQ + 2 * HKV) * D
+        ROW_W: gl.constexpr = HKV * D
+        MMA: gl.constexpr = gl.NVMMADistributedLayout(version=[2, 0], warps_per_cta=[1, 1], instr_shape=[16, 8])
+        QA: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=MMA, k_width=4)
+        KB: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=MMA, k_width=4)
+        PA: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=MMA, k_width=2)
+        VB: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=MMA, k_width=2)
+        VA: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=MMA, k_width=2)
+        PB: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=MMA, k_width=2)
+        # 16 bytes per thread. (Converting FP8 queries into QA from a [1, 4]-per-thread layout gave wrong values.)
+        BL: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [1, 1], [1, 0])
+        SH: gl.constexpr = gl.SwizzledSharedLayout(16, 1, 8, [1, 0])
+
+        seq = gl.load(seq_ptr + b)
+        # Each request's cached keys (sliding layers: the last WINDOW - 1) in S equal tile-aligned chunks.
+        if WINDOW > 0:
+            base = gl.maximum(seq - (WINDOW - 1), 0)
+        else:
+            base = seq * 0
+        chunk = gl.cdiv(gl.cdiv(seq - base, S), BN) * BN
+        lo = base + split * chunk
+        hi = gl.minimum(lo + chunk, seq)
+        ntiles = gl.cdiv(gl.maximum(hi - lo, 0), BN)
+        pt_row = pt_ptr + b.to(gl.int64) * MAX_PAGES
+        kbase = kc_ptr + h * D
+        vbase = vc_ptr + h * D
+        k_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, BN, C], SH)
+        v_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, BN, C], SH)
+        n_g = gl.arange(0, BN, layout=gl.SliceLayout(1, BL))
+        c_g = gl.arange(0, C, layout=gl.SliceLayout(0, BL))
+        all_c = c_g[None, :] >= 0
+        # The first NS - 1 tiles in flight (cp.async zero-fills rows past hi instead of reading them).
+        for j in gl.static_range(NS - 1):
+            t = lo + j * BN + n_g
+            ok = t < hi
+            pg = gl.load(pt_row + t // PAGE, mask=ok, other=0)
+            off = ((pg.to(gl.int64) * PAGE + t % PAGE) * ROW_W)[:, None] + c_g[None, :]
+            cp.async_copy_global_to_shared(k_ring.index(j), kbase + off, mask=ok[:, None] & all_c)
+            cp.async_copy_global_to_shared(v_ring.index(j), vbase + off, mask=ok[:, None] & all_c)
+            cp.commit_group()
+        t = lo + (NS - 1) * BN + n_g
+        pg = gl.load(pt_row + t // PAGE, mask=t < hi, other=0)
+
+        # Block-diagonal queries: row r is query head (h + r // G) * G + r % G, nonzero only in its own KV head's
+        # D columns. RMSNorm, then E4M3.
+        r = gl.arange(0, M, layout=gl.SliceLayout(1, BL))
+        hp = r // G
+        q_ok = (c_g // D)[None, :] == hp[:, None]
+        x = gl.load(qkv_ptr + b * QKV_W + ((h + hp) * G + r % G)[:, None] * D + (c_g % D)[None, :], mask=q_ok,
+                    other=0.0).to(gl.float32)
+        x = gl.where(q_ok, x, 0.0)
+        rs = gl.rsqrt(gl.sum(x * x, 1) / D + 1e-5)[:, None]
+        if ROPE:
+            # Interleaved RoPE at position seq (the norm commutes with the rotation).
+            xp = gl.load(qkv_ptr + b * QKV_W + ((h + hp) * G + r % G)[:, None] * D + ((c_g % D) ^ 1)[None, :],
+                         mask=q_ok, other=0.0).to(gl.float32)
+            cs_off = seq * D + (c_g % D) // 2
+            cos = gl.load(cs_ptr + cs_off)[None, :]
+            sin = (gl.load(cs_ptr + cs_off + D // 2) * gl.where(c_g % 2 == 0, -1.0, 1.0))[None, :]
+            x = x * cos + xp * sin
+        x8 = (x * rs).to(gl.float8e4nv)
+        q = gl.convert_layout(x8, QA)
+        k_scale = gl.load(ks_ptr)
+        scale = qk_scale * k_scale
+
+        m_i = gl.full([M], -1.0e30, gl.float32, layout=gl.SliceLayout(1, MMA))
+        l_i = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, MMA))
+        if TPV:
+            # Transposed P@V per head: O^T [D, G] += V^T [D, BN] @ P^T [BN, G] (only the diagonal blocks: half the
+            # MMAs and accumulator registers of the block-diagonal form). V staged once per tile as FP16.
+            vh = gl.allocate_shared_memory(gl.float16, [BN, C], gl.SwizzledSharedLayout(8, 1, 8, [1, 0]))
+            acc0 = gl.zeros([D, G], gl.float32, layout=MMA)
+            acc1 = gl.zeros([D, G], gl.float32, layout=MMA)
+        else:
+            acc = gl.zeros([M, C], gl.float32, layout=MMA)
+        n_s = gl.arange(0, BN, layout=gl.SliceLayout(0, MMA))
+        for i in range(ntiles):
+            sj = (i + NS - 1) % NS
+            ok = t < hi
+            off = ((pg.to(gl.int64) * PAGE + t % PAGE) * ROW_W)[:, None] + c_g[None, :]
+            gl.barrier()  # slot sj was read last iteration
+            cp.async_copy_global_to_shared(k_ring.index(sj), kbase + off, mask=ok[:, None] & all_c)
+            cp.async_copy_global_to_shared(v_ring.index(sj), vbase + off, mask=ok[:, None] & all_c)
+            cp.commit_group()
+            t = t + BN
+            pg = gl.load(pt_row + t // PAGE, mask=t < hi, other=0)
+            cp.wait_group(NS - 1)
+            gl.barrier()
+            s = i % NS
+            sc = mma_v2(q, k_ring.index(s).permute((1, 0)).load(KB), gl.zeros([M, BN], gl.float32, MMA))
+            if lo + (i + 1) * BN > hi:
+                sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+            m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+            alpha = gl.exp2(m_i - m_new)
+            p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
+            l_i = l_i * alpha + gl.sum(p, 1)
+            m_i = m_new
+            if TPV:
+                a0, a1 = gl.split(gl.permute(gl.reshape(alpha, [2, G]), (1, 0)))
+                acc0 = acc0 * gl.convert_layout(a0, gl.SliceLayout(0, MMA))[None, :]
+                acc1 = acc1 * gl.convert_layout(a1, gl.SliceLayout(0, MMA))[None, :]
+                p0, p1 = gl.split(gl.permute(gl.reshape(p.to(gl.float16), [2, G, BN]), (2, 1, 0)))
+                vh.store(v_ring.index(s).load(BL).to(gl.float16))
+                gl.barrier()
+                acc0 = mma_v2(vh.slice(0, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p0, PB), acc0)
+                acc1 = mma_v2(vh.slice(D, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p1, PB), acc1)
+            else:
+                acc = acc * alpha[:, None]
+                v = gl.convert_layout(v_ring.index(s).load(BL).to(gl.float16), VB)
+                acc = mma_v2(gl.convert_layout(p.to(gl.float16), PA), v, acc)
+        cp.wait_group(0)
+
+        # Partials [B, HKV, S + 1, G, D]: each row's own head's D columns of acc.
+        ro = gl.arange(0, M, layout=gl.SliceLayout(1, MMA))
+        co = gl.arange(0, C, layout=gl.SliceLayout(0, MMA))
+        part = ((b * HKV + h + ro // G) * (S + 1) + split) * G + ro % G
+        own = (co // D)[None, :] == (ro // G)[:, None]
+        # SEP: an extra program (split S) only handles the new token; it stores no key partial.
+        keyp = split < S
+        own = own & keyp
+        if TPV:
+            dd = gl.arange(0, D, layout=gl.SliceLayout(1, MMA))
+            gg = gl.arange(0, G, layout=gl.SliceLayout(0, MMA))
+            pt0 = ((b * HKV + h) * (S + 1) + split) * G + gg
+            gl.store(pacc_ptr + pt0[None, :] * D + dd[:, None], acc0.to(pacc_ptr.dtype.element_ty))
+            gl.store(pacc_ptr + (pt0 + (S + 1) * G)[None, :] * D + dd[:, None], acc1.to(pacc_ptr.dtype.element_ty))
+        else:
+            gl.store(pacc_ptr + part[:, None] * D + (co % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=own)
+        gl.store(pml_ptr + part * 2, m_i, mask=keyp)
+        gl.store(pml_ptr + part * 2 + 1, l_i, mask=keyp)
+        if split == (S if SEP else S - 1):
+            # The step's new token for both KV heads: normalize K, store K and V as FP8 at cache_loc (row 0 of
+            # each head's block), and write its one-key partial (max = its score, sum = 1, acc = V) to slot S.
+            loc = gl.load(loc_ptr + b)
+            zero = gl.zeros([M, C], gl.float32, BL)
+            kx = gl.where(q_ok, gl.load(qkv_ptr + b * QKV_W + (HQ + h) * D + c_g)[None, :].to(gl.float32) + zero, 0.0)
+            krs = gl.rsqrt(gl.sum(kx * kx, 1) / D + 1e-5)[:, None]
+            if ROPE:
+                kxp = gl.where(q_ok, gl.load(qkv_ptr + b * QKV_W + (HQ + h) * D + (c_g ^ 1))[None, :].to(gl.float32)
+                               + zero, 0.0)
+                kx = kx * cos + kxp * sin
+            kq = (kx * krs / k_scale).to(gl.float8e4nv)
+            vx = gl.load(qkv_ptr + b * QKV_W + (HQ + HKV + h) * D + c_g)[None, :].to(gl.float32) + zero
+            vq = (gl.where(q_ok, vx, 0.0) / gl.load(vs_ptr)).to(gl.float8e4nv)
+            first = q_ok & ((r % G) == 0)[:, None]
+            dst = (loc.to(gl.int64) * ROW_W + h * D + c_g)[None, :] + gl.zeros([M, C], gl.int64, BL)
+            gl.store(kc_ptr + dst, kq, mask=first)
+            gl.store(vc_ptr + dst, vq, mask=first)
+            sn = gl.sum(x8.to(gl.float32) * kq.to(gl.float32), 1) * scale
+            pn = ((b * HKV + h + hp) * (S + 1) + S) * G + r % G
+            gl.store(pacc_ptr + pn[:, None] * D + (c_g % D)[None, :], vq.to(gl.float32).to(pacc_ptr.dtype.element_ty),
+                     mask=q_ok)
+            gl.store(pml_ptr + pn * 2, sn)
+            gl.store(pml_ptr + pn * 2 + 1, gl.full([M], 1.0, gl.float32, gl.SliceLayout(1, BL)))
 
     @gluon.jit
     def _gw_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
@@ -743,6 +922,15 @@ def _plan(cfg, max_pages, device):
     queries rounded to E4M3, as FA3 does with an FP8 cache)."""
     batch, length, hkv = cfg["batch"], cfg["q_len"], cfg["num_kv_heads"]
     heads = batch * hkv
+    pairs = heads // 2
+    if cfg["window"] and length == 1 and pairs >= 12 and HAVE_GLUON and USE_GSLIDE and hkv % 2 == 0 \
+            and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
+        # Batched sliding decode on the Gluon one-warp kernel (FP8 QK^T mma; a dedicated program per KV head
+        # pair for the new token, so the S key splits stay tile-aligned), up to ~800 programs (H100 decode
+        # 16/32 sliding 10.6/15.6 -> 9.3/13.9 us, B64 27.7 -> 23.2; at batch <= 8 it loses by 0.2-1.8 us).
+        # Off: on the H200 (check f3e099c1) decode 16/32 sliding went 10.4/14.6 -> 13.6/15.4 us.
+        splits = 32 if pairs * 32 <= 800 else (16 if pairs * 16 <= 800 else 8)
+        return dict(gdec=True, sep=True, splits=splits, block_n=32, stages=2, pdt="bf16", hb=2)
     if cfg["window"]:
         # Sliding layers: at most 2,047 cached keys; latency-bound.
         # The merge takes 2 query heads per one-warp program (hb, cw) and every split in one pass (sb):
@@ -754,21 +942,22 @@ def _plan(cfg, max_pages, device):
         if heads <= 32:
             return dict(splits=splits, block_n=64, warps=4, stages=5 if length > 1 and heads > 4 else 3,
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt)
-        # Large batches: smaller, deeply pipelined programs (decode: both KV heads per program, whole 128-byte
-        # rows; H100 decode 32 sliding 16.0 -> 15.4 us).
-        if length == 1:
-            return dict(splits=splits, block_n=64, warps=4, stages=5, hpp=2, fuse=False, qk8=True, hb=2, sb=splits,
-                        cw=1, pdt=pdt)
-        return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=1, fuse=False,
+        # Large batches: smaller, deeply pipelined programs. (hpp 2 for decode won on the H100, decode 32 sliding
+        # 16.0 -> 15.4 us, but is unchecked on the H200; reverted with session 18's decode 1 full plan.)
+        return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
                     qk8=True, peel=length > 1, hb=2, sb=splits, cw=1, pdt=pdt)
     # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
     # decode 16/32 full -1.0/-1.5 us, verify 1 full -0.4. The Gluon verify path keeps FP32 (BF16 +1.5 us).
     if heads <= (2 if length == 1 else 4):
-        if length == 1:
-            # Both KV heads per program (whole 128-byte rows): H100 decode 1 full 17.4 -> 16.8 us.
-            return dict(splits=128, block_n=64, warps=4, stages=5, hpp=2, fuse=False, qk8=True, pdt="bf16")
+        # (Session 18's hpp 2 / block_n 64 for decode 1 full won on the H100, 18.0 -> 17.4 us, but lost on the
+        # H200: check f3e099c1 decode 1 full 15.2 -> 17.6 us.)
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16")
     if length == 1:
+        if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
+            # Gluon one-warp programs (FP8 QK^T mma, new token in the last split): 1024 programs (one wave),
+            # S + 1 partial slots a power of two for the merge, BF16 partials.
+            splits = max(4, 2048 // heads - 1)
+            return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="bf16")
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
                     fuse=False, qk8=True, pdt="bf16")
@@ -813,6 +1002,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     plan = _plan(cfg, max_pages, device)
     if plan.get("gluon"):
         return _verify_gluon(data, cfg, plan)
+    if plan.get("gdec"):
+        return _decode_gluon(data, cfg, plan)
     span = max_pages * cfg["page_size"]
     if cfg["window"]:
         span = min(span, cfg["window"])
@@ -901,4 +1092,38 @@ def _verify_gluon(data, cfg, plan):
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=s, S_PAD=triton.next_power_of_2(s),
         SB=min(128, triton.next_power_of_2(s)), PDL=USE_PDL, num_warps=plan.get("cw", 4 if s > 32 else 2),
         launch_pdl=USE_PDL)
+    return out
+
+
+def _decode_gluon(data, cfg, plan):
+    batch, hq, hkv, d = cfg["batch"], cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
+    group = hq // hkv
+    qkv = data["qkv"]
+    device = qkv.device
+    page_table = data["page_table"]
+    splits = plan["splits"]
+    s = splits + 1
+    pacc = torch.empty((batch, hkv, s, group, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
+    pml = torch.empty((batch, hkv, s, group, 2), dtype=torch.float32, device=device)
+    out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
+    sep = plan.get("sep", False)
+    _gd_full[(splits + sep, batch, hkv // 2)](
+        qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
+        data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+        _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
+        HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
+        BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
+        ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1)
+    hb = plan.get("hb", 1)
+    if hb > 1:
+        _combine_hb[(batch, hq // hb)](
+            qkv, pacc, pml, data["v_scale"], out,
+            HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
+            SB=triton.next_power_of_2(s), HB=hb,
+            PDL=USE_PDL, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
+        return out
+    _combine[(batch, hq)](
+        qkv, pacc, pml, data["v_scale"], out,
+        HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
+        SB=min(128, triton.next_power_of_2(s)), PDL=USE_PDL, num_warps=4 if s > 32 else 2, launch_pdl=USE_PDL)
     return out
