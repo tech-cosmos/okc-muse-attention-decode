@@ -1,0 +1,39 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=muse_s28_fulltile128 -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/.cache/torch_extensions/py312_cu130/muse_s28_fulltile128/main.cpp -o main.o
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=muse_s28_fulltile128 -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/.cache/torch_extensions/py312_cu130/muse_s28_fulltile128/cuda.cu -o cuda.cuda.o
+/home/daytona/.cache/torch_extensions/py312_cu130/muse_s28_fulltile128/cuda.cu(68): warning #177-D: variable "col" was declared but never referenced
+       int col=d*32+(lane%4)*4+i*16+k,ix=d*8+i*4+k;
+           ^
+
+Remark: The warnings can be suppressed with "-diag-suppress <warning-number>"
+
+/home/daytona/.cache/torch_extensions/py312_cu130/muse_s28_fulltile128/cuda.cu(32): warning #177-D: variable "base" was declared but never referenced
+   const int seq=seqs[b],base=0,lo=split*128;
+                         ^
+
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 118 registers, used 1 barriers, 32768 bytes smem
+ptxas info    : Compile time = 74.087 ms
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 112 registers, used 1 barriers, 32768 bytes smem
+ptxas info    : Compile time = 70.094 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 118 registers, used 1 barriers, 32768 bytes smem
+ptxas info    : Compile time = 67.251 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 112 registers, used 1 barriers, 32768 bytes smem
+ptxas info    : Compile time = 66.933 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o muse_s28_fulltile128.so
+CHECK 128 1 False relative L2 error 8.454e-01 > 0.0980799 [bound 0.098: 2.5 x the reference's 0.033 with FP8 E4M3 queries + 0.015]
+Traceback (most recent call last):
+  File "<stdin>", line 12, in <module>
+AssertionError

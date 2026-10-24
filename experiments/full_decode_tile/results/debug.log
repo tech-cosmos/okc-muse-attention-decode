@@ -1,0 +1,18 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+PART 10 merr 0.0011444091796875 denerr 0.0006382465362548828 aerr 0.00013754669635090977
+10 True relative L2 error 5.537e-02 (worst row 5.537e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+PART 63 merr 0.002288818359375 denerr 0.001672506332397461 aerr 0.0006067853537388146
+63 True relative L2 error 8.106e-02 (worst row 8.106e-02) [bound 0.150: 2.5 x the reference's 0.081 with FP8 E4M3 queries + 0.015]
+PART 64 merr 0.0010223388671875 denerr 0.00046634674072265625 aerr 0.0002294280129717663
+64 True relative L2 error 9.758e-02 (worst row 9.758e-02) [bound 0.150: 2.5 x the reference's 0.098 with FP8 E4M3 queries + 0.015]
+PART 127 merr 0.0032215118408203125 denerr 0.0007176399230957031 aerr 0.862287163734436
+127 False relative L2 error 1.077e+00 > 0.15 [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+PART 128 merr 0.0017910003662109375 denerr 0.0010169744491577148 aerr 0.9174724221229553
+128 False relative L2 error 1.232e+00 > 0.103029 [bound 0.103: 2.5 x the reference's 0.035 with FP8 E4M3 queries + 0.015]
+PART 255 merr 0.002529144287109375 denerr 0.0003402233123779297 aerr 0.46105441451072693
+255 False relative L2 error 8.599e-01 > 0.147217 [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+PART 256 merr 0.0024089813232421875 denerr 0.0008407831192016602 aerr 0.8007096648216248
+256 False relative L2 error 1.057e+00 > 0.138277 [bound 0.138: 2.5 x the reference's 0.049 with FP8 E4M3 queries + 0.015]
+PART 1024 merr 0.0024318695068359375 denerr 0.0023317337036132812 aerr 0.5753141045570374
+1024 False relative L2 error 7.438e-01 > 0.113587 [bound 0.114: 2.5 x the reference's 0.039 with FP8 E4M3 queries + 0.015]

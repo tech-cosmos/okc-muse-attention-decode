@@ -1,0 +1,22 @@
+{
+  "128": {
+    "dynamic_shared_bytes": 32768,
+    "counts_page1_early": {
+      "QGMMA": 2,
+      "HGMMA": 8,
+      "LDGSTS": 8,
+      "STS.128": 8,
+      "LDS.64": 8
+    }
+  },
+  "256": {
+    "dynamic_shared_bytes": 65536,
+    "counts_page1_early": {
+      "QGMMA": 2,
+      "HGMMA": 16,
+      "LDGSTS": 16,
+      "STS.128": 16,
+      "LDS.64": 16
+    }
+  }
+}
