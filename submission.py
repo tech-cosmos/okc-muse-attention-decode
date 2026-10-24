@@ -731,15 +731,29 @@ if HAVE_GLUON:
             m_i = gl.full([M], -1.0e30, gl.float32, layout=gl.SliceLayout(1, S_L))
             acc = gl.zeros([M, D], gl.float32, layout=O_L)
             l8 = gl.sum(gl.reshape(gl.zeros([M, BN], gl.float32, S_L), [M, BN // 8, 8]), 1)
+            kp = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, S_L))
+            pend = gl.max(kp, 0) > 0.0
             for i in range(ntiles):
                 s = (it + i) % NS
                 mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
                 s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
                                       gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                if SPEC == 5:
+                    if pend:
+                        al = gl.exp2(-kp)
+                        acc = acc * gl.convert_layout(al, gl.SliceLayout(1, O_L))[:, None]
+                        l8 = l8 * gl.convert_layout(al, gl.SliceLayout(1, l8.type.layout))[:, None]
+                        m_i = m_i + kp
                 sc = warpgroup_mma_wait(0, deps=[s_tok])
                 if lo + (i + 1) * BN > hi:
                     sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
-                if SPEC:
+                if SPEC == 5:
+                    if i == 0:
+                        m_i = gl.maximum(m_i, gl.max(sc, 1) * scale)
+                    p = gl.exp2(gl.fma(sc, scale, -m_i[:, None]))
+                    ps = gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                    l8 = l8 + ps
+                elif SPEC:
                     # Lazy max (FA4's lazy rescale, without the per-tile row max): exponentiate against the running
                     # maxima; P <= 2^8 everywhere iff every thread's partial row sums are <= 2^8 (P >= 0), and
                     # then the maxima, l and acc stay as they are (exact online softmax with a stale offset).
@@ -771,9 +785,20 @@ if HAVE_GLUON:
                     acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
                 p16 = gl.convert_layout(p.to(gl.float16), P_L)
                 a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
+                if SPEC == 5:
+                    # Deferred renormalization: decided while P@V runs, applied next tile (exact powers of 2).
+                    rsum = gl.convert_layout(gl.sum(ps, 1), gl.SliceLayout(1, S_L))
+                    kp = gl.where(rsum > 16.0, gl.ceil(gl.log2(rsum)), 0.0)
+                    pend = gl.max(kp, 0) > 0.0
                 acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
                 mbarrier.arrive(empty.index(s))
             it += ntiles
+            if SPEC == 5:
+                if pend:
+                    al = gl.exp2(-kp)
+                    acc = acc * gl.convert_layout(al, gl.SliceLayout(1, O_L))[:, None]
+                    l8 = l8 * gl.convert_layout(al, gl.SliceLayout(1, l8.type.layout))[:, None]
+                    m_i = m_i + kp
             l_i = gl.convert_layout(gl.sum(l8, 1), gl.SliceLayout(1, S_L))
             _gw_store(pacc_ptr, pml_ptr, 0, h + HEAD, pid + b, m_i, l_i, acc, HKV, NID, M, D, gl.SliceLayout(1, S_L),
                       O_L)
