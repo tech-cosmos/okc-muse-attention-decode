@@ -1,0 +1,105 @@
+okc run 22381fd8435f4fce on muse_attention_decode
+submission  /home/daytona/repo/submission.py
+status      ok
+passed      true
+speedup     2.1357931674138673
+speedup_ci  [2.103756269902659 2.167830064925075]
+score_us    1763.41981867113
+tests       16/16 passed
+
+scored shapes (µs; speed of light is the reference's bound)
+case                                                         sglang      yours  speedup        sol  
+batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 1 page=1      20.66       6.47   3.195x       0.11  
+batch=1 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 1 page=1      31.62      16.68   1.895x       4.27  
+batch=16 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 16 page=1 spread=agentic      26.50      10.14   2.613x       1.65  
+batch=16 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 16 page=1 spread=agentic     200.74      99.07   2.026x      63.18  
+batch=32 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 32 page=1 spread=agentic      31.65      14.26   2.219x       3.29  
+batch=32 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 32 page=1 spread=agentic     385.54     186.13   2.071x     126.35  
+batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 1 page=1 q_len=8      23.30       7.86   2.964x       0.12  
+batch=1 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 1 page=1 q_len=8      35.81      16.03   2.234x       4.28  
+batch=16 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 16 page=1 q_len=8 spread=agentic      29.38      12.78   2.298x       1.86  
+batch=16 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 16 page=1 q_len=8 spread=agentic     205.38     125.34   1.639x      63.39  
+batch=32 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 32 page=1 q_len=8 spread=agentic      33.94      17.76   1.911x       3.72  
+batch=32 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 32 page=1 q_len=8 spread=agentic     390.06     234.66   1.662x     126.78  
+
+profile 0: batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 1 page=1
+kernel                                                           GPU time  share  calls
+_attn_split                                                        3.5 µs  70.3%      1
+_combine_hb                                                        1.5 µs  29.7%      1
+total                                                              5.0 µs
+
+profile 1: batch=1 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 1 page=1
+kernel                                                           GPU time  share  calls
+_attn_split                                                       10.5 µs  83.9%      1
+_combine                                                           2.0 µs  16.1%      1
+total                                                             12.5 µs
+
+profile 2: batch=16 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 16 page=1 spread=agentic
+kernel                                                           GPU time  share  calls
+_attn_split                                                        7.2 µs  82.1%      1
+_combine_hb                                                        1.6 µs  17.9%      1
+total                                                              8.8 µs
+
+profile 3: batch=16 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 16 page=1 spread=agentic
+kernel                                                           GPU time  share  calls
+_attn_split                                                       95.7 µs  69.8%      1
+_combine                                                          41.3 µs  30.2%      1
+total                                                            137.0 µs
+GPU busy (kernels overlap: PDL or streams)                        98.3 µs
+an overlapping kernel's time includes any wait for the one before it, so the rows add up to more
+
+profile 4: batch=32 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 32 page=1 spread=agentic
+kernel                                                           GPU time  share  calls
+_attn_split                                                       10.9 µs  87.6%      1
+_combine_hb                                                        1.5 µs  12.4%      1
+total                                                             12.4 µs
+
+profile 5: batch=32 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 32 page=1 spread=agentic
+kernel                                                           GPU time  share  calls
+_attn_split                                                      182.0 µs  58.0%      1
+_combine                                                         131.7 µs  42.0%      1
+total                                                            313.8 µs
+GPU busy (kernels overlap: PDL or streams)                       184.4 µs
+an overlapping kernel's time includes any wait for the one before it, so the rows add up to more
+
+profile 6: batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 1 page=1 q_len=8
+kernel                                                           GPU time  share  calls
+_attn_split                                                        4.2 µs  73.7%      1
+_combine_hb                                                        1.5 µs  26.3%      1
+total                                                              5.7 µs
+
+profile 7: batch=1 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 1 page=1 q_len=8
+kernel                                                           GPU time  share  calls
+_attn_split                                                       11.3 µs  81.9%      1
+_combine                                                           2.5 µs  18.1%      1
+total                                                             13.8 µs
+
+profile 8: batch=16 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 16 page=1 q_len=8 spread=agentic
+kernel                                                           GPU time  share  calls
+_attn_split                                                        8.9 µs  80.8%      1
+_combine_hb                                                        2.1 µs  19.2%      1
+total                                                             11.0 µs
+
+profile 9: batch=16 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 16 page=1 q_len=8 spread=agentic
+kernel                                                           GPU time  share  calls
+_gw_verify                                                       120.7 µs  55.4%      1
+_combine_hb                                                       94.1 µs  43.2%      1
+_new_tokens                                                        3.2 µs   1.5%      1
+total                                                            218.0 µs
+GPU busy (kernels overlap: PDL or streams)                       129.0 µs
+an overlapping kernel's time includes any wait for the one before it, so the rows add up to more
+
+profile 10: batch=32 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 32 page=1 q_len=8 spread=agentic
+kernel                                                           GPU time  share  calls
+_attn_split                                                       14.3 µs  83.2%      1
+_combine_hb                                                        2.9 µs  16.8%      1
+total                                                             17.2 µs
+
+profile 11: batch=32 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 32 page=1 q_len=8 spread=agentic
+kernel                                                           GPU time  share  calls
+_gw_verify                                                       225.2 µs  53.2%      1
+_combine_hb                                                      194.7 µs  46.0%      1
+_new_tokens                                                        3.4 µs   0.8%      1
+total                                                            423.3 µs
+GPU busy (kernels overlap: PDL or streams)                       233.2 µs
+an overlapping kernel's time includes any wait for the one before it, so the rows add up to more

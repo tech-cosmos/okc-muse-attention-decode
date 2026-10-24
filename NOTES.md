@@ -937,3 +937,15 @@ the bound the H200 hits on verify full) 103.8 -> 101.0 (lsum) -> 100.2 (barriers
 - Gluon path forced onto verify 1 full (splits 96/132/200/264): 20.2/20.2/21.7/28.1 vs Triton 18.7. Dead.
 - Not tried: the same lsum trick in Triton `_tile` (verify sliding); needs a 2-D l_i through `_new`/`_tile`/`_finish`
   and Triton's reshape may insert layout converts. Each split there is only 4-8 tiles, so maybe a few 0.1 us.
+- Register split re-sweep after lsum (cregs/pregs 96/40, 100/36, 104/32): flat at 136.9-137.1 us.
+- `gl.exp2` already lowers to `ex2.approx.ftz.f32` (one MUFU, no denormal fixup), so nothing to gain there.
+
+### Judge (UTC day 2026-10-24)
+
+| job | code | speedup (95% CI) | notes |
+|---|---|---|---|
+| 22381fd8435f4fce (check) | 06b7755 + an unused `CVT` plan flag (default off; my uncommitted experiment rode along through `git checkout main`, same kernels at runtime) | **2.136x** (2.104-2.168) | 16/16; H200 verify 16 full 129.65 -> 125.34 us, verify 32 full 240.27 -> 234.66 (vs check 2363a049 of 824e52a). Noise elsewhere: verify 1 sliding 6.90 -> 7.86 (that path is unchanged), decode 1 full 15.3 -> 16.7, verify 1 full 17.2 -> 16.0 |
+
+The verify-full gain on the H200 (-3.3% / -2.3%) is about what the H100 compute-only ablation predicted, so on the H200
+verify full really is bound by consumer compute: keep using the no-gather ablation (cp.async skipped in the producer)
+as the metric for verify-full compute work.
