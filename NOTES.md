@@ -1012,3 +1012,50 @@ an atomic + spin + fence chain at these sizes. Don't retry for sliding/decode Tr
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 4/8 checks, 2/3 scored. Account at 05:35: 9/10 checks, 5/10 scored.
+
+## Session 18 (overnight agent, 2026-10-24 05:47-~06:55 UTC)
+
+No change to main's kernel (still 3bb3a64). 0 checks, 0 scored (account had 1 check left today, kept for Codex).
+H100 bench at start 1.977 (verify 16/32 full 136.4/256.6, decode 1 full 17.7).
+
+### Dead ends (H100; base -> variant)
+
+- Warp-level FA4 conditional rescale in `_gw_consumer_cv` (branch exp/wcr, plan `wcr`, off): per warp, keep the old
+  row maxima unless one of the warp's rows grew by > 8 (log2), via `vote.sync.any` in inline asm (pack 2: a thread
+  holds 2 rows of the wgmma layout, and both rows' flags must go into one vote, else wrong results), and the 32
+  acc FMULs behind a `bra.uni` in inline asm (tied "0".."15" constraints, `${:uid}` labels). Correct (gluon_cases
+  errors identical), 80 regs, 0 spills, but verify 16/32 full 136.2/256.0 -> 136.3/256.4, compute-only (no gathers)
+  101.1/196.9 -> 102.0/197.5. Confirms session 12: the consumer is latency-bound, not issue-bound; removing ALU ops
+  doesn't help, the vote adds latency. Don't retry rescale-skipping.
+- Gluon verify full BN 32 (2 CTAs/SM): 150.7 (compute-only 121.6) vs 136.2 (101.1). So FA3 pipelining at BN 32
+  (which would fit in the registers) would have to win back 20% first. Not tried.
+- Gluon verify full at 1 CTA/SM (splits 8, maxnreg 152, cregs 184): BN 128 141.5 (compute-only 115.5), BN 64 154.0
+  (130.9). BN 128 is much better than BN 64 there, but still behind 2 CTAs/SM BN 64.
+- Sliding layers with fewer splits (verify 32 sliding: splits 4/2/1 with block_n 32-128: 20.6-32+ vs 19.6; decode 32
+  sliding splits 4/2/1: 18-35 vs 15.9). A single CTA's gather throughput is low (splits 2 = ~5 GB/s per SM), so the
+  sliding kernel needs the many-program split structure; dropping the merge that way doesn't pay.
+- Decode 1 full plan re-sweep (splits 132/192/264, block_n 64 with 6-11 stages, hpp 2, 8 warps): 17.65-18.85 vs
+  18.2 (same session); splits 132 at 17.65 is noise-level. Floor for that shape (tools/s18/gather1.py: 80000 random
+  128-byte K+V rows, graph replay, cold L2): 11.5 us on H100 at any chunk 160-640. So decode 1 full is ~6 us over
+  its gather floor (q prologue, split 0's new token, partial writes, the 8-program merge); that's ~0.5%/us overall,
+  the largest per-us lever left after batch-1 sliding.
+
+### Tools added (main)
+
+- tools/s12/{mkabl,runabl,one,spills}.py (copied from exp/gluon-pipe): `python tools/s12/mkabl.py` writes the
+  no-gather ablation to /tmp/s12/abl (mkdir it first); `LOADS="verify 16,verify 32" python tools/s12/runabl.py
+  <dir> '<json list of plan overrides>'` times verify full for either copy.
+- tools/s18/cases.py '<json>': gluon_cases.py with plan overrides on the Gluon path. tools/s18/ptx.py '<json>' out.ptx:
+  regs/spills + PTX of the verify-16 Gluon kernel. tools/s18/gather1.py: batch-1 full-layer gather floor.
+
+### Next ideas
+
+1. Decode 1 / verify 1 full: ~6 us over the gather floor on H100. Break it down with ablations (no merge launch,
+   zero tiles, no `_new`) like session 14 did for sliding, then attack the biggest piece (likely the 8-program
+   `_combine` over 128 splits: more programs per head, e.g. split D or split the partial range two-level).
+2. Gfuse for verify full still unchecked on the H200; check it next UTC day together with anything else.
+3. Decode full on the H200 (74% of HBM BW): wide-tile gathers; needs a check to evaluate.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 4/8 checks, 2/3 scored. Account at 05:47: 9/10 checks, 5/10 scored.
