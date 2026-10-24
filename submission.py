@@ -10,6 +10,7 @@
 2. _combine: one program per (token, KV head). It merges the splits, then applies the
    per-head RMSNorm and sigmoid(gate)."""
 
+import inspect
 from typing import TypedDict
 
 import torch
@@ -78,6 +79,8 @@ MERGE1 = True  # one-pass merges issue the accumulator loads before the max redu
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
 USE_GD1 = True  # decode full at batch * hkv == 2 on _gd_full too (511 splits, 8-warp one-pass merge); unchecked on H200
+USE_CL = True  # batch-1 sliding: cluster DSMEM merge (no merge kernel)
+CL_BN = {}
 USE_GBAL = True  # verify full from 16 KV head pairs: balanced splits over the whole batch (_gw_bal); unchecked on H200
 # Split partials' accumulator dtype (plan key pdt). FP32 only: SGLang's FA3 keeps its split partials in
 # FP32, and the rules forbid computing at lower precision than SGLang where they don't say otherwise.
@@ -913,6 +916,35 @@ def _range(split, b, seq, pt_ptr, WINDOW: tl.constexpr, BALANCE: tl.constexpr, S
 
 
 @triton.jit
+def _cl_sync():
+    """Cluster barrier: release this CTA's prior (shared::cluster and global) writes, acquire the peers'."""
+    tl.inline_asm_elementwise("barrier.cluster.arrive.release.aligned;\n\tbarrier.cluster.wait.acquire.aligned;\n\t"
+                              "mov.u32 $0, 0;", "=r", [], dtype=tl.int32, is_pure=False, pack=1)
+
+
+@triton.jit
+def _cl_sync_relaxed():
+    tl.inline_asm_elementwise("barrier.cluster.arrive.relaxed.aligned;\n\tbarrier.cluster.wait.aligned;\n\tmov.u32 $0, 0;",
+                              "=r", [], dtype=tl.int32, is_pure=False, pack=1)
+
+
+@triton.jit
+def _cl_push(off, x, ok, rank):
+    """x (fp32) into byte offset off of cluster CTA rank's dynamic shared memory, where ok."""
+    tl.inline_asm_elementwise(
+        "{ .reg .u32 a; .reg .pred p; setp.ne.u32 p, $4, 0; mov.u32 a, global_smem; add.u32 a, a, $1;"
+        " mapa.shared::cluster.u32 a, a, $3; @p st.shared::cluster.f32 [a], $2; mov.u32 $0, 0; }",
+        "=r,r,r,r,r", [off.to(tl.int32), x, rank.to(tl.int32), ok.to(tl.int32)], dtype=tl.int32, is_pure=False,
+        pack=1)
+
+
+@triton.jit
+def _cl_load(off):
+    return tl.inline_asm_elementwise("{ .reg .u32 a; mov.u32 a, global_smem; add.u32 a, a, $1; ld.shared.f32 $0, [a]; }",
+                                     "=r,r", [off.to(tl.int32)], dtype=tl.float32, is_pure=False, pack=1)
+
+
+@triton.jit
 def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr,
                 pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale,
                 HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr, G: tl.constexpr, L: tl.constexpr,
@@ -922,7 +954,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
                 BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
-                PRE: tl.constexpr = 0):
+                PRE: tl.constexpr = 0, CL: tl.constexpr = 0, CL_OFF: tl.constexpr = 8192, CL_ABL: tl.constexpr = 0):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -1018,6 +1050,43 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
 
     if PF:
         m_i += tl.where(pf == -7, 1.0, 0.0) * 0.0
+    if CL > 0:
+        # The S == CL splits are one thread-block cluster: each pushes its partial rows into the shared memory of
+        # the rank that owns them (RP rows per rank), and the owners merge, normalize and gate (no merge kernel).
+        RP: tl.constexpr = MG // CL if MG >= CL else 1
+        ML_OFF: tl.constexpr = CL_OFF + CL * RP * D * 4
+        if CL_ABL == 2:
+            tl.store(out_ptr + c, acc.to(tl.bfloat16).sum(0) + m_i.sum(0) + l_i.sum(0), mask=split == 99)
+            return
+        # Every CTA is done with its own shared memory (the K/V pipeline). Relaxed: a release arrival here costs
+        # ~0.4 us (H100).
+        _cl_sync_relaxed()
+        if CL_ABL == 1:
+            _cl_sync()
+        if CL_ABL == 1 or CL_ABL == 3:
+            tl.store(out_ptr + c, acc.to(tl.bfloat16).sum(0) + m_i.sum(0) + l_i.sum(0), mask=split == 99)
+            return
+        slot = split * RP + rr % RP
+        _cl_push(CL_OFF + (slot[:, None] * D + (c % D)[None, :]) * 4, acc, q_ok, (rr // RP)[:, None] + 0 * c[None, :])
+        _cl_push(ML_OFF + slot * 8, m_i, r_ok, rr // RP)
+        _cl_push(ML_OFF + slot * 8 + 4, l_i, r_ok, rr // RP)
+        _cl_sync()
+        if split * RP < MG:
+            si = tl.arange(0, CL)
+            rp = tl.arange(0, RP)
+            d = tl.arange(0, D)
+            slot2 = si[:, None] * RP + rp[None, :]
+            m = _cl_load(ML_OFF + slot2 * 8)
+            l = _cl_load(ML_OFF + slot2 * 8 + 4)
+            a = _cl_load(CL_OFF + (slot2[:, :, None] * D + d[None, None, :]) * 4)
+            m_max = tl.max(m, 0)
+            w = tl.exp2(m - m_max[None, :])
+            denom = tl.sum(w * l, 0)
+            o = tl.sum(w[:, :, None] * a, 0) / denom[:, None] * tl.load(vs_ptr)
+            r2 = split * RP + rp
+            _norm_gate_store(o, qkv_ptr, out_ptr, b * L + r2 // G, hp0 * G + r2 % G, d,
+                             (r2 < MG)[:, None] & (d < D)[None, :], HQ, HKV, D)
+        return
     _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
     if DUAL:
         _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
@@ -1132,6 +1201,48 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     o = acc / denom * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
     tl.store(out_ptr + tok * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
+
+
+@triton.jit
+def _combine_cl(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
+                HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
+                D: tl.constexpr, S: tl.constexpr, NC: tl.constexpr, SPC: tl.constexpr, CL_OFF: tl.constexpr):
+    """_combine for one query head's S slots by a cluster of NC CTAs (grid (NC, B * L, HQ)): each merges SPC
+    slots (spreading the partials' reads over NC SMs), pushes its (max, sum, accumulator) into rank 0's shared
+    memory, and rank 0 merges those, normalizes and gates."""
+    rank = tl.program_id(0)
+    tok = tl.program_id(1)
+    head = tl.program_id(2)
+    b = tok // L
+    h = head // G
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    d = tl.arange(0, D)
+    gdc_wait()
+    row = (b * HKV + h) * S * M + (tok % L) * G + head % G
+    si = rank * SPC + tl.arange(0, SPC)
+    ok = si < S
+    m = tl.load(pml_ptr + (row + si * M) * 2, mask=ok, other=-1.0e30)
+    l = tl.load(pml_ptr + (row + si * M) * 2 + 1, mask=ok, other=0.0)
+    a = tl.load(pacc_ptr + (row + si * M)[:, None] * D + d[None, :], mask=ok[:, None], other=0.0)
+    mx = tl.max(m, 0)
+    w = tl.exp2(m - mx)
+    ls = tl.sum(w * l, 0)
+    acc = tl.sum(w[:, None] * a, 0)
+    _cl_push(CL_OFF + (rank * D + d) * 4, acc, d < D, d * 0)
+    _cl_push(CL_OFF + NC * D * 4 + rank * 8 + d * 0, mx + d * 0.0, d == 0, d * 0)
+    _cl_push(CL_OFF + NC * D * 4 + rank * 8 + 4 + d * 0, ls + d * 0.0, d == 0, d * 0)
+    _cl_sync()
+    if rank == 0:
+        gate = tl.load(qkv_ptr + tok * QKV_W + (HQ + 2 * HKV) * D + head * D + d).to(tl.float32)
+        r = tl.arange(0, NC)
+        mm = _cl_load(CL_OFF + NC * D * 4 + r * 8)
+        ll = _cl_load(CL_OFF + NC * D * 4 + r * 8 + 4)
+        aa = _cl_load(CL_OFF + (r[:, None] * D + d[None, :]) * 4)
+        m_max = tl.max(mm, 0)
+        ww = tl.exp2(mm - m_max)
+        o = tl.sum(ww[:, None] * aa, 0) / tl.sum(ww * ll, 0) * tl.load(vs_ptr)
+        o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
+        tl.store(out_ptr + tok * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
 
 
 @triton.jit
@@ -1300,6 +1411,11 @@ def _plan(cfg, max_pages, device):
             # + stages 2 -0.11 (9/15); decode 1 sliding tsep alone and stages 2 alone ties, both -0.35 (15/15).
             # Batched sizes lose with tsep (+0.6-2.7 us).
             tiny = heads <= 4
+            if heads == 2 and USE_CL:
+                # cl: one 16-CTA thread-block cluster per KV head, the splits' partials merged in shared memory
+                # (DSMEM push) instead of by a merge kernel.
+                return dict(splits=16, block_n=plan_bn if (plan_bn := CL_BN.get(length)) else 128, warps=4,
+                            stages=2, hpp=1, fuse=False, qk8=True, pdt=pdt, cl=16)
             return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
         # Large batches: smaller, deeply pipelined programs.
@@ -1386,6 +1502,34 @@ def _plan(cfg, max_pages, device):
                 qk8=True, peel=True, dual=True, balance=True, maxnreg=128 if per == 4 else None, pdt="f32")
 
 
+def _cl_launch(fn, nc, grid, need, *args, **kw):
+    """fn[grid] launched as clusters of nc CTAs along x through Triton's own launcher (its num_ctas launch
+    metadata: grid x counted in clusters, the cluster dimension attribute, non-portable size 16 allowed), with at
+    least need bytes of dynamic shared memory. The kernel is compiled per CTA as usual (compiling with num_ctas
+    would split its tensors over the cluster)."""
+    ck = fn.warmup(*args, grid=grid, **kw)
+    ck._init_handles()
+    params = list(inspect.signature(fn.fn).parameters.items())
+    vals = list(args) + [kw.get(n, p.default) for n, p in params[len(args):]]
+    nw, _, shared = ck.packed_metadata
+    assert need <= 48 * 1024 and grid[0] % nc == 0
+    stream = torch.cuda.current_stream(args[0].device).cuda_stream
+    ck.run(grid[0] // nc, grid[1], grid[2], stream, ck.function, (nw, nc, max(shared, need)), None, None, None,
+           *vals)
+
+
+class _cluster:
+    """_attn_split[(CL, batch, hkv)] as one cluster per (request, KV head)."""
+
+    def __init__(self, fn, nc):
+        self.fn, self.nc = fn, nc
+
+    def __call__(self, *args, **kw):
+        grid = (self.nc, args[-2].shape[0], kw["HKV"])  # args[-2] is out [B, L, HQ*D]
+        need = kw.get("CL_OFF", 8192) + self.nc * max(1, kw["MG"] // self.nc) * (kw["D"] + 2) * 4
+        _cl_launch(self.fn, self.nc, grid, need, *args, **kw)
+
+
 def kernel_fn(data: Inputs) -> torch.Tensor:
     cfg = data["config"]
     batch, length = cfg["batch"], cfg["q_len"]
@@ -1405,7 +1549,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         span = min(span, cfg["window"])
     block_n = plan["block_n"]
     chunk = triton.cdiv(triton.cdiv(span, plan["splits"]), block_n) * block_n
-    splits = plan["splits"] if plan.get("balance") else triton.cdiv(span, chunk)
+    splits = plan["splits"] if plan.get("balance") or plan.get("cl") else triton.cdiv(span, chunk)
     rows = length * group
     hpp = plan["hpp"] if hkv % plan["hpp"] == 0 else 1
     dual = plan.get("dual", False) and hpp == 1 and hkv % 2 == 0
@@ -1418,7 +1562,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     pacc = torch.empty((batch, hkv, splits + sep, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, splits + sep, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
-    _attn_split[(splits + sep, batch, hkv // (2 if dual else hpp))](
+    cl = splits if plan.get("cl") and splits <= 16 and hpp == 1 and not dual and not sep else 0
+    launch = _cluster(_attn_split, cl) if cl and not plan.get("nocl") else _attn_split[(splits + sep, batch, hkv // (2 if dual else hpp))]
+    launch(
         qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
         data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
         cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
@@ -1427,9 +1573,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
         FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
         PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"),
-        PRE=0 if dual else plan.get("pre", 0), num_warps=plan["warps"],
+        PRE=0 if dual else plan.get("pre", 0), CL=cl, CL_ABL=plan.get("abl", 0), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
-    if fuse:
+    if fuse or cl:
         return out
     splits += sep
     hb = plan.get("hb", 1) if group % plan.get("hb", 1) == 0 else 1
@@ -1587,6 +1733,13 @@ def _decode_gluon(data, cfg, plan):
             HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, S_PAD=triton.next_power_of_2(s),
             SB=triton.next_power_of_2(s), HB=hb,
             ONE=MERGE1, PDL=USE_PDL, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
+        return out
+    if plan.get("ccl"):
+        nc = plan["ccl"]
+        spc = triton.next_power_of_2(triton.cdiv(s, nc))
+        _cl_launch(_combine_cl, nc, (nc, batch, hq), 16384 + nc * (d + 2) * 4, qkv, pacc, pml, data["v_scale"], out,
+                   HQ=hq, HKV=hkv, G=group, L=1, M=group, D=d, S=s, NC=nc, SPC=spc, CL_OFF=16384,
+                   num_warps=plan.get("cw", 4), launch_pdl=USE_PDL and not plan.get("nopdl"))
         return out
     _combine[(batch, hq)](
         qkv, pacc, pml, data["v_scale"], out,
