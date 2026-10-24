@@ -2479,3 +2479,45 @@ H100 sweeps, us (base / fused):
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 51 (overnight agent, 2026-10-24 13:46-~14:40 UTC; unattended session 18 of this night)
+
+**Main code unchanged (652aafe; 63a4974 / 6fb74be / d92f1ed / 652aafe all still UNCHECKED on the H200).** 0 judge runs
+(account checks 0/10 left today; Claude's 3 scored used). H100 bench on main at start 2.04 (decode 16 sliding 10.42,
+others as session 48).
+
+### Dead end: 6 consumer warpgroups per SM again, with consumers converting their own V (branch exp/v3cv, plan key `v3n`, pushed)
+
+Session 42's exp/cps3 (3 balanced programs per CTA) was 549/496 us with one producer warpgroup that both gathered and
+converted V for all six consumers. `_gw_verify3n` instead has a gather-only producer (`cp.mbarrier_arrive` on `ready`, as
+`_gw_producer`); each consumer converts its own head's V half while its QK^T wgmma runs (as `_gw_consumer`), then
+arrives on `empty` after issuing P@V. BN 32, NS 4, maxnreg 72 (896 threads), cregs 80. It's correct (verify 32 full rel err
+0.029). Verify 32 full, real/all-L2 in us (main ~256/200):
+
+| variant | real | all-L2 |
+|---|---|---|
+| lsum row sums, pregs 32 (26 spills) | 448 | 391 |
+| no lsum (`lsum3` false), pregs 24 | 439 | 368 |
+| + next step's page indices loaded before the slot waits (3 rings) | 369 | 344 |
+| pregs 32 | 321 | 306 |
+| producer as the default partition (`pdef`), pregs 24 | 352 | 313 |
+| `abl3 1` (no page loads in the loop, wrong results) | 332 | 333 |
+
+- **Register gotcha**: in Gluon's `warp_specialize` the default partition (first entry) gets what's left of the budget, and
+  that can be less than the worker regs: with workers 5x80 + 32 the default consumer ran at 72 and spilled its accumulator
+  around every QK^T (STL/LDL in its loop only). With pregs 24 it got 80 and the 24-register producer spilled instead.
+- ncu (all-L2, pdef): **190M instructions vs main's ~120M**, at the same ~65% issue rate. BN-32 per-tile overhead, the
+  producer's per-tile `_gw_tile` reductions and the mbarrier spins of 28 warps all cost issue slots. Session 42's linear
+  scaling (2 -> 4 WGs) stops at 4 WGs because the SM is already near its issue limit. Don't retry 6 WGs/SM in Gluon.
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 48's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05, decode 16 sliding 10.27). Revert any shape
+   that got worse, and submit if the total beats the board.
+2. Verify full on the H200 is issue-bound (~65% at 4 WGs/SM), so what's left is fewer instructions per key in the
+   consumer, which sessions 35-49 have exhausted at the Gluon level.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
