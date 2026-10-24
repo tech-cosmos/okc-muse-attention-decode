@@ -1,0 +1,15 @@
+Fatbin elf code:
+================
+arch = sm_90a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /home/daytona/.cache/torch_extensions/py312_cu130/muse_deferred_denominator_s36_deferred/cuda.cu
+
+Resource usage:
+ Common:
+  GLOBAL:28 CONSTANT[4]:224
+ Function _Z6decodeILi64EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif:
+  REG:80 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:628 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z6decodeILi1EEvPK13__nv_bfloat16PhS3_PKiS5_PKlPKfS9_PfSA_iiiif:
+  REG:94 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:628 TEXTURE:0 SURFACE:0 SAMPLER:0

@@ -1,0 +1,28 @@
+========= COMPUTE-SANITIZER
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS deferred 1 1.0 10 0 relative L2 error 9.257e-02 (worst row 1.049e-01) [bound 0.150: 2.5 x the reference's 0.093 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 1.0 10 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 1.0 257 0 relative L2 error 9.625e-02 (worst row 1.217e-01) [bound 0.150: 2.5 x the reference's 0.096 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 1.0 257 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 1.0 4096 0 relative L2 error 9.208e-02 (worst row 9.636e-02) [bound 0.150: 2.5 x the reference's 0.092 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 1.0 4096 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 0.015625 10 0 relative L2 error 9.260e-02 (worst row 1.050e-01) [bound 0.150: 2.5 x the reference's 0.093 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 0.015625 10 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 0.015625 257 0 relative L2 error 9.618e-02 (worst row 1.216e-01) [bound 0.150: 2.5 x the reference's 0.096 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 0.015625 257 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 0.015625 4096 0 relative L2 error 9.210e-02 (worst row 9.638e-02) [bound 0.150: 2.5 x the reference's 0.092 with FP8 E4M3 queries + 0.015]
+PASS deferred 1 0.015625 4096 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 1.0 10 0 relative L2 error 4.914e-02 (worst row 6.007e-02) [bound 0.138: 2.5 x the reference's 0.049 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 1.0 10 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 1.0 257 0 relative L2 error 7.214e-02 (worst row 7.280e-02) [bound 0.150: 2.5 x the reference's 0.072 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 1.0 257 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 1.0 4096 0 relative L2 error 9.321e-02 (worst row 1.039e-01) [bound 0.150: 2.5 x the reference's 0.093 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 1.0 4096 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 0.015625 10 0 relative L2 error 4.916e-02 (worst row 6.010e-02) [bound 0.138: 2.5 x the reference's 0.049 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 0.015625 10 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 0.015625 257 0 relative L2 error 7.211e-02 (worst row 7.280e-02) [bound 0.150: 2.5 x the reference's 0.072 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 0.015625 257 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 0.015625 4096 0 relative L2 error 9.316e-02 (worst row 1.039e-01) [bound 0.150: 2.5 x the reference's 0.093 with FP8 E4M3 queries + 0.015]
+PASS deferred 64 0.015625 4096 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+TOTAL 24
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
