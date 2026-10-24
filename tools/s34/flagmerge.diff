@@ -1,0 +1,110 @@
+diff --git a/submission.py b/submission.py
+index 536d1b4..40aa622 100644
+--- a/submission.py
++++ b/submission.py
+@@ -452,10 +452,14 @@ if HAVE_GLUON:
+                  cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
+                  MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
+                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
+-                 SEP: gl.constexpr = False):
++                 SEP: gl.constexpr = False, FL: gl.constexpr = False, fl_ptr=None):
+         split = gl.program_id(0)
+         b = gl.program_id(1)
+         h = gl.program_id(2) * 2
++        if FL:
++            # This program's ready flag (only it writes it: one more per call; the merge waits for its count).
++            fl = fl_ptr + (b * (HKV // 2) + gl.program_id(2)) * gl.num_programs(0) + split
++            fl_n = gl.load(fl) + 1
+         # Let the merge kernel launch now (programmatic dependent launch); it waits for this grid.
+         gl.inline_asm_elementwise("griddepcontrol.launch_dependents;", "=r", [], dtype=gl.int32, is_pure=False,
+                                   pack=1)
+@@ -615,6 +619,9 @@ if HAVE_GLUON:
+                      mask=q_ok)
+             gl.store(pml_ptr + pn * 2, sn)
+             gl.store(pml_ptr + pn * 2 + 1, gl.full([M], 1.0, gl.float32, gl.SliceLayout(1, BL)))
++        if FL:
++            gl.barrier()
++            gl.atomic_xchg(fl, fl_n, sem="release", scope="gpu")
+ 
+     @gluon.jit
+     def _gw_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
+@@ -1050,6 +1057,55 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
+     tl.store(out_ptr + tok * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
+ 
+ 
++@triton.jit
++def _combine_fl(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, fl_ptr, mc_ptr,
++                HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, D: tl.constexpr, S: tl.constexpr,
++                S_PAD: tl.constexpr, SB: tl.constexpr, NP: tl.constexpr, NAP: tl.constexpr = 0):
++    """_combine for decode (_gd_full) without waiting for the whole attention grid: slot chunks are merged
++    (online) as soon as their programs' ready flags reach this call's count. Each merge program counts its own
++    calls in mc_ptr; each attention program bumps its own flag once per call, so after n calls all are n."""
++    b = tl.program_id(0)
++    head = tl.program_id(1)
++    h = head // G
++    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
++    d = tl.arange(0, D)
++    gate = tl.load(qkv_ptr + b * QKV_W + (HQ + 2 * HKV) * D + head * D + d).to(tl.float32)
++    mc = mc_ptr + b * HQ + head
++    want = tl.load(mc) + 1
++    fl = fl_ptr + (b * (HKV // 2) + h // 2) * NP
++    row = (b * HKV + h) * S * G + head % G
++    sb = tl.arange(0, SB)
++    m_i = tl.full([1], -1.0e30, tl.float32)
++    l_i = tl.zeros([1], tl.float32)
++    acc = tl.zeros([D], tl.float32)
++    for i in tl.static_range(0, S_PAD, SB):
++        si = i + sb
++        ok = si < S
++        prog = tl.minimum(si, NP - 1)
++        while tl.min(tl.where(ok, tl.load(fl + prog, mask=ok, other=0, volatile=True), want), 0) < want:
++            if NAP == 1:
++                tl.inline_asm_elementwise("nanosleep.u32 100;", "=r", [], dtype=tl.int32, is_pure=False, pack=1)
++            if NAP == 2:
++                tl.inline_asm_elementwise("nanosleep.u32 500;", "=r", [], dtype=tl.int32, is_pure=False, pack=1)
++        tl.inline_asm_elementwise("fence.acq_rel.gpu;", "=r", [], dtype=tl.int32, is_pure=False, pack=1)
++        m = tl.load(pml_ptr + (row + si * G) * 2, mask=ok, other=-1.0e30, cache_modifier=".cg")
++        l = tl.load(pml_ptr + (row + si * G) * 2 + 1, mask=ok, other=0.0, cache_modifier=".cg")
++        a = tl.load(pacc_ptr + (row + si * G)[:, None] * D + d[None, :], mask=ok[:, None], other=0.0,
++                    cache_modifier=".cg")
++        m_new = tl.maximum(m_i, tl.max(m, 0))
++        alpha = tl.exp2(m_i - m_new)
++        w = tl.exp2(m - m_new)
++        l_i = l_i * alpha + tl.sum(w * l, 0)
++        acc = acc * alpha + tl.sum(w[:, None] * a, 0)
++        m_i = m_new
++    o = acc / l_i * tl.load(vs_ptr)
++    o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
++    tl.store(out_ptr + b * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
++    tl.store(mc, want)
++    # Done only after the attention grid (as with a wait at the start).
++    gdc_wait()
++
++
+ @triton.jit
+ def _combine_hb(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
+                 HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
+@@ -1435,13 +1491,22 @@ def _decode_gluon(data, cfg, plan):
+     pml = torch.empty((batch, hkv, s, group, 2), dtype=torch.float32, device=device)
+     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
+     sep = plan.get("sep", False)
++    fl = dict(FL=True, fl_ptr=_counters((splits + sep) * batch * hkv // 2, device, f"fl{batch}_{hkv}_{splits}_{sep}")) \
++        if plan.get("fl") and USE_PDL else {}
+     _gd_full[(splits + sep, batch, hkv // 2)](
+         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
+         data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
+         _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
+         HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
+         BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
+-        ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1)
++        ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1, **fl)
++    if fl:
++        _combine_fl[(batch, hq)](
++            qkv, pacc, pml, data["v_scale"], out, fl["fl_ptr"],
++            _counters(batch * hq, device, f"mc{batch}_{hkv}_{splits}_{sep}"),
++            HQ=hq, HKV=hkv, G=group, D=d, S=s, S_PAD=triton.next_power_of_2(s), SB=plan["fl"], NP=splits + sep, NAP=plan.get("nap", 0),
++            num_warps=plan.get("cw", 4), launch_pdl=USE_PDL)
++        return out
+     hb = plan.get("hb", 1)
+     if hb > 1:
+         _combine_hb[(batch, hq // hb)](

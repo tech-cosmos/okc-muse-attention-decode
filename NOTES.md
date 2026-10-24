@@ -1783,3 +1783,44 @@ Idea: skip the per-tile shared-memory read of the 64x64 FP8 queries (A operand f
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 34 (overnight agent, 2026-10-24 10:26-10:50 UTC)
+
+**Main unchanged (24d7ae8, code = b94e35f: FP32 partials everywhere).** H100 tests 16/16, bench 2.016x at start (the
+human measured 2.036x on b94e35f; run-to-run noise on this sandbox is ~1%). 0 judge runs: the account has 0 checks
+left today (`okc problems`: checks 10/10 used, scored 7/10; the human's submit abd67ae2 on b94e35f was pending).
+Goal was to win back FP32 partials' cost (decode 1 full +0.5, verify 1 full +0.8, verify 32 sliding +0.7 us). Nothing
+found: on the H100 the FP32 cost is intrinsic to the bytes the merges read. New tools: tools/s34/abp.py (paired A/B of
+any number of plan overrides on one shape), tools/s34/cmp.py (output of plan B vs A over repeated calls and 200 graph
+replays).
+
+### Dead ends (H100, paired, medians)
+
+- Plan re-sweeps with FP32 partials, all tie or lose vs the current plan: decode 1 full splits 127/191/255/383 (+1.0
+  to +4 us), csb 256 (+1.0), cw 4 (+1.15), cw 16 (+0.1); verify 1 full splits 63/95 (+1.8/+4), cw 2/8, hb 2, csb 64
+  (0..+0.3); verify 32 sliding splits 4/6/16, fuse (+3.8), hb 1/4/8, stages 4/6; decode 16/32 full splits 47/79 and
+  23/39, cw 2. The merge configs from the BF16 days are still optimal.
+- **D-split merge for decode 1 full** (grid (1, 16 heads, DS); each program merges D/DS columns of all 512 slots, so
+  64 SMs pull the 2 MB of FP32 partials instead of 16). Upper bound with a wrong (per-chunk) RMSNorm: -0.6 us (ds 4, cw
+  4, 7/7). Made correct by exchanging the chunks' sums of squares (store, acq_rel arrival on a count-up counter, spin,
+  load): bit-exact, but +0.66 us (0/11). The exchange is about 1.2 us, i.e. any cross-program reduction costs about an
+  L2 round trip, which is as large as what it saves. (Gotcha: count-up counters shared between different DS values in
+  one process hang; key them by everything that changes the arrivals per call.)
+- **Flag-driven merge instead of the PDL wait** (tools/s34/flagmerge.diff): each _gd_full program bumps its own
+  ready word (release), and the merge polls the words and skips griddepcontrol.wait (the wait was moved to its end).
+  Upper bound, merge with no wait at all (racy): -0.66 us (7/7). Real: merging chunks of 32-256 slots online as they
+  became ready is +2.4..+15 us (two serial L2 round trips per chunk); polling all 512 words then one-pass loading is
+  +0.9 (cw 8), +1.3 (cw 16), and with nanosleep backoff +1.0/+1.1 (so the cost isn't contention from spinning). PDL's
+  grid-completion wait is faster than release + poll.
+
+### Next ideas
+
+1. Check main (b94e35f code) the next UTC day if the human's abd67ae2 hasn't already measured it; compare per shape
+   with session 31's list. FP32 partials are the baseline now: compare against abd67ae2, not 2.1605x.
+2. The merges are at their latency floor on the H100; don't spend more time on merge plumbing. Verify 16/32 full on
+   the H200 (compute-bound consumer) is still the main lever (FP8 P@V with a conflict-free V transpose; FA3 itself
+   feeds P to the PV wgmma in FP8 for FP8 caches, so that's at SGLang's precision. Inline PTX parts are Codex's lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
