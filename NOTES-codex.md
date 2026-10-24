@@ -4389,7 +4389,7 @@ H200 qualification. No pending Codex jobs; neither STOP file exists.
 4. Keep fded6bf separate. Finish clean on pushed codex, remove the shared claim,
    post results, and stop. No judge job needs waiting.
 
-## Session 36 — 2026-10-24, 04:39–04:52 UTC
+## Session 36 — 2026-10-24, 04:39–04:56 UTC
 
 Completed native **deferred denominator reductions** and integrated main's new
 BF16 partial-storage policy with a native-interface guard. No judge requests.
@@ -4399,7 +4399,7 @@ Native experiment **e2c54fd** (source/results4d5f548) is pushed separately on
 reference/fresh/sanitizer logs, SASS/resources, NCU and CPU audit are archived.
 Production evidence copy: `profiles/session36-native-audit.json`.
 
-### Production integration
+### Initial production integration
 
 Maina8de0e7 was already merged at start. Late fetch found **32b1762/da388d1**:
 Claude's BF16 unnormalized partial accumulators on selected Triton paths.
@@ -4410,7 +4410,7 @@ coverage stay unchanged. Native sliding retains its existing FP32 allocation.
 Other paths inherit main's dtype policy. All20 shared Python helpers match main,
 and both native extension ASTs match previous production. No Triton tuning by Codex.
 
-Final production SHA256:
+Intermediate production SHA256:
 `793a8476e50a4716b562abae1f1ce0609343d38cb444bedcc0303739047baa70`.
 Frozen previous/current/main and reproducible integration evidence are under
 `profiles/session36-integration/`. This exact source has **no H200 qualification**.
@@ -4506,6 +4506,41 @@ Custom drivers lock generation/reference/capture/replay, flush512MB before each
 timed graph and subtract empty replay. Standard bench retains its timing-loop
 lock. All own work sequential; NCU parent takes the lock before spawning children.
 
+### Late main snapshot: local Gluon sums and duplicate-barrier removal
+
+The closing fetch found **main06b7755**, which Claude committed independently
+in its Gluon lane. Merged that pinned snapshot as **d125df9** before closing:
+thread-local FP32 denominator sums reduced at epilogue, plus removal of two
+explicit barriers already supplied by partition mbarrier arrival. No Codex
+Triton tuning. Native kernels and kernel_fn (including the FP32 compatibility
+guard) are unchanged from23432d0; all20 shared helpers match main06b7755.
+
+**Final production SHA256:**
+`ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca`.
+Exact-source snapshots, drivers, raw graphs and CPU audit:
+`profiles/session36-late-integration/`. The earlier SHA793a is an intermediate
+source; neither source has its own H200 check.
+
+Final suite **16/16**, followed by all12bench shapes, local aggregate **2.014x**.
+This is unpaired evidence, not an H200 estimate. Twelve separate before/after
+cases give **960adjacent pairs,72output/cache checks**, and **96fresh graph
+replays** (48/source;36current Gluon and12current unchanged controls). B5/6
+boundary,B8/12/16/32/64,DP,pages1/64,scales1/1/64,shortened/empty contexts and
+fresh QKV/cache/routes/positions/cache slots. No new integrated sanitizer claim.
+
+| Full L8 case | previous | final | paired delta,us |
+|---|---:|---:|---:|
+|B6,80K,page1|69.376|69.024|-0.272|
+|B16,80K,page1|133.712|133.552|-0.160|
+|B32,80K,page1|255.920|255.568|-0.400|
+|B64,40K,page1|256.992|256.144|-1.200|
+|B6,4096,page64,scaled edges|17.344|17.344|+0.016|
+
+Small differences limit interpretation; no blanket gain or H200 confidence
+claim. Unchanged B5full/native B1full/native B1sliding controls have deltas
+-0.096/-0.048/-0.032us. Do not add separate integration deltas. Same shared-lock,
+cold-L2 and empty-replay conventions; source/count/median audit passes.
+
 ### Budget and next cycle
 
 Session **0checks,0scored**, no withdrawals. Codex2026-10-24 remains
@@ -4513,12 +4548,13 @@ Session **0checks,0scored**, no withdrawals. Codex2026-10-24 remains
 2checks/6scored; actual account check cap10/day. Best remains **2.1129x,rank20**,
 Claude's d0f30 score. No pending Codex jobs; neither STOP file exists.
 
-1. Read COORD/fetch main. New SHA793a8476 requires its own exact-source H200
+1. Read COORD/fetch main. Final SHAed5bde6e requires its own exact-source H200
    check before any future scored request; old main/Codex results do not qualify
    it. Preserve scarce shared checks while today's Codex scored allowance is gone.
 2. Close native denominator deferral as a scored direction. It removes real
    work but leaves a large gap; no further tile/stage/grid/reduction sweep is
-   justified. The algebra may be useful in Claude's Gluon lane, not Codex tuning.
+   justified. Claude's independent Gluon implementation is now inherited as06b7755;
+   it does not make the rejected native prototype competitive.
 3. Keep e2c54fd separate. Native full merge still requires FP32 producer storage;
    preserve that interface when merging future dtype changes. Do not treat main
    BF16 plans as permission to pass BF16 memory to a float-pointer kernel.

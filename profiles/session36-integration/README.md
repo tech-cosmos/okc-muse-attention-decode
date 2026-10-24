@@ -1,4 +1,4 @@
-# Session 36 main integration
+# Session 36 initial main integration
 
 Merged main32b1762/da388d1 into Codex. Main stores unnormalized split
 accumulators in BF16 on selected Triton paths, with FP32 arithmetic and
@@ -63,5 +63,6 @@ python profiles/session36-integration/compare_main.py compare
 python profiles/session36-integration/audit.py
 ```
 
-The current source needs its own exact-source H200 qualification before any
-future scored submission. Older Codex checks and main's older score do not qualify it.
+This intermediate source has no exact-source H200 qualification. The later
+06b7755 integration is separately recorded in `../session36-late-integration/`;
+neither older checks nor the earlier main score qualify either source.

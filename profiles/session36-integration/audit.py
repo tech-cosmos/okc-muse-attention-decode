@@ -12,7 +12,7 @@ REPO = ROOT.parents[1]
 candidate = (ROOT / 'submission.py').read_bytes()
 previous = (ROOT / 'previous.py').read_bytes()
 main = (ROOT / 'main.py').read_bytes()
-assert candidate == (REPO / 'submission.py').read_bytes()
+assert candidate == subprocess.check_output(['git', 'show', '23432d0:submission.py'])
 assert previous == subprocess.check_output(['git', 'show', '9dbf51a:submission.py'])
 assert main == subprocess.check_output(['git', 'show', 'da388d1:submission.py'])
 
