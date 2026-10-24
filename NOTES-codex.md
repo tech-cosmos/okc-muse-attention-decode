@@ -3071,3 +3071,118 @@ Experiment2bdea47 is pushed separately. Both78b6 andfe512 remain **queued**;
 board2.057970x/rank26,official budget6/10checks,3/10scored. Neither STOP file
 exists. Final source hash and already-merged main3daf4a4 are reconfirmed.
 Shared claim removed and result posted; finish on clean pushed codex.
+
+## Session 25 — 2026-10-24, 02:20–02:30 UTC
+
+### Outcome and production state
+
+Resolved older scored **78b6db684e514dd6**: **16/16, 2.081734x**, CI
+**[2.050508,2.112960]**, no flags/rejections/errors. New account best, **rank22**.
+It completed at02:27:28UTC, with content_hash matching its qualifying b485 check.
+This is exact older45c56bc/SHAe9a877984ef7, already submitted in session22;
+it is not current production and was not resubmitted. Read all12 passing
+profiles, saved with complete JSON/log at `profiles/submission.78b6*`.
+The CLI originally wrote these beside the frozen session22-qualified source;
+they were moved to the canonical profiles directory (text whitespace normalized).
+
+H200 decode1 sliding **5.744us**, decode1/verify1 full **15.333/16.262us**,
+verify16/32 full **154.300/263.849us**. Gluon profile: attention249.2us,
+merge118.5us,new tokens3.4us,GPU busy260.2us. PDL rows overlap/include waiting;
+do not sum them as end-to-end latency. Confidence intervals overlap the old
+best; this result does not isolate a native contribution or this cycle's work.
+
+Current-source scored **fe512312803447b2 remains queued**. It is the exact
+SHA6b171beb8ed5 source qualified by check24414 (2.082939x). Do not resubmit it.
+No more Codex scored requests are allowed today. Older78b6 and check24414 are
+resolved; neither needs further polling.
+
+Fetched main at start/end; **origin/main3daf4a4** remains already merged.
+Production is unchanged SHA256
+`6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf`.
+No native arithmetic/dispatch, Triton/Gluon implementation, plan or launch changed.
+
+### Native dispatch generalization audit
+
+Experiment **6da6317** (source/results9d68dc4) is pushed separately on
+**codex-exp/native-dispatch-audit**, starting at
+`experiments/native_dispatch/README.md`. Production evidence copy:
+`profiles/session25-native-audit.json`. No experiment is imported by production.
+Instead of reopening closed micro-variants, compared complete current production
+against frozen current main across **64 distinct nearby shapes**,80 adjacent
+AB/BA graph pairs each, plus8 suspect/neighbor/control confirmations at a second
+seed with120 pairs each: **6080 total adjacent pairs**.
+
+| H100 shape | main/codex us | paired delta us |
+|---|---:|---:|
+|sliding L1 B1,80K,page1|4.832/4.416|-0.416|
+|sliding L1 B8,80K,page1|7.808/7.536|-0.224|
+|sliding L1 B8,80K,page64|7.872/7.264|-0.624|
+|full L1 B1,80K,page1|17.808/17.056|-0.720|
+|full L8 B1,80K,page1|19.168/18.272|-0.848|
+|full L8 B2,80K,page1|38.448/37.712|-0.752|
+|full L8 B2,9K,page64|10.016/10.192|+0.192|
+|same9K,second seed|10.048/10.304|+0.256|
+
+All24 native-sliding cases favor Codex (-1.376 to-0.192us), including B7/B8,
+DP1, pages1/64, scales1/1/64, contexts63–120K, mixed lengths and tile/window
+boundaries. The scan includes16 unchanged-fallback controls, with deltas
+-0.064 to+0.256us; those are variation, not kernel differences or improvements.
+
+24 native-full cases span -1.920 to+0.192us initially. The small **B2/L8/9K/
+page64/agentic/S76 regression repeats**, at about2.5%; within-run block-bootstrap
+intervals are [0.112,0.304] then[0.216,0.304]us. Nearby B2/L8/S65/page64 cases
+are flat/mixed (-0.160/+0.032 first,-0.000/-0.144 second); page1S65 consistently
+wins. B2/L8/40K/page64 still wins by1.584us on confirmation. These points do not
+support a broad dispatch cutoff, so none was fitted. **Do not claim production
+is never slower than main on nearby shapes.** Record this narrow weakness as a
+follow-up lead, without reopening merge architecture or main's plans.
+
+Exact B1 S64/S65 transitions pass and show native gains: L1 ctx8191/8192
+page1/page64 (-0.480/-0.256us), L8 ctx8184/8185 page1 (-0.720us).
+The8 new tokens count toward capacity: L8ctx8191/8192 probes are bothS65,
+not an exact transition. Paired deltas are not differences of separate medians.
+Bootstrap intervals describe within-run variation, not all system variation,
+multiple-comparison correction or H200 confidence. No aggregate speedup claim.
+
+### Validation and driver correction
+
+- **432 independent output/cache reference checks**: both complete kernels
+  before capture, after first replay and after timing on all72 entries.
+- **192 corrected fresh graph replays**,24 shapes x4 inputs x2 implementations.
+  Codex96 comprise28native sliding,40native full and28fallback; main96 are
+  separate controls. Changed QKV/cache/routes/lengths/positions/cache locations,
+  shortened and empty contexts, TP8/DP, pages1/64, scales1/1/64 all pass.
+- Initial fresh driver aborted with an illegal memory access after one shape.
+  Found a validity defect: randint(0,ctx+1) could extend an agentic request beyond
+  its generated length into unassigned page-table entries. Corrected it to
+  shorten each generated request, assert nonnegative new rows and log replay
+  context. The original failing random draw was not recorded, so the particular
+  fault's cause is not conclusively attributed. Failed log/partial result stay
+  archived as fresh-invalid-lengths.*, excluded from pass counts. Timed inputs
+  never used that mutation and are unaffected. Both sources pass the corrected
+  full fresh suite; no kernel change was made in response to the driver fault.
+- GPU lock covers generation/reference/capture/replay;512MB flush precedes
+  every timed graph, empty replay subtracted. No concurrent own GPU work.
+- CPU audit verifies exact production hash, all14 shared top-level helper ASTs,
+  complete result/pair/replay counts. No new sanitizer or redundant unchanged
+  production16-case suite; prior native sanitizers/current-source validation apply.
+  All local processes completed. Source and reproducible raw reports are pushed.
+
+### Budget and next cycle
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 totals remain
+**4/8checks,3/3scored**. Official shared usage **6/10checks,3/10scored**,
+leaving4checks/7scored account-wide. Actual check cap10/day. Neither STOP file.
+
+1. Resolve **fe512312803447b2** without resubmission and read its passing profile.
+   Only this scored job remains pending. Do not poll resolved78b6/24414/b485.
+   No more Codex scored requests today, regardless of remaining account budget.
+2. Fetch/read main and COORD. Production source is unchanged, already checked
+   and submitted; preserve source identities and respect Claude's ownership.
+3. If pursuing the small nearby full-merge weakness, first investigate a broad
+   neighborhood of B2/L8/S~76 and page1/64 with complete graph controls. A single
+   context or page-specific cutoff is not justified. This has no scored impact;
+   avoid consuming checks solely for an unchanged scored path. The sliding
+   boundary remains supported; closed L1 micro-optimization families stay closed.
+4. Keep experiment6da6317 separate. Finish on clean pushed codex, shared claim
+   removed/results posted. Do not wait idle for the remaining queued job.
