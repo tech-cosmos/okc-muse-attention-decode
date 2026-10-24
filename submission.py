@@ -1235,11 +1235,11 @@ def _plan(cfg, max_pages, device):
             return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
         # Large batches: smaller, deeply pipelined programs.
-        if length == 1 and splits <= 8:
-            # Decode from batch 17 (8 splits): both KV heads per program (hpp 2), so each gather is a whole 128-byte
+        if length == 1 and heads >= 48:
+            # Decode from batch 24 (8 splits): both KV heads per program (hpp 2), so each gather is a whole 128-byte
             # row (H100 random-row gather floor at decode 32: 10.7 us vs 12.0 for 64-byte halves). Paired H100
-            # decode 24/32/40/48/64 sliding -0.5/-0.6/-2.4/-3.6/-6.0 us (7/7 or 9/9 each); batch 20 +0.2, decode 16
-            # (16 splits) ties, so it keeps hpp 1. (Session 43: kst-style stacked P@V in Triton loses: +0.9 us.)
+            # decode 24/32/40/48/64 sliding -0.5/-0.6/-2.4/-3.6/-6.0 us (7/7 or 9/9 each); batch 20 +0.2 and decode 16
+            # (16 splits) a tie, so they keep hpp 1. (Session 43: kst-style stacked P@V in Triton loses: +0.9 us.)
             return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=2, fuse=False, qk8=True, hb=2, sb=splits,
                         cw=1, pdt=pdt)
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
