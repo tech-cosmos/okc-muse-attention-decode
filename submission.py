@@ -76,6 +76,7 @@ DOT_DTYPE = tl.float16
 USE_PDL = True
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
+USE_GBAL = True  # verify full from 16 KV head pairs: balanced splits over the whole batch (_gw_bal); unchecked on H200
 # Split partials' accumulator dtype (plan key pdt).
 _PDT = {"f32": torch.float32, "bf16": torch.bfloat16, "f16": torch.float16}
 print(f"env: torch {torch.__version__}, triton {triton.__version__}", flush=True)
@@ -312,7 +313,8 @@ if HAVE_GLUON:
     @gluon.jit
     def _gw_bal(seq_ptr, p, B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, BN: gl.constexpr,
                 NW: gl.constexpr):
-        LY: gl.constexpr = gl.BlockedLayout([1], [32], [NW], [0])
+        # All B_PAD lengths in each warp (replicated across warps): the scan and sums stay inside a warp.
+        LY: gl.constexpr = gl.BlockedLayout([max(1, B_PAD // 32)], [32], [NW], [0])
         idx = gl.arange(0, B_PAD, layout=LY)
         seqv = gl.load(seq_ptr + idx, mask=idx < B, other=0).to(gl.int32)
         tiles = (seqv + (BN - 1)) // BN
@@ -1187,11 +1189,13 @@ def _plan(cfg, max_pages, device):
         # gfuse: the merge runs in the same grid (each program merges a slice of rows once its request's
         # programs have all stored; H100 verify 16/32 full 136.8 -> 136.0 / 257.2 -> 256.2 us). The separate
         # merge (hb/cw) remains for two-wave plans.
-        # gbal: the programs instead share the batch's key tiles equally (ranges may span requests), as many
-        # as fill the slots; merged by _combine_bal. H100 all-L2 (compute-bound, as the H200 mostly is) verify
-        # 16/32 full 110.0/212.4 -> 104.1/195.9 us, real 135.8/255.7 -> 137.5/251.7.
+        # gbal (from 16 pairs): the programs instead share the batch's key tiles equally (ranges may span
+        # requests; the agentic lengths differ by up to 15%), as many as fill the slots; merged by _combine_bal.
+        # H100 all-L2 (compute-bound, as the H200 mostly is) verify 16/32 full 110.0/212.4 -> 104.1/195.9 us,
+        # real 136.4/255.4 -> 138.8/250.7, batch 40/48/64 real -8.8/-7.1/-8.4. Below 16 pairs the lost in-grid
+        # merge (gfuse) costs more than the balance gains (batch 8: +4 us real).
         return dict(gluon=True, splits=splits, block_n=64, stages=3, lag=1, gpeel=True, pw=4,
-                    pregs=40, cregs=96, maxnreg=80, lsum=True, gfuse=True, gbal=True, **merge)
+                    pregs=40, cregs=96, maxnreg=80, lsum=True, gfuse=True, gbal=USE_GBAL and pairs >= 16, **merge)
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
@@ -1318,7 +1322,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
     # Programs per KV head pair: as many as fill the slots (2 per SM), or the plan's splits per request.
     progs = 2 * _num_sms(device) // (hkv // 2) if plan.get("fill", True) else plan["splits"] * batch
     nid = progs + 2 * batch
-    b_pad = max(32, triton.next_power_of_2(batch))
+    b_pad = plan.get("bpad", max(32, triton.next_power_of_2(batch)))
     pacc = torch.empty((hkv, nid, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((hkv, nid, rows, 2), dtype=torch.float32, device=device)
     _new_tokens[(batch, hkv)](
