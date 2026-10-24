@@ -19,6 +19,9 @@ layer + 16 x full layer). Leaders on the board are at about 2.37x. Real speedups
   outside the timed call, no reading harness frames, no processes or network from the submission.
   If something you did turns out to be reward-hacky, withdraw that run with `okc withdraw <job>` and
   say so in NOTES.md.
+- Precision: never below SGLang's. Split partials (accumulators and m/l) stay FP32, as FA3 keeps
+  them; activations stay BF16 where SGLang has BF16. When in doubt, match SGLang's precision. (The
+  human decided this on 2026-10-24 after BF16 partials had been used: don't reintroduce them.)
 - Decisions may depend only on shapes and `config` (page_table.shape etc.), never on input values.
 - Do not touch anything outside this repo and ~/okc (the venv). No new credentials, no other
   services. Don't delete the repo's history or force-push.

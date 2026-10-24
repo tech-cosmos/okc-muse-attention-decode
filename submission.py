@@ -79,8 +79,9 @@ USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_g
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
 USE_GD1 = True  # decode full at batch * hkv == 2 on _gd_full too (511 splits, 8-warp one-pass merge); unchecked on H200
 USE_GBAL = True  # verify full from 16 KV head pairs: balanced splits over the whole batch (_gw_bal); unchecked on H200
-# Split partials' accumulator dtype (plan key pdt).
-_PDT = {"f32": torch.float32, "bf16": torch.bfloat16, "f16": torch.float16}
+# Split partials' accumulator dtype (plan key pdt). FP32 only: SGLang's FA3 keeps its split partials in
+# FP32, and the rules forbid computing at lower precision than SGLang where they don't say otherwise.
+_PDT = {"f32": torch.float32}
 print(f"env: torch {torch.__version__}, triton {triton.__version__}", flush=True)
 
 
@@ -1187,7 +1188,7 @@ def _plan(cfg, max_pages, device):
         # 16/32 sliding 10.6/15.6 -> 9.3/13.9 us, B64 27.7 -> 23.2; at batch <= 8 it loses by 0.2-1.8 us).
         # Off: on the H200 (check f3e099c1) decode 16/32 sliding went 10.4/14.6 -> 13.6/15.4 us.
         splits = 32 if pairs * 32 <= 800 else (16 if pairs * 16 <= 800 else 8)
-        return dict(gdec=True, sep=True, splits=splits, block_n=32, stages=2, pdt="bf16", hb=2)
+        return dict(gdec=True, sep=True, splits=splits, block_n=32, stages=2, pdt="f32", hb=2)
     if cfg["window"]:
         # Sliding layers: at most 2,047 cached keys; latency-bound.
         # The merge takes 2 query heads per one-warp program (hb, cw) and every split in one pass (sb):
@@ -1195,7 +1196,7 @@ def _plan(cfg, max_pages, device):
         splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
         # Batched verify blocks write BF16 partial accumulators (H100 verify 16/32 sliding -0.5 us); decode
         # and batch 1 keep FP32 (BF16 there is +0.1-0.3 us).
-        pdt = "bf16" if length > 1 and heads > 4 else "f32"
+        pdt = "f32"
         if heads <= 32:
             # tsep (batch 1-2): the block's new tokens in their own program instead of split 0, the critical path,
             # with 2 stages (one tile per split). H100 paired: verify 1 sliding tsep -0.14 us (8/9 rounds twice),
@@ -1215,7 +1216,7 @@ def _plan(cfg, max_pages, device):
         # Batch-1 decode full on the Gluon one-warp kernel: 511 key splits + the new token's slot (512 BF16
         # partials, about 4 per SM), merged in one pass by 8-warp programs. H100 17.5 -> 15.7 us (attention
         # alone 15.3 -> 12.4, near the 11.5 us gather floor; the 512-way merge costs 3.2 us vs 2.2).
-        return dict(gdec=True, splits=511, block_n=32, stages=2, pdt="bf16", csb=512, cw=8)
+        return dict(gdec=True, splits=511, block_n=32, stages=2, pdt="f32", csb=512, cw=8)
     if heads <= (2 if length == 1 else 4):
         # (Session 18's hpp 2 / block_n 64 for decode 1 full won on the H100, 18.0 -> 17.4 us, but lost on the
         # H200: check f3e099c1 decode 1 full 15.2 -> 17.6 us.)
@@ -1224,9 +1225,9 @@ def _plan(cfg, max_pages, device):
         # 25.9 -> 20.3). Unchecked on the H200: if verify 1 full is worse there, revert block_n/stages first.
         if length > 1:
             # pf: the split's page-table lines touched before the query load (H100 paired -0.35 us, 10/11 and 8/11).
-            return dict(splits=127, block_n=64, warps=4, stages=8, hpp=1, fuse=False, qk8=True, pdt="bf16", tsep=True,
+            return dict(splits=127, block_n=64, warps=4, stages=8, hpp=1, fuse=False, qk8=True, pdt="f32", tsep=True,
                         pf=True)
-        return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16")
+        return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="f32")
     if length == 1:
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
             # Gluon one-warp programs (FP8 QK^T mma, new token in the last split): 1024 programs (one wave),
@@ -1235,10 +1236,10 @@ def _plan(cfg, max_pages, device):
             # -1.7/-1.7; 256-512 slots lose 0.7-1.0 us). Likely residency: 8 attention programs at 242 registers
             # leave an SM 2048 registers for PDL-launched merge programs (capping the merge's registers loses).
             splits = max(4, 2048 // heads - 1)
-            return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="bf16", **({"cw": 1} if splits < 128 else {}))
+            return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="f32", **({"cw": 1} if splits < 128 else {}))
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
-                    fuse=False, qk8=True, pdt="bf16")
+                    fuse=False, qk8=True, pdt="f32")
     # Verify blocks: each program runs both KV heads as two independent 64-row chains (dual), which
     # hides latency better than more programs; 3 fit per SM (160 registers), or 4 when capped at 128
     # (no spills). The splits fill exactly one wave, and each request's context is cut into equal
@@ -1270,7 +1271,7 @@ def _plan(cfg, max_pages, device):
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
-                qk8=True, peel=True, dual=True, balance=True, maxnreg=128 if per == 4 else None, pdt="bf16")
+                qk8=True, peel=True, dual=True, balance=True, maxnreg=128 if per == 4 else None, pdt="f32")
 
 
 def kernel_fn(data: Inputs) -> torch.Tensor:
