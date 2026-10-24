@@ -1234,8 +1234,14 @@ def _plan(cfg, max_pages, device):
             tiny = heads <= 4
             return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
-        # Large batches: smaller, deeply pipelined programs. (hpp 2 for decode won on the H100, decode 32 sliding
-        # 16.0 -> 15.4 us, but is unchecked on the H200; reverted with session 18's decode 1 full plan.)
+        # Large batches: smaller, deeply pipelined programs.
+        if length == 1 and splits <= 8:
+            # Decode from batch 17 (8 splits): both KV heads per program (hpp 2), so each gather is a whole 128-byte
+            # row (H100 random-row gather floor at decode 32: 10.7 us vs 12.0 for 64-byte halves). Paired H100
+            # decode 24/32/40/48/64 sliding -0.5/-0.6/-2.4/-3.6/-6.0 us (7/7 or 9/9 each); batch 20 +0.2, decode 16
+            # (16 splits) ties, so it keeps hpp 1. (Session 43: kst-style stacked P@V in Triton loses: +0.9 us.)
+            return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=2, fuse=False, qk8=True, hb=2, sb=splits,
+                        cw=1, pdt=pdt)
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
                     qk8=True, peel=length > 1, hb=2, sb=splits, cw=1, pdt=pdt)
     # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
