@@ -347,10 +347,11 @@ if HAVE_GLUON:
         return lo, hi, gl.maximum(t1 - t0, 0)
 
     @gluon.jit
-    def _gw_producer_bal(seq_ptr, pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, p,
+    def _gw_producer_bal(seq_ptr, pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, kready, p,
                          B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, MAX_PAGES: gl.constexpr,
                          PAGE: gl.constexpr, ROW_W: gl.constexpr, BN: gl.constexpr, C: gl.constexpr,
-                         D: gl.constexpr, NS: gl.constexpr, PW: gl.constexpr, LAG: gl.constexpr):
+                         D: gl.constexpr, NS: gl.constexpr, PW: gl.constexpr, LAG: gl.constexpr,
+                         KR: gl.constexpr):
         """_gw_producer_cv over the program's segments (the ring position carries across them)."""
         GLY: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [PW, 1], [1, 0])
         VL: gl.constexpr = gl.BlockedLayout([1, 8], [4, 8], [PW, 1], [1, 0])
@@ -379,6 +380,11 @@ if HAVE_GLUON:
                         sj = (it + i - LAG) % NS
                         cp.wait_group(LAG)
                         gl.barrier()
+                        if KR and KR < 4:
+                            # K has landed: the consumers' QK^T and softmax overlap the V conversion.
+                            if KR != 3:
+                                fence_async_shared()
+                            mbarrier.arrive(kready.index(sj))
                         vt = v_ring.index(sj)
                         vh0.index(sj).store(vt.slice(0, D, 1).load(VL).to(gl.float16))
                         vh1.index(sj).store(vt.slice(D, D, 1).load(VL).to(gl.float16))
@@ -387,10 +393,10 @@ if HAVE_GLUON:
             it += ntiles
 
     @gluon.jit
-    def _gw_consumer_bal(qkv_ptr, q_s, k_ring, vh, ready, empty, seq_ptr, pid, h, scale, pacc_ptr, pml_ptr,
-                         HEAD: gl.constexpr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr,
-                         B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, NID: gl.constexpr, M: gl.constexpr,
-                         D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr):
+    def _gw_consumer_bal(qkv_ptr, q_s, k_ring, vh, ready, empty, kready, seq_ptr, pid, h, scale, pacc_ptr,
+                         pml_ptr, HEAD: gl.constexpr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr,
+                         L: gl.constexpr, B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, NID: gl.constexpr,
+                         M: gl.constexpr, D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr, KR: gl.constexpr):
         """_gw_consumer_cv (PEEL, LSUM) over the program's segments: each loads its request's queries and stores
         its partial at id p + b."""
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
@@ -418,11 +424,23 @@ if HAVE_GLUON:
             l8 = gl.sum(gl.reshape(gl.zeros([M, BN], gl.float32, S_L), [M, BN // 8, 8]), 1)
             for i in range(ntiles):
                 s = (it + i) % NS
-                mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
+                if KR and KR < 4:
+                    mbarrier.wait(kready.index(s), ((it + i) // NS) & 1)
+                    if KR == 2:
+                        mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
+                else:
+                    mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
                 s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
                                       gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
                 sc = warpgroup_mma_wait(0, deps=[s_tok])
-                if lo + (i + 1) * BN > hi:
+                if KR == 4:
+                    sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                elif KR == 5:
+                    if i == ntiles - 1:
+                        sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                elif KR == 6:
+                    pass
+                elif lo + (i + 1) * BN > hi:
                     sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
                 m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
                 alpha = gl.exp2(m_i - m_new)
@@ -432,6 +450,8 @@ if HAVE_GLUON:
                 m_i = m_new
                 acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
                 p16 = gl.convert_layout(p.to(gl.float16), P_L)
+                if KR == 1 or KR == 3:
+                    mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
                 a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
                 acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
                 mbarrier.arrive(empty.index(s))
@@ -653,7 +673,7 @@ if HAVE_GLUON:
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
                    R_PAD: gl.constexpr = 1, BAL: gl.constexpr = False, B: gl.constexpr = 1,
-                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1):
+                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, KR: gl.constexpr = 0):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -687,9 +707,11 @@ if HAVE_GLUON:
             vh1 = gl.allocate_shared_memory(gl.float16, [BN, D], SH16)
         ready = gl.allocate_shared_memory(gl.int64, [NS, 1], mbarrier.MBarrierLayout())
         empty = gl.allocate_shared_memory(gl.int64, [NS, 1], mbarrier.MBarrierLayout())
+        kready = gl.allocate_shared_memory(gl.int64, [NS, 1], mbarrier.MBarrierLayout())
         for j in gl.static_range(NS):
             mbarrier.init(ready.index(j), count=1 if LAG else PW * 32)
             mbarrier.init(empty.index(j), count=2)
+            mbarrier.init(kready.index(j), count=1)
         r = gl.arange(0, M, layout=gl.SliceLayout(1, QL))
         cq = gl.arange(0, D, layout=gl.SliceLayout(0, QL))
         q_off = (b * L + r // G)[:, None] * QKV_W + (h * G + r % G)[:, None] * D + cq[None, :]
@@ -709,13 +731,13 @@ if HAVE_GLUON:
         gl.barrier()
         if BAL:
             gl.warp_specialize([
-                (_gw_consumer_bal, (qkv_ptr, q0, k_ring, vh0, ready, empty, seq_ptr, split, h, scale, pacc_ptr,
-                                    pml_ptr, 0, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS)),
-                (_gw_consumer_bal, (qkv_ptr, q1, k_ring, vh1, ready, empty, seq_ptr, split, h, scale, pacc_ptr,
-                                    pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS)),
+                (_gw_consumer_bal, (qkv_ptr, q0, k_ring, vh0, ready, empty, kready, seq_ptr, split, h, scale,
+                                    pacc_ptr, pml_ptr, 0, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, KR)),
+                (_gw_consumer_bal, (qkv_ptr, q1, k_ring, vh1, ready, empty, kready, seq_ptr, split, h, scale,
+                                    pacc_ptr, pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, KR)),
                 (_gw_producer_bal, (seq_ptr, pt_ptr, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready,
-                                    empty, split, B, B_PAD, NP, MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW,
-                                    LAG)),
+                                    empty, kready, split, B, B_PAD, NP, MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW,
+                                    LAG, KR)),
             ], [4, PW], [CREGS, PREGS])
         elif LAG:
             gl.warp_specialize([
@@ -1451,7 +1473,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=progs,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
+        LAG=plan.get("lag", 1), BAL=True, KR=plan.get("kr", 0), B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
         launch_pdl=True)
     hb = plan.get("hb", 2)
     _combine_bal[(batch * length, hq // hb)](
