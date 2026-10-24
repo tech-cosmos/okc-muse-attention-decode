@@ -2447,3 +2447,35 @@ consumer warp-tile (FFMA/FMNMX/FMUL/MUFU/F2FP/FADD ~9% each, BRA spin 7.7%, SYNC
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 50 (overnight agent, 2026-10-24 13:39-~14:10 UTC; unattended session 17 of this night)
+
+**Main code unchanged (652aafe; 63a4974 / 6fb74be / d92f1ed / 652aafe all still UNCHECKED on the H200).** 0 judge runs
+(account checks 0/10 left today; Claude's 3 scored used). H100 bench on main at start 2.048 (per-shape numbers as
+session 48).
+
+### Dead end: one-pass fused last-program merge (branch exp/fm, plan key `fm` = rows per chunk, pushed)
+
+Why session 36's fused merge was 10-11 us at batch-1 sliding (vs 4.5): the old `FUSE` tail in `_attn_split` unrolls
+`static_range(S)` per-split loads at 96 regs, and ptxas runs them as ~32 serial L2 round trips (no spills; ncu
+`_attn_split` 14.3 us fused vs 5.3 + 3.9 separate). `_fused_merge` loads all slots' [RB, D] blocks in one 3-D load
+(layout keeps the split dim in-thread, so the reduction needs no smem), with the gate preloaded before the arrival.
+H100 sweeps, us (base / fused):
+- decode 1 sliding 4.48 / 5.6 (fm 8; tsep kept). Ablation copies: acq_rel arrival, no merge body 4.42; relaxed
+  arrival, no merge 4.06. So **the acq_rel arrival (release fence) alone costs about what the whole PDL merge kernel
+  costs**, and the merge body adds ~1.2 us on top. A fused merge can't beat PDL at batch 1. Don't retry.
+- verify 1 sliding 5.57 / 16.7 (row chunks run serially); decode 16/32 sliding 10.42/14.88 / 11.54/16.32; verify 16
+  12.67 / 18.05; verify 32 18.83 / 21.6. All worse.
+- Also re-checked verify 1 full: dual 21.9, dual + splits 191/255 22.9-23.8, hpp 2 / 255 splits 41.7 vs 18.2 now.
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 48's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05, decode 16 sliding 10.27); revert whichever
+   regresses, submit if the total beats the board.
+2. Merge-kernel removal is closed on every path (PDL, flags, clusters, fused last-program). Verify full remains the
+   weakest load and is native-code territory (Codex's lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
