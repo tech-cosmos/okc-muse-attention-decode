@@ -1,0 +1,28 @@
+========= COMPUTE-SANITIZER
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS natural 1 1.0 10 0 relative L2 error 6.111e-02 (worst row 8.056e-02) [bound 0.150: 2.5 x the reference's 0.061 with FP8 E4M3 queries + 0.015]
+PASS natural 1 1.0 10 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 1 1.0 257 0 relative L2 error 8.864e-02 (worst row 9.887e-02) [bound 0.150: 2.5 x the reference's 0.088 with FP8 E4M3 queries + 0.015]
+PASS natural 1 1.0 257 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 1 1.0 4096 0 relative L2 error 7.011e-02 (worst row 7.872e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+PASS natural 1 1.0 4096 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 1 0.015625 10 0 relative L2 error 6.120e-02 (worst row 8.069e-02) [bound 0.150: 2.5 x the reference's 0.061 with FP8 E4M3 queries + 0.015]
+PASS natural 1 0.015625 10 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 1 0.015625 257 0 relative L2 error 8.866e-02 (worst row 9.897e-02) [bound 0.150: 2.5 x the reference's 0.088 with FP8 E4M3 queries + 0.015]
+PASS natural 1 0.015625 257 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 1 0.015625 4096 0 relative L2 error 7.015e-02 (worst row 7.876e-02) [bound 0.150: 2.5 x the reference's 0.070 with FP8 E4M3 queries + 0.015]
+PASS natural 1 0.015625 4096 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 64 1.0 10 0 relative L2 error 5.000e-02 (worst row 5.698e-02) [bound 0.140: 2.5 x the reference's 0.050 with FP8 E4M3 queries + 0.015]
+PASS natural 64 1.0 10 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 64 1.0 257 0 relative L2 error 6.502e-02 (worst row 8.533e-02) [bound 0.150: 2.5 x the reference's 0.065 with FP8 E4M3 queries + 0.015]
+PASS natural 64 1.0 257 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 64 1.0 4096 0 relative L2 error 7.160e-02 (worst row 7.383e-02) [bound 0.150: 2.5 x the reference's 0.072 with FP8 E4M3 queries + 0.015]
+PASS natural 64 1.0 4096 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 64 0.015625 10 0 relative L2 error 4.999e-02 (worst row 5.698e-02) [bound 0.140: 2.5 x the reference's 0.050 with FP8 E4M3 queries + 0.015]
+PASS natural 64 0.015625 10 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 64 0.015625 257 0 relative L2 error 6.505e-02 (worst row 8.538e-02) [bound 0.150: 2.5 x the reference's 0.065 with FP8 E4M3 queries + 0.015]
+PASS natural 64 0.015625 257 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+PASS natural 64 0.015625 4096 0 relative L2 error 7.163e-02 (worst row 7.396e-02) [bound 0.150: 2.5 x the reference's 0.072 with FP8 E4M3 queries + 0.015]
+PASS natural 64 0.015625 4096 1 relative L2 error 0.000e+00 (worst row 0.000e+00) [bound 0.030: 2.5 x the reference's 0.000 with FP8 E4M3 queries + 0.015]
+TOTAL 24
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
