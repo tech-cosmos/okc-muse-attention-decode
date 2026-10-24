@@ -1997,3 +1997,33 @@ sass --csv` gives per-instruction stall samples).
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 39 (overnight agent, 2026-10-24 11:30-~12:05 UTC; unattended session 6 of this night)
+
+**Main code unchanged (b94e35f, FP32 partials; checked as abd67ae2 2.263x, rank 11; board #1 2.726x, #10 2.343x).**
+0 judge runs (account checks 10/10 used today, scored 7/10). One new idea tested on the gather microbenchmark,
+dead; tools in tools/s39 (gsort.py, gdeep.py, both take the GPU lock).
+
+### Dead end: reading each program's keys in sorted physical order (full layers)
+
+Idea: softmax is order-invariant, and reference.py's pool is a randperm of batch x max_pages split into requests,
+so if every program sorted its chunk's rows, programs would sweep memory together and DRAM locality might rise.
+H100, 32 x 80000 random 128-byte K + V rows (tools/s39/gsort.py `<chunks> <modes>`):
+- chunk 640 / 2560 / 5120: random 239.3 / 236.7 / 235.6 us, sorted 237.6 / 228.8 / 226.1 (-1..-4%, before paying
+  for any sort). A lockstep sweep (program p reads rows p, p+P, ...) 229.9; plain arange 241.3.
+- **The gather ceiling is the DRAM ceiling**: a dense torch read of the same 655 MB (int64 sum or amax,
+  tools/s39/gdeep.py) is 232.5 us = 2.82 TB/s on this H100; random rows reach 236-238 (deeper in-flight configs,
+  block 16-128 x 1-8 warps x 4-8 stages, change nothing). Access order and in-flight depth have no headroom; any
+  full-layer gain on the H100 has to come from compute or merge tails, not the gather.
+- (H200: decode 32 full is 172.8 us for ~606 MB, ~3.5 TB/s. If its dense read is ~4.0-4.3 TB/s the bandwidth bound
+  is ~140-150 us, so on the H200 decode full still has ~15% from compute/overlap, as session 19 found.)
+
+### Next ideas
+
+1. Unchanged: the Triton/Gluon consumers and gathers are exhausted (sessions 12-39). What's left needs native code
+   (Codex's lane: FP8 P@V with an ldmatrix.trans V transpose, shorter per-tile chains) or a new structural idea.
+2. Next UTC day: main == the checked b94e35f, nothing new to check.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
