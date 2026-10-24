@@ -893,6 +893,26 @@ def _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pm
 
 
 @triton.jit
+def _range(split, b, seq, pt_ptr, WINDOW: tl.constexpr, BALANCE: tl.constexpr, S: tl.constexpr, BLOCK_N: tl.constexpr,
+           CHUNK: tl.constexpr, MAX_PAGES: tl.constexpr):
+    """_attn_split's cached keys [lo, hi) for this split, its page-table row and the tile offsets."""
+    if WINDOW > 0:
+        base = tl.maximum(seq - (WINDOW - 1), 0)
+    else:
+        base = seq * 0
+    if BALANCE:
+        # Each request's own context in S equal tile-aligned chunks: every program does the same work.
+        chunk = tl.cdiv(tl.cdiv(seq - base, S), BLOCK_N) * BLOCK_N
+    else:
+        chunk = CHUNK
+    lo = base + split * chunk
+    hi = tl.minimum(lo + chunk, seq)
+    pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
+    n = tl.arange(0, BLOCK_N)
+    return lo, hi, pt_row, n
+
+
+@triton.jit
 def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr,
                 pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale,
                 HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr, G: tl.constexpr, L: tl.constexpr,
@@ -901,7 +921,8 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
-                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False):
+                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
+                PRE: tl.constexpr = 0):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -927,6 +948,17 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         pf = tl.sum(tl.load(pt_ptr + b.to(tl.int64) * MAX_PAGES + pf_p), 0)
     seq = tl.load(seq_ptr + b)
     c = tl.arange(0, C)
+    if PRE > 0:
+        # L2 prefetch of the K/V rows of the split's first PRE tiles, issued before the query norm (and RoPE), so
+        # those trips overlap the qkv/cos/sin ones; the pipelined loop then gathers them from L2. Verify 1 full
+        # (with pf): H100 paired PRE 1 -0.45 us (20/20), PRE 2 another -0.48 (19/20), PRE 4 +1.06 vs 2. Batch-1
+        # sliding ties (one tile per split); batched sliding loses (+0.2..+0.7), as does a register-held first
+        # tile instead of the prefetch (decode sliding +1..+2.5 us).
+        lo, hi, pt_row, n = _range(split, b, seq, pt_ptr, WINDOW, BALANCE, S, BLOCK_N, CHUNK, MAX_PAGES)
+        t0 = tl.maximum(tl.minimum(lo + tl.arange(0, PRE * BLOCK_N), hi - 1), 0)
+        row0 = (tl.load(pt_row + t0 // PAGE).to(tl.int64) * PAGE + t0 % PAGE) * ROW_W + hp0 * D
+        tl.inline_asm_elementwise("prefetch.global.L2 [$1];\n\tprefetch.global.L2 [$2];\n\tmov.u32 $0, 0;", "=r,l,l",
+                                  [kc_ptr + row0, vc_ptr + row0], dtype=tl.int32, is_pure=False, pack=1)
     r = tl.arange(0, M_PAD)
     hp = r // MG
     rr = r % MG  # token rr // G, query head (hp0 + hp) * G + rr % G
@@ -958,19 +990,9 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         m1, l1, acc1 = _new(split, b, seq, j, q1, m1, l1, acc1, hp0 + 1, c, scale, k_scale, qkv_ptr, cs_ptr,
                             kc_ptr, vc_ptr, vs_ptr, loc_ptr, HQ, HKV, HPP, L, L_PAD, MG, D, ROPE, S, QK8, DOT, SEP)
 
-    if WINDOW > 0:
-        base = tl.maximum(seq - (WINDOW - 1), 0)
-    else:
-        base = seq * 0
-    if BALANCE:
-        # Each request's own context in S equal tile-aligned chunks: every program does the same work.
-        chunk = tl.cdiv(tl.cdiv(seq - base, S), BLOCK_N) * BLOCK_N
-    else:
-        chunk = CHUNK
-    lo = base + split * chunk
-    hi = tl.minimum(lo + chunk, seq)
-    pt_row = pt_ptr + b.to(tl.int64) * MAX_PAGES
-    n = tl.arange(0, BLOCK_N)
+    if PRE == 0:
+        # (Computed here, after the queries, unless PRE needs it first: moving it up costs decode 1 sliding +0.2 us.)
+        lo, hi, pt_row, n = _range(split, b, seq, pt_ptr, WINDOW, BALANCE, S, BLOCK_N, CHUNK, MAX_PAGES)
     # Whole tiles need no bounds masks; full layers need no masks at all there. The tail is masked.
     # Only for single-token decode: with a verify block's 64 rows the second copy costs registers.
     # Cached keys start at base = seq - (WINDOW - 1) (or 0), so a decode query (position seq) needs no window mask on
@@ -1317,7 +1339,7 @@ def _plan(cfg, max_pages, device):
         if length > 1:
             # pf: the split's page-table lines touched before the query load (H100 paired -0.35 us, 10/11 and 8/11).
             return dict(splits=127, block_n=64, warps=4, stages=8, hpp=1, fuse=False, qk8=True, pdt="f32", tsep=True,
-                        pf=True)
+                        pf=True, pre=2)
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="f32")
     if length == 1:
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
@@ -1414,7 +1436,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
         FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
-        PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"), num_warps=plan["warps"],
+        PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"),
+        PRE=0 if dual else plan.get("pre", 0), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
