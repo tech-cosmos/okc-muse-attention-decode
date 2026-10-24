@@ -317,15 +317,18 @@ if HAVE_GLUON:
         LY: gl.constexpr = gl.BlockedLayout([max(1, B_PAD // 32)], [32], [NW], [0])
         idx = gl.arange(0, B_PAD, layout=LY)
         seqv = gl.load(seq_ptr + idx, mask=idx < B, other=0).to(gl.int32)
-        tiles = (seqv + (BN - 1)) // BN
+        # At least one tile per request (an empty one gets an empty segment), and at most one program per tile
+        # (programs pe.. idle), so every request has a program and every working program a nonempty range.
+        tiles = gl.where(idx < B, gl.maximum((seqv + (BN - 1)) // BN, 1), 0)
         incl = gl.associative_scan(tiles, 0, _gw_add)
-        tt = gl.maximum(gl.sum(tiles, 0), 1)
-        start = p * tt // P
-        end = (p + 1) * tt // P
+        tt = gl.sum(tiles, 0)
+        pe = gl.minimum(tt, P)
+        start = p * tt // pe
+        end = (p + 1) * tt // pe
         b_first = gl.sum((incl <= start).to(gl.int32), 0)
         b_end = gl.sum(((incl - tiles < end) & (idx < B)).to(gl.int32), 0)
-        nseg = gl.where(end > start, b_end - b_first, 0)
-        return idx, seqv, tiles, start, end, b_first, nseg
+        nseg = gl.where(p < pe, b_end - b_first, 0)
+        return idx, seqv, tiles, start, end, b_first, nseg, tt, pe
 
     @gluon.jit
     def _gw_add(a, b):
@@ -341,7 +344,104 @@ if HAVE_GLUON:
         t1 = gl.minimum(end, excl + nb) - excl
         lo = t0 * BN
         hi = gl.minimum(t1 * BN, sb)
-        return lo, hi, gl.maximum(t1 - t0, 0)
+        return lo, hi, gl.cdiv(gl.maximum(hi - lo, 0), BN)
+
+    @gluon.jit
+    def _gw_bal_parts(idx, tiles, b, tt, pe):
+        """Request b's programs: p_first and how many (every request has >= 1 tile, every program p < pe a tile)."""
+        excl = gl.sum(gl.where(idx < b, tiles, 0), 0)
+        incl = excl + gl.sum(gl.where(idx == b, tiles, 0), 0)
+        p_first = ((excl + 1) * pe - 1) // tt
+        return p_first, (incl * pe - 1) // tt - p_first + 1
+
+    @gluon.jit
+    def _gw_merge_bal(qkv_ptr, pacc_ptr, pml_ptr, out_ptr, vs, b, h, r0, p_first, n, HQ: gl.constexpr,
+                      HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
+                      NID: gl.constexpr, NBASE: gl.constexpr, R_PAD: gl.constexpr):
+        """Merge rows [r0, r0 + R_PAD) of request b's 2 * M rows (KV heads h, h + 1) over its n partials (ids
+        p_first + b ..) and its new tokens' (id NBASE + b), then RMSNorm and the gate."""
+        ML: gl.constexpr = gl.BlockedLayout([1, 4], [2, 16], [4, 1], [1, 0])
+        U: gl.constexpr = 8
+        r2 = r0 + gl.arange(0, R_PAD, layout=gl.SliceLayout(1, ML))
+        ok = r2 < 2 * M
+        r2 = gl.minimum(r2, 2 * M - 1)
+        hh = h + r2 // M
+        r = r2 % M
+        c = gl.arange(0, D, layout=gl.SliceLayout(0, ML))
+        QKV_W: gl.constexpr = (2 * HQ + 2 * HKV) * D
+        tok = b * L + r // G
+        col = (hh * G + r % G)[:, None] * D + c[None, :]
+        gate = gl.load(qkv_ptr + tok[:, None] * QKV_W + (HQ + 2 * HKV) * D + col).to(gl.float32)
+        row = (hh * NID + b) * M + r
+        nrow = row + NBASE * M
+        m_i = gl.load(pml_ptr + nrow * 2, cache_modifier=".cg")
+        l_i = gl.load(pml_ptr + nrow * 2 + 1, cache_modifier=".cg")
+        acc = gl.load(pacc_ptr + nrow[:, None] * D + c[None, :], cache_modifier=".cg").to(gl.float32)
+        for i0 in range(0, n, U):
+            for u in gl.static_range(U):
+                v = i0 + u < n
+                at = row + (p_first + i0 + u) * M
+                mv = gl.load(pml_ptr + at * 2, mask=v, other=-1.0e30, cache_modifier=".cg")
+                lv = gl.load(pml_ptr + at * 2 + 1, mask=v, other=0.0, cache_modifier=".cg")
+                av = gl.load(pacc_ptr + at[:, None] * D + c[None, :], mask=v, other=0.0,
+                             cache_modifier=".cg").to(gl.float32)
+                m_new = gl.maximum(m_i, mv)
+                a = gl.exp2(m_i - m_new)
+                w = gl.exp2(mv - m_new)
+                l_i = l_i * a + lv * w
+                acc = acc * a[:, None] + av * w[:, None]
+                m_i = m_new
+        o = acc / l_i[:, None] * vs
+        o = o * gl.rsqrt(gl.sum(o * o, 1) / D + 1e-5)[:, None]
+        o = o / (1.0 + gl.exp2(gate * -1.4426950408889634))
+        gl.store(out_ptr + tok[:, None] * (HQ * D) + col, o.to(gl.bfloat16), mask=ok[:, None])
+
+    @gluon.jit
+    def _gw_bal_fuse(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, cnt_ptr, pid, h, HQ: gl.constexpr,
+                     HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
+                     B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, NID: gl.constexpr, BN: gl.constexpr,
+                     R_PAD: gl.constexpr):
+        """The gbal merge in this grid (one wave, so every program waited for is resident). Only a program's first
+        and last segments can have other programs: it arrives on both first (gfuse's counter words: arrivals in
+        the low 16 bits, a generation above), then waits for each, then merges its rank's row chunks of every
+        segment. (Arriving and merging one segment at a time would chain every request's merge behind the
+        previous one's.)"""
+        idx, seqv, tiles, start, end, b_first, nseg, tt, pe = _gw_bal(seq_ptr, pid, B, B_PAD, P, BN, 4)
+        vs = gl.load(vs_ptr)
+        gl.barrier()
+        if nseg > 0:
+            b_last = b_first + nseg - 1
+            pf, nf = _gw_bal_parts(idx, tiles, b_first, tt, pe)
+            pl, nl = _gw_bal_parts(idx, tiles, b_last, tt, pe)
+            cnt_f = cnt_ptr + b_first * (HKV // 2) + h // 2
+            cnt_l = cnt_ptr + b_last * (HKV // 2) + h // 2
+            share_l = (nseg > 1) & (nl > 1)
+            old_f = gl.atomic_add(cnt_f, 1, mask=nf > 1, sem="acq_rel", scope="gpu")
+            old_l = gl.atomic_add(cnt_l, 1, mask=share_l, sem="acq_rel", scope="gpu")
+            last_f = (old_f & 0xFFFF) == nf - 1
+            last_l = (old_l & 0xFFFF) == nl - 1
+            if nf > 1:
+                if last_f:
+                    gl.atomic_add(cnt_f, 0x10000 - nf, sem="relaxed", scope="gpu")
+            if share_l:
+                if last_l:
+                    gl.atomic_add(cnt_l, 0x10000 - nl, sem="relaxed", scope="gpu")
+            if nf > 1:
+                if not last_f:
+                    while ((gl.load(cnt_f, volatile=True) ^ old_f) >> 16) == 0:
+                        pass
+            if share_l:
+                if not last_l:
+                    while ((gl.load(cnt_l, volatile=True) ^ old_l) >> 16) == 0:
+                        pass
+            gl.inline_asm_elementwise("fence.acq_rel.gpu;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+        gl.inline_asm_elementwise("griddepcontrol.wait;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+        for sg in range(nseg):
+            b = b_first + sg
+            p_first, n = _gw_bal_parts(idx, tiles, b, tt, pe)
+            for r0 in range((pid - p_first) * R_PAD, 2 * M, n * R_PAD):
+                _gw_merge_bal(qkv_ptr, pacc_ptr, pml_ptr, out_ptr, vs, b, h, r0, p_first, n, HQ, HKV, G, L, M, D,
+                              NID, P + B, R_PAD)
 
     @gluon.jit
     def _gw_producer_bal(seq_ptr, pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, p,
@@ -353,7 +453,7 @@ if HAVE_GLUON:
         VL: gl.constexpr = gl.BlockedLayout([1, 8], [4, 8], [PW, 1], [1, 0])
         n_g = gl.arange(0, BN, layout=gl.SliceLayout(1, GLY))
         c_g = gl.arange(0, C, layout=gl.SliceLayout(0, GLY))
-        idx, seqv, tiles, start, end, b_first, nseg = _gw_bal(seq_ptr, p, B, B_PAD, P, BN, PW)
+        idx, seqv, tiles, start, end, b_first, nseg, tt, pe = _gw_bal(seq_ptr, p, B, B_PAD, P, BN, PW)
         it = 0
         for sg in range(nseg):
             b = b_first + sg
@@ -400,7 +500,7 @@ if HAVE_GLUON:
         r = gl.arange(0, M, layout=gl.SliceLayout(1, QL))
         cq = gl.arange(0, D, layout=gl.SliceLayout(0, QL))
         n_s = gl.arange(0, BN, layout=gl.SliceLayout(0, S_L))
-        idx, seqv, tiles, start, end, b_first, nseg = _gw_bal(seq_ptr, pid, B, B_PAD, P, BN, 4)
+        idx, seqv, tiles, start, end, b_first, nseg, tt, pe = _gw_bal(seq_ptr, pid, B, B_PAD, P, BN, 4)
         it = 0
         for sg in range(nseg):
             b = b_first + sg
@@ -705,7 +805,10 @@ if HAVE_GLUON:
             (_gw_producer, (pt_row, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, ready, empty, lo, hi, ntiles,
                             PAGE, ROW_W, BN, C, NS, PW)),
         ], [4, PW], [CREGS, PREGS])
-        if FUSE:
+        if BAL and FUSE:
+            _gw_bal_fuse(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, cnt_ptr, split, h, HQ, HKV, G, L, M, D, B,
+                         B_PAD, NP, NID, BN, R_PAD)
+        elif FUSE:
             # The merge, in this grid: once all S programs of this (request, KV head pair) have stored their
             # partials, each merges a slice of the rows. One counter word per pair: arrivals in the low 16
             # bits, a generation above; the last arrival clears the arrivals and bumps the generation, which
@@ -725,8 +828,9 @@ if HAVE_GLUON:
             gl.inline_asm_elementwise("fence.acq_rel.gpu;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
         # This grid was launched alongside _new_tokens (which needs nothing from it); finish (or merge) only
         # after it, so the merge sees slot S too.
-        gl.inline_asm_elementwise("griddepcontrol.wait;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
-        if FUSE:
+        if not (BAL and FUSE):
+            gl.inline_asm_elementwise("griddepcontrol.wait;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+        if FUSE and not BAL:
             _gw_merge(pacc_ptr, pml_ptr, out_ptr, vs, b, hh, r, c, ok, tok, col, gate, HQ, HKV, S, M, D, R_PAD)
 
 
@@ -1085,13 +1189,15 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     col = (head0 + hb)[:, None] * D + d[None, :]
     gate = tl.load(qkv_ptr + tok * QKV_W + (HQ + 2 * HKV) * D + col).to(tl.float32)
     idx = tl.arange(0, B_PAD)
-    tiles = (tl.load(seq_ptr + idx, mask=idx < B, other=0).to(tl.int32) + (BN - 1)) // BN
-    tt = tl.maximum(tl.sum(tiles, 0), 1)
+    tiles = tl.where(idx < B, tl.maximum((tl.load(seq_ptr + idx, mask=idx < B, other=0).to(tl.int32) + (BN - 1)) // BN,
+                                         1), 0)
+    tt = tl.sum(tiles, 0)
+    pe = tl.minimum(tt, P)
     excl = tl.sum(tl.where(idx < b, tiles, 0), 0)
     incl = excl + tl.sum(tl.where(idx == b, tiles, 0), 0)
-    # Programs p with start(p) < incl, end(p) > excl, end(p) > start(p) (a superset range, then the test).
-    p_lo = tl.maximum((excl + 1) * P // tt - 1, 0)
-    p_hi = tl.minimum((incl * P) // tt + 1, P - 1)
+    # Programs p with start(p) < incl, end(p) > excl (a superset range, then the test).
+    p_lo = tl.maximum((excl + 1) * pe // tt - 1, 0)
+    p_hi = tl.minimum((incl * pe) // tt + 1, pe - 1)
     gdc_wait()
     row = (h * NID + b) * M + (tok % L) * G + head0 % G + hb  # [HB] rows at id b (p = 0)
     nrow = row + (P + B) * M
@@ -1099,9 +1205,9 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     sb = tl.arange(0, SB)
     for i in range(p_lo, p_hi + 1, SB):
         pp = i + sb
-        st = pp * tt // P
-        en = (pp + 1) * tt // P
-        ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
+        st = pp * tt // pe
+        en = (pp + 1) * tt // pe
+        ok = ((pp <= p_hi) & (st < incl) & (en > excl))[:, None]
         at = row[None, :] + (pp * M)[:, None]
         m_max = tl.maximum(m_max, tl.max(tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30), 0))
     wn = tl.exp2(tl.load(pml_ptr + nrow * 2) - m_max)
@@ -1109,9 +1215,9 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     acc = wn[:, None] * tl.load(pacc_ptr + nrow[:, None] * D + d[None, :]).to(tl.float32)
     for i in range(p_lo, p_hi + 1, SB):
         pp = i + sb
-        st = pp * tt // P
-        en = (pp + 1) * tt // P
-        ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
+        st = pp * tt // pe
+        en = (pp + 1) * tt // pe
+        ok = ((pp <= p_hi) & (st < incl) & (en > excl))[:, None]
         at = row[None, :] + (pp * M)[:, None]
         w = tl.exp2(tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30) - m_max[None, :])
         denom += tl.sum(w * tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0), 0)
@@ -1321,6 +1427,8 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
     page_table = data["page_table"]
     # Programs per KV head pair: as many as fill the slots (2 per SM), or the plan's splits per request.
     progs = 2 * _num_sms(device) // (hkv // 2) if plan.get("fill", True) else plan["splits"] * batch
+    # bfuse: the merge in the same grid (needs every program resident: one wave of 2 per SM).
+    fuse = plan.get("bfuse", False) and progs * (hkv // 2) <= 2 * _num_sms(device)
     nid = progs + 2 * batch
     b_pad = plan.get("bpad", max(32, triton.next_power_of_2(batch)))
     pacc = torch.empty((hkv, nid, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
@@ -1335,7 +1443,10 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=progs,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
         LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
+        FUSE=fuse, cnt_ptr=_counters(batch * (hkv // 2), device, "g"), out_ptr=out, R_PAD=plan.get("rpad", 8),
         launch_pdl=True)
+    if fuse:
+        return out
     hb = plan.get("hb", 2)
     _combine_bal[(batch * length, hq // hb)](
         qkv, data["seq_lens"], pacc, pml, data["v_scale"], out,
