@@ -1245,7 +1245,7 @@ MMAv2 path (FP8 K upcast to FP16, as session 19 found for decode full). Plan re-
 This session: 1 check (f3e099c1), 1 scored (10d12495). Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks,
 6/10 scored.
 
-## Session 21 (overnight agent, 2026-10-24 07:31-~08:50 UTC)
+## Session 21 (overnight agent, 2026-10-24 07:31- UTC)
 
 **Main 779bb6d = session 20's candidate 8aefd49 + balanced splits for verify full (`USE_GBAL`). Still UNCHECKED on the
 H200. Check it first thing next UTC day** (this problem's account limit is 10 checks/day, not 20, and all 10 were
