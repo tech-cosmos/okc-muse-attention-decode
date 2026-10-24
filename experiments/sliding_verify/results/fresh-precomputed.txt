@@ -1,0 +1,16 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+PASS fresh graph False {'batch': 1, 'ctx': 10, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds, including empty contexts
+PASS fresh graph False {'batch': 2, 'ctx': 1024, 'heads': 'tp8', 'layer': 'sliding', 'page': 64, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'edges'} 6 seeds, including empty contexts
+PASS fresh graph False {'batch': 3, 'ctx': 2047, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'coherent'} 6 seeds, including empty contexts
+PASS fresh graph False {'batch': 4, 'ctx': 2048, 'heads': 'tp8', 'layer': 'sliding', 'page': 64, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds, including empty contexts
+PASS fresh graph False {'batch': 2, 'ctx': 4000, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'edges'} 6 seeds, including empty contexts
+PASS fresh graph False {'batch': 1, 'ctx': 120000, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds, including empty contexts
+PASS fresh graph False {'batch': 1, 'ctx': 2049, 'heads': 'dp', 'layer': 'sliding', 'page': 64, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'soft'} 6 seeds, including empty contexts
+PASS fresh graph True {'batch': 1, 'ctx': 10, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds, including empty contexts
+PASS fresh graph True {'batch': 2, 'ctx': 1024, 'heads': 'tp8', 'layer': 'sliding', 'page': 64, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'edges'} 6 seeds, including empty contexts
+PASS fresh graph True {'batch': 3, 'ctx': 2047, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'coherent'} 6 seeds, including empty contexts
+PASS fresh graph True {'batch': 4, 'ctx': 2048, 'heads': 'tp8', 'layer': 'sliding', 'page': 64, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds, including empty contexts
+PASS fresh graph True {'batch': 2, 'ctx': 4000, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'edges'} 6 seeds, including empty contexts
+PASS fresh graph True {'batch': 1, 'ctx': 120000, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'soft'} 6 seeds, including empty contexts
+PASS fresh graph True {'batch': 1, 'ctx': 2049, 'heads': 'dp', 'layer': 'sliding', 'page': 64, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'soft'} 6 seeds, including empty contexts

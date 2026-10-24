@@ -1,0 +1,12 @@
+native late 1481 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDG.E': 45, 'LDG.E.64': 2, 'LDG.E.U16': 40, 'LDGDEPBAR': 1, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 6, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 8}
+first gather 28f0 first rsqrt 0f70
+native early 1457 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDG.E': 45, 'LDG.E.64': 2, 'LDG.E.U16': 40, 'LDGDEPBAR': 1, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 6, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 8}
+first gather 0610 first rsqrt 1430
+vector late 1465 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDG.E': 13, 'LDG.E.64': 26, 'LDG.E.U16': 8, 'LDGDEPBAR': 1, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 6, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 8}
+first gather 28a0 first rsqrt 10b0
+vector early 1457 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDG.E': 13, 'LDG.E.64': 26, 'LDG.E.U16': 8, 'LDGDEPBAR': 1, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 6, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 8}
+first gather 06c0 first rsqrt 15e0
+precomputed late 758 {'ACQBULK': 1, 'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDG.E': 4, 'LDG.E.128.STRONG.GPU': 2, 'LDGDEPBAR': 2, 'LDGSTS.E.BYPASS.128': 6, 'LDS.64': 4, 'QGMMA.64': 2, 'STS.128': 4}
+first gather 0620 first rsqrt None
+precomputed early 758 {'ACQBULK': 1, 'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDG.E': 4, 'LDG.E.128.STRONG.GPU': 2, 'LDGDEPBAR': 2, 'LDGSTS.E.BYPASS.128': 6, 'LDS.64': 4, 'QGMMA.64': 2, 'STS.128': 4}
+first gather 05b0 first rsqrt None

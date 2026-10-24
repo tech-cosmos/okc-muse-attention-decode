@@ -1,0 +1,5 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+{"shape": {"batch": 1, "ctx": 80000, "page": 1, "heads": "tp8", "layer": "sliding", "q_len": 8, "dist": "soft"}, "medians_us": {"parent": 5.72800007648766, "parent_attention": 4.111999878659844, "native_late": 7.7599999494850636, "native_late_attention": 5.95200015231967, "native_early": 8.016000036150217, "native_early_attention": 6.367999594658613}}
+{"shape": {"batch": 1, "ctx": 10, "page": 64, "heads": "tp8", "layer": "sliding", "q_len": 8, "dist": "soft"}, "medians_us": {"parent": 5.5519999004900455, "parent_attention": 4.3840003199875355, "native_late": 7.51999975182116, "native_late_attention": 6.383999716490507, "native_early": 7.247999543324113, "native_early_attention": 6.079999962821603}}
+{"shape": {"batch": 16, "ctx": 80000, "page": 1, "heads": "tp8", "layer": "sliding", "q_len": 8, "dist": "soft", "spread": "agentic"}, "medians_us": {"parent": 12.543999589979649, "parent_attention": 10.543999029323459, "native_late": 29.55200057476759, "native_late_attention": 25.200000498443842, "native_early": 28.52800115942955, "native_early_attention": 24.256000062450767}}

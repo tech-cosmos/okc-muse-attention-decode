@@ -1,0 +1,95 @@
+{
+  "reproducible_generated_sources": [
+    "kernel.cu",
+    "vector.cu",
+    "precomputed.cu",
+    "vector.py",
+    "precomputed.py"
+  ],
+  "production_sha256": "16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e",
+  "production_unchanged": true,
+  "tests": {
+    "native": {
+      "passed": 32,
+      "per_order": 16,
+      "native_per_order": 3,
+      "fallback_per_order": 13,
+      "local_bench_geomeans": [
+        "1.729",
+        "1.723"
+      ]
+    },
+    "-vector": {
+      "passed": 32,
+      "per_order": 16,
+      "native_per_order": 3,
+      "fallback_per_order": 13,
+      "local_bench_geomeans": [
+        "1.755",
+        "1.735"
+      ]
+    },
+    "-precomputed": {
+      "passed": 32,
+      "per_order": 16,
+      "native_per_order": 3,
+      "fallback_per_order": 13,
+      "local_bench_geomeans": [
+        "1.703",
+        "1.711"
+      ]
+    }
+  },
+  "fresh": {
+    "native": {
+      "all_native_replays": 84,
+      "shapes": 7,
+      "orders": 2
+    },
+    "-precomputed": {
+      "all_native_replays": 84,
+      "shapes": 7,
+      "orders": 2
+    }
+  },
+  "sanitizers": {
+    "memcheck": {
+      "native_calls": 24,
+      "summary": "========= ERROR SUMMARY: 0 errors"
+    },
+    "synccheck": {
+      "native_calls": 24,
+      "summary": "========= ERROR SUMMARY: 0 errors"
+    },
+    "racecheck": {
+      "native_calls": 24,
+      "summary": "========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)"
+    },
+    "memcheck-precomputed": {
+      "native_calls": 24,
+      "summary": "========= ERROR SUMMARY: 0 errors"
+    },
+    "synccheck-precomputed": {
+      "native_calls": 24,
+      "summary": "========= ERROR SUMMARY: 0 errors"
+    },
+    "racecheck-precomputed": {
+      "native_calls": 24,
+      "summary": "========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)"
+    }
+  },
+  "comparisons": {
+    "native": {
+      "shape_order_entries": 14,
+      "pairs_per_entry": 40
+    },
+    "-vector": {
+      "shape_order_entries": 14,
+      "pairs_per_entry": 40
+    },
+    "-precomputed": {
+      "shape_order_entries": 14,
+      "pairs_per_entry": 40
+    }
+  }
+}

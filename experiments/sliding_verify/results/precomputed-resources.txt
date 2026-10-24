@@ -1,0 +1,22 @@
+
+Fatbin elf code:
+================
+arch = sm_90a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /home/daytona/codex-repo/experiments/sliding_verify/.build-precomputed/cuda.cu
+
+Resource usage:
+ Common:
+  GLOBAL:28 CONSTANT[4]:224
+ Function _Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PKjPKhPfSE_iiiif:
+  REG:75 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PKjPKhPfSE_iiiif:
+  REG:75 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PKjPKhPfSE_iiiif:
+  REG:75 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PKjPKhPfSE_iiiif:
+  REG:75 STACK:0 SHARED:17408 LOCAL:0 CONSTANT[0]:652 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z7preparePK13__nv_bfloat16PKfPhS4_PKiPKlS3_S3_PjS4_ii:
+  REG:42 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:616 TEXTURE:0 SURFACE:0 SAMPLER:0
