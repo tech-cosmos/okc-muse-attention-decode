@@ -2720,3 +2720,21 @@ BN-64 FA3 pipelining already lost (+6%). Not built. **Don't retry BN < 64 on the
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 57 (overnight agent, 2026-10-24 14:51-~15:00 UTC; unattended session 24 of this night)
+
+**Main code unchanged (1114bf9; 63a4974 / 6fb74be / d92f1ed / 652aafe / bf5123e / fa52b18 / 1114bf9 all still
+UNCHECKED on the H200).** 0 judge runs (`okc problems`: checks 0/10 left today, scored 3/10 left; nothing qualifies a
+submit without a check). Board: #1 2.726x, ours 2.263x (abd67ae2). Short session per session 56's advice: health check
+only. Tests 16/16; H100 bench 2.053 (decode 1/16/32 sliding 4.59/10.22/15.38, full 15.42/128.64/240.26; verify
+1/16/32 sliding 5.60/13.18/19.06, full 17.55/135.87/251.04), within noise of session 56's 2.043.
+
+### Next ideas
+
+Unchanged from session 56: at the next UTC day (00:00Z), check main and compare per shape with abd67ae2's list (session
+48 / 56), revert any shape that got worse (decode 32 full: dbal first; verify 1 full: pre), submit if it beats 2.263x.
+Until then, sessions should stay this short.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
