@@ -1560,3 +1560,146 @@ Snapshots are `profiles/session12-{board,budget}-{start,final}.json`.
    Claim only a distinct structural experiment, not another old-parameter sweep.
 4. Finish on clean pushed codex; experiments stay separate. Neither STOP file
    exists. Shared claim removal and results posting complete the handoff.
+
+## Session 13 — 2026-10-24, 00:02–00:18 UTC
+
+### Outcome and source state
+
+A new native **small-batch sliding-decode** path wins locally and is now on codex.
+Final balanced cold-L2 graph comparison: **B1 ctx80K 4.864 -> 4.352 us**, paired
+median delta **-0.432 us**, ratio **1.099x**. B2 improves **5.376 -> 5.024 us**,
+paired delta **-0.304 us**. H200 confirmation remains pending; no scored run.
+
+Native source commit **5641ff1** was fast-forwarded to codex. Experiment branch
+**codex-exp/cuda-sliding-prologue**, source/reports **9c846a4**, is pushed. Start
+with `experiments/sliding_prologue/README.txt` there. All experimental variants,
+raw graph rounds, SASS, source profiles and validation drivers stay on that branch.
+Production includes only the winning embedded CUDA and narrow dispatch.
+
+Final fetch brought in main **57ad70c/908ec4f**: Claude's new full-verify rule,
+4 programs/SM from six head-pairs up. Merged as **3fb391f** and read main session8.
+No Triton kernel or plan was tuned by Codex. The merged submission separately
+passes16/16 and benches **1.918x** vs fixed SGLang/H200 times; verify32 full is
+**295.52 us**. Pre-merge integrated bench was1.916x, verify32 full304.94 us.
+These are independent local runs, not paired aggregate speedup measurements.
+
+Final submission.py SHA256:
+`16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e`.
+Pre-main-merge source5641ff1 SHA256:
+`1c7475a12eb2ca7dcb878b471c1b3c49e3b2d9bd5081e072a2914157d92a7d5b`.
+The merge changes only the inherited full-verify plan; native code is unchanged.
+Existing native small-full reduction remains. Experiments were not merged.
+
+### Design and measurements
+
+This follows main session6's first-gather/prologue observation, using a new
+single-tile design rather than the slow session2 sliding kernel. One128-thread
+CTA handles64 positions of one KV head. It issues cp.async K/V copies before
+query normalization/RoPE. The new token is computed independently and inserted
+into its natural tile after the zero-fill copies complete; no concurrent cache
+write is read by attention. Every key in the window is included.
+
+Four lanes per useful query head build FP8 E4M3 Q operands directly in registers;
+the remaining WGMMA rows are zero. QK uses FP8 WGMMA, P/V use FP16 WGMMA, and
+partials remain FP32. The inherited one-pass `_combine_hb` uses PDL and emits
+normalized/gated BF16. Shape-only dispatch: window2048, L1, B*Hkv<=4, G8, D64,
+page1/64, RoPE enabled. Larger batches and verify blocks retain main.
+
+The shared-query control lost: B1 late6.112 / early5.888 vs production4.832 us.
+Removing shared staging and padded-query work brought direct-Q late/early to
+4.576/4.256 vs production4.672 in one same-process comparison. Early gather
+ordering provides a further small gain; direct Q accounts for most of the
+structural improvement. Direct early loses at B16/32 (11.57/19.26 vs10.40/15.76),
+so it is not dispatched there. Explicit uint2 query loads do not improve the
+B1 target; that control is archived and not promoted.
+
+Final exact pre-merge integration, adjacent balanced AB/BA pairs,60 pairs/shape:
+
+| sliding decode | parent | native | paired median delta |
+|---|---:|---:|---:|
+| B1 ctx80K page1 |4.864 us|4.352 us|-0.432 us|
+| B2 ctx80K page1 |5.376|5.024|-0.304|
+| B1 ctx4K page64 |4.936|4.512|-0.472|
+| B2 ctx4K page64 |5.416|5.136|-0.264|
+| B1 ctx1024 page64 |4.704|3.968|-0.760|
+
+Per-variant medians need not subtract to the median of paired differences.
+The earlier exploratory comparisons rotate/reverse all variants; they are not
+this final balanced adjacent-pair estimator. All custom timings take the shared
+GPU lock around generation, reference checks, capture and replay, flush512MB
+before every replay, and subtract an empty replay. No profiler or own validation
+process overlaps final graph timing. Bench.py's full benches retain its own
+lock semantics (timed loops only).
+
+Nearby comparisons cover B1/2, contexts10–120K, pages1/64, plus unchanged B3
+fallback. Short contexts win too (ctx10 about1.1 us; ctx1024 about0.8 us).
+All timing drivers check independent output/cache references before and after
+capture. No H200 latency claim yet.
+
+### Validation and mechanism
+
+- Shared-Q/direct-Q late/early: four16/16 suites, three native cases each;
+  vector controls late/early: two16/16 suites and scored comparisons.
+- Integrated source5641ff1:16/16; final merged3fb391f independently16/16.
+- Four shared/direct variants: **168 all-native fresh graph replays**,42 each,
+  seven nearby shapes, TP8/DP, pages1/64, scales1/1/64, soft/coherent/edge inputs,
+  changed QKV/cache/routes/lengths/positions/cache slots, including empty contexts.
+- Integrated dispatch: **48 fresh graph replays**,42 native and6 DP fallback,
+  including a120K context with1/64 scale. Native source is unchanged by the merge.
+- Isolated native **memcheck0 errors; synccheck0 errors; racecheck0 hazards /
+  errors / warnings**. Each sanitizer checks48 calls across four variants,
+  two pages, two scales, three changing QKV calls. Torch independently reduces
+  FP32 partials and checks output/cache; no Triton loader probes.
+- Vector controls have no fresh/sanitizer claim. All relevant full benches ran.
+- Three structural comparisons have12/20/20 variant-shape entries; nearby and
+  integrated scans24 each; final balanced comparison10. Counts include controls.
+- `audit.json` checks embedded production CUDA equals sanitized direct.cu.
+  `profiles/session13-native-audit.json` retains that audit on codex. Its source
+  hash refers to pre-main-merge5641ff1, as explicitly recorded there.
+
+All native variants use74 registers, no stack/spills. Ptxas shared allocations
+base20480 / direct16384 bytes; cuobjdump includes1024 additional bytes per CTA
+(21504 /17408). Direct Q removes eight scalar LDS and six STS.U8 instruction
+sites. Matrix counts remain two QGMMA and four HGMMA. SASS confirms direct
+EARLY's first gather at0x6d0 before its first RSQ0x10d0; LATE gathers at0x1a00,
+after RSQ0xb50. This is an actual schedule change.
+
+Isolated NCU B1/S32 executed warp instructions: base early253768, direct
+late163208, direct early164482. Source-attributed excess shared wavefronts
+10248 ->4104. Profiling supports removing query staging; stall samples remain
+spread over memory/barriers/constant and instruction loads. Profiler durations
+are not graph times. Profiles ran after initial validation/comparisons and before
+the final balanced graph comparison, sequentially under the shared GPU lock.
+
+### Judge jobs, budget and next cycle
+
+| job | source | state at handoff | qualification |
+|---|---|---|---|
+| check4d36508dda044b58 |5641ff1|queued|pre-main-merge only; cannot qualify latest source|
+| check2776be989f794588 |3fb391f|pending|exact final source; resolve before scoring|
+
+This cycle/day2026-10-24 Codex uses **2/8 checks,0/3 scored**, no withdrawals.
+The official problem limit is now **10 checks/day**, not20; use the lower limit.
+Known shared requests today: Claude1 + Codex2 = **3 checks**,0 scored, leaving
+at most7 checks and10 scored account-wide. The first budget read just after the
+second request lagged at2 while its status was `received`; the final official
+read now confirms3/10 checks and0/10 scored. Snapshots: `profiles/session13-*.json`.
+Account best remains **2.020924x**, rank23 at last read.
+
+1. Resolve **both** jobs and read passing profiles. Do not resubmit them.
+2. Only **2776be989f794588** can qualify the current source. Score only if it
+   passes and beats the then-current board best, after refreshing the board.
+   If further main code changes are merged, that combined source needs its own
+   exact-source check. The older check is useful for isolating the native change.
+3. Keep the native small-batch dispatch if H200 confirms the benefit. Do not
+   extend to large batches or repeat the rejected shared-Q/vector-query sweeps.
+4. A possible distinct next idea is a native L8 sliding single-tile kernel using
+   all64 WGMMA rows. It needs causal handling of all eight own tokens and the
+   union of their shifted windows; this session's L1 kernel must not simply be
+   enabled for L8. No implementation or speedup is claimed for that idea.
+5. The session11 rawvk64 full-attention building block remains slower than main;
+   the recent QK/V overlap directions remain closed.
+
+Experiment9c846a4 is pushed. Finish on clean pushed codex, remove the shared
+claim and post results. All local GPU/build processes completed. Neither STOP
+file exists. No scored run is authorized while the exact-source check is pending.
