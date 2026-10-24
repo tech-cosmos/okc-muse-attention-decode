@@ -16,6 +16,14 @@ the weakest shapes first (H200: verify 16/32 full 1.79x/1.84x, verify 32 sliding
 2.2-3.5x). Check the board (`okc leaderboard muse_attention_decode`) at the start of each session.
 Real speedups only.
 
+## Current direction (set by the human's lead agent, 2026-10-24 22:20 UTC; overrides STATE.md's ranking)
+
+**Every session works on verify full** (`_gw_verify`, H200 verify 16/32 full 109/210 us) until ~/COORD.md's
+"Human decisions" says otherwise. Read that section in full at session start (it is at the TOP of the file, not
+the tail). Target: the decode-full time on the same bytes (~165 us at verify 32), worth ~+7% overall. No more
+plan/split/stage tweaks on other shapes. Profile first (ncu: issue slots, MUFU, smem), then a structural change
+that removes or relocates the producer's V transpose/convert work; ideas are listed in COORD.md.
+
 ## Rules (non-negotiable)
 
 - Follow TASK.md's rules and the spirit of the challenge: CUDA-graph capturable, no host syncs, no
