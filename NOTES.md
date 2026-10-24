@@ -161,8 +161,6 @@ Focus: verify full layers (verify 16/32 full were 1.09x/1.25x on the H200 and dr
 H100 tracked the H200 closely for verify full under the dual design (160/304 on both). Sliding
 layers and decode are unchanged and noisy at +-0.5 us between runs.
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 1. Verify full is still ~2.5x the decode time for the same bytes (160 vs 101 us on the H200). Still
@@ -222,8 +220,6 @@ Baseline reproduced: H100 bench 1.798x, 16/16 tests.
   It wins only where 4/SM fills the single wave better than 3/SM (batch 8-24, 48: 2-3% faster) and
   loses where both leave the same 3% idle (batch 4, 32, 64), so `_plan` picks per/SM by wave fill.
   verify 16 full 160 -> 157 us; bench 1.798 -> 1.804. Correct at batch 8 (40K/120K), 12, 16, 20.
-
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
 ### Next ideas
 
@@ -287,8 +283,6 @@ decode 1 sliding 6.3 -> 6.2. 16/16 tests, 48/48 nearby shapes (tools/nearby.py).
   page -1 -> row 0, scores masked by seq): no change (17.25 both). The seq-load trip is not the limiter.
 - Grouped merge on full layers: equal at batch 16/32, 2-3 us slower at batch 1.
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 1. The remaining merge cost on full verify 16 (~7 us of 156) is mostly partial traffic
@@ -340,8 +334,6 @@ geomean would be ~2.16x. On batch-1 loads the sliding layer is ~58% of the load 
   critical path; the atomic-only cost (no merge) was 4.7 us, so the merge would have to fit in 1.5 us.
 - Fixed softmax shift (no running max) is NOT safe: cached keys are N(0,1) input data, not
   norm-bounded, so the score range isn't bounded by the rmsnorm. Don't revisit.
-
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
 ### Next ideas
 
@@ -406,8 +398,6 @@ round trips on the critical path of the latency-bound shapes (batch-1 and slidin
 - Re-sweeps after the changes (all flat or worse): sliding splits 8-64, block_n 32/64, warps 1-8,
   stages 2-6, merge hb 1-8 / cw 1-4 at every batch.
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 1. Same lens elsewhere: list every dependent memory trip per program (seq -> page -> KV; seq ->
@@ -469,8 +459,6 @@ main unchanged (65ff1ab code). Board at 23:55: #1 pjmullin3 2.726x, us #21 at 2.
 - Sliding with few wide programs (splits 4-16, block_n 128/256, warps 4/8, stages 1/2): all slower
   (decode 1 5.4+, verify 1 6.6+, decode 16 11.1+). Stages 1/2 at batch-1 sliding: stages 2 looked
   0.2 us faster on verify 1 in one A/B, but 7-rep medians were equal (5.66 vs 5.63). Noise.
-
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
 ### Next ideas
 
@@ -554,8 +542,6 @@ Rule now `per = 4 if pairs >= 6 or fill[4] > fill[3] else 3`. Bench 1.905 (verif
 
 The okc limit for this problem now reads 10 checks/day (not 20). Claude on 2026-10-24: 1 check, 0 scored.
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 - Verify full is still ~1.3x SGLang on the H200 and the biggest lever. In Triton, sessions 1-8 ruled out
@@ -616,8 +602,6 @@ Gluon gotchas (cost time, write down):
 - NVMMA smem slices along the contiguous dim at 64 bytes inside a 128B swizzle work as wgmma operands.
 - `maxnreg` works as a launch kwarg on gluon kernels; `kernel.device_caches[0][0]` holds the compiled kernels
   (n_regs, n_spills, metadata.shared).
-
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
 ### Next ideas
 
@@ -687,8 +671,6 @@ b4853b2a is a82d996 + their native small-batch kernels (a superset). If that fai
 0a22b94 is unchecked (~1% on verify 32 full only).
 Claude 2026-10-24: 2 checks (fdccc1c6, 82a996b1), 0 scored.
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 1. Verify 16 full is still ~1.32x on the H200 and Gluon only ties there: at 2 CTAs/SM with S=32 it's 528 slots for
@@ -740,8 +722,6 @@ Claude 2026-10-24: 3 checks, 1 scored. Account at 03:40: 8/10 checks, 4/10 score
 Note: don't wrap `okc check` in `timeout 1100`; the queue can be > 15 min and the client then dies with
 no output (the job still runs: find it with `okc jobs` / `okc status <job>`).
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 1. Full layers are near the gather floor (decode 32 full 244 vs ~236 floor on H100; verify 32 260).
@@ -788,8 +768,6 @@ half-packing costs ~2 PRMT per element; total instructions went up (48.5M -> 51.
 
 Decode full deeper pipelines (more bytes in flight, in case the H200 needs them): all slower on H100
 (decode 32 full: stages 7/8 251 vs 243; block_n 32 249-251; splits 128 265). Can't tell the H200 effect without a check.
-
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
 ### Next ideas
 
@@ -853,8 +831,6 @@ full ~0.5%/us, verify full ~0.1%/us. If verify full ran at decode-full speed on 
 be ~2.27x. Verify full's compute (H100 compute-only 106 us at verify 16) is already ~FA3-hdim64 efficiency (42 GFLOP in
 106 us = ~400 TFLOPS fp16-equivalent); MUFU alone is ~40 us of floor there.
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 1. Merge tail on verify full is still ~5 us (H100) / ~10 us (H200 profile: _gw_verify ends ~124, busy 133.7). An
@@ -896,8 +872,6 @@ No change to main (kernel = 19b8ade). 0 checks, 0 scored. H100 bench at start 1.
   ablation without the transpose is 136.5, so even a free transpose saves only ~1 us on H100. Not worth more unless
   the H200's compute-bound verify (240 vs ~185 decode-equivalent) is shown to gain much more.
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 1. Verify 32 sliding's fixed costs (partials 2.2 us + merge 2.4 us + `_new` 1.4 + RoPE 1.2 at zero tiles) are the
@@ -927,8 +901,6 @@ inside the judge's CI; account had 2 checks left today).
 
 - Normalized FP16 partials (store acc / l, merge weights exp2(m - m_max) * l): same byte savings, but the divide
   costs on the critical path: decode 1 sliding +0.5 us, Gluon verify 16 full +1.5. BF16 unnormalized is better.
-
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
 ### Next ideas
 
@@ -979,8 +951,6 @@ verify full really is bound by consumer compute: keep using the no-gather ablati
 as the metric for verify-full compute work.
 | beb63898dbb64991 (submit) | exactly the file checked as 22381fd8 | **2.138x** (2.106-2.170) | 16/16; new account best (was 2.113x d0f30dc0), board rank 20 |
 
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
-
 ### Next ideas
 
 1. Verify full on the H200 is consumer-compute-bound: keep cutting per-tile consumer work and measure it with the
@@ -1028,8 +998,6 @@ H100, base -> sfuse: decode 1 4.8 -> 6.3, decode 16 10.5 -> 13.8, decode 32 16.1
 verify 16 12.6 -> 15.0, verify 32 20.0 -> 23.5 us. Release-only arrival without the post-wait fence: decode 1 6.05,
 verify 32 22.4. The PDL-launched merge (programs already resident, released by griddepcontrol) is much cheaper than
 an atomic + spin + fence chain at these sizes. Don't retry for sliding/decode Triton paths.
-
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
 ### Next ideas
 
@@ -1105,8 +1073,6 @@ decode 1 / verify 1 full: all 17.6 / 18.6; no merge launch 15.6 / 15.6; no KV ti
 - Decode 16 full wider tiles (block_n 32/64, warps 2/4, splits 16-64, stages 4/6): best 130.3 vs 129.4 on H100,
   and emulated 152.3 vs 138.5. Dead on both.
 - Verify 16 sliding stages 6 (12.30 vs 12.53, one sweep; unpaired, likely noise).
-
-(tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
 ### Next ideas
 
