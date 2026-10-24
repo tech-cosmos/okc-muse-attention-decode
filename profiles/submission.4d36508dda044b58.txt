@@ -8,19 +8,19 @@ score_us    1857.7797452364873
 tests       16/16 passed
 
 scored shapes (µs; speed of light is the reference's bound)
-case                                                         sglang      yours  speedup        sol  
-batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 1 page=1      20.98       6.00   3.499x       0.11  
-batch=1 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 1 page=1      31.52      15.36   2.052x       4.27  
-batch=16 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 16 page=1 spread=agentic      26.86      10.78   2.493x       1.65  
-batch=16 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 16 page=1 spread=agentic     201.55      99.28   2.030x      63.18  
-batch=32 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 32 page=1 spread=agentic      31.14      13.97   2.229x       3.29  
-batch=32 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 32 page=1 spread=agentic     385.78     185.64   2.078x     126.35  
-batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 1 page=1 q_len=8      22.78       7.56   3.015x       0.12  
-batch=1 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 1 page=1 q_len=8      36.18      16.33   2.215x       4.28  
-batch=16 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 16 page=1 q_len=8 spread=agentic      29.01      12.50   2.321x       1.86  
-batch=16 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 16 page=1 q_len=8 spread=agentic     205.79     155.57   1.323x      63.39  
-batch=32 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 32 page=1 q_len=8 spread=agentic      34.46      19.08   1.806x       3.72  
-batch=32 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 32 page=1 q_len=8 spread=agentic     390.69     306.31   1.275x     126.78  
+case                                                         sglang      yours  speedup        sol
+batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 1 page=1      20.98       6.00   3.499x       0.11
+batch=1 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 1 page=1      31.52      15.36   2.052x       4.27
+batch=16 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 16 page=1 spread=agentic      26.86      10.78   2.493x       1.65
+batch=16 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 16 page=1 spread=agentic     201.55      99.28   2.030x      63.18
+batch=32 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 32 page=1 spread=agentic      31.14      13.97   2.229x       3.29
+batch=32 ctx=80000 dist=coherent heads=tp8 layer=full load=decode 32 page=1 spread=agentic     385.78     185.64   2.078x     126.35
+batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 1 page=1 q_len=8      22.78       7.56   3.015x       0.12
+batch=1 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 1 page=1 q_len=8      36.18      16.33   2.215x       4.28
+batch=16 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 16 page=1 q_len=8 spread=agentic      29.01      12.50   2.321x       1.86
+batch=16 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 16 page=1 q_len=8 spread=agentic     205.79     155.57   1.323x      63.39
+batch=32 ctx=80000 dist=soft heads=tp8 layer=sliding load=verify 32 page=1 q_len=8 spread=agentic      34.46      19.08   1.806x       3.72
+batch=32 ctx=80000 dist=coherent heads=tp8 layer=full load=verify 32 page=1 q_len=8 spread=agentic     390.69     306.31   1.275x     126.78
 
 profile 0: batch=1 ctx=80000 dist=soft heads=tp8 layer=sliding load=decode 1 page=1
 kernel                                                           GPU time  share  calls
