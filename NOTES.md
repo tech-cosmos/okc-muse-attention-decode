@@ -1606,3 +1606,47 @@ lane).
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 30 (overnight agent, 2026-10-24 09:15-09:35 UTC)
+
+**Main 4d7e4e0 = de522ae (session 24's three unchecked changes) + three batch-1 plan changes below, all UNCHECKED on
+the H200.** H100 bench 2.013 -> 2.043 (decode 1 sliding 4.86 -> 4.51, verify 1 sliding 5.89 -> 5.60, verify 1 full
+18.94 -> 17.95). Each touches its own shape, so the next check evaluates everything at once: besides session 24's list
+(verify 16/32 full vs f3e099c1, decode 1 full vs 15.21, decode 16/32 full vs 92.63/173.84), compare **decode 1 sliding
+vs 6.35, verify 1 sliding vs 7.42, verify 1 full vs 16.41 us (f3e099c1)**. Fallbacks: verify 1 full worse -> first
+revert its block_n 64 / stages 8 (keep 127 splits + tsep); a sliding batch-1 shape worse -> set `tiny` False.
+
+### Change: `tsep` (plan key; Triton `_attn_split`, constexpr SEP)
+
+The block's new tokens (`_new`: norm/RoPE, FP8 store, causal attention) run in an extra program (split index S,
+partial slot S, no cached keys) instead of split 0, which was the slowest program. Upper bound measured first by
+skipping `_new` (wrong results): batch-1 sliding -0.2..-0.4 us, verify 16 sliding -0.2, verify 32 sliding 0.
+- On for batch * hkv <= 4 (sliding, both q_lens) and verify blocks in the `heads <= 4` full branch (verify 1 full).
+- Batched sizes lose (verify 16/32 sliding +1.3/+2.7, decode 16 +0.6; with one split fewer so the merge keeps a
+  power-of-two slot count: still +0.4..+0.9, decode 32 sliding paired +0.93, 0/11). Off there.
+- Merge: `_combine_hb` gets S + 1 slots (sb rounded up to a power of two).
+
+### Plan changes (H100 paired, tools/s26/abp.py)
+
+- Sliding batch 1-2 (`tiny`): tsep + stages 2. Decode 1 sliding: tsep alone tie (-0.03, 6/11), stages 2 alone tie
+  (-0.03), **both -0.35..-0.42 us (15/15, 11/11)**. Verify 1 sliding: tsep -0.14 (8/9 twice), stages 2 vs 3 a tie.
+  Re-sweep after: warps 2/8, cw 2, hb 1, BF16 partials all worse.
+- Verify 1 full: tsep (-0.11, 9/11), 127 splits so the merge has <= 128 slots in one pass (-0.08, 8/11), then
+  block_n 64 + 8 stages (-0.62, 9/11). New vs old plan **-0.82 us, 15/15**. Emulated H200 (tools/emu.py 40) 25.9 ->
+  20.3 (the emulator overstates this shape; the judge measured 16.41 for the old plan). Warning from session 18: a
+  similar batch-1 full change (decode 1 full, hpp 2 / block_n 64) won on the H100 and emulator but lost on the H200.
+- Tied / lost: verify 1 full block_n 64 with stages 6/10/12, block_n 32 stages 12, splits 95/191; decode 1 full gdec
+  `sep` (+ splits 510) -0.02 (6/11), stages 3 +1.0.
+- Dual chains (`dual`) on verify 16/32 sliding: +1.2..+14 us. Dead.
+
+### Next ideas
+
+1. Check main 4d7e4e0 when the UTC day resets (session 24's list + the three shapes above); submit if it beats the
+   board (account best 2.1605x).
+2. The stage count interacted with tsep (decode 1 sliding): after any structural change to a batch-1 path, re-sweep
+   its stages/block_n, which earlier sessions treated as settled.
+3. Unchanged: verify full's consumer is the only large lever (FP8 P@V needs a conflict-free V transpose: Codex's lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
