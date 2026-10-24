@@ -1,0 +1,10 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+{"shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "fixed"}, "parent_us": 4.303999710828066, "native_us": 4.31999983265996, "paired_delta_us": -0.015999656170606613}
+{"shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 5.024000070989132, "native_us": 4.959999583661556, "paired_delta_us": 0.015999656170606613}
+{"shape": {"batch": 3, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 5.216000135987997, "native_us": 5.279999691992998, "paired_delta_us": 0.047999899834394455}
+{"shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 7.328000385314226, "native_us": 7.424000184983015, "paired_delta_us": 0.09599979966878891}
+{"shape": {"batch": 1, "ctx": 10, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 3.679999615997076, "native_us": 3.807999659329653, "paired_delta_us": -0.031999778002500534}
+{"shape": {"batch": 2, "ctx": 1024, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 4.287999588996172, "native_us": 4.256000276654959, "paired_delta_us": -0.047999899834394455}
+{"shape": {"batch": 3, "ctx": 4000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 5.120000336319208, "native_us": 5.279999691992998, "paired_delta_us": 0.12800004333257675}
+{"shape": {"batch": 1, "ctx": 4000, "heads": "dp", "layer": "sliding", "page": 64, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 7.296000141650438, "native_us": 7.135999854654074, "paired_delta_us": -0.15999982133507729}

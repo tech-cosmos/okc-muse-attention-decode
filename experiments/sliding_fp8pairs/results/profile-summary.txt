@@ -1,0 +1,47 @@
+{
+  "base": {
+    "fp32_to_fp8": {
+      "sites": 20,
+      "executed_warp_instructions": 1032
+    },
+    "byte_permutation": {
+      "sites": 8,
+      "executed_warp_instructions": 512
+    },
+    "all": {
+      "sites": 1056,
+      "executed_warp_instructions": 164482
+    },
+    "shared_excess_wavefronts": 4104
+  },
+  "query": {
+    "fp32_to_fp8": {
+      "sites": 12,
+      "executed_warp_instructions": 520
+    },
+    "byte_permutation": {
+      "sites": 0,
+      "executed_warp_instructions": 0
+    },
+    "all": {
+      "sites": 1016,
+      "executed_warp_instructions": 161922
+    },
+    "shared_excess_wavefronts": 4104
+  },
+  "both": {
+    "fp32_to_fp8": {
+      "sites": 10,
+      "executed_warp_instructions": 516
+    },
+    "byte_permutation": {
+      "sites": 0,
+      "executed_warp_instructions": 0
+    },
+    "all": {
+      "sites": 1016,
+      "executed_warp_instructions": 162182
+    },
+    "shared_excess_wavefronts": 4104
+  }
+}

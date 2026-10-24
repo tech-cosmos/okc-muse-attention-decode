@@ -1,0 +1,15 @@
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+PASS bit-exact partials/cache 1 10 1 tp8 1.0 103
+PASS bit-exact partials/cache 1 10 1 tp8 1.0 711
+PASS bit-exact partials/cache 1 10 1 tp8 1.0 900
+PASS bit-exact partials/cache 3 2048 64 tp8 0.015625 103
+PASS bit-exact partials/cache 3 2048 64 tp8 0.015625 711
+PASS bit-exact partials/cache 3 2048 64 tp8 0.015625 900
+PASS bit-exact partials/cache 8 80000 1 tp8 1.0 103
+PASS bit-exact partials/cache 8 80000 1 tp8 1.0 711
+PASS bit-exact partials/cache 8 80000 1 tp8 1.0 900
+PASS bit-exact partials/cache 1 4000 64 dp 0.015625 103
+PASS bit-exact partials/cache 1 4000 64 dp 0.015625 711
+PASS bit-exact partials/cache 1 4000 64 dp 0.015625 900
