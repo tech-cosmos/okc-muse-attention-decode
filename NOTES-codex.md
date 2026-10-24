@@ -2472,3 +2472,119 @@ also does not add it).
 4. Session16's boundary patch is now integrated and validated; do not reapply it.
    Keep experiment51229d6 separate. End on clean pushed codex, shared claim removed
    and result posted; do not wait idle for the new check queue.
+
+## Session 20 — 2026-10-24, 01:33–01:41 UTC
+
+### Outcome and source state
+
+Completed a focused native **FP32 partial-store vectorization** cycle. The
+explicit PTX version halves store instructions and removes excess theoretical
+sectors, but its end-to-end gains are small and uneven. **Not promoted; no new
+judge requests.** Experiment **1c2c2b3** is pushed on
+**codex-exp/cuda-sliding-stores**, starting at
+`experiments/sliding_stores/README.txt`. Sources, reproducible generators,
+machine code, graph pairs, reference tests and profiles are archived there.
+Production evidence copy: `profiles/session20-native-audit.json`.
+
+Fetched main at start and end; **origin/main a82d996** remains already merged.
+Read Claude's active Gluon claim and stayed in the native lane. Production is
+unchanged exact **45c56bc**, including session19's Gluon integration and native
+B*Hkv<=16 boundary. SHA256:
+`e9a877984ef70a7067cce7ed85b8e573c95edc693b661b6e7ed16fa99136f349`.
+No Triton/Gluon code, plan, merge or production dispatch changed. No redundant
+unchanged-production suite was needed; experimental suites cover fallbacks.
+
+### Store mechanism and measured limits
+
+Baseline source profiling shows 18 scalar FP32 epilogue store sites with excess
+theoretical sectors, but few stall samples. Adjacent values already have aligned
+addresses, so this cycle changes only their store width:
+
+- **vector:** C++ float2 assignments. nvcc scalarizes accumulator stores again;
+  only max/sum combines. SASS:16 scalar stores plus one64-bit store.
+- **explicit:** inline PTX st.global.v2.f32. SASS:nine64-bit stores as intended.
+
+Attention, every key/value, new cache entries, FP8 query/cache precision,
+FP16 P/V, FP32 partials, BF16 output and PDL ordering are unchanged. Registers
+remain74, shared allocation17408 bytes(cuobjdump)/16384(ptxas), zero stack/local
+memory and spills. Both retain2QGMMA,4HGMMA,3CTA barrier sites. Audit static
+counts include padding NOPs; do not compare with old differently filtered counts.
+
+Balanced adjacent AB/BA cold-L2 graph pairs,60 rounds/shape,H100 microseconds:
+
+| variant | B1 parent/candidate | B1 paired delta | B2 paired delta | B8 paired delta |
+|---|---:|---:|---:|---:|
+| vector |4.384/4.352|-0.016|-0.160|+0.112|
+| explicit |4.288/4.192|-0.096|-0.080|+0.048|
+
+These initial B1 comparisons use **agentic lengths**, not the exact fixed-length
+scored B1. Explicit's second-seed120-pair confirmation gives B1 paired
+**-0.048us**, B2 **-0.096us**, B3 **+0.032us**, B8 **+0.064us**. The separate
+fixed-length B1 survey,120 pairs/shape, gives:
+
+| context | parent/candidate us | paired delta us |
+|---|---:|---:|
+|40000|4.480/4.480|-0.048|
+|80000 (scored shape)|4.544/4.448|-0.096|
+|120000|4.512/4.576|0.000|
+
+Paired deltas need not equal differences between independently computed medians.
+The scored-shape saving is small, nearby shapes are mixed, and this does not
+justify another H200 check. B16/32 forced-native improvements cannot justify a
+dispatch: their original native controls already lose to production Triton.
+Close this store-width family rather than tune more epilogue permutations.
+
+Isolated SourceCounters verifies partial-store executed warp instructions
+**1152->576**, theoretical L2 sectors **8448->4224**, excessive theoretical
+sectors **4224->0**. Total executed warp instructions fall only
+**164482->163394**, shared excess wavefronts stay4104. These are source metrics,
+not measured HBM bytes; no occupancy or isolated store-latency claim. Profiler
+duration is not graph timing. This is a real mechanism with little total payoff.
+
+### Validation and reproducibility
+
+- Both variants **16/16**,3 native/13 production fallbacks, then full benches.
+  Broad-native aggregates **1.917/1.913x** are experiments, not production
+  regressions or H200 estimates.
+- **120 all-native fresh graph replays**,60/variant on10 cases, changing QKV,
+  caches, routing, lengths, positions and cache slots, including empty contexts.
+  TP8/DP, pages1/64, scales1/1/64, contexts10–120K, soft/coherent/edge inputs.
+- Explicit only: isolated **memcheck0 errors, synccheck0 errors, racecheck0
+  hazards/errors/warnings**. Each tool checks12 native calls across two pages,
+  two scales and three changed-QKV calls; independent torch partial reduction
+  plus output/cache reference. No separate vector sanitizer claim.
+- **33 candidate/control shape pairs**:20 initial at60 rounds each,10 second-seed
+  and3 fixed-length at120 each. Independent reference/cache before capture,
+  after replay and after timing. Custom drivers lock generation/reference/
+  capture/replay, flush512MB before every replay and subtract empty replay.
+  Full benches retain bench.py's timing-loop lock and had no concurrent own GPU
+  work. Fixed-length comparisons and profiles serialize through the shared lock.
+- Runtime coverage is EARLY=True; EARLY=False is compiled only. Audit reproduces
+  generated sources, verifies native baseline equals production, checks complete
+  pass/pair counts and sanitizer summaries. All local processes have completed.
+
+Setup: the first production import was canceled before GPU work to avoid an
+existing extension-cache lock. Builds moved to an isolated repo
+TORCH_EXTENSIONS_DIR. Its old shell's delayed `Terminated` line appears in the
+otherwise complete vector test log; this is not a failed kernel test. No shared
+extension cache lock was removed. Generated reports had whitespace cleanup only.
+
+### Judge state, budget and next cycle
+
+**b4853b2accdc4b50 remains queued at01:40UTC.** No passing profile exists yet,
+and no resubmission was made. Only this check can qualify exact45c56bc for
+scoring; earlier2776/4d36508/71e2 are resolved and cannot qualify newer source.
+Current account best remains **2.057970x,rank24**. Session **0 checks,0 scored**,
+no withdrawals. Codex2026-10-24 totals **3/8 checks,1/3 scored**; official shared
+account **5/10 checks,1/10 scored**, leaving5 checks/9 scored. Actual check cap
+is10/day. Snapshots: `profiles/session20-*`. Neither STOP file exists.
+
+1. Resolve **b4853b2accdc4b50** without resubmitting, and read its passing profile.
+   Score exact45c56bc only if it beats the then-current account best within budget.
+2. Fetch main/read COORD before further work. Claude owns Triton/Gluon; its B17
+   full-verify regression observation from session19 remains available to review.
+3. Native partial-store width now joins the closed small L1 optimization families.
+   Avoid more placement/width sweeps; future native work needs a distinct measured
+   bottleneck large enough to matter. This experiment stays separate from production.
+4. End on clean pushed codex, remove shared claim and post result. Do not wait idle
+   for the queued check. Session16 boundary patch is already integrated.
