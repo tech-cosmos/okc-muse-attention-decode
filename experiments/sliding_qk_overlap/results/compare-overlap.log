@@ -1,0 +1,12 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+{"shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 4.4639999978244305, "native_us": 4.480000119656324, "paired_delta_us": 0.0}
+{"shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 5.023999605327845, "native_us": 4.991999361664057, "paired_delta_us": -0.047999899834394455}
+{"shape": {"batch": 3, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 5.375999491661787, "native_us": 5.503999534994364, "paired_delta_us": 0.11200038716197014}
+{"shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 7.471999619156122, "native_us": 7.631999906152487, "paired_delta_us": 0.14400016516447067}
+{"shape": {"batch": 16, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 11.568000540137291, "native_us": 11.487999930977821, "paired_delta_us": -0.09599979966878891}
+{"shape": {"batch": 32, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 19.583999644964933, "native_us": 19.583999644964933, "paired_delta_us": 0.0}
+{"shape": {"batch": 1, "ctx": 10, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 3.80800012499094, "native_us": 3.9359997026622295, "paired_delta_us": 0.07999967783689499}
+{"shape": {"batch": 2, "ctx": 1024, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 4.303999710828066, "native_us": 4.159999545663595, "paired_delta_us": -0.12800004333257675}
+{"shape": {"batch": 3, "ctx": 4000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 5.407999735325575, "native_us": 5.407999735325575, "paired_delta_us": 0.0}
+{"shape": {"batch": 1, "ctx": 4000, "heads": "dp", "layer": "sliding", "page": 64, "q_len": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "parent_us": 7.280000019818544, "native_us": 7.391999941319227, "paired_delta_us": 0.09599979966878891}

@@ -1,0 +1,70 @@
+{
+  "base": {
+    "instructions": 1049,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "HMMA": 0,
+      "LDSM": 0,
+      "F2FP": 52,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "overlap": {
+    "instructions": 1045,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "HMMA": 0,
+      "LDSM": 0,
+      "F2FP": 52,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "late": {
+    "instructions": 1045,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "HMMA": 0,
+      "LDSM": 0,
+      "F2FP": 52,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  },
+  "pinned": {
+    "instructions": 1045,
+    "counts": {
+      "MUFU.EX2": 32,
+      "MUFU.RSQ": 3,
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "HMMA": 0,
+      "LDSM": 0,
+      "F2FP": 52,
+      "SHFL": 24,
+      "BAR": 3,
+      "BRA": 8,
+      "BSSY": 4,
+      "BSYNC": 4
+    }
+  }
+}
