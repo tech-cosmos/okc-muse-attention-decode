@@ -1,0 +1,12 @@
+base late 1177 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS': 8, 'LDS.64': 4, 'MUFU.RSQ': 8, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 10}
+first gather 17e0 first rsqrt 0650
+base early 1169 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS': 8, 'LDS.64': 4, 'MUFU.RSQ': 8, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 10}
+first gather 0700 first rsqrt 0bd0
+direct late 1041 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 3, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 4}
+first gather 1a00 first rsqrt 0b50
+direct early 1049 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 3, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 4}
+first gather 06d0 first rsqrt 10d0
+vector late 1057 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 3, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 4}
+first gather 1ac0 first rsqrt 0c20
+vector early 1049 {'BAR.SYNC.DEFER_BLOCKING': 3, 'HGMMA.64': 4, 'LDGSTS.E.BYPASS.128': 4, 'LDS.64': 4, 'MUFU.RSQ': 3, 'QGMMA.64': 2, 'STS.128': 4, 'STS.U8': 4}
+first gather 06a0 first rsqrt 11a0

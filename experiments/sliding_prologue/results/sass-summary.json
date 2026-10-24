@@ -1,0 +1,3475 @@
+{
+  "base": {
+    "_Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1185,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 14,
+        "BRA.DIV": 4,
+        "BSSY": 10,
+        "BSYNC": 10,
+        "CS2R": 10,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 28,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 10,
+        "FADD.FTZ": 58,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 52,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 68,
+        "FSEL": 34,
+        "HGMMA.64": 4,
+        "IADD3": 41,
+        "IADD3.X": 1,
+        "IMAD": 20,
+        "IMAD.IADD": 16,
+        "IMAD.MOV.U32": 113,
+        "IMAD.SHL.U32": 8,
+        "IMAD.U32": 9,
+        "IMAD.WIDE": 9,
+        "IMAD.WIDE.U32": 3,
+        "IMAD.X": 9,
+        "ISETP.GE.AND": 7,
+        "ISETP.GT.AND": 20,
+        "ISETP.GT.U32.AND": 1,
+        "ISETP.LT.U32.AND": 1,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 2,
+        "LDC": 3,
+        "LDC.64": 10,
+        "LDG.E": 9,
+        "LDG.E.64": 1,
+        "LDG.E.U16": 10,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS": 8,
+        "LDS.64": 4,
+        "LEA": 31,
+        "LEA.HI": 9,
+        "LEA.HI.SX32": 2,
+        "LEA.HI.X": 20,
+        "LEA.HI.X.SX32": 17,
+        "LOP3.LUT": 20,
+        "MEMBAR.ALL.CTA": 1,
+        "MOV": 25,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 8,
+        "NOP": 13,
+        "P2R": 14,
+        "PREEXIT": 1,
+        "QGMMA.64": 2,
+        "R2UR": 4,
+        "S2R": 8,
+        "S2UR": 3,
+        "SEL": 4,
+        "SHF.L.U32": 3,
+        "SHF.L.U64.HI": 1,
+        "SHF.R.S32.HI": 23,
+        "SHF.R.U32.HI": 11,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 62,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 10,
+        "UIADD3": 6,
+        "ULDC": 2,
+        "ULDC.64": 7,
+        "ULEA": 2,
+        "ULOP3.LUT": 12,
+        "UMOV": 18,
+        "USHF.L.U32": 1,
+        "USHF.R.S32.HI": 1,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 34,
+        "VIADDMNMX": 1,
+        "VIMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 28
+      },
+      "interesting": [
+        {
+          "pc": "0650",
+          "op": "MUFU.RSQ",
+          "args": "R16, R32"
+        },
+        {
+          "pc": "0770",
+          "op": "STS.U8",
+          "args": "[R26+UR4], R17"
+        },
+        {
+          "pc": "0780",
+          "op": "STS.U8",
+          "args": "[R26+UR4+0x20], R27"
+        },
+        {
+          "pc": "0ac0",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "0bb0",
+          "op": "STS.U8",
+          "args": "[R27+-0x120], R32"
+        },
+        {
+          "pc": "0bc0",
+          "op": "STS.U8",
+          "args": "[R27+-0x100], R30"
+        },
+        {
+          "pc": "0d40",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "0e20",
+          "op": "STS.U8",
+          "args": "[R27+-0x20], R28"
+        },
+        {
+          "pc": "0e30",
+          "op": "STS.U8",
+          "args": "[R27], R14"
+        },
+        {
+          "pc": "1180",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "1850",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R37], desc[UR8][R32.64], !P1"
+        },
+        {
+          "pc": "18d0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R41], desc[UR8][R34.64], !P1"
+        },
+        {
+          "pc": "1900",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R43], desc[UR8][R30.64], !P2"
+        },
+        {
+          "pc": "1920",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R33], desc[UR8][R28.64], !P2"
+        },
+        {
+          "pc": "1940",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1970",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1ab0",
+          "op": "STS.U8",
+          "args": "[R12], R21"
+        },
+        {
+          "pc": "1b40",
+          "op": "STS.U8",
+          "args": "[R14], R3"
+        },
+        {
+          "pc": "1b70",
+          "op": "STS.U8",
+          "args": "[R34], R13"
+        },
+        {
+          "pc": "1ba0",
+          "op": "STS.U8",
+          "args": "[R34+0x20], R11"
+        },
+        {
+          "pc": "1be0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1cc0",
+          "op": "LDS.64",
+          "args": "R16, [R26]"
+        },
+        {
+          "pc": "1de0",
+          "op": "STS.128",
+          "args": "[R9], R12"
+        },
+        {
+          "pc": "1e00",
+          "op": "LDS.64",
+          "args": "R20, [R26+0x400]"
+        },
+        {
+          "pc": "1f00",
+          "op": "STS.128",
+          "args": "[R3], R16"
+        },
+        {
+          "pc": "1f10",
+          "op": "LDS.64",
+          "args": "R20, [R26+0x800]"
+        },
+        {
+          "pc": "2080",
+          "op": "STS.128",
+          "args": "[R9], R12"
+        },
+        {
+          "pc": "20b0",
+          "op": "LDS.64",
+          "args": "R26, [R26+0xc00]"
+        },
+        {
+          "pc": "21b0",
+          "op": "STS.128",
+          "args": "[R11], R12"
+        },
+        {
+          "pc": "2260",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "22d0",
+          "op": "LDS",
+          "args": "R60, [R9]"
+        },
+        {
+          "pc": "22e0",
+          "op": "LDS",
+          "args": "R61, [R9+0x200]"
+        },
+        {
+          "pc": "22f0",
+          "op": "LDS",
+          "args": "R62, [R9+0x10]"
+        },
+        {
+          "pc": "2300",
+          "op": "LDS",
+          "args": "R63, [R9+0x210]"
+        },
+        {
+          "pc": "2310",
+          "op": "LDS",
+          "args": "R56, [R9+0x20]"
+        },
+        {
+          "pc": "2320",
+          "op": "LDS",
+          "args": "R57, [R9+0x220]"
+        },
+        {
+          "pc": "2330",
+          "op": "LDS",
+          "args": "R58, [R9+0x30]"
+        },
+        {
+          "pc": "2340",
+          "op": "LDS",
+          "args": "R59, [R9+0x230]"
+        },
+        {
+          "pc": "2360",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "2370",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR12], RZ, !UPT"
+        },
+        {
+          "pc": "23b0",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR12], R24, gsb0"
+        },
+        {
+          "pc": "23d0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3670",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "36a0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "3770",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "37b0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "37e0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR12].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "37f0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3fa0",
+          "op": "MUFU.RSQ",
+          "args": "R16, R16"
+        },
+        {
+          "pc": "4320",
+          "op": "MUFU.RSQ",
+          "args": "R32, R36"
+        },
+        {
+          "pc": "4640",
+          "op": "MUFU.RSQ",
+          "args": "R32, R14"
+        },
+        {
+          "pc": "4910",
+          "op": "MUFU.RSQ",
+          "args": "R27, R27"
+        }
+      ]
+    },
+    "_Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1185,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 14,
+        "BRA.DIV": 4,
+        "BSSY": 10,
+        "BSYNC": 10,
+        "CS2R": 11,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 28,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 10,
+        "FADD.FTZ": 58,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 52,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 68,
+        "FSEL": 34,
+        "HGMMA.64": 4,
+        "IADD3": 39,
+        "IADD3.X": 6,
+        "IMAD": 17,
+        "IMAD.IADD": 12,
+        "IMAD.MOV.U32": 114,
+        "IMAD.SHL.U32": 9,
+        "IMAD.U32": 14,
+        "IMAD.WIDE": 6,
+        "IMAD.WIDE.U32": 3,
+        "IMAD.X": 4,
+        "ISETP.GE.AND": 7,
+        "ISETP.GT.AND": 20,
+        "ISETP.GT.U32.AND": 1,
+        "ISETP.LT.U32.AND": 1,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 2,
+        "LDC": 2,
+        "LDC.64": 8,
+        "LDG.E": 9,
+        "LDG.E.64": 1,
+        "LDG.E.U16": 10,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS": 8,
+        "LDS.64": 4,
+        "LEA": 30,
+        "LEA.HI": 9,
+        "LEA.HI.SX32": 2,
+        "LEA.HI.X": 20,
+        "LEA.HI.X.SX32": 19,
+        "LOP3.LUT": 20,
+        "MEMBAR.ALL.CTA": 1,
+        "MOV": 20,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 8,
+        "NOP": 15,
+        "P2R": 14,
+        "PREEXIT": 1,
+        "QGMMA.64": 2,
+        "S2R": 5,
+        "S2UR": 5,
+        "SEL": 4,
+        "SHF.L.U64.HI": 2,
+        "SHF.R.S32.HI": 22,
+        "SHF.R.U32.HI": 11,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 62,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 10,
+        "UIADD3": 10,
+        "UIMAD": 1,
+        "UIMAD.WIDE": 1,
+        "ULDC": 5,
+        "ULDC.64": 10,
+        "ULEA": 6,
+        "ULOP3.LUT": 12,
+        "UMOV": 19,
+        "USHF.L.U32": 1,
+        "USHF.R.S32.HI": 1,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 34,
+        "VIADDMNMX": 1,
+        "VIMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 28
+      },
+      "interesting": [
+        {
+          "pc": "0780",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R3], desc[UR8][R20.64], !P0"
+        },
+        {
+          "pc": "0870",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R33], desc[UR8][R26.64], !P0"
+        },
+        {
+          "pc": "0890",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R35], desc[UR8][R28.64], !P1"
+        },
+        {
+          "pc": "08a0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R37], desc[UR8][R30.64], !P1"
+        },
+        {
+          "pc": "0c70",
+          "op": "MUFU.RSQ",
+          "args": "R8, R33"
+        },
+        {
+          "pc": "0d70",
+          "op": "STS.U8",
+          "args": "[R28+UR4], R9"
+        },
+        {
+          "pc": "0d80",
+          "op": "STS.U8",
+          "args": "[R28+UR4+0x20], R27"
+        },
+        {
+          "pc": "10b0",
+          "op": "MUFU.RSQ",
+          "args": "R33, R33"
+        },
+        {
+          "pc": "1190",
+          "op": "STS.U8",
+          "args": "[R28+-0x120], R33"
+        },
+        {
+          "pc": "11b0",
+          "op": "STS.U8",
+          "args": "[R28+-0x100], R31"
+        },
+        {
+          "pc": "1330",
+          "op": "MUFU.RSQ",
+          "args": "R33, R33"
+        },
+        {
+          "pc": "1410",
+          "op": "STS.U8",
+          "args": "[R28+-0x20], R29"
+        },
+        {
+          "pc": "1420",
+          "op": "STS.U8",
+          "args": "[R28], R7"
+        },
+        {
+          "pc": "1760",
+          "op": "MUFU.RSQ",
+          "args": "R33, R33"
+        },
+        {
+          "pc": "1910",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1950",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1a70",
+          "op": "STS.U8",
+          "args": "[R14+UR18], R17"
+        },
+        {
+          "pc": "1ab0",
+          "op": "STS.U8",
+          "args": "[R16+UR18], R23"
+        },
+        {
+          "pc": "1ac0",
+          "op": "STS.U8",
+          "args": "[R2+UR5], R15"
+        },
+        {
+          "pc": "1ad0",
+          "op": "STS.U8",
+          "args": "[R2+UR5+0x20], R25"
+        },
+        {
+          "pc": "1bb0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1c60",
+          "op": "LDS.64",
+          "args": "R8, [R7+UR5]"
+        },
+        {
+          "pc": "1d50",
+          "op": "STS.128",
+          "args": "[R10], R12"
+        },
+        {
+          "pc": "1d80",
+          "op": "LDS.64",
+          "args": "R20, [R7+UR5+0x400]"
+        },
+        {
+          "pc": "1e30",
+          "op": "STS.128",
+          "args": "[R9], R16"
+        },
+        {
+          "pc": "1e40",
+          "op": "LDS.64",
+          "args": "R20, [R7+UR5+0x800]"
+        },
+        {
+          "pc": "1f90",
+          "op": "STS.128",
+          "args": "[R8], R12"
+        },
+        {
+          "pc": "1fa0",
+          "op": "LDS.64",
+          "args": "R18, [R7+UR5+0xc00]"
+        },
+        {
+          "pc": "20c0",
+          "op": "STS.128",
+          "args": "[R7], R8"
+        },
+        {
+          "pc": "2160",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "2290",
+          "op": "LDS",
+          "args": "R60, [R12]"
+        },
+        {
+          "pc": "22a0",
+          "op": "LDS",
+          "args": "R61, [R12+0x200]"
+        },
+        {
+          "pc": "22b0",
+          "op": "LDS",
+          "args": "R62, [R12+0x10]"
+        },
+        {
+          "pc": "22c0",
+          "op": "LDS",
+          "args": "R63, [R12+0x210]"
+        },
+        {
+          "pc": "22d0",
+          "op": "LDS",
+          "args": "R56, [R12+0x20]"
+        },
+        {
+          "pc": "22e0",
+          "op": "LDS",
+          "args": "R57, [R12+0x220]"
+        },
+        {
+          "pc": "22f0",
+          "op": "LDS",
+          "args": "R58, [R12+0x30]"
+        },
+        {
+          "pc": "2300",
+          "op": "LDS",
+          "args": "R59, [R12+0x230]"
+        },
+        {
+          "pc": "2320",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "2330",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR12], RZ, !UPT"
+        },
+        {
+          "pc": "2370",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR12], R24, gsb0"
+        },
+        {
+          "pc": "2390",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3650",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "3660",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "3720",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "3760",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "3790",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR12].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "37a0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3f80",
+          "op": "MUFU.RSQ",
+          "args": "R8, R8"
+        },
+        {
+          "pc": "4300",
+          "op": "MUFU.RSQ",
+          "args": "R33, R37"
+        },
+        {
+          "pc": "4620",
+          "op": "MUFU.RSQ",
+          "args": "R33, R6"
+        },
+        {
+          "pc": "48f0",
+          "op": "MUFU.RSQ",
+          "args": "R28, R28"
+        }
+      ]
+    },
+    "_Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1177,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 14,
+        "BRA.DIV": 4,
+        "BSSY": 10,
+        "BSYNC": 10,
+        "CS2R": 10,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 28,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 10,
+        "FADD.FTZ": 58,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 52,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 68,
+        "FSEL": 34,
+        "HGMMA.64": 4,
+        "IADD3": 39,
+        "IADD3.X": 2,
+        "IMAD": 21,
+        "IMAD.IADD": 16,
+        "IMAD.MOV.U32": 111,
+        "IMAD.SHL.U32": 7,
+        "IMAD.U32": 8,
+        "IMAD.WIDE": 7,
+        "IMAD.WIDE.U32": 3,
+        "IMAD.X": 8,
+        "ISETP.GE.AND": 7,
+        "ISETP.GT.AND": 20,
+        "ISETP.GT.U32.AND": 1,
+        "ISETP.LT.U32.AND": 1,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 2,
+        "LDC": 5,
+        "LDC.64": 10,
+        "LDG.E": 9,
+        "LDG.E.64": 1,
+        "LDG.E.U16": 10,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS": 8,
+        "LDS.64": 4,
+        "LEA": 32,
+        "LEA.HI": 7,
+        "LEA.HI.X": 20,
+        "LEA.HI.X.SX32": 17,
+        "LOP3.LUT": 18,
+        "MEMBAR.ALL.CTA": 1,
+        "MOV": 27,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 8,
+        "NOP": 15,
+        "P2R": 14,
+        "PREEXIT": 1,
+        "QGMMA.64": 2,
+        "R2UR": 4,
+        "S2R": 8,
+        "S2UR": 3,
+        "SEL": 4,
+        "SHF.L.U32": 4,
+        "SHF.L.U64.HI": 1,
+        "SHF.R.S32.HI": 21,
+        "SHF.R.U32.HI": 11,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 62,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 10,
+        "UIADD3": 6,
+        "ULDC": 1,
+        "ULDC.64": 7,
+        "ULEA": 2,
+        "ULOP3.LUT": 12,
+        "UMOV": 18,
+        "USHF.L.U32": 1,
+        "USHF.R.S32.HI": 1,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 34,
+        "VIADDMNMX": 1,
+        "VIMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 28
+      },
+      "interesting": [
+        {
+          "pc": "0650",
+          "op": "MUFU.RSQ",
+          "args": "R14, R32"
+        },
+        {
+          "pc": "0770",
+          "op": "STS.U8",
+          "args": "[R26+UR4], R13"
+        },
+        {
+          "pc": "0780",
+          "op": "STS.U8",
+          "args": "[R26+UR4+0x20], R15"
+        },
+        {
+          "pc": "0ac0",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "0bb0",
+          "op": "STS.U8",
+          "args": "[R27+-0x120], R32"
+        },
+        {
+          "pc": "0bc0",
+          "op": "STS.U8",
+          "args": "[R27+-0x100], R30"
+        },
+        {
+          "pc": "0d40",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "0e20",
+          "op": "STS.U8",
+          "args": "[R27+-0x20], R28"
+        },
+        {
+          "pc": "0e30",
+          "op": "STS.U8",
+          "args": "[R27], R12"
+        },
+        {
+          "pc": "1180",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "17e0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R25], desc[UR8][R30.64], !P2"
+        },
+        {
+          "pc": "1830",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R37], desc[UR8][R34.64], !P2"
+        },
+        {
+          "pc": "1850",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R39], desc[UR8][R32.64], !P1"
+        },
+        {
+          "pc": "1870",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R31], desc[UR8][R28.64], !P1"
+        },
+        {
+          "pc": "18a0",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "18d0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1a10",
+          "op": "STS.U8",
+          "args": "[R2], R9"
+        },
+        {
+          "pc": "1ac0",
+          "op": "STS.U8",
+          "args": "[R16], R19"
+        },
+        {
+          "pc": "1af0",
+          "op": "STS.U8",
+          "args": "[R34], R17"
+        },
+        {
+          "pc": "1b00",
+          "op": "STS.U8",
+          "args": "[R34+0x20], R21"
+        },
+        {
+          "pc": "1b40",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1c60",
+          "op": "LDS.64",
+          "args": "R16, [R25]"
+        },
+        {
+          "pc": "1d80",
+          "op": "STS.128",
+          "args": "[R3], R12"
+        },
+        {
+          "pc": "1d90",
+          "op": "LDS.64",
+          "args": "R16, [R25+0x400]"
+        },
+        {
+          "pc": "1e60",
+          "op": "STS.128",
+          "args": "[R9], R32"
+        },
+        {
+          "pc": "1e70",
+          "op": "LDS.64",
+          "args": "R20, [R25+0x800]"
+        },
+        {
+          "pc": "1f20",
+          "op": "STS.128",
+          "args": "[R16], R12"
+        },
+        {
+          "pc": "1f40",
+          "op": "LDS.64",
+          "args": "R24, [R25+0xc00]"
+        },
+        {
+          "pc": "20b0",
+          "op": "STS.128",
+          "args": "[R9], R12"
+        },
+        {
+          "pc": "2150",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "21c0",
+          "op": "LDS",
+          "args": "R60, [R10]"
+        },
+        {
+          "pc": "21d0",
+          "op": "LDS",
+          "args": "R61, [R10+0x200]"
+        },
+        {
+          "pc": "21e0",
+          "op": "LDS",
+          "args": "R62, [R10+0x10]"
+        },
+        {
+          "pc": "21f0",
+          "op": "LDS",
+          "args": "R63, [R10+0x210]"
+        },
+        {
+          "pc": "2200",
+          "op": "LDS",
+          "args": "R56, [R10+0x20]"
+        },
+        {
+          "pc": "2210",
+          "op": "LDS",
+          "args": "R57, [R10+0x220]"
+        },
+        {
+          "pc": "2220",
+          "op": "LDS",
+          "args": "R58, [R10+0x30]"
+        },
+        {
+          "pc": "2230",
+          "op": "LDS",
+          "args": "R59, [R10+0x230]"
+        },
+        {
+          "pc": "22c0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "22d0",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR12], RZ, !UPT"
+        },
+        {
+          "pc": "2310",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR12], R24, gsb0"
+        },
+        {
+          "pc": "2330",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "35e0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "3610",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "36d0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "3710",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "3740",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR12].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "3750",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3f00",
+          "op": "MUFU.RSQ",
+          "args": "R14, R14"
+        },
+        {
+          "pc": "4280",
+          "op": "MUFU.RSQ",
+          "args": "R32, R36"
+        },
+        {
+          "pc": "45a0",
+          "op": "MUFU.RSQ",
+          "args": "R32, R12"
+        },
+        {
+          "pc": "4870",
+          "op": "MUFU.RSQ",
+          "args": "R27, R27"
+        }
+      ]
+    },
+    "_Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1169,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 14,
+        "BRA.DIV": 4,
+        "BSSY": 10,
+        "BSYNC": 10,
+        "CS2R": 11,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 28,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 10,
+        "FADD.FTZ": 58,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 52,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 68,
+        "FSEL": 34,
+        "HGMMA.64": 4,
+        "IADD3": 38,
+        "IADD3.X": 7,
+        "IMAD": 21,
+        "IMAD.IADD": 11,
+        "IMAD.MOV.U32": 114,
+        "IMAD.SHL.U32": 6,
+        "IMAD.U32": 12,
+        "IMAD.WIDE": 4,
+        "IMAD.WIDE.U32": 3,
+        "IMAD.X": 3,
+        "ISETP.GE.AND": 7,
+        "ISETP.GT.AND": 20,
+        "ISETP.GT.U32.AND": 1,
+        "ISETP.LT.U32.AND": 1,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 2,
+        "LDC": 4,
+        "LDC.64": 8,
+        "LDG.E": 9,
+        "LDG.E.64": 1,
+        "LDG.E.U16": 10,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS": 8,
+        "LDS.64": 4,
+        "LEA": 27,
+        "LEA.HI": 7,
+        "LEA.HI.X": 20,
+        "LEA.HI.X.SX32": 19,
+        "LOP3.LUT": 18,
+        "MEMBAR.ALL.CTA": 1,
+        "MOV": 20,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 8,
+        "NOP": 9,
+        "P2R": 14,
+        "PREEXIT": 1,
+        "QGMMA.64": 2,
+        "S2R": 5,
+        "S2UR": 5,
+        "SEL": 4,
+        "SHF.L.U32": 5,
+        "SHF.L.U64.HI": 2,
+        "SHF.R.S32.HI": 20,
+        "SHF.R.U32.HI": 11,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 62,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 10,
+        "UIADD3": 10,
+        "UIMAD": 1,
+        "UIMAD.WIDE": 1,
+        "ULDC": 4,
+        "ULDC.64": 10,
+        "ULEA": 6,
+        "ULOP3.LUT": 12,
+        "UMOV": 19,
+        "USHF.L.U32": 1,
+        "USHF.R.S32.HI": 1,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 34,
+        "VIADDMNMX": 1,
+        "VIMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 28
+      },
+      "interesting": [
+        {
+          "pc": "0700",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R19], desc[UR8][R20.64], !P0"
+        },
+        {
+          "pc": "0760",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R33], desc[UR8][R26.64], !P0"
+        },
+        {
+          "pc": "07d0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R35], desc[UR8][R28.64], !P1"
+        },
+        {
+          "pc": "07e0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R37], desc[UR8][R30.64], !P1"
+        },
+        {
+          "pc": "0bd0",
+          "op": "MUFU.RSQ",
+          "args": "R8, R33"
+        },
+        {
+          "pc": "0cd0",
+          "op": "STS.U8",
+          "args": "[R28+UR4], R9"
+        },
+        {
+          "pc": "0ce0",
+          "op": "STS.U8",
+          "args": "[R28+UR4+0x20], R27"
+        },
+        {
+          "pc": "1010",
+          "op": "MUFU.RSQ",
+          "args": "R33, R33"
+        },
+        {
+          "pc": "1100",
+          "op": "STS.U8",
+          "args": "[R28+-0x120], R33"
+        },
+        {
+          "pc": "1110",
+          "op": "STS.U8",
+          "args": "[R28+-0x100], R31"
+        },
+        {
+          "pc": "1290",
+          "op": "MUFU.RSQ",
+          "args": "R33, R33"
+        },
+        {
+          "pc": "1370",
+          "op": "STS.U8",
+          "args": "[R28+-0x20], R29"
+        },
+        {
+          "pc": "1380",
+          "op": "STS.U8",
+          "args": "[R28], R7"
+        },
+        {
+          "pc": "16c0",
+          "op": "MUFU.RSQ",
+          "args": "R33, R33"
+        },
+        {
+          "pc": "1870",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "18b0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "19d0",
+          "op": "STS.U8",
+          "args": "[R10+UR18], R17"
+        },
+        {
+          "pc": "1a10",
+          "op": "STS.U8",
+          "args": "[R16+UR18], R23"
+        },
+        {
+          "pc": "1a20",
+          "op": "STS.U8",
+          "args": "[R0+UR5], R13"
+        },
+        {
+          "pc": "1a30",
+          "op": "STS.U8",
+          "args": "[R0+UR5+0x20], R25"
+        },
+        {
+          "pc": "1b10",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1bc0",
+          "op": "LDS.64",
+          "args": "R8, [R7+UR5]"
+        },
+        {
+          "pc": "1cc0",
+          "op": "STS.128",
+          "args": "[R2], R16"
+        },
+        {
+          "pc": "1cf0",
+          "op": "LDS.64",
+          "args": "R14, [R7+UR5+0x400]"
+        },
+        {
+          "pc": "1da0",
+          "op": "STS.128",
+          "args": "[R9], R20"
+        },
+        {
+          "pc": "1db0",
+          "op": "LDS.64",
+          "args": "R14, [R7+UR5+0x800]"
+        },
+        {
+          "pc": "1e80",
+          "op": "STS.128",
+          "args": "[R13], R16"
+        },
+        {
+          "pc": "1eb0",
+          "op": "LDS.64",
+          "args": "R20, [R7+UR5+0xc00]"
+        },
+        {
+          "pc": "2020",
+          "op": "STS.128",
+          "args": "[R7], R8"
+        },
+        {
+          "pc": "20c0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "21d0",
+          "op": "LDS",
+          "args": "R60, [R12]"
+        },
+        {
+          "pc": "2200",
+          "op": "LDS",
+          "args": "R61, [R12+0x200]"
+        },
+        {
+          "pc": "2210",
+          "op": "LDS",
+          "args": "R62, [R12+0x10]"
+        },
+        {
+          "pc": "2220",
+          "op": "LDS",
+          "args": "R63, [R12+0x210]"
+        },
+        {
+          "pc": "2230",
+          "op": "LDS",
+          "args": "R56, [R12+0x20]"
+        },
+        {
+          "pc": "2240",
+          "op": "LDS",
+          "args": "R57, [R12+0x220]"
+        },
+        {
+          "pc": "2250",
+          "op": "LDS",
+          "args": "R58, [R12+0x30]"
+        },
+        {
+          "pc": "2260",
+          "op": "LDS",
+          "args": "R59, [R12+0x230]"
+        },
+        {
+          "pc": "2280",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "2290",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR12], RZ, !UPT"
+        },
+        {
+          "pc": "22d0",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR12], R24, gsb0"
+        },
+        {
+          "pc": "22f0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "35b0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "35c0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "3680",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "36c0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR12].tnspB, R24"
+        },
+        {
+          "pc": "36f0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR12].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "3700",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3ee0",
+          "op": "MUFU.RSQ",
+          "args": "R8, R8"
+        },
+        {
+          "pc": "4260",
+          "op": "MUFU.RSQ",
+          "args": "R33, R37"
+        },
+        {
+          "pc": "4580",
+          "op": "MUFU.RSQ",
+          "args": "R33, R6"
+        },
+        {
+          "pc": "4850",
+          "op": "MUFU.RSQ",
+          "args": "R28, R28"
+        }
+      ]
+    }
+  },
+  "direct": {
+    "_Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1057,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 6,
+        "BRA.DIV": 2,
+        "BSSY": 4,
+        "BSYNC": 4,
+        "CS2R": 7,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 9,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 20,
+        "FADD.FTZ": 31,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 70,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 79,
+        "FSEL": 33,
+        "HGMMA.64": 4,
+        "IADD3": 21,
+        "IMAD": 16,
+        "IMAD.IADD": 25,
+        "IMAD.MOV.U32": 66,
+        "IMAD.SHL.U32": 16,
+        "IMAD.U32": 20,
+        "IMAD.WIDE": 18,
+        "IMAD.WIDE.U32": 3,
+        "IMAD.X": 6,
+        "ISETP.EQ.AND": 1,
+        "ISETP.GE.AND": 6,
+        "ISETP.GT.AND": 16,
+        "ISETP.GT.U32.AND": 2,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 1,
+        "LDC": 1,
+        "LDC.64": 11,
+        "LDG.E": 25,
+        "LDG.E.64": 1,
+        "LDG.E.U16": 20,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS.64": 4,
+        "LEA": 30,
+        "LEA.HI": 11,
+        "LEA.HI.SX32": 3,
+        "LEA.HI.X": 24,
+        "LEA.HI.X.SX32": 15,
+        "LOP3.LUT": 39,
+        "MEMBAR.ALL.CTA": 1,
+        "MOV": 1,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 3,
+        "NOP": 14,
+        "P2R": 15,
+        "PREEXIT": 1,
+        "PRMT": 8,
+        "QGMMA.64": 2,
+        "R2UR": 4,
+        "S2R": 5,
+        "SEL": 4,
+        "SHF.L.U64.HI": 1,
+        "SHF.R.S32.HI": 35,
+        "SHF.R.U32.HI": 11,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 24,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 4,
+        "UIADD3": 4,
+        "ULDC": 3,
+        "ULDC.64": 4,
+        "ULEA": 1,
+        "ULOP3.LUT": 12,
+        "UMOV": 9,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 38,
+        "VIADDMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 9
+      },
+      "interesting": [
+        {
+          "pc": "0b50",
+          "op": "MUFU.RSQ",
+          "args": "R40, R40"
+        },
+        {
+          "pc": "1470",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "1b30",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R39], desc[UR8][R26.64], !P1"
+        },
+        {
+          "pc": "1b90",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R41], desc[UR8][R20.64], !P1"
+        },
+        {
+          "pc": "1bd0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R43], desc[UR8][R28.64], !P2"
+        },
+        {
+          "pc": "1bf0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R39], desc[UR8][R32.64], !P2"
+        },
+        {
+          "pc": "1c20",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1c50",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1d80",
+          "op": "STS.U8",
+          "args": "[R32], R7"
+        },
+        {
+          "pc": "1e40",
+          "op": "STS.U8",
+          "args": "[R16], R13"
+        },
+        {
+          "pc": "1e70",
+          "op": "STS.U8",
+          "args": "[R36], R23"
+        },
+        {
+          "pc": "1e80",
+          "op": "STS.U8",
+          "args": "[R36+0x20], R17"
+        },
+        {
+          "pc": "1ec0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1fb0",
+          "op": "LDS.64",
+          "args": "R14, [R27]"
+        },
+        {
+          "pc": "20b0",
+          "op": "STS.128",
+          "args": "[R7], R16"
+        },
+        {
+          "pc": "20d0",
+          "op": "LDS.64",
+          "args": "R24, [R27+0x400]"
+        },
+        {
+          "pc": "21d0",
+          "op": "STS.128",
+          "args": "[R14], R20"
+        },
+        {
+          "pc": "21e0",
+          "op": "LDS.64",
+          "args": "R24, [R27+0x800]"
+        },
+        {
+          "pc": "2250",
+          "op": "STS.128",
+          "args": "[R7], R16"
+        },
+        {
+          "pc": "2260",
+          "op": "LDS.64",
+          "args": "R20, [R27+0xc00]"
+        },
+        {
+          "pc": "23c0",
+          "op": "STS.128",
+          "args": "[R13], R16"
+        },
+        {
+          "pc": "24b0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "2520",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "2530",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR4], RZ, !UPT"
+        },
+        {
+          "pc": "2570",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR4], R24, gsb0"
+        },
+        {
+          "pc": "2590",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "36b0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "36c0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR4].tnspB, RZ, !UPT"
+        },
+        {
+          "pc": "3780",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR4].tnspB, R24"
+        },
+        {
+          "pc": "37b0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR4].tnspB, R24"
+        },
+        {
+          "pc": "37e0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR4].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "37f0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "4100",
+          "op": "MUFU.RSQ",
+          "args": "R31, R31"
+        }
+      ]
+    },
+    "_Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1057,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 6,
+        "BRA.DIV": 2,
+        "BSSY": 4,
+        "BSYNC": 4,
+        "CS2R": 6,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 9,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 20,
+        "FADD.FTZ": 31,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 70,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 79,
+        "FSEL": 33,
+        "HGMMA.64": 4,
+        "IADD3": 31,
+        "IADD3.X": 6,
+        "IMAD": 16,
+        "IMAD.IADD": 15,
+        "IMAD.MOV.U32": 68,
+        "IMAD.SHL.U32": 14,
+        "IMAD.U32": 20,
+        "IMAD.WIDE": 8,
+        "IMAD.WIDE.U32": 3,
+        "ISETP.EQ.AND": 1,
+        "ISETP.GE.AND": 6,
+        "ISETP.GT.AND": 16,
+        "ISETP.GT.U32.AND": 2,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 1,
+        "LDC": 2,
+        "LDC.64": 8,
+        "LDG.E": 25,
+        "LDG.E.64": 1,
+        "LDG.E.U16": 20,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS.64": 4,
+        "LEA": 28,
+        "LEA.HI": 11,
+        "LEA.HI.SX32": 3,
+        "LEA.HI.X": 24,
+        "LEA.HI.X.SX32": 25,
+        "LOP3.LUT": 39,
+        "MEMBAR.ALL.CTA": 1,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 3,
+        "NOP": 12,
+        "P2R": 15,
+        "PREEXIT": 1,
+        "PRMT": 8,
+        "QGMMA.64": 2,
+        "S2R": 3,
+        "S2UR": 2,
+        "SEL": 4,
+        "SHF.L.U64.HI": 2,
+        "SHF.R.S32.HI": 24,
+        "SHF.R.U32.HI": 11,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 24,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 4,
+        "UIADD3": 7,
+        "ULDC": 4,
+        "ULDC.64": 6,
+        "ULEA": 3,
+        "ULOP3.LUT": 12,
+        "UMOV": 15,
+        "USHF.L.U32": 3,
+        "USHF.R.S32.HI": 2,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 41,
+        "VIADDMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 9
+      },
+      "interesting": [
+        {
+          "pc": "0720",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R3], desc[UR12][R24.64], !P0"
+        },
+        {
+          "pc": "0860",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R5], desc[UR12][R30.64], !P0"
+        },
+        {
+          "pc": "0870",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R29], desc[UR12][R32.64], !P1"
+        },
+        {
+          "pc": "0880",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R37], desc[UR12][R34.64], !P1"
+        },
+        {
+          "pc": "1170",
+          "op": "MUFU.RSQ",
+          "args": "R34, R34"
+        },
+        {
+          "pc": "1a90",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "1c40",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1c80",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1d90",
+          "op": "STS.U8",
+          "args": "[R24+UR18], R5"
+        },
+        {
+          "pc": "1db0",
+          "op": "STS.U8",
+          "args": "[R26+UR18], R15"
+        },
+        {
+          "pc": "1dc0",
+          "op": "STS.U8",
+          "args": "[R22+UR4+0x20], R21"
+        },
+        {
+          "pc": "1e50",
+          "op": "STS.U8",
+          "args": "[R22+UR4], R11"
+        },
+        {
+          "pc": "1ec0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1fd0",
+          "op": "LDS.64",
+          "args": "R12, [R14+UR4]"
+        },
+        {
+          "pc": "2080",
+          "op": "STS.128",
+          "args": "[R9], R16"
+        },
+        {
+          "pc": "20b0",
+          "op": "LDS.64",
+          "args": "R24, [R14+UR4+0x400]"
+        },
+        {
+          "pc": "2170",
+          "op": "STS.128",
+          "args": "[R12], R20"
+        },
+        {
+          "pc": "2180",
+          "op": "LDS.64",
+          "args": "R24, [R14+UR4+0x800]"
+        },
+        {
+          "pc": "2220",
+          "op": "STS.128",
+          "args": "[R5], R16"
+        },
+        {
+          "pc": "2230",
+          "op": "LDS.64",
+          "args": "R24, [R14+UR4+0xc00]"
+        },
+        {
+          "pc": "2380",
+          "op": "STS.128",
+          "args": "[R12], R20"
+        },
+        {
+          "pc": "2470",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "24e0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "24f0",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR20], RZ, !UPT"
+        },
+        {
+          "pc": "2530",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR20], R24, gsb0"
+        },
+        {
+          "pc": "2550",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3670",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "36a0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR20].tnspB, RZ, !UPT"
+        },
+        {
+          "pc": "3790",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR20].tnspB, R24"
+        },
+        {
+          "pc": "37d0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR20].tnspB, R24"
+        },
+        {
+          "pc": "3800",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR20].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "3810",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "4120",
+          "op": "MUFU.RSQ",
+          "args": "R31, R31"
+        }
+      ]
+    },
+    "_Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1041,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 6,
+        "BRA.DIV": 2,
+        "BSSY": 4,
+        "BSYNC": 4,
+        "CS2R": 7,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 9,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 20,
+        "FADD.FTZ": 31,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 70,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 79,
+        "FSEL": 33,
+        "HGMMA.64": 4,
+        "IADD3": 21,
+        "IMAD": 17,
+        "IMAD.IADD": 23,
+        "IMAD.MOV.U32": 66,
+        "IMAD.SHL.U32": 16,
+        "IMAD.U32": 20,
+        "IMAD.WIDE": 16,
+        "IMAD.WIDE.U32": 3,
+        "IMAD.X": 6,
+        "ISETP.EQ.AND": 1,
+        "ISETP.GE.AND": 6,
+        "ISETP.GT.AND": 16,
+        "ISETP.GT.U32.AND": 2,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 1,
+        "LDC": 3,
+        "LDC.64": 11,
+        "LDG.E": 25,
+        "LDG.E.64": 1,
+        "LDG.E.U16": 20,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS.64": 4,
+        "LEA": 30,
+        "LEA.HI": 9,
+        "LEA.HI.SX32": 1,
+        "LEA.HI.X": 24,
+        "LEA.HI.X.SX32": 15,
+        "LOP3.LUT": 37,
+        "MEMBAR.ALL.CTA": 1,
+        "MOV": 1,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 3,
+        "NOP": 8,
+        "P2R": 15,
+        "PREEXIT": 1,
+        "PRMT": 8,
+        "QGMMA.64": 2,
+        "R2UR": 4,
+        "S2R": 5,
+        "SEL": 4,
+        "SHF.L.U64.HI": 1,
+        "SHF.R.S32.HI": 33,
+        "SHF.R.U32.HI": 11,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 24,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 4,
+        "UIADD3": 4,
+        "ULDC": 2,
+        "ULDC.64": 4,
+        "ULEA": 1,
+        "ULOP3.LUT": 12,
+        "UMOV": 9,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 38,
+        "VIADDMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 9
+      },
+      "interesting": [
+        {
+          "pc": "0b50",
+          "op": "MUFU.RSQ",
+          "args": "R40, R40"
+        },
+        {
+          "pc": "1470",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "1a00",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R39], desc[UR8][R26.64], !P2"
+        },
+        {
+          "pc": "1b10",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R41], desc[UR8][R20.64], !P2"
+        },
+        {
+          "pc": "1b50",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R43], desc[UR8][R28.64], !P1"
+        },
+        {
+          "pc": "1b60",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R39], desc[UR8][R30.64], !P1"
+        },
+        {
+          "pc": "1b80",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1bb0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1ce0",
+          "op": "STS.U8",
+          "args": "[R30], R7"
+        },
+        {
+          "pc": "1da0",
+          "op": "STS.U8",
+          "args": "[R16], R13"
+        },
+        {
+          "pc": "1dd0",
+          "op": "STS.U8",
+          "args": "[R36], R23"
+        },
+        {
+          "pc": "1de0",
+          "op": "STS.U8",
+          "args": "[R36+0x20], R17"
+        },
+        {
+          "pc": "1e20",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1f10",
+          "op": "LDS.64",
+          "args": "R14, [R27]"
+        },
+        {
+          "pc": "2010",
+          "op": "STS.128",
+          "args": "[R7], R16"
+        },
+        {
+          "pc": "2030",
+          "op": "LDS.64",
+          "args": "R24, [R27+0x400]"
+        },
+        {
+          "pc": "2130",
+          "op": "STS.128",
+          "args": "[R14], R20"
+        },
+        {
+          "pc": "2140",
+          "op": "LDS.64",
+          "args": "R24, [R27+0x800]"
+        },
+        {
+          "pc": "21b0",
+          "op": "STS.128",
+          "args": "[R7], R16"
+        },
+        {
+          "pc": "21c0",
+          "op": "LDS.64",
+          "args": "R20, [R27+0xc00]"
+        },
+        {
+          "pc": "2320",
+          "op": "STS.128",
+          "args": "[R13], R16"
+        },
+        {
+          "pc": "2410",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "2480",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "2490",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR4], RZ, !UPT"
+        },
+        {
+          "pc": "24d0",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR4], R24, gsb0"
+        },
+        {
+          "pc": "24f0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3610",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "3620",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR4].tnspB, RZ, !UPT"
+        },
+        {
+          "pc": "36e0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR4].tnspB, R24"
+        },
+        {
+          "pc": "3710",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR4].tnspB, R24"
+        },
+        {
+          "pc": "3740",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR4].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "3750",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "4060",
+          "op": "MUFU.RSQ",
+          "args": "R31, R31"
+        }
+      ]
+    },
+    "_Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1049,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 6,
+        "BRA.DIV": 2,
+        "BSSY": 4,
+        "BSYNC": 4,
+        "CS2R": 6,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 9,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 20,
+        "FADD.FTZ": 31,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 70,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 79,
+        "FSEL": 33,
+        "HGMMA.64": 4,
+        "IADD3": 31,
+        "IADD3.X": 6,
+        "IMAD": 17,
+        "IMAD.IADD": 13,
+        "IMAD.MOV.U32": 68,
+        "IMAD.SHL.U32": 14,
+        "IMAD.U32": 20,
+        "IMAD.WIDE": 6,
+        "IMAD.WIDE.U32": 3,
+        "ISETP.EQ.AND": 1,
+        "ISETP.GE.AND": 6,
+        "ISETP.GT.AND": 16,
+        "ISETP.GT.U32.AND": 2,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 1,
+        "LDC": 4,
+        "LDC.64": 8,
+        "LDG.E": 25,
+        "LDG.E.64": 1,
+        "LDG.E.U16": 20,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS.64": 4,
+        "LEA": 28,
+        "LEA.HI": 9,
+        "LEA.HI.SX32": 1,
+        "LEA.HI.X": 24,
+        "LEA.HI.X.SX32": 25,
+        "LOP3.LUT": 37,
+        "MEMBAR.ALL.CTA": 1,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 3,
+        "NOP": 14,
+        "P2R": 15,
+        "PREEXIT": 1,
+        "PRMT": 8,
+        "QGMMA.64": 2,
+        "S2R": 3,
+        "S2UR": 2,
+        "SEL": 4,
+        "SHF.L.U64.HI": 2,
+        "SHF.R.S32.HI": 22,
+        "SHF.R.U32.HI": 11,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 24,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 4,
+        "UIADD3": 7,
+        "ULDC": 3,
+        "ULDC.64": 6,
+        "ULEA": 3,
+        "ULOP3.LUT": 12,
+        "UMOV": 15,
+        "USHF.L.U32": 3,
+        "USHF.R.S32.HI": 2,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 41,
+        "VIADDMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 9
+      },
+      "interesting": [
+        {
+          "pc": "06d0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R5], desc[UR12][R24.64], !P0"
+        },
+        {
+          "pc": "0740",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R29], desc[UR12][R30.64], !P0"
+        },
+        {
+          "pc": "07b0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R5], desc[UR12][R32.64], !P1"
+        },
+        {
+          "pc": "07c0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R37], desc[UR12][R34.64], !P1"
+        },
+        {
+          "pc": "10d0",
+          "op": "MUFU.RSQ",
+          "args": "R34, R34"
+        },
+        {
+          "pc": "19f0",
+          "op": "MUFU.RSQ",
+          "args": "R32, R32"
+        },
+        {
+          "pc": "1ba0",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1be0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1cf0",
+          "op": "STS.U8",
+          "args": "[R24+UR18], R5"
+        },
+        {
+          "pc": "1d10",
+          "op": "STS.U8",
+          "args": "[R26+UR18], R15"
+        },
+        {
+          "pc": "1d20",
+          "op": "STS.U8",
+          "args": "[R22+UR4+0x20], R21"
+        },
+        {
+          "pc": "1db0",
+          "op": "STS.U8",
+          "args": "[R22+UR4], R11"
+        },
+        {
+          "pc": "1e20",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1f30",
+          "op": "LDS.64",
+          "args": "R12, [R14+UR4]"
+        },
+        {
+          "pc": "1fe0",
+          "op": "STS.128",
+          "args": "[R9], R16"
+        },
+        {
+          "pc": "2010",
+          "op": "LDS.64",
+          "args": "R24, [R14+UR4+0x400]"
+        },
+        {
+          "pc": "20d0",
+          "op": "STS.128",
+          "args": "[R12], R20"
+        },
+        {
+          "pc": "20e0",
+          "op": "LDS.64",
+          "args": "R24, [R14+UR4+0x800]"
+        },
+        {
+          "pc": "2180",
+          "op": "STS.128",
+          "args": "[R5], R16"
+        },
+        {
+          "pc": "2190",
+          "op": "LDS.64",
+          "args": "R24, [R14+UR4+0xc00]"
+        },
+        {
+          "pc": "22e0",
+          "op": "STS.128",
+          "args": "[R12], R20"
+        },
+        {
+          "pc": "23d0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "2440",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "2450",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR20], RZ, !UPT"
+        },
+        {
+          "pc": "2490",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR20], R24, gsb0"
+        },
+        {
+          "pc": "24b0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "35d0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "3600",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR20].tnspB, RZ, !UPT"
+        },
+        {
+          "pc": "36f0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR20].tnspB, R24"
+        },
+        {
+          "pc": "3730",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR20].tnspB, R24"
+        },
+        {
+          "pc": "3760",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR20].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "3770",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "4080",
+          "op": "MUFU.RSQ",
+          "args": "R31, R31"
+        }
+      ]
+    }
+  },
+  "vector": {
+    "_Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1065,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 6,
+        "BRA.DIV": 2,
+        "BSSY": 4,
+        "BSYNC": 4,
+        "CS2R": 5,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 9,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 20,
+        "FADD.FTZ": 31,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 70,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 79,
+        "FSEL": 33,
+        "HGMMA.64": 4,
+        "IADD3": 26,
+        "IMAD": 16,
+        "IMAD.IADD": 24,
+        "IMAD.MOV.U32": 64,
+        "IMAD.SHL.U32": 16,
+        "IMAD.U32": 20,
+        "IMAD.WIDE": 17,
+        "IMAD.WIDE.U32": 3,
+        "IMAD.X": 6,
+        "ISETP.EQ.AND": 1,
+        "ISETP.GE.AND": 6,
+        "ISETP.GT.AND": 16,
+        "ISETP.GT.U32.AND": 2,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 1,
+        "LDC": 1,
+        "LDC.64": 10,
+        "LDG.E": 25,
+        "LDG.E.64": 5,
+        "LDG.E.U16": 4,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS.64": 4,
+        "LEA": 34,
+        "LEA.HI": 11,
+        "LEA.HI.SX32": 3,
+        "LEA.HI.X": 28,
+        "LEA.HI.X.SX32": 20,
+        "LOP3.LUT": 39,
+        "MEMBAR.ALL.CTA": 1,
+        "MOV": 1,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 3,
+        "NOP": 13,
+        "P2R": 15,
+        "PREEXIT": 1,
+        "PRMT": 8,
+        "QGMMA.64": 2,
+        "R2UR": 4,
+        "S2R": 5,
+        "SEL": 4,
+        "SHF.L.U64.HI": 1,
+        "SHF.R.S32.HI": 36,
+        "SHF.R.U32.HI": 19,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 24,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 4,
+        "UIADD3": 4,
+        "ULDC": 3,
+        "ULDC.64": 5,
+        "ULEA": 1,
+        "ULOP3.LUT": 12,
+        "UMOV": 9,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 38,
+        "VIADDMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 9
+      },
+      "interesting": [
+        {
+          "pc": "0c20",
+          "op": "MUFU.RSQ",
+          "args": "R51, R51"
+        },
+        {
+          "pc": "1540",
+          "op": "MUFU.RSQ",
+          "args": "R52, R52"
+        },
+        {
+          "pc": "1c10",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R41], desc[UR8][R28.64], !P1"
+        },
+        {
+          "pc": "1c70",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R43], desc[UR8][R26.64], !P1"
+        },
+        {
+          "pc": "1c90",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R45], desc[UR8][R30.64], !P2"
+        },
+        {
+          "pc": "1cc0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R29], desc[UR8][R34.64], !P2"
+        },
+        {
+          "pc": "1cf0",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1d20",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1e60",
+          "op": "STS.U8",
+          "args": "[R32], R7"
+        },
+        {
+          "pc": "1ef0",
+          "op": "STS.U8",
+          "args": "[R14], R15"
+        },
+        {
+          "pc": "1f20",
+          "op": "STS.U8",
+          "args": "[R36], R23"
+        },
+        {
+          "pc": "1f50",
+          "op": "STS.U8",
+          "args": "[R36+0x20], R19"
+        },
+        {
+          "pc": "1f90",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "20a0",
+          "op": "LDS.64",
+          "args": "R16, [R28]"
+        },
+        {
+          "pc": "21a0",
+          "op": "STS.128",
+          "args": "[R21], R12"
+        },
+        {
+          "pc": "21c0",
+          "op": "LDS.64",
+          "args": "R22, [R28+0x400]"
+        },
+        {
+          "pc": "2290",
+          "op": "STS.128",
+          "args": "[R7], R16"
+        },
+        {
+          "pc": "22a0",
+          "op": "LDS.64",
+          "args": "R22, [R28+0x800]"
+        },
+        {
+          "pc": "2340",
+          "op": "STS.128",
+          "args": "[R21], R12"
+        },
+        {
+          "pc": "2350",
+          "op": "LDS.64",
+          "args": "R28, [R28+0xc00]"
+        },
+        {
+          "pc": "23c0",
+          "op": "STS.128",
+          "args": "[R7], R12"
+        },
+        {
+          "pc": "2460",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "2570",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "25d0",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR4], RZ, !UPT"
+        },
+        {
+          "pc": "2660",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR4], R24, gsb0"
+        },
+        {
+          "pc": "2680",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "37a0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "37b0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR4].tnspB, RZ, !UPT"
+        },
+        {
+          "pc": "3870",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR4].tnspB, R24"
+        },
+        {
+          "pc": "38a0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR4].tnspB, R24"
+        },
+        {
+          "pc": "38d0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR4].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "38e0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "4190",
+          "op": "MUFU.RSQ",
+          "args": "R27, R27"
+        }
+      ]
+    },
+    "_Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1065,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 6,
+        "BRA.DIV": 2,
+        "BSSY": 4,
+        "BSYNC": 4,
+        "CS2R": 8,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 9,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 20,
+        "FADD.FTZ": 31,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 70,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 79,
+        "FSEL": 33,
+        "HGMMA.64": 4,
+        "IADD3": 36,
+        "IADD3.X": 6,
+        "IMAD": 16,
+        "IMAD.IADD": 14,
+        "IMAD.MOV.U32": 58,
+        "IMAD.SHL.U32": 14,
+        "IMAD.U32": 20,
+        "IMAD.WIDE": 7,
+        "IMAD.WIDE.U32": 3,
+        "ISETP.EQ.AND": 1,
+        "ISETP.GE.AND": 6,
+        "ISETP.GT.AND": 16,
+        "ISETP.GT.U32.AND": 2,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 1,
+        "LDC": 2,
+        "LDC.64": 7,
+        "LDG.E": 25,
+        "LDG.E.64": 5,
+        "LDG.E.U16": 4,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS.64": 4,
+        "LEA": 32,
+        "LEA.HI": 11,
+        "LEA.HI.SX32": 3,
+        "LEA.HI.X": 28,
+        "LEA.HI.X.SX32": 30,
+        "LOP3.LUT": 39,
+        "MEMBAR.ALL.CTA": 1,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 3,
+        "NOP": 15,
+        "P2R": 15,
+        "PREEXIT": 1,
+        "PRMT": 8,
+        "QGMMA.64": 2,
+        "S2R": 3,
+        "S2UR": 2,
+        "SEL": 4,
+        "SHF.L.U64.HI": 2,
+        "SHF.R.S32.HI": 25,
+        "SHF.R.U32.HI": 19,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 24,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 4,
+        "UIADD3": 7,
+        "ULDC": 4,
+        "ULDC.64": 7,
+        "ULEA": 3,
+        "ULOP3.LUT": 12,
+        "UMOV": 15,
+        "USHF.L.U32": 3,
+        "USHF.R.S32.HI": 2,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 41,
+        "VIADDMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 9
+      },
+      "interesting": [
+        {
+          "pc": "0720",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R11], desc[UR12][R22.64], !P0"
+        },
+        {
+          "pc": "07a0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R31], desc[UR12][R32.64], !P0"
+        },
+        {
+          "pc": "08a0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R39], desc[UR12][R34.64], !P1"
+        },
+        {
+          "pc": "08c0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R41], desc[UR12][R36.64], !P1"
+        },
+        {
+          "pc": "1240",
+          "op": "MUFU.RSQ",
+          "args": "R46, R46"
+        },
+        {
+          "pc": "1b50",
+          "op": "MUFU.RSQ",
+          "args": "R49, R49"
+        },
+        {
+          "pc": "1d00",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1d40",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1e50",
+          "op": "STS.U8",
+          "args": "[R18+UR18], R9"
+        },
+        {
+          "pc": "1e70",
+          "op": "STS.U8",
+          "args": "[R24+UR18], R19"
+        },
+        {
+          "pc": "1e80",
+          "op": "STS.U8",
+          "args": "[R22+UR4+0x20], R21"
+        },
+        {
+          "pc": "1f10",
+          "op": "STS.U8",
+          "args": "[R22+UR4], R11"
+        },
+        {
+          "pc": "1f80",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "20c0",
+          "op": "LDS.64",
+          "args": "R16, [R4+UR4]"
+        },
+        {
+          "pc": "2170",
+          "op": "STS.128",
+          "args": "[R27], R12"
+        },
+        {
+          "pc": "2190",
+          "op": "LDS.64",
+          "args": "R20, [R4+UR4+0x400]"
+        },
+        {
+          "pc": "2240",
+          "op": "STS.128",
+          "args": "[R9], R16"
+        },
+        {
+          "pc": "2250",
+          "op": "LDS.64",
+          "args": "R20, [R4+UR4+0x800]"
+        },
+        {
+          "pc": "2300",
+          "op": "STS.128",
+          "args": "[R11], R12"
+        },
+        {
+          "pc": "2310",
+          "op": "LDS.64",
+          "args": "R20, [R4+UR4+0xc00]"
+        },
+        {
+          "pc": "23b0",
+          "op": "STS.128",
+          "args": "[R9], R16"
+        },
+        {
+          "pc": "2470",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "25d0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "25e0",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR20], RZ, !UPT"
+        },
+        {
+          "pc": "2620",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR20], R24, gsb0"
+        },
+        {
+          "pc": "2640",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3740",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "3770",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR20].tnspB, RZ, !UPT"
+        },
+        {
+          "pc": "3840",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR20].tnspB, R24"
+        },
+        {
+          "pc": "3880",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR20].tnspB, R24"
+        },
+        {
+          "pc": "38b0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR20].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "38c0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "4170",
+          "op": "MUFU.RSQ",
+          "args": "R31, R31"
+        }
+      ]
+    },
+    "_Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1057,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 6,
+        "BRA.DIV": 2,
+        "BSSY": 4,
+        "BSYNC": 4,
+        "CS2R": 5,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 9,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 20,
+        "FADD.FTZ": 31,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 70,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 79,
+        "FSEL": 33,
+        "HGMMA.64": 4,
+        "IADD3": 26,
+        "IMAD": 17,
+        "IMAD.IADD": 22,
+        "IMAD.MOV.U32": 64,
+        "IMAD.SHL.U32": 16,
+        "IMAD.U32": 20,
+        "IMAD.WIDE": 15,
+        "IMAD.WIDE.U32": 3,
+        "IMAD.X": 6,
+        "ISETP.EQ.AND": 1,
+        "ISETP.GE.AND": 6,
+        "ISETP.GT.AND": 16,
+        "ISETP.GT.U32.AND": 2,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 1,
+        "LDC": 3,
+        "LDC.64": 10,
+        "LDG.E": 25,
+        "LDG.E.64": 5,
+        "LDG.E.U16": 4,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS.64": 4,
+        "LEA": 34,
+        "LEA.HI": 9,
+        "LEA.HI.SX32": 1,
+        "LEA.HI.X": 28,
+        "LEA.HI.X.SX32": 20,
+        "LOP3.LUT": 37,
+        "MEMBAR.ALL.CTA": 1,
+        "MOV": 1,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 3,
+        "NOP": 15,
+        "P2R": 15,
+        "PREEXIT": 1,
+        "PRMT": 8,
+        "QGMMA.64": 2,
+        "R2UR": 4,
+        "S2R": 5,
+        "SEL": 4,
+        "SHF.L.U64.HI": 1,
+        "SHF.R.S32.HI": 34,
+        "SHF.R.U32.HI": 19,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 24,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 4,
+        "UIADD3": 4,
+        "ULDC": 2,
+        "ULDC.64": 5,
+        "ULEA": 1,
+        "ULOP3.LUT": 12,
+        "UMOV": 9,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 38,
+        "VIADDMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 9
+      },
+      "interesting": [
+        {
+          "pc": "0c20",
+          "op": "MUFU.RSQ",
+          "args": "R51, R51"
+        },
+        {
+          "pc": "1540",
+          "op": "MUFU.RSQ",
+          "args": "R52, R52"
+        },
+        {
+          "pc": "1ac0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R41], desc[UR8][R28.64], !P2"
+        },
+        {
+          "pc": "1bd0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R43], desc[UR8][R26.64], !P2"
+        },
+        {
+          "pc": "1c10",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R45], desc[UR8][R30.64], !P1"
+        },
+        {
+          "pc": "1c30",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R29], desc[UR8][R32.64], !P1"
+        },
+        {
+          "pc": "1c50",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1c80",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1dc0",
+          "op": "STS.U8",
+          "args": "[R32], R7"
+        },
+        {
+          "pc": "1e50",
+          "op": "STS.U8",
+          "args": "[R14], R15"
+        },
+        {
+          "pc": "1e80",
+          "op": "STS.U8",
+          "args": "[R36], R23"
+        },
+        {
+          "pc": "1eb0",
+          "op": "STS.U8",
+          "args": "[R36+0x20], R19"
+        },
+        {
+          "pc": "1ef0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "2000",
+          "op": "LDS.64",
+          "args": "R16, [R28]"
+        },
+        {
+          "pc": "2100",
+          "op": "STS.128",
+          "args": "[R21], R12"
+        },
+        {
+          "pc": "2120",
+          "op": "LDS.64",
+          "args": "R22, [R28+0x400]"
+        },
+        {
+          "pc": "21f0",
+          "op": "STS.128",
+          "args": "[R7], R16"
+        },
+        {
+          "pc": "2200",
+          "op": "LDS.64",
+          "args": "R22, [R28+0x800]"
+        },
+        {
+          "pc": "22a0",
+          "op": "STS.128",
+          "args": "[R21], R12"
+        },
+        {
+          "pc": "22b0",
+          "op": "LDS.64",
+          "args": "R28, [R28+0xc00]"
+        },
+        {
+          "pc": "2320",
+          "op": "STS.128",
+          "args": "[R7], R12"
+        },
+        {
+          "pc": "23c0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "24d0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "2530",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR4], RZ, !UPT"
+        },
+        {
+          "pc": "25c0",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR4], R24, gsb0"
+        },
+        {
+          "pc": "25e0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "3700",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "3710",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR4].tnspB, RZ, !UPT"
+        },
+        {
+          "pc": "37d0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR4].tnspB, R24"
+        },
+        {
+          "pc": "3800",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR4].tnspB, R24"
+        },
+        {
+          "pc": "3830",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR4].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "3840",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "40f0",
+          "op": "MUFU.RSQ",
+          "args": "R27, R27"
+        }
+      ]
+    },
+    "_Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif": {
+      "instruction_count": 1049,
+      "opcodes": {
+        "BAR.SYNC.DEFER_BLOCKING": 3,
+        "BRA": 6,
+        "BRA.DIV": 2,
+        "BSSY": 4,
+        "BSYNC": 4,
+        "CS2R": 8,
+        "DEPBAR.LE": 1,
+        "ENDCOLLECTIVE": 9,
+        "EXIT": 3,
+        "F2FP.F16.E4M3.UNPACK_B": 16,
+        "F2FP.F16.F32.PACK_AB": 16,
+        "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C": 20,
+        "FADD.FTZ": 31,
+        "FENCE.VIEW.ASYNC.S": 1,
+        "FFMA.FTZ": 70,
+        "FMNMX.FTZ": 38,
+        "FMUL.FTZ": 79,
+        "FSEL": 33,
+        "HGMMA.64": 4,
+        "IADD3": 36,
+        "IADD3.X": 6,
+        "IMAD": 17,
+        "IMAD.IADD": 12,
+        "IMAD.MOV.U32": 58,
+        "IMAD.SHL.U32": 14,
+        "IMAD.U32": 20,
+        "IMAD.WIDE": 5,
+        "IMAD.WIDE.U32": 3,
+        "ISETP.EQ.AND": 1,
+        "ISETP.GE.AND": 6,
+        "ISETP.GT.AND": 16,
+        "ISETP.GT.U32.AND": 2,
+        "ISETP.NE.AND": 14,
+        "ISETP.NE.U32.AND": 1,
+        "LDC": 4,
+        "LDC.64": 7,
+        "LDG.E": 25,
+        "LDG.E.64": 5,
+        "LDG.E.U16": 4,
+        "LDGDEPBAR": 1,
+        "LDGSTS.E.BYPASS.128": 4,
+        "LDS.64": 4,
+        "LEA": 32,
+        "LEA.HI": 9,
+        "LEA.HI.SX32": 1,
+        "LEA.HI.X": 28,
+        "LEA.HI.X.SX32": 30,
+        "LOP3.LUT": 37,
+        "MEMBAR.ALL.CTA": 1,
+        "MUFU.EX2": 32,
+        "MUFU.RCP": 3,
+        "MUFU.RSQ": 3,
+        "NOP": 9,
+        "P2R": 15,
+        "PREEXIT": 1,
+        "PRMT": 8,
+        "QGMMA.64": 2,
+        "S2R": 3,
+        "S2UR": 2,
+        "SEL": 4,
+        "SHF.L.U64.HI": 2,
+        "SHF.R.S32.HI": 23,
+        "SHF.R.U32.HI": 19,
+        "SHF.R.U64": 4,
+        "SHFL.BFLY": 24,
+        "STG.E": 18,
+        "STG.E.U8": 4,
+        "STS.128": 4,
+        "STS.U8": 4,
+        "UIADD3": 7,
+        "ULDC": 3,
+        "ULDC.64": 7,
+        "ULEA": 3,
+        "ULOP3.LUT": 12,
+        "UMOV": 15,
+        "USHF.L.U32": 3,
+        "USHF.R.S32.HI": 2,
+        "USHF.R.U32.HI": 6,
+        "VIADD": 41,
+        "VIADDMNMX": 1,
+        "WARPGROUP.ARRIVE": 2,
+        "WARPGROUP.DEPBAR.LE": 2,
+        "WARPSYNC.ALL": 1,
+        "WARPSYNC.COLLECTIVE": 9
+      },
+      "interesting": [
+        {
+          "pc": "06a0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R11], desc[UR12][R22.64], !P0"
+        },
+        {
+          "pc": "0720",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R31], desc[UR12][R32.64], !P0"
+        },
+        {
+          "pc": "07c0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R39], desc[UR12][R34.64], !P1"
+        },
+        {
+          "pc": "07d0",
+          "op": "LDGSTS.E.BYPASS.128",
+          "args": "[R41], desc[UR12][R36.64], !P1"
+        },
+        {
+          "pc": "11a0",
+          "op": "MUFU.RSQ",
+          "args": "R46, R46"
+        },
+        {
+          "pc": "1ab0",
+          "op": "MUFU.RSQ",
+          "args": "R49, R49"
+        },
+        {
+          "pc": "1c60",
+          "op": "DEPBAR.LE",
+          "args": "SB0, 0x0"
+        },
+        {
+          "pc": "1ca0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "1db0",
+          "op": "STS.U8",
+          "args": "[R18+UR18], R9"
+        },
+        {
+          "pc": "1dd0",
+          "op": "STS.U8",
+          "args": "[R24+UR18], R19"
+        },
+        {
+          "pc": "1de0",
+          "op": "STS.U8",
+          "args": "[R22+UR4+0x20], R21"
+        },
+        {
+          "pc": "1e70",
+          "op": "STS.U8",
+          "args": "[R22+UR4], R11"
+        },
+        {
+          "pc": "1ee0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "2020",
+          "op": "LDS.64",
+          "args": "R16, [R4+UR4]"
+        },
+        {
+          "pc": "20d0",
+          "op": "STS.128",
+          "args": "[R27], R12"
+        },
+        {
+          "pc": "20f0",
+          "op": "LDS.64",
+          "args": "R20, [R4+UR4+0x400]"
+        },
+        {
+          "pc": "21a0",
+          "op": "STS.128",
+          "args": "[R9], R16"
+        },
+        {
+          "pc": "21b0",
+          "op": "LDS.64",
+          "args": "R20, [R4+UR4+0x800]"
+        },
+        {
+          "pc": "2260",
+          "op": "STS.128",
+          "args": "[R11], R12"
+        },
+        {
+          "pc": "2270",
+          "op": "LDS.64",
+          "args": "R20, [R4+UR4+0xc00]"
+        },
+        {
+          "pc": "2310",
+          "op": "STS.128",
+          "args": "[R9], R16"
+        },
+        {
+          "pc": "23d0",
+          "op": "BAR.SYNC.DEFER_BLOCKING",
+          "args": "0x0"
+        },
+        {
+          "pc": "2530",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "2540",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R60, gdesc[UR20], RZ, !UPT"
+        },
+        {
+          "pc": "2580",
+          "op": "QGMMA.64",
+          "args": "x64x32.F32.E4M3.E4M3 R24, R56, gdesc[UR20], R24, gsb0"
+        },
+        {
+          "pc": "25a0",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "36a0",
+          "op": "WARPGROUP.ARRIVE",
+          "args": ""
+        },
+        {
+          "pc": "36d0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R68, gdesc[UR20].tnspB, RZ, !UPT"
+        },
+        {
+          "pc": "37a0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R64, gdesc[UR20].tnspB, R24"
+        },
+        {
+          "pc": "37e0",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R60, gdesc[UR20].tnspB, R24"
+        },
+        {
+          "pc": "3810",
+          "op": "HGMMA.64",
+          "args": "x64x16.F32 R24, R56, gdesc[UR20].tnspB, R24, gsb0"
+        },
+        {
+          "pc": "3820",
+          "op": "WARPGROUP.DEPBAR.LE",
+          "args": "gsb0, 0x0"
+        },
+        {
+          "pc": "40d0",
+          "op": "MUFU.RSQ",
+          "args": "R31, R31"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+{"shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "parent_us": 4.863999783992767, "native_us": 4.352000309154391, "native_minus_parent_us": -0.4320000298321247, "parent_over_native": 1.0990855211031307}
+{"shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "parent_us": 5.375999491661787, "native_us": 5.024000070989132, "native_minus_parent_us": -0.3040002193301916, "parent_over_native": 1.0605578384178016}
+{"shape": {"batch": 1, "ctx": 4000, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "parent_us": 4.936000099405646, "native_us": 4.511999664828181, "native_minus_parent_us": -0.47199963591992855, "parent_over_native": 1.102959423906784}
+{"shape": {"batch": 2, "ctx": 4000, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "parent_us": 5.415999796241522, "native_us": 5.135999992489815, "native_minus_parent_us": -0.26400014758110046, "parent_over_native": 1.0531255482170963}
+{"shape": {"batch": 1, "ctx": 1024, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "parent_us": 4.70399996265769, "native_us": 3.968000179156661, "native_minus_parent_us": -0.7599999662488699, "parent_over_native": 1.1952172001962835}

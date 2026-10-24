@@ -1,0 +1,20 @@
+========= COMPUTE-SANITIZER
+ninja: no work to do.
+ninja: no work to do.
+PASS native-only experiments.sliding_prologue.native False 1 1.0
+PASS native-only experiments.sliding_prologue.native False 1 0.015625
+PASS native-only experiments.sliding_prologue.native False 64 1.0
+PASS native-only experiments.sliding_prologue.native False 64 0.015625
+PASS native-only experiments.sliding_prologue.native True 1 1.0
+PASS native-only experiments.sliding_prologue.native True 1 0.015625
+PASS native-only experiments.sliding_prologue.native True 64 1.0
+PASS native-only experiments.sliding_prologue.native True 64 0.015625
+PASS native-only experiments.sliding_prologue.direct False 1 1.0
+PASS native-only experiments.sliding_prologue.direct False 1 0.015625
+PASS native-only experiments.sliding_prologue.direct False 64 1.0
+PASS native-only experiments.sliding_prologue.direct False 64 0.015625
+PASS native-only experiments.sliding_prologue.direct True 1 1.0
+PASS native-only experiments.sliding_prologue.direct True 1 0.015625
+PASS native-only experiments.sliding_prologue.direct True 64 1.0
+PASS native-only experiments.sliding_prologue.direct True 64 0.015625
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)

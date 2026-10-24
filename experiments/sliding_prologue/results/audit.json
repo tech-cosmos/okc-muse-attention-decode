@@ -1,0 +1,21 @@
+{
+  "submission_sha256": "1c7475a12eb2ca7dcb878b471c1b3c49e3b2d9bd5081e072a2914157d92a7d5b",
+  "candidate_commit": "5641ff1",
+  "native_source_identical_to_sanitized_direct": true,
+  "check_job": "4d36508dda044b58",
+  "production_dispatch": "window2048 q_len1 B*Hkv<=4 group8 D64 page1/64 rope",
+  "full_suite_pass_counts": {
+    "base_and_direct": 64,
+    "vector_controls": 32,
+    "integrated": 16
+  },
+  "fresh_replays": {
+    "all_native_four_variants": 168,
+    "integrated": 48
+  },
+  "sanitizers": {
+    "memcheck": "========= ERROR SUMMARY: 0 errors",
+    "synccheck": "========= ERROR SUMMARY: 0 errors",
+    "racecheck": "========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)"
+  }
+}

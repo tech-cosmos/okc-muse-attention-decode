@@ -1,0 +1,263 @@
+{
+  "base-early": {
+    "instructions_executed": 253768.0,
+    "thread_instructions": 8109824.0,
+    "shared_excess_wavefronts": 10248.0,
+    "stall_totals": {
+      "stall_barrier": 182.0,
+      "stall_branch_resolving": 109.0,
+      "stall_dispatch": 10.0,
+      "stall_drain": 79.0,
+      "stall_imc": 122.0,
+      "stall_lg": 0.0,
+      "stall_long_sb": 1260.0,
+      "stall_math": 1.0,
+      "stall_membar": 0.0,
+      "stall_mio": 0.0,
+      "stall_misc": 1.0,
+      "stall_no_inst": 445.0,
+      "stall_not_selected": 0.0,
+      "stall_selected": 519.0,
+      "stall_short_sb": 379.0,
+      "stall_sleep": 0.0,
+      "stall_tex": 0.0,
+      "stall_wait": 627.0
+    },
+    "top_stalls": [
+      {
+        "source": "IMAD.U32 R35, R35, 0x10000, RZ",
+        "samples": 388.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "VIADDMNMX R5, R4, 0xfffff801, RZ, !PT",
+        "samples": 319.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "LDC R1, c[0x0][0x28]",
+        "samples": 293.0,
+        "reason": "stall_no_inst"
+      },
+      {
+        "source": "SHF.R.S32.HI R9, RZ, 0x1f, R19",
+        "samples": 284.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "SHF.L.U32 R29, R8, 0x10, RZ",
+        "samples": 192.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "ULDC.64 UR8, c[0x0][0x208]",
+        "samples": 84.0,
+        "reason": "stall_imc"
+      },
+      {
+        "source": "IMAD.MOV.U32 R45, RZ, RZ, R27",
+        "samples": 81.0,
+        "reason": "stall_drain"
+      },
+      {
+        "source": "@!P0  BRA 0x70095fc69900",
+        "samples": 72.0,
+        "reason": "stall_barrier"
+      },
+      {
+        "source": "ISETP.GE.AND P0, PT, R42, 0x38, PT",
+        "samples": 66.0,
+        "reason": "stall_branch_resolving"
+      },
+      {
+        "source": "WARPGROUP.DEPBAR.LE gsb0, 0x0",
+        "samples": 61.0,
+        "reason": "stall_barrier"
+      },
+      {
+        "source": "F2FP.SATFINITE.E4M3.F32.PACK_AB_MERGE_C R33, RZ, R30, RZ",
+        "samples": 50.0,
+        "reason": "stall_branch_resolving"
+      },
+      {
+        "source": "@P0   BRA 0x70095fc69120",
+        "samples": 47.0,
+        "reason": "stall_wait"
+      }
+    ]
+  },
+  "direct-late": {
+    "instructions_executed": 163208.0,
+    "thread_instructions": 5211904.0,
+    "shared_excess_wavefronts": 4104.0,
+    "stall_totals": {
+      "stall_barrier": 226.0,
+      "stall_branch_resolving": 27.0,
+      "stall_dispatch": 8.0,
+      "stall_drain": 75.0,
+      "stall_imc": 269.0,
+      "stall_lg": 0.0,
+      "stall_long_sb": 1241.0,
+      "stall_math": 1.0,
+      "stall_membar": 0.0,
+      "stall_mio": 0.0,
+      "stall_misc": 1.0,
+      "stall_no_inst": 231.0,
+      "stall_not_selected": 0.0,
+      "stall_selected": 351.0,
+      "stall_short_sb": 159.0,
+      "stall_sleep": 0.0,
+      "stall_tex": 0.0,
+      "stall_wait": 321.0
+    },
+    "top_stalls": [
+      {
+        "source": "WARPSYNC.ALL",
+        "samples": 448.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "SHF.R.S32.HI R27, RZ, 0x1f, R31",
+        "samples": 257.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "ULDC.64 UR8, c[0x0][0x208]",
+        "samples": 248.0,
+        "reason": "stall_imc"
+      },
+      {
+        "source": "VIADDMNMX R11, R12, 0xfffff801, RZ, !PT",
+        "samples": 226.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "@!P1  LDC.64 R16, c[0x0][0x230]",
+        "samples": 154.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "@!P0  BRA 0x75e793c69c10",
+        "samples": 135.0,
+        "reason": "stall_barrier"
+      },
+      {
+        "source": "LDC R1, c[0x0][0x28]",
+        "samples": 109.0,
+        "reason": "stall_no_inst"
+      },
+      {
+        "source": "IMAD.MOV.U32 R34, RZ, RZ, R30",
+        "samples": 82.0,
+        "reason": "stall_drain"
+      },
+      {
+        "source": "IMAD.U32 R7, R7, 0x10000, RZ",
+        "samples": 75.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "WARPGROUP.DEPBAR.LE gsb0, 0x0",
+        "samples": 55.0,
+        "reason": "stall_barrier"
+      },
+      {
+        "source": "LDG.E R10, desc[UR8][R22.64]",
+        "samples": 41.0,
+        "reason": "stall_short_sb"
+      },
+      {
+        "source": "IMAD.U32 R58, R58, 0x10000, RZ",
+        "samples": 39.0,
+        "reason": "stall_long_sb"
+      }
+    ]
+  },
+  "direct-early": {
+    "instructions_executed": 164482.0,
+    "thread_instructions": 5252672.0,
+    "shared_excess_wavefronts": 4104.0,
+    "stall_totals": {
+      "stall_barrier": 373.0,
+      "stall_branch_resolving": 23.0,
+      "stall_dispatch": 11.0,
+      "stall_drain": 73.0,
+      "stall_imc": 298.0,
+      "stall_lg": 0.0,
+      "stall_long_sb": 966.0,
+      "stall_math": 0.0,
+      "stall_membar": 0.0,
+      "stall_mio": 0.0,
+      "stall_misc": 0.0,
+      "stall_no_inst": 232.0,
+      "stall_not_selected": 0.0,
+      "stall_selected": 366.0,
+      "stall_short_sb": 147.0,
+      "stall_sleep": 0.0,
+      "stall_tex": 0.0,
+      "stall_wait": 304.0
+    },
+    "top_stalls": [
+      {
+        "source": "WARPSYNC.ALL",
+        "samples": 310.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "@!P0  BRA 0x7767fbc69c10",
+        "samples": 261.0,
+        "reason": "stall_barrier"
+      },
+      {
+        "source": "ULDC.64 UR12, c[0x0][0x208]",
+        "samples": 246.0,
+        "reason": "stall_imc"
+      },
+      {
+        "source": "SHF.R.S32.HI R15, RZ, 0x1f, R21",
+        "samples": 227.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "VIADDMNMX R3, R7, 0xfffff801, RZ, !PT",
+        "samples": 220.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "LDC R1, c[0x0][0x28]",
+        "samples": 121.0,
+        "reason": "stall_no_inst"
+      },
+      {
+        "source": "IMAD.U32 R5, R5, 0x10000, RZ",
+        "samples": 121.0,
+        "reason": "stall_long_sb"
+      },
+      {
+        "source": "IMAD.MOV.U32 R50, RZ, RZ, R16",
+        "samples": 77.0,
+        "reason": "stall_drain"
+      },
+      {
+        "source": "WARPGROUP.DEPBAR.LE gsb0, 0x0",
+        "samples": 61.0,
+        "reason": "stall_barrier"
+      },
+      {
+        "source": "ULDC UR21, c[0x0][0x268]",
+        "samples": 56.0,
+        "reason": "stall_imc"
+      },
+      {
+        "source": "WARPGROUP.DEPBAR.LE gsb0, 0x0",
+        "samples": 43.0,
+        "reason": "stall_barrier"
+      },
+      {
+        "source": "BSYNC B0",
+        "samples": 35.0,
+        "reason": "stall_no_inst"
+      }
+    ]
+  }
+}

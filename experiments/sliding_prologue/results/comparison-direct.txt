@@ -1,0 +1,30 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+[1/3] c++ -MMD -MF main.o.d -DTORCH_EXTENSION_NAME=codex_sliding_direct -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -fPIC -std=c++20 -O3 -c /home/daytona/codex-repo/experiments/sliding_prologue/.build-direct/main.cpp -o main.o
+[2/3] /usr/local/cuda/bin/nvcc -MD -MF cuda.cuda.o.d -DTORCH_EXTENSION_NAME=codex_sliding_direct -DTORCH_API_INCLUDE_EXTENSION_H -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include -isystem /home/daytona/okc/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -gencode=arch=compute_90a,code=sm_90a -O3 --use_fast_math -lineinfo --ptxas-options=-v -std=c++20 -c /home/daytona/codex-repo/experiments/sliding_prologue/.build-direct/cuda.cu -o cuda.cuda.o
+ptxas info    : 28 bytes gmem
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 45.903 ms
+ptxas info    : Compiling entry function '_Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi64ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 43.233 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb0EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 43.359 ms
+ptxas info    : Compiling entry function '_Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif' for 'sm_90a'
+ptxas info    : Function properties for _Z7slidingILi1ELb1EEvPK13__nv_bfloat16PKfPhS5_PKiS7_PKlS4_S4_PfSA_iiiif
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 74 registers, used 1 barriers, 16384 bytes smem
+ptxas info    : Compile time = 41.958 ms
+[3/3] c++ main.o cuda.cuda.o -shared -L/home/daytona/okc/lib/python3.12/site-packages/torch/lib -lc10 -lc10_cuda -ltorch_cpu -ltorch_cuda -ltorch -ltorch_python -L/usr/local/cuda/lib64 -lcudart -o codex_sliding_direct.so
+{"name": "decode 1", "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "us": {"production": 4.6720001846551895, "late": 6.079999729990959, "early": 5.792000330984592, "direct_late": 4.576000384986401, "direct_early": 4.255999810993671}, "minus_production_us": {"late": 1.3119997456669807, "early": 1.0560005903244019, "direct_late": -0.09599979966878891, "direct_early": -0.38400012999773026}, "early_minus_late_us": -0.28799939900636673}
+{"name": "decode 16", "shape": {"batch": 16, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft", "spread": "agentic"}, "us": {"production": 10.400000726804137, "late": 14.63999948464334, "early": 14.831999083980918, "direct_late": 13.215999817475677, "direct_early": 11.568000307306647}, "minus_production_us": {"late": 4.223999567329884, "early": 4.495999775826931, "direct_late": 2.816000021994114, "direct_early": 1.183999702334404}, "early_minus_late_us": 0.23999996483325958}
+{"name": "decode 32", "shape": {"batch": 32, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft", "spread": "agentic"}, "us": {"production": 15.760000329464674, "late": 23.647998925298452, "early": 23.136000614613295, "direct_late": 21.247999276965857, "direct_early": 19.263999070972204}, "minus_production_us": {"late": 7.888000458478928, "early": 7.327999919652939, "direct_late": 5.424000322818756, "direct_early": 3.503999672830105}, "early_minus_late_us": -0.5279993638396263}
+{"name": "nearby2", "shape": {"batch": 2, "ctx": 4000, "heads": "tp8", "layer": "sliding", "page": 64, "dist": "edges"}, "us": {"production": 5.08800009265542, "late": 6.3360002823174, "early": 6.271999794989824, "direct_late": 4.879999905824661, "direct_early": 4.879999905824661}, "minus_production_us": {"late": 1.2480001896619797, "early": 1.1840006336569786, "direct_late": -0.19200053066015244, "direct_early": -0.19199959933757782}, "early_minus_late_us": -0.04800036549568176}

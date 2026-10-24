@@ -1,0 +1,14 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+{"shape": {"batch": 1, "ctx": 10, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "us": {"production": 4.959999583661556, "native": 3.871999680995941}, "native_minus_production_us": -1.087999902665615}
+{"shape": {"batch": 1, "ctx": 64, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "us": {"production": 5.024000070989132, "native": 3.5199997946619987}, "native_minus_production_us": -1.5040002763271332}
+{"shape": {"batch": 2, "ctx": 1024, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "us": {"production": 4.94399992749095, "native": 4.19200025498867}, "native_minus_production_us": -0.8640000596642494}
+{"shape": {"batch": 1, "ctx": 2047, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "us": {"production": 4.767999984323978, "native": 4.479999653995037}, "native_minus_production_us": -0.36800000816583633}
+{"shape": {"batch": 2, "ctx": 2048, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "us": {"production": 5.152000114321709, "native": 4.863999783992767}, "native_minus_production_us": -0.28800033032894135}
+{"shape": {"batch": 1, "ctx": 2049, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "us": {"production": 5.024000070989132, "native": 4.383999854326248}, "native_minus_production_us": -0.5439999513328075}
+{"shape": {"batch": 2, "ctx": 4000, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "us": {"production": 5.487999878823757, "native": 5.087999626994133}, "native_minus_production_us": -0.4160003736615181}
+{"shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "us": {"production": 4.959999583661556, "native": 4.623999819159508}, "native_minus_production_us": -0.47999992966651917}
+{"shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "us": {"production": 5.424000322818756, "native": 5.200000014156103}, "native_minus_production_us": -0.19200053066015244}
+{"shape": {"batch": 1, "ctx": 120000, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "us": {"production": 4.94399992749095, "native": 4.576000384986401}, "native_minus_production_us": -0.44800015166401863}
+{"shape": {"batch": 2, "ctx": 120000, "heads": "tp8", "layer": "sliding", "page": 64, "q_len": 1, "dist": "soft"}, "us": {"production": 5.536000244319439, "native": 5.119999870657921}, "native_minus_production_us": -0.4479996860027313}
+{"shape": {"batch": 3, "ctx": 4000, "heads": "tp8", "layer": "sliding", "page": 1, "q_len": 1, "dist": "soft"}, "us": {"production": 6.335999816656113, "native": 6.3680000603199005}, "native_minus_production_us": 0.15999982133507729}
