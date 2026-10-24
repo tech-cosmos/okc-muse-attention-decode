@@ -1843,3 +1843,9 @@ Final00:31–00:32UTC snapshots: both Codex checks remain **queued**. Official
 account usage **3/10 checks,0/10 scored**, Codex **2/8,0/3**, best2.020924x,
 rank24. No new job, withdrawal, or STOP file. Do not wait idle or resubmit;
 carry these exact two pending IDs into the next cycle.
+
+Final handoff **00:33UTC**: experiment **fac5298** pushed; main8b0ac0c merged
+as **01f390e**; production notes/audit **8a93715** pushed. Submission hash remains
+unchanged. All local build/GPU/profile processes exited. Neither STOP file
+exists. Shared claim removed, own pending-job lines refreshed, and results
+posted to COORD.md. Finish on clean pushed codex; no experimental import added.
