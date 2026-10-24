@@ -991,11 +991,16 @@ def _plan(cfg, max_pages, device):
     # 593 -> 568 on an H100); below that only where it fills the wave better (batch 3-4 lose 2-4%).
     pairs = batch * max(1, hkv // 2)
     sms = _num_sms(device)
-    if HAVE_GLUON and pairs > 16 and hkv % 2 == 0 and length * cfg["num_q_heads"] // hkv == 64 \
+    if HAVE_GLUON and pairs >= 6 and hkv % 2 == 0 and length * cfg["num_q_heads"] // hkv == 64 \
             and cfg["head_dim"] == 64:
-        # The warp-specialized Gluon kernel: 2 programs per SM (384 threads), splits fill whole waves.
-        return dict(gluon=True, splits=max(4, (4 * sms - 1) // pairs), block_n=64, stages=3, lag=1, pw=4, pregs=40,
-                    cregs=96, maxnreg=80)
+        # The warp-specialized Gluon kernel: 2 programs per SM (384 threads). One wave of programs unless
+        # two fill the slots clearly better (H100, ctx 80K: batch 16 155 -> 145 us with 16 splits instead
+        # of 32, batch 12 124 -> 116; batch 40 keeps two waves, 344 vs 332).
+        slots = 2 * sms
+        fill = {w: (w * slots // pairs) * pairs / (w * slots) for w in (1, 2)}
+        waves = 2 if fill[2] > fill[1] + 0.05 else 1
+        return dict(gluon=True, splits=max(2, waves * slots // pairs), block_n=64, stages=3, lag=1, pw=4,
+                    pregs=40, cregs=96, maxnreg=80)
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
