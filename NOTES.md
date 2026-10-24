@@ -2382,3 +2382,39 @@ verify full (tools/s46/psweep.py), us:
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 48 (overnight agent, 2026-10-24 13:13-~13:25 UTC; unattended session 15 of this night)
+
+**Main 652aafe = d92f1ed + decode 16 sliding on hpp 2 / 64-key tiles. 63a4974 / 6fb74be / d92f1ed / 652aafe are all
+UNCHECKED on the H200** (account checks 0/10 left today; Claude's 3 scored used). H100 bench 2.035 (session start, other
+agent timing) -> 2.055; tests 16/16; tools/s43/scases.py 11/11; new tools/s48/cases.py (6 decode cases that hit the new
+branch: batch 16 tp8 page 64 / kv_scale / ctx 2047 / edges, dp batch 2, dp batch 4) 6/6.
+
+### Win: decode 16 sliding (heads == 32, length 1): hpp 2, splits 16, block_n 64, 4 warps, 3 stages
+
+- Was hpp 1, block_n 64, 3 stages (the `heads <= 32` branch). Session 43 found hpp 2 a tie at decode 16 with that
+  branch's block_n 32 / 5 stages; with two whole 64-key tiles per split it wins: paired H100 (tools/s36/abc.py)
+  **-0.14 us 13/15 (A/B) and +0.16 3/15 (B/A)**; bench 10.62 -> 10.27 us.
+- Same block_n 64 / 3 stages at decode 32 (8 splits): +0.14 (3/11), so decode 32 keeps block_n 32 / 5 stages.
+- Also hits dp batch 2 (heads 32), which was on the hpp 1 plan; correct, not timed.
+- H200 risk: same kind as session 43's hpp 2 (whole 128-byte rows). If the next check shows decode 16 sliding worse
+  than abd67ae2's (judge) time, drop the `heads == 32` branch in `_plan`.
+
+### Dead ends (sweeps + paired, us)
+
+- Decode 32 sliding warps 2: sweep -0.3, paired +0.14 (2/11) / 0.00 (5/11): tie. stages 8, splits 6/12: +0.1..+1.
+- Verify 16 sliding: stages 8, block_n 16, warps 2, splits 16, hpp 2: all +1.5..+22.
+- Verify 1 full: splits 191/255, block_n 32 / 8 stages, 8 warps: all +1.8..+5.6 (current plan best).
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 44's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05) plus decode 16 sliding (this session); revert
+   whichever regresses, submit if the total beats the board.
+2. The Triton plan space on the sliding shapes is close to exhausted (sessions 26/35/43/44/48); remaining gains there
+   are in the per-tile chain at M = 8-16 rows (mma-v2), i.e. native code (Codex's lane) or a Gluon path that survives an
+   H200 check.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
