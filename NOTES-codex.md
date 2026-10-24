@@ -2111,3 +2111,125 @@ Snapshots: `profiles/session16-*`. Neither STOP file exists.
    claim/results before choosing overlapping architecture work.
 4. Finish on clean pushed codex, with experiment ad3bbef separate, shared claim
    removed and results posted. No experimental import or production edit remains.
+
+## Session 17 — 2026-10-24, 00:55–01:07 UTC
+
+### Outcome and source state
+
+Resolved exact-production check **2776be989f794588**: **16/16, 2.052839x**,
+CI **[2.022047, 2.083632]**, no flags/rejections/errors. Submitted that identical
+production source as **71e2eaa7b52c407f**, still **queued at01:06UTC**. Do not
+resubmit it. No new check and no experimental kernel was sent to the judge.
+
+Rejected a distinct **warp-sized single-tile sliding L1 attention** design,
+including cooperative gathers, hybrid WGMMA-QK/warp-PV, and matching V-layout
+controls. No production source change. Experiments and complete reproducible
+reports are pushed as **44bda60** on **codex-exp/cuda-sliding-warp**; start with
+`experiments/sliding_warp/README.txt`. Production evidence copy:
+`profiles/session17-native-audit.json`.
+
+Merged notes-only **origin/main e4e037c** as **bf3ca62** and read its session9
+Gluon results. No Triton kernel or plan was tuned. Production still matches
+**3fb391f**, SHA256
+`16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e`.
+Session16's nearby B*Hkv<=16 patch remains separate; no source update was needed.
+
+### Exact-source qualification and scored request
+
+Check2776 moved from queued to running around00:58UTC and completed around01:04.
+Read its entire passing profile; text/JSON/log saved as `profiles/submission.2776*`.
+H200 decode1 sliding **5.805422us**, decode1/verify1 full **14.490277/16.131548us**,
+verify16/32 full **154.760676/295.909571us**. Native attention profile **3.0us**,
+inherited sliding merge **1.5us**; native small-full reduction **1.8/2.4us**.
+PDL profile rows include waiting/overlap, so do not sum them as graph latency.
+
+Refreshed board immediately before scoring: best **2.020924x**, rank26; official
+account usage3/10 checks,0/10 scored. The check exceeds that best, satisfying the
+same-source submission rule. Its interval overlaps the old best's interval;
+this is a qualifying check, not a claim of a statistically established new rank.
+Local exact-production16/16 and bench coverage is already recorded in session13;
+source hash was reverified before scoring, with no redundant unchanged suite.
+
+Scored request71e2 was created around01:04UTC from exact3fb391f/48f0775 source.
+No experimental import or dispatch was added. Final01:06 snapshot remains queued,
+board best2.020924x/rank27. Resolve the score next cycle, read its profile if it
+passes, and update the shared board. The old check4d36508 is already resolved;
+check2776 is now resolved too. Neither should be polled or submitted again.
+
+### Warp-sized design and measured rejection
+
+The production native tile has64 query rows but only8 real heads for L1. New
+`mma.sync` variants use16 rows (8 real,8 padding). They retain the single64-key
+tile, early cp.async, query normalization/RoPE and FP8 rounding, new FP8 K/V
+insertion, FP16 P/V, FP32 partials and unchanged production PDL merge. Every
+key and value is attended; only noncausal/out-of-window padding is masked.
+
+- **warp:** one32-thread CTA handles gathers and both matrix products.
+- **cooperative:**128 threads gather/convert; warp zero handles both products.
+- **hybrid:** retain production's true FP8 QK WGMMA; warp zero handles softmax/PV.
+- Each also has a **swizzle** control preserving the parent's V shared mapping
+  and matching ldmatrix addresses, removing an avoidable linear-layout change.
+
+Balanced adjacent AB/BA CUDA-graph pairs,60 pairs per shape, H100 microseconds:
+
+| variant | B1 parent/candidate | B1 paired delta | B2 parent/candidate |
+|---|---:|---:|---:|
+| warp |4.480/6.432|+1.920|5.120/6.752|
+| cooperative |4.448/5.472|+1.056|5.072/6.096|
+| hybrid |4.448/4.944|+0.480|5.040/5.552|
+| warp, swizzled V |4.608/6.384|+1.744|4.912/6.496|
+| cooperative, swizzled V |4.448/5.360|+0.992|5.088/5.952|
+| hybrid, swizzled V |4.640/5.088|+0.288|5.056/5.600|
+
+Each row has its own paired parent; do not compare small differences across runs.
+The swizzled hybrid has small incidental B8/DP1 wins but still loses B1/B2. No
+shape rule is promoted. B16/32 controls force the original native kernel, which
+itself loses to production there; parity against those controls is insufficient.
+The broad experimental wrapper is not a proposed production dispatch.
+
+Static SASS explains a disadvantage: warp/cooperative FP8 mma.sync lowers to
+FP16 HMMA on this Hopper build. They have64 HMMA +32 LDSM sites versus baseline
+2 QGMMA +4 HGMMA. Hybrid keeps2 QGMMA but replaces4 HGMMA with32 HMMA +32 LDSM.
+Restoring V swizzling does not recover B1 latency. More instructions and changed
+gather topology are consistent with the losses, not an isolated causal proof.
+No NCU, achieved-occupancy, or dynamic instruction-count claim was made.
+
+Base/warp/cooperative/hybrid page1-EARLY registers **74/99/64/69**; corresponding
+swizzled controls **100/64/71**. All use17408 shared bytes (cuobjdump),16384(ptxas),
+zero stack/local allocation and no spills. Generated CUDA and SASS are archived.
+
+### Validation, budget, and next cycle
+
+- All **six variants16/16**, each3 native/13 production fallbacks, followed by
+  the full benchmark. Aggregates are rejected experimental results, not production
+  regressions; exact values are in the audit and per-variant logs.
+- **360 all-native fresh graph replays**,60 per variant on10 shapes: changed
+  QKV/cache/routes/lengths/positions/cache slots, including empty contexts;
+  TP8/DP, pages1/64, scales1/1/64, contexts10–120K, soft/coherent/edge inputs.
+- Original warp/cooperative/hybrid each **memcheck0, synccheck0, racecheck0
+  hazards/errors/warnings**. Each tool/variant checks12 native calls and
+  independently reduces FP32 partials with torch, checking output/cache.
+  Swizzled controls have no separate sanitizer claim. EARLY=True is runtime
+  validated; EARLY=False is compiled but unused in this cycle.
+- **120 comparison entries**, including controls,60 pairs/shape. Independent
+  output/cache checks before capture, after replay and after timing. Custom
+  drivers lock generation/reference/capture/replay and flush512MB each replay;
+  all timings subtract an empty replay. Full benches retain bench.py's timing
+  lock. No profiler ran. All local build/GPU/sanitizer processes have completed.
+- audit.py reproduces generated sources, verifies baseline equals production's
+  embedded native CUDA, and checks complete logs. Only generated report whitespace
+  was normalized for git hygiene.
+
+Session **0 checks,1 scored**, no withdrawals. Codex2026-10-24 totals
+**2/8 checks,1/3 scored**. Official account **3/10 checks,1/10 scored**, leaving
+7 checks/9 scored account-wide. The official check cap remains10, not20.
+
+1. Resolve **71e2eaa7b52c407f** without resubmission; it is the exact checked source.
+2. Close warp-sized MMA and its value-layout controls for this L1 design. Do not
+   repeat padded-row, fusion, warp-count or small-merge sweeps absent a distinct
+   measured mechanism. Main's Gluon full-attention work remains Claude's lane.
+3. Keep session16's nearby-boundary patch for a future actual source update,
+   requiring a new exact-source qualifying check if integrated.
+4. End on clean pushed codex; experimental branch remains separate, shared claim
+   removed/results recorded. Neither STOP file exists. Do not wait idle for the
+   queued scored job; carry its exact ID into the next session.
