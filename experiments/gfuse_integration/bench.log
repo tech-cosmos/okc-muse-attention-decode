@@ -1,0 +1,14 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+decode 1   sliding      4.50 us   (sglang on H200   20.94)
+decode 1   full        16.83 us   (sglang on H200   31.23)
+decode 16  sliding     10.40 us   (sglang on H200   27.25)
+decode 16  full       129.36 us   (sglang on H200  200.06)
+decode 32  sliding     15.95 us   (sglang on H200   31.30)
+decode 32  full       242.69 us   (sglang on H200  383.65)
+verify 1   sliding      5.76 us   (sglang on H200   22.94)
+verify 1   full        18.38 us   (sglang on H200   35.92)
+verify 16  sliding     12.24 us   (sglang on H200   29.17)
+verify 16  full       136.16 us   (sglang on H200  204.18)
+verify 32  sliding     19.39 us   (sglang on H200   34.42)
+verify 32  full       256.02 us   (sglang on H200  387.94)
+H100 time vs SGLang-on-H200, geomean over loads: 2.018
