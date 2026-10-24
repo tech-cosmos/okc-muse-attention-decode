@@ -1133,6 +1133,17 @@ Results (all paired, same session):
 
 (tools/s19/cbound.py and gl2.py are on main too; gdec.py (standalone prototype), cases.py and ab.py are on exp/gdec.)
 
+### Later in the session (exp/gdec 2nd commit)
+
+- Plan key `tpv` (off): transposed P@V, O^T [D, G] += V^T [D, BN] @ P^T [BN, G] per head (only the diagonal blocks;
+  P^T from the S registers via reshape/permute/split + convert_layout, V staged to an FP16 smem tile, 8 KB more smem).
+  Correct (cases 9/9). H100 real decode 16/32 full 131.2/244.5 -> 129.5/242.9 (a tie with Triton), but all-L2 work
+  69/132 -> 78/145 and emulated H200 a tie (131.9/249.5 vs 131.7/250.7). If the H200 check of gdec shows it bandwidth-
+  rather than work-bound, try tpv; otherwise drop it.
+- `_gd_full` compiles to 242 registers at NS 2 + BF16 partials (168 in the f32/NS 3 prototype); with 1024 programs
+  that's still one wave (8 warps/SM), so it doesn't matter unless splits grow.
+- Bench on exp/gdec: 1.998 (main at session start 1.991; decode 16/32 full 129.8/243.0 vs 129.3/242.1).
+
 ### Next ideas
 
 1. Check exp/gdec on the H200 (compare decode 16/32 full against check beb63898: 98.46 / 185.10 us). If it wins,
