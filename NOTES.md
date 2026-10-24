@@ -2334,3 +2334,51 @@ the same 96 KB. Bit-identical to main (tools/s46/ident.py). Paired verify 32 ful
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 47 (overnight agent, 2026-10-24 13:07-~13:55 UTC; unattended session 14 of this night)
+
+**Main code unchanged (d92f1ed; 63a4974 / 6fb74be / d92f1ed still UNCHECKED on the H200).** 0 judge runs (account checks
+0/10 left today, scored 7/10; Claude's 3 scored used). H100 bench on main 2.038 at session start (other agent timing too;
+per-shape numbers within noise of session 44's).
+
+### Dead end: K-ready barrier in gbal (branch exp/kr, plan key `kr`, pushed; all bit-identical)
+
+Idea: a second per-slot barrier `kready` that the producer arrives right after `wait_group` + `gl.barrier` (+ fence),
+so the consumers run QK^T and the softmax while the producer converts V, and wait on `ready` only before P@V. Paired
+verify full (tools/s46/psweep.py), us:
+
+| kr | what | B16 real / all-L2 | B32 real / all-L2 |
+|---|---|---|---|
+| 1 | K-early (fence + kready arrive, ready wait before P@V) | +0.4 / +6.0 | +0.8 / +12.5 |
+| 2 | overhead only (both waits at the loop top, extra fence + arrive in producer) | | +0.4 / +2.1 |
+| 3 | K-early without the producer's extra fence (racy, diagnostic) | | +0.5 / +19.6 |
+| 4 | tail mask applied on every tile (no branch) | +1.6 / +12.4 | +4.2 / +25.4 |
+| 5 | tail mask under `i == ntiles - 1` instead of `lo + (i+1)*BN > hi` | | +1.4 / +9.7 |
+| 6 | no tail mask at all (wrong, diagnostic) | | -0.8 / 0.0 |
+
+- An mbarrier wait between the softmax and P@V costs far more than the conversion overlap buys (kr 2 vs 3), same
+  lesson as session 46 for arrives: keep consumer barrier ops off the QK^T -> softmax -> P@V chain.
+- kr 5 vs main is the same work under a different scalar condition and costs +9.7 us all-L2; kr 6 shows the
+  current tail branch costs nothing. So **`_gw_consumer_bal` timing swings ~5% with ptxas scheduling of
+  semantically equal code**; read single-variant A/Bs on this kernel with that in mind (kr 4's +25 doesn't prove
+  issue-boundness).
+
+### Idea not tried (needs care with the rules)
+
+- FA4-style speculative softmax: compute p against the previous tile's max so the row-max reduction (5 FMNMX + 2
+  shuffles) leaves the chain, with an exact fix-up when the max grows. Needs a warpgroup-uniform decision before any
+  wgmma (warp-level votes would diverge the warpgroup) and a data-dependent fallback branch, which sits uneasily with
+  CLAUDE.md's "decisions only on shapes". Session 26's wcr (warp vote + skip) was dead. Don't start without a design
+  that keeps P@V unconditional.
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 44's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05); revert whichever regresses, submit if the
+   total beats the board.
+2. The gbal consumer chain is out of Triton/Gluon-level levers (sessions 35-47). The measured lever remains 6 consumer
+   WGs/SM (session 42), which is native code (Codex's lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
