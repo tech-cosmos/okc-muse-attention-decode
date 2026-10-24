@@ -452,7 +452,7 @@ if HAVE_GLUON:
                  cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
                  MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
-                 SEP: gl.constexpr = False):
+                 SEP: gl.constexpr = False, TQK: gl.constexpr = False, Q16: gl.constexpr = False):
         split = gl.program_id(0)
         b = gl.program_id(1)
         h = gl.program_id(2) * 2
@@ -523,11 +523,28 @@ if HAVE_GLUON:
             x = x * cos + xp * sin
         x8 = (x * rs).to(gl.float8e4nv)
         q = gl.convert_layout(x8, QA)
+        if Q16:
+            # Queries as FP16 (exact E4M3 values) once, K upcast per tile: on sm_90 ptxas lowers the FP8 mma.sync to
+            # FP16 HMMAs and would re-convert the loop-invariant queries every tile.
+            q = q.to(gl.float16)
         k_scale = gl.load(ks_ptr)
         scale = qk_scale * k_scale
 
         m_i = gl.full([M], -1.0e30, gl.float32, layout=gl.SliceLayout(1, MMA))
         l_i = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, MMA))
+        if TQK:
+            # Transposed QK^T per head (with TPV): S^T [BN, G] = K [BN, D] @ Q^T [D, G], no block-diagonal zeros
+            # (half the FP8 MMAs). Q^T reaches the B operand through shared memory.
+            q_s = gl.allocate_shared_memory(gl.float8e4nv, [M, C], SH)
+            q_s.store(x8)
+            gl.barrier()
+            q0 = q_s.slice(0, G, 0).slice(0, D, 1).permute((1, 0)).load(KB)
+            q1 = q_s.slice(G, G, 0).slice(D, D, 1).permute((1, 0)).load(KB)
+            m0 = gl.full([G], -1.0e30, gl.float32, layout=gl.SliceLayout(0, MMA))
+            m1 = gl.full([G], -1.0e30, gl.float32, layout=gl.SliceLayout(0, MMA))
+            l0 = gl.zeros([G], gl.float32, layout=gl.SliceLayout(0, MMA))
+            l1 = gl.zeros([G], gl.float32, layout=gl.SliceLayout(0, MMA))
+            n_r = gl.arange(0, BN, layout=gl.SliceLayout(1, MMA))
         if TPV:
             # Transposed P@V per head: O^T [D, G] += V^T [D, BN] @ P^T [BN, G] (only the diagonal blocks: half the
             # MMAs and accumulator registers of the block-diagonal form). V staged once per tile as FP16.
@@ -550,27 +567,57 @@ if HAVE_GLUON:
             cp.wait_group(NS - 1)
             gl.barrier()
             s = i % NS
-            sc = mma_v2(q, k_ring.index(s).permute((1, 0)).load(KB), gl.zeros([M, BN], gl.float32, MMA))
-            if lo + (i + 1) * BN > hi:
-                sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
-            m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
-            alpha = gl.exp2(m_i - m_new)
-            p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
-            l_i = l_i * alpha + gl.sum(p, 1)
-            m_i = m_new
-            if TPV:
-                a0, a1 = gl.split(gl.permute(gl.reshape(alpha, [2, G]), (1, 0)))
-                acc0 = acc0 * gl.convert_layout(a0, gl.SliceLayout(0, MMA))[None, :]
-                acc1 = acc1 * gl.convert_layout(a1, gl.SliceLayout(0, MMA))[None, :]
-                p0, p1 = gl.split(gl.permute(gl.reshape(p.to(gl.float16), [2, G, BN]), (2, 1, 0)))
+            if TQK:
+                kt = k_ring.index(s)
+                s0 = mma_v2(kt.slice(0, D, 1).load(QA), q0, gl.zeros([BN, G], gl.float32, MMA))
+                s1 = mma_v2(kt.slice(D, D, 1).load(QA), q1, gl.zeros([BN, G], gl.float32, MMA))
+                if lo + (i + 1) * BN > hi:
+                    kin = (lo + i * BN + n_r < hi)[:, None]
+                    s0 = gl.where(kin, s0, float("-inf"))
+                    s1 = gl.where(kin, s1, float("-inf"))
+                m0n = gl.maximum(m0, gl.max(s0, 0) * scale)
+                m1n = gl.maximum(m1, gl.max(s1, 0) * scale)
+                a0 = gl.exp2(m0 - m0n)
+                a1 = gl.exp2(m1 - m1n)
+                p0 = gl.exp2(gl.fma(s0, scale, -m0n[None, :]))
+                p1 = gl.exp2(gl.fma(s1, scale, -m1n[None, :]))
+                l0 = l0 * a0 + gl.sum(p0, 0)
+                l1 = l1 * a1 + gl.sum(p1, 0)
+                m0 = m0n
+                m1 = m1n
+                acc0 = acc0 * a0[None, :]
+                acc1 = acc1 * a1[None, :]
                 vh.store(v_ring.index(s).load(BL).to(gl.float16))
                 gl.barrier()
-                acc0 = mma_v2(vh.slice(0, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p0, PB), acc0)
-                acc1 = mma_v2(vh.slice(D, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p1, PB), acc1)
+                acc0 = mma_v2(vh.slice(0, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p0.to(gl.float16), PB),
+                              acc0)
+                acc1 = mma_v2(vh.slice(D, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p1.to(gl.float16), PB),
+                              acc1)
             else:
-                acc = acc * alpha[:, None]
-                v = gl.convert_layout(v_ring.index(s).load(BL).to(gl.float16), VB)
-                acc = mma_v2(gl.convert_layout(p.to(gl.float16), PA), v, acc)
+                kb = k_ring.index(s).permute((1, 0)).load(KB)
+                if Q16:
+                    kb = kb.to(gl.float16)
+                sc = mma_v2(q, kb, gl.zeros([M, BN], gl.float32, MMA))
+                if lo + (i + 1) * BN > hi:
+                    sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+                alpha = gl.exp2(m_i - m_new)
+                p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
+                l_i = l_i * alpha + gl.sum(p, 1)
+                m_i = m_new
+                if TPV:
+                    a0, a1 = gl.split(gl.permute(gl.reshape(alpha, [2, G]), (1, 0)))
+                    acc0 = acc0 * gl.convert_layout(a0, gl.SliceLayout(0, MMA))[None, :]
+                    acc1 = acc1 * gl.convert_layout(a1, gl.SliceLayout(0, MMA))[None, :]
+                    p0, p1 = gl.split(gl.permute(gl.reshape(p.to(gl.float16), [2, G, BN]), (2, 1, 0)))
+                    vh.store(v_ring.index(s).load(BL).to(gl.float16))
+                    gl.barrier()
+                    acc0 = mma_v2(vh.slice(0, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p0, PB), acc0)
+                    acc1 = mma_v2(vh.slice(D, D, 1).permute((1, 0)).load(VA), gl.convert_layout(p1, PB), acc1)
+                else:
+                    acc = acc * alpha[:, None]
+                    v = gl.convert_layout(v_ring.index(s).load(BL).to(gl.float16), VB)
+                    acc = mma_v2(gl.convert_layout(p.to(gl.float16), PA), v, acc)
         cp.wait_group(0)
 
         # Partials [B, HKV, S + 1, G, D]: each row's own head's D columns of acc.
@@ -589,8 +636,16 @@ if HAVE_GLUON:
             gl.store(pacc_ptr + (pt0 + (S + 1) * G)[None, :] * D + dd[:, None], acc1.to(pacc_ptr.dtype.element_ty))
         else:
             gl.store(pacc_ptr + part[:, None] * D + (co % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=own)
-        gl.store(pml_ptr + part * 2, m_i, mask=keyp)
-        gl.store(pml_ptr + part * 2 + 1, l_i, mask=keyp)
+        if TQK:
+            gq = gl.arange(0, G, layout=gl.SliceLayout(0, MMA))
+            pq = ((b * HKV + h) * (S + 1) + split) * G + gq
+            gl.store(pml_ptr + pq * 2, m0, mask=keyp & (gq >= 0))
+            gl.store(pml_ptr + pq * 2 + 1, l0, mask=keyp & (gq >= 0))
+            gl.store(pml_ptr + (pq + (S + 1) * G) * 2, m1, mask=keyp & (gq >= 0))
+            gl.store(pml_ptr + (pq + (S + 1) * G) * 2 + 1, l1, mask=keyp & (gq >= 0))
+        else:
+            gl.store(pml_ptr + part * 2, m_i, mask=keyp)
+            gl.store(pml_ptr + part * 2 + 1, l_i, mask=keyp)
         if split == (S if SEP else S - 1):
             # The step's new token for both KV heads: normalize K, store K and V as FP8 at cache_loc (row 0 of
             # each head's block), and write its one-key partial (max = its score, sum = 1, acc = V) to slot S.
@@ -1440,8 +1495,9 @@ def _decode_gluon(data, cfg, plan):
         data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
         _cos_sin(cfg["rope_theta"], d, device) if cfg["rope_theta"] else qkv,
         HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
-        BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
-        ROPE=bool(cfg["rope_theta"]), SEP=sep, num_warps=1)
+        BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False) or plan.get("tqk", False),
+        WINDOW=cfg["window"], ROPE=bool(cfg["rope_theta"]), SEP=sep, TQK=plan.get("tqk", False),
+        Q16=plan.get("q16", True), num_warps=1)
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch, hq // hb)](
