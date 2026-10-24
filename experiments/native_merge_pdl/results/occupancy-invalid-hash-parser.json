@@ -1,0 +1,90 @@
+[
+  {
+    "case": 3,
+    "mode": "main",
+    "registers": 170,
+    "shared_bytes": 62464,
+    "cuda_max_active_ctas": 2,
+    "sm_count": 132,
+    "attention_ctas": 304,
+    "hash": "80ec264c142b715319353935a7dade3b550fc861dd06c54319f951ac7058d254",
+    "sass_instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "case": 3,
+    "mode": "native",
+    "registers": 170,
+    "shared_bytes": 62464,
+    "cuda_max_active_ctas": 2,
+    "sm_count": 132,
+    "attention_ctas": 304,
+    "hash": "1f9c5e2777b764ae81769241a9ffd1625e6880dcf1c023d1c51e31572d5ab344",
+    "sass_instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "case": 3,
+    "mode": "serial_main",
+    "registers": 170,
+    "shared_bytes": 62464,
+    "cuda_max_active_ctas": 2,
+    "sm_count": 132,
+    "attention_ctas": 304,
+    "hash": "80ec264c142b715319353935a7dade3b550fc861dd06c54319f951ac7058d254",
+    "sass_instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "case": 3,
+    "mode": "serial_native",
+    "registers": 170,
+    "shared_bytes": 62464,
+    "cuda_max_active_ctas": 2,
+    "sm_count": 132,
+    "attention_ctas": 304,
+    "hash": "1f9c5e2777b764ae81769241a9ffd1625e6880dcf1c023d1c51e31572d5ab344",
+    "sass_instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "case": 13,
+    "mode": "main",
+    "registers": 168,
+    "shared_bytes": 62464,
+    "cuda_max_active_ctas": 3,
+    "sm_count": 132,
+    "attention_ctas": 304,
+    "hash": "be78d949f0c77bafb4361ddb9aa226cf6590cac3019ec66b3a628cc22ced7219",
+    "sass_instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "case": 13,
+    "mode": "native",
+    "registers": 168,
+    "shared_bytes": 62464,
+    "cuda_max_active_ctas": 3,
+    "sm_count": 132,
+    "attention_ctas": 304,
+    "hash": "1e8ac6f90877bb544e0b57b9717c22c82c13807ec3fcf02c405996e7a6f9d1f2",
+    "sass_instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "case": 13,
+    "mode": "serial_main",
+    "registers": 168,
+    "shared_bytes": 62464,
+    "cuda_max_active_ctas": 3,
+    "sm_count": 132,
+    "attention_ctas": 304,
+    "hash": "be78d949f0c77bafb4361ddb9aa226cf6590cac3019ec66b3a628cc22ced7219",
+    "sass_instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "case": 13,
+    "mode": "serial_native",
+    "registers": 168,
+    "shared_bytes": 62464,
+    "cuda_max_active_ctas": 3,
+    "sm_count": 132,
+    "attention_ctas": 304,
+    "hash": "1e8ac6f90877bb544e0b57b9717c22c82c13807ec3fcf02c405996e7a6f9d1f2",
+    "sass_instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

@@ -1,0 +1,24 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+CASE 3 {'splits': 76, 'chunk': 128, 'span': 9683, 'merge_ctas': 256}
+CASE 13 {'splits': 76, 'chunk': 128, 'span': 9728, 'merge_ctas': 256}
+Capture range started in the application.
+Capture range ended in the application.
+Generating '/tmp/nsys-report-8180.qdstrm'
+
+[1/1] [0%                          ] timeline.nsys-repProcessing events...
+
+[1/1] [0%                          ] timeline.nsys-rep
+[1/1] [12%                         ] timeline.nsys-rep
+[1/1] [===24%                      ] timeline.nsys-rep
+[1/1] [==============62%           ] timeline.nsys-rep
+[1/1] [==============63%           ] timeline.nsys-rep
+[1/1] [=================72%        ] timeline.nsys-rep
+[1/1] [===================81%      ] timeline.nsys-rep
+[1/1] [========================100%] timeline.nsys-rep
+[1/1] [========================100%] timeline.nsys-rep
+PASS 16 output/cache checks, 24 instrumented complete graph replays
+Generated:
+	/home/daytona/codex-repo/experiments/native_merge_pdl/results/timeline.nsys-rep

@@ -1,0 +1,47 @@
+{
+  "production_sha256": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "main_sha256": "4f9ccd6bab273111bc98231a3ca832264358473d1a5c8fb1f5719ccc18b03043",
+  "shared_helpers": [
+    "_attn_split",
+    "_combine",
+    "_combine_hb",
+    "_cos_sin",
+    "_counters",
+    "_finish",
+    "_gw_consumer",
+    "_gw_consumer_cv",
+    "_gw_producer",
+    "_gw_producer_cv",
+    "_gw_store",
+    "_gw_verify",
+    "_new",
+    "_new_tokens",
+    "_norm_gate_store",
+    "_norm_rope",
+    "_num_sms",
+    "_plan",
+    "_tile",
+    "_verify_gluon"
+  ],
+  "production_native_source_changed": false,
+  "triton_source_or_plan_changed": false,
+  "initial": {
+    "shapes": 20,
+    "pairs": 6400,
+    "reference_checks": 240
+  },
+  "confirmation": {
+    "shapes": 8,
+    "pairs": 3840,
+    "reference_checks": 96
+  },
+  "total_adjacent_pairs": 10240,
+  "timing_reference_checks": 336,
+  "fresh_replays": 320,
+  "instrumented_graph_replays": 24,
+  "timeline_reference_checks": 16,
+  "final_occupancy_reference_checks": 8,
+  "attention_sass_identical_across_modes": true,
+  "residency_page1": 2,
+  "residency_page64": 3
+}

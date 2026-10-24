@@ -1,0 +1,66 @@
+[
+  {
+    "case": "case3",
+    "mode": "main",
+    "attention_us": 10.208,
+    "merge_us": 7.488,
+    "merge_start_after_att_start_us": 6.368,
+    "kernel_overlap_us": 3.84
+  },
+  {
+    "case": "case3",
+    "mode": "native",
+    "attention_us": 9.984,
+    "merge_us": 6.048,
+    "merge_start_after_att_start_us": 6.272,
+    "kernel_overlap_us": 3.648
+  },
+  {
+    "case": "case3",
+    "mode": "serial_main",
+    "attention_us": 10.08,
+    "merge_us": 3.232,
+    "merge_start_after_att_start_us": 10.368,
+    "kernel_overlap_us": 0.0
+  },
+  {
+    "case": "case3",
+    "mode": "serial_native",
+    "attention_us": 10.24,
+    "merge_us": 3.232,
+    "merge_start_after_att_start_us": 10.528,
+    "kernel_overlap_us": 0.0
+  },
+  {
+    "case": "case13",
+    "mode": "main",
+    "attention_us": 8.352,
+    "merge_us": 10.496,
+    "merge_start_after_att_start_us": 0.864,
+    "kernel_overlap_us": 7.52
+  },
+  {
+    "case": "case13",
+    "mode": "native",
+    "attention_us": 8.992,
+    "merge_us": 11.232,
+    "merge_start_after_att_start_us": 0.96,
+    "kernel_overlap_us": 8.032
+  },
+  {
+    "case": "case13",
+    "mode": "serial_main",
+    "attention_us": 8.512,
+    "merge_us": 3.264,
+    "merge_start_after_att_start_us": 8.768,
+    "kernel_overlap_us": 0.0
+  },
+  {
+    "case": "case13",
+    "mode": "serial_native",
+    "attention_us": 8.352,
+    "merge_us": 3.2,
+    "merge_start_after_att_start_us": 8.64,
+    "kernel_overlap_us": 0.0
+  }
+]
