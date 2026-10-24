@@ -1294,7 +1294,7 @@ def _plan(cfg, max_pages, device):
         splits = 32 if heads <= 4 else (16 if heads <= 32 and length == 1 else 8)
         # Partials stay FP32 everywhere (human decision 2026-10-24; BF16 was -0.5 us at verify 16/32 sliding).
         pdt = "f32"
-        if heads <= 32 and not (length == 1 and heads == 32):
+        if heads <= 32:
             # tsep (batch 1-2): the block's new tokens in their own program instead of split 0, the critical path,
             # with 2 stages (one tile per split). H100 paired: verify 1 sliding tsep -0.14 us (8/9 rounds twice),
             # + stages 2 -0.11 (9/15); decode 1 sliding tsep alone and stages 2 alone ties, both -0.35 (15/15).
@@ -1303,18 +1303,8 @@ def _plan(cfg, max_pages, device):
             return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
         # Large batches: smaller, deeply pipelined programs.
-        if length == 1 and (heads >= 48 or heads == 32):
-            # Decode from batch 24 (8 splits): both KV heads per program (hpp 2), so each gather is a whole 128-byte
-            # row (H100 random-row gather floor at decode 32: 10.7 us vs 12.0 for 64-byte halves). Paired H100
-            # decode 24/32/40/48/64 sliding -0.5/-0.6/-2.4/-3.6/-6.0 us (7/7 or 9/9 each); batch 20 +0.2, so it keeps
-            # hpp 1. (Session 43: kst-style stacked P@V in Triton loses: +0.9 us.)
-            if heads == 32:
-                # Decode 16 (16 splits of 128 keys): hpp 2 with two 64-key tiles, 3 stages (paired H100 -0.15 us, 13/15
-                # both orders; block_n 64 at decode 32 is +0.14, 3/11).
-                return dict(splits=splits, block_n=64, warps=4, stages=3, hpp=2, fuse=False, qk8=True, hb=2,
-                            sb=splits, cw=1, pdt=pdt)
-            return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=2, fuse=False, qk8=True, hb=2, sb=splits,
-                        cw=1, pdt=pdt)
+        # (hpp 2 for batched sliding decode, e405425/6fb74be/652aafe, won on the H100 but lost on the H200: scored
+        # 56fca423 decode 16/32 sliding 10.3/14.3 -> 11.1/15.4 us vs abd67ae2. Reverted 2026-10-24.)
         if length > 1 and heads >= 64:
             # Verify from batch 32: 4 splits of 64-key tiles instead of 8 of 32, a quarter of the programs (256 at
             # batch 32) with the same per-program chain, and half the FP32 partials for the merge to read. Paired
