@@ -1,0 +1,131 @@
+{
+  "origin": "session19 profile-base.csv",
+  "stores": [
+    {
+      "Source": "      STG.E desc[UR12][R2.64], R24",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "0"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R2.64+0x4], R25",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "0"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R6.64], R28",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "0"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R6.64+0x4], R29",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "0"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R10.64], R32",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "2"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R10.64+0x4], R33",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "3"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R12.64], R36",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "1"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R12.64+0x4], R37",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "6"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R16.64], R40",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "1"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R16.64+0x4], R41",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "3"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R18.64], R44",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "3"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R18.64+0x4], R45",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "0"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R20.64], R48",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "2"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R20.64+0x4], R49",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "0"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R22.64], R52",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "0"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R22.64+0x4], R53",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "512",
+      "L2 Theoretical Sectors Global Excessive": "256",
+      "Warp Stall Sampling (All Samples)": "2"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R2.64], R5",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "128",
+      "L2 Theoretical Sectors Global Excessive": "64",
+      "Warp Stall Sampling (All Samples)": "4"
+    },
+    {
+      "Source": "      STG.E desc[UR12][R2.64+0x4], R9",
+      "Instructions Executed": "64",
+      "L2 Theoretical Sectors Global": "128",
+      "L2 Theoretical Sectors Global Excessive": "64",
+      "Warp Stall Sampling (All Samples)": "3"
+    }
+  ]
+}

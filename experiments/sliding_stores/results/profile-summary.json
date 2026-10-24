@@ -1,0 +1,18 @@
+{
+  "base": {
+    "partial_store_sites": 18,
+    "partial_store_executed_warp_instructions": 1152,
+    "partial_store_l2_theoretical_sectors": 8448,
+    "partial_store_l2_theoretical_excessive_sectors": 4224,
+    "all_executed_warp_instructions": 164482,
+    "all_shared_excessive_wavefronts": 4104
+  },
+  "explicit": {
+    "partial_store_sites": 9,
+    "partial_store_executed_warp_instructions": 576,
+    "partial_store_l2_theoretical_sectors": 4224,
+    "partial_store_l2_theoretical_excessive_sectors": 0,
+    "all_executed_warp_instructions": 163394,
+    "all_shared_excessive_wavefronts": 4104
+  }
+}
