@@ -1,0 +1,14 @@
+{
+  "production_commit": "687b35177121c687d992f179e320fb40ed76b3bf",
+  "inherited_experiment": "081f126",
+  "sources": {
+    "candidate.py": "2ac075fc25dfab81c27752d072bca357e034ffa136d20715931105442a8adc26",
+    "binding.cpp": "d18d882286b46b08c44a038d5295686cf474ddd50cd8f345325e7ae528fa7370",
+    "tile128.cu": "d1d2e8a40ed7c55b5988c448a848eb2001ac212d001c4968c62566fc6a4219d6",
+    "production_snapshot.py": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+    "run.py": "9368667596f4a8f58a09d57293db7aaa52fd92548418073bc35957cec682d415",
+    "native_merge_control.py": "f525d531e5b159677a2f57fc9cca2ea66cefee6e43430e0054ed08328ec252b7",
+    "merge_control.py": "d22e3b4a27f83dcfdb98f5a134e7fe89ec4537e8952478f0f7391d4d15b7551c",
+    "merge_confirmation.py": "2952100b76e37dd2ec8099291f2ac3febfadccd199fe50998a001778d6a5e3c2"
+  }
+}

@@ -1,0 +1,178 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+ninja: no work to do.
+CHECK (0, 'composed', 'eager') True relative L2 error 5.794e-02 (worst row 5.794e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+CHECK (0, 'composed', 'captured') True relative L2 error 5.794e-02 (worst row 5.794e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+CHECK (0, 'tile', 'eager') True relative L2 error 5.794e-02 (worst row 5.794e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+CHECK (0, 'tile', 'captured') True relative L2 error 5.794e-02 (worst row 5.794e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+CHECK (0, 'parent', 'eager') True relative L2 error 5.784e-02 (worst row 5.784e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+CHECK (0, 'parent', 'captured') True relative L2 error 5.784e-02 (worst row 5.784e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+CHECK (0, 'composed', 'after') True relative L2 error 5.794e-02 (worst row 5.794e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+CHECK (0, 'tile', 'after') True relative L2 error 5.794e-02 (worst row 5.794e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+CHECK (0, 'parent', 'after') True relative L2 error 5.784e-02 (worst row 5.784e-02) [bound 0.150: 2.5 x the reference's 0.058 with FP8 E4M3 queries + 0.015]
+{"index": 0, "shape": {"batch": 1, "ctx": 4096, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 4097, "splits": 33, "uses_native_merge": false, "baseline": "parent", "baseline_us": 5.95200015231967, "composed_us": 5.503999534994364, "paired_delta_us": -0.47999992966651917}
+{"index": 0, "shape": {"batch": 1, "ctx": 4096, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 4097, "splits": 33, "uses_native_merge": false, "baseline": "tile", "baseline_us": 5.296000046655536, "composed_us": 5.3280002903193235, "paired_delta_us": 0.0}
+CHECK (1, 'composed', 'eager') True relative L2 error 6.936e-02 (worst row 6.936e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+CHECK (1, 'composed', 'captured') True relative L2 error 6.936e-02 (worst row 6.936e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+CHECK (1, 'tile', 'eager') True relative L2 error 6.936e-02 (worst row 6.936e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+CHECK (1, 'tile', 'captured') True relative L2 error 6.936e-02 (worst row 6.936e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+CHECK (1, 'parent', 'eager') True relative L2 error 6.924e-02 (worst row 6.924e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+CHECK (1, 'parent', 'captured') True relative L2 error 6.924e-02 (worst row 6.924e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+CHECK (1, 'composed', 'after') True relative L2 error 6.936e-02 (worst row 6.936e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+CHECK (1, 'tile', 'after') True relative L2 error 6.936e-02 (worst row 6.936e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+CHECK (1, 'parent', 'after') True relative L2 error 6.924e-02 (worst row 6.924e-02) [bound 0.150: 2.5 x the reference's 0.069 with FP8 E4M3 queries + 0.015]
+{"index": 1, "shape": {"batch": 1, "ctx": 4096, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 4160, "splits": 33, "uses_native_merge": false, "baseline": "parent", "baseline_us": 6.048000417649746, "composed_us": 5.424000322818756, "paired_delta_us": -0.6400002166628838}
+{"index": 1, "shape": {"batch": 1, "ctx": 4096, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 4160, "splits": 33, "uses_native_merge": false, "baseline": "tile", "baseline_us": 5.21599967032671, "composed_us": 5.408000200986862, "paired_delta_us": 0.015999656170606613}
+CHECK (2, 'composed', 'eager') True relative L2 error 4.767e-02 (worst row 4.767e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+CHECK (2, 'composed', 'captured') True relative L2 error 4.767e-02 (worst row 4.767e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+CHECK (2, 'tile', 'eager') True relative L2 error 4.767e-02 (worst row 4.767e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+CHECK (2, 'tile', 'captured') True relative L2 error 4.767e-02 (worst row 4.767e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+CHECK (2, 'parent', 'eager') True relative L2 error 4.793e-02 (worst row 4.793e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+CHECK (2, 'parent', 'captured') True relative L2 error 4.793e-02 (worst row 4.793e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+CHECK (2, 'composed', 'after') True relative L2 error 4.767e-02 (worst row 4.767e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+CHECK (2, 'tile', 'after') True relative L2 error 4.767e-02 (worst row 4.767e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+CHECK (2, 'parent', 'after') True relative L2 error 4.793e-02 (worst row 4.793e-02) [bound 0.135: 2.5 x the reference's 0.048 with FP8 E4M3 queries + 0.015]
+{"index": 2, "shape": {"batch": 1, "ctx": 8192, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 8193, "splits": 65, "uses_native_merge": true, "baseline": "parent", "baseline_us": 6.048000417649746, "composed_us": 5.504000000655651, "paired_delta_us": -0.6079999729990959}
+{"index": 2, "shape": {"batch": 1, "ctx": 8192, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 8193, "splits": 65, "uses_native_merge": true, "baseline": "tile", "baseline_us": 6.047999951988459, "composed_us": 5.456000100821257, "paired_delta_us": -0.6399992853403091}
+CHECK (3, 'composed', 'eager') True relative L2 error 5.922e-02 (worst row 5.922e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+CHECK (3, 'composed', 'captured') True relative L2 error 5.922e-02 (worst row 5.922e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+CHECK (3, 'tile', 'eager') True relative L2 error 5.922e-02 (worst row 5.922e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+CHECK (3, 'tile', 'captured') True relative L2 error 5.922e-02 (worst row 5.922e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+CHECK (3, 'parent', 'eager') True relative L2 error 5.923e-02 (worst row 5.923e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+CHECK (3, 'parent', 'captured') True relative L2 error 5.923e-02 (worst row 5.923e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+CHECK (3, 'composed', 'after') True relative L2 error 5.922e-02 (worst row 5.922e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+CHECK (3, 'tile', 'after') True relative L2 error 5.922e-02 (worst row 5.922e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+CHECK (3, 'parent', 'after') True relative L2 error 5.923e-02 (worst row 5.923e-02) [bound 0.150: 2.5 x the reference's 0.059 with FP8 E4M3 queries + 0.015]
+{"index": 3, "shape": {"batch": 1, "ctx": 8192, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 8256, "splits": 65, "uses_native_merge": true, "baseline": "parent", "baseline_us": 6.2399995513260365, "composed_us": 5.344000179320574, "paired_delta_us": -0.9280000813305378}
+{"index": 3, "shape": {"batch": 1, "ctx": 8192, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 8256, "splits": 65, "uses_native_merge": true, "baseline": "tile", "baseline_us": 6.015999708324671, "composed_us": 5.375999491661787, "paired_delta_us": -0.671999529004097}
+CHECK (4, 'composed', 'eager') True relative L2 error 5.483e-02 (worst row 5.483e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (4, 'composed', 'captured') True relative L2 error 5.483e-02 (worst row 5.483e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (4, 'tile', 'eager') True relative L2 error 5.483e-02 (worst row 5.483e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (4, 'tile', 'captured') True relative L2 error 5.483e-02 (worst row 5.483e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (4, 'parent', 'eager') True relative L2 error 5.465e-02 (worst row 5.465e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (4, 'parent', 'captured') True relative L2 error 5.465e-02 (worst row 5.465e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (4, 'composed', 'after') True relative L2 error 5.483e-02 (worst row 5.483e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (4, 'tile', 'after') True relative L2 error 5.483e-02 (worst row 5.483e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (4, 'parent', 'after') True relative L2 error 5.465e-02 (worst row 5.465e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+{"index": 4, "shape": {"batch": 1, "ctx": 9000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 9001, "splits": 71, "uses_native_merge": true, "baseline": "parent", "baseline_us": 6.591999437659979, "composed_us": 6.1439997516572475, "paired_delta_us": -0.46400027349591255}
+{"index": 4, "shape": {"batch": 1, "ctx": 9000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 9001, "splits": 71, "uses_native_merge": true, "baseline": "tile", "baseline_us": 6.559999659657478, "composed_us": 6.079999729990959, "paired_delta_us": -0.4959995858371258}
+CHECK (5, 'composed', 'eager') True relative L2 error 5.407e-02 (worst row 5.407e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (5, 'composed', 'captured') True relative L2 error 5.407e-02 (worst row 5.407e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (5, 'tile', 'eager') True relative L2 error 5.407e-02 (worst row 5.407e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (5, 'tile', 'captured') True relative L2 error 5.407e-02 (worst row 5.407e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (5, 'parent', 'eager') True relative L2 error 5.412e-02 (worst row 5.412e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (5, 'parent', 'captured') True relative L2 error 5.412e-02 (worst row 5.412e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (5, 'composed', 'after') True relative L2 error 5.407e-02 (worst row 5.407e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (5, 'tile', 'after') True relative L2 error 5.407e-02 (worst row 5.407e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (5, 'parent', 'after') True relative L2 error 5.412e-02 (worst row 5.412e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+{"index": 5, "shape": {"batch": 1, "ctx": 9000, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 9024, "splits": 71, "uses_native_merge": true, "baseline": "parent", "baseline_us": 6.623999681323767, "composed_us": 6.11199950799346, "paired_delta_us": -0.5279998295009136}
+{"index": 5, "shape": {"batch": 1, "ctx": 9000, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 9024, "splits": 71, "uses_native_merge": true, "baseline": "tile", "baseline_us": 6.719999946653843, "composed_us": 6.144000217318535, "paired_delta_us": -0.6239996291697025}
+CHECK (6, 'composed', 'eager') True relative L2 error 5.185e-02 (worst row 5.185e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+CHECK (6, 'composed', 'captured') True relative L2 error 5.185e-02 (worst row 5.185e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+CHECK (6, 'tile', 'eager') True relative L2 error 5.185e-02 (worst row 5.185e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+CHECK (6, 'tile', 'captured') True relative L2 error 5.185e-02 (worst row 5.185e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+CHECK (6, 'parent', 'eager') True relative L2 error 5.188e-02 (worst row 5.188e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+CHECK (6, 'parent', 'captured') True relative L2 error 5.188e-02 (worst row 5.188e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+CHECK (6, 'composed', 'after') True relative L2 error 5.185e-02 (worst row 5.185e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+CHECK (6, 'tile', 'after') True relative L2 error 5.185e-02 (worst row 5.185e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+CHECK (6, 'parent', 'after') True relative L2 error 5.188e-02 (worst row 5.188e-02) [bound 0.145: 2.5 x the reference's 0.052 with FP8 E4M3 queries + 0.015]
+{"index": 6, "shape": {"batch": 1, "ctx": 16000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 16001, "splits": 126, "uses_native_merge": true, "baseline": "parent", "baseline_us": 7.3279994539916515, "composed_us": 7.0399995893239975, "paired_delta_us": -0.3200001083314419}
+{"index": 6, "shape": {"batch": 1, "ctx": 16000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 16001, "splits": 126, "uses_native_merge": true, "baseline": "tile", "baseline_us": 7.7760000713169575, "composed_us": 7.040000054985285, "paired_delta_us": -0.7680002599954605}
+CHECK (7, 'composed', 'eager') True relative L2 error 5.351e-02 (worst row 5.351e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (7, 'composed', 'captured') True relative L2 error 5.351e-02 (worst row 5.351e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (7, 'tile', 'eager') True relative L2 error 5.351e-02 (worst row 5.351e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (7, 'tile', 'captured') True relative L2 error 5.351e-02 (worst row 5.351e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (7, 'parent', 'eager') True relative L2 error 5.357e-02 (worst row 5.357e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (7, 'parent', 'captured') True relative L2 error 5.357e-02 (worst row 5.357e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (7, 'composed', 'after') True relative L2 error 5.351e-02 (worst row 5.351e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (7, 'tile', 'after') True relative L2 error 5.351e-02 (worst row 5.351e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (7, 'parent', 'after') True relative L2 error 5.357e-02 (worst row 5.357e-02) [bound 0.149: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+{"index": 7, "shape": {"batch": 1, "ctx": 16000, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 16064, "splits": 126, "uses_native_merge": true, "baseline": "parent", "baseline_us": 7.647999562323093, "composed_us": 6.911999545991421, "paired_delta_us": -0.7360000163316727}
+{"index": 7, "shape": {"batch": 1, "ctx": 16000, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "fixed"}, "span": 16064, "splits": 126, "uses_native_merge": true, "baseline": "tile", "baseline_us": 7.584000006318092, "composed_us": 6.911999545991421, "paired_delta_us": -0.6719999946653843}
+CHECK (8, 'composed', 'eager') True relative L2 error 5.404e-02 (worst row 5.772e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (8, 'composed', 'captured') True relative L2 error 5.404e-02 (worst row 5.772e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (8, 'tile', 'eager') True relative L2 error 5.404e-02 (worst row 5.772e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (8, 'tile', 'captured') True relative L2 error 5.404e-02 (worst row 5.772e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (8, 'parent', 'eager') True relative L2 error 5.388e-02 (worst row 5.743e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (8, 'parent', 'captured') True relative L2 error 5.388e-02 (worst row 5.743e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (8, 'composed', 'after') True relative L2 error 5.404e-02 (worst row 5.772e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (8, 'tile', 'after') True relative L2 error 5.404e-02 (worst row 5.772e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+CHECK (8, 'parent', 'after') True relative L2 error 5.388e-02 (worst row 5.743e-02) [bound 0.150: 2.5 x the reference's 0.054 with FP8 E4M3 queries + 0.015]
+{"index": 8, "shape": {"batch": 2, "ctx": 4096, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 4405, "splits": 35, "uses_native_merge": false, "baseline": "parent", "baseline_us": 8.767999708652496, "composed_us": 6.591999903321266, "paired_delta_us": -2.1279999054968357}
+{"index": 8, "shape": {"batch": 2, "ctx": 4096, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 4405, "splits": 35, "uses_native_merge": false, "baseline": "tile", "baseline_us": 6.624000146985054, "composed_us": 6.591999903321266, "paired_delta_us": -0.03200024366378784}
+CHECK (9, 'composed', 'eager') True relative L2 error 6.753e-02 (worst row 7.352e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (9, 'composed', 'captured') True relative L2 error 6.753e-02 (worst row 7.352e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (9, 'tile', 'eager') True relative L2 error 6.753e-02 (worst row 7.352e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (9, 'tile', 'captured') True relative L2 error 6.753e-02 (worst row 7.352e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (9, 'parent', 'eager') True relative L2 error 6.759e-02 (worst row 7.358e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (9, 'parent', 'captured') True relative L2 error 6.759e-02 (worst row 7.358e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (9, 'composed', 'after') True relative L2 error 6.753e-02 (worst row 7.352e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (9, 'tile', 'after') True relative L2 error 6.753e-02 (worst row 7.352e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (9, 'parent', 'after') True relative L2 error 6.759e-02 (worst row 7.358e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+{"index": 9, "shape": {"batch": 2, "ctx": 4096, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 4416, "splits": 35, "uses_native_merge": false, "baseline": "parent", "baseline_us": 9.279999881982803, "composed_us": 6.687999702990055, "paired_delta_us": -2.5599999353289604}
+{"index": 9, "shape": {"batch": 2, "ctx": 4096, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 4416, "splits": 35, "uses_native_merge": false, "baseline": "tile", "baseline_us": 6.624000146985054, "composed_us": 6.624000146985054, "paired_delta_us": -0.01600012183189392}
+CHECK (10, 'composed', 'eager') True relative L2 error 5.272e-02 (worst row 5.852e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+CHECK (10, 'composed', 'captured') True relative L2 error 5.272e-02 (worst row 5.852e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+CHECK (10, 'tile', 'eager') True relative L2 error 5.272e-02 (worst row 5.852e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+CHECK (10, 'tile', 'captured') True relative L2 error 5.272e-02 (worst row 5.852e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+CHECK (10, 'parent', 'eager') True relative L2 error 5.260e-02 (worst row 5.834e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+CHECK (10, 'parent', 'captured') True relative L2 error 5.260e-02 (worst row 5.834e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+CHECK (10, 'composed', 'after') True relative L2 error 5.272e-02 (worst row 5.852e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+CHECK (10, 'tile', 'after') True relative L2 error 5.272e-02 (worst row 5.852e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+CHECK (10, 'parent', 'after') True relative L2 error 5.260e-02 (worst row 5.834e-02) [bound 0.147: 2.5 x the reference's 0.053 with FP8 E4M3 queries + 0.015]
+{"index": 10, "shape": {"batch": 2, "ctx": 8192, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 8808, "splits": 69, "uses_native_merge": true, "baseline": "parent", "baseline_us": 10.400000028312206, "composed_us": 7.5519997626543045, "paired_delta_us": -2.879999577999115}
+{"index": 10, "shape": {"batch": 2, "ctx": 8192, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 8808, "splits": 69, "uses_native_merge": true, "baseline": "tile", "baseline_us": 8.031999692320824, "composed_us": 7.567999884486198, "paired_delta_us": -0.4160003736615181}
+CHECK (11, 'composed', 'eager') True relative L2 error 6.206e-02 (worst row 7.118e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+CHECK (11, 'composed', 'captured') True relative L2 error 6.206e-02 (worst row 7.118e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+CHECK (11, 'tile', 'eager') True relative L2 error 6.206e-02 (worst row 7.118e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+CHECK (11, 'tile', 'captured') True relative L2 error 6.206e-02 (worst row 7.118e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+CHECK (11, 'parent', 'eager') True relative L2 error 6.211e-02 (worst row 7.124e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+CHECK (11, 'parent', 'captured') True relative L2 error 6.211e-02 (worst row 7.124e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+CHECK (11, 'composed', 'after') True relative L2 error 6.206e-02 (worst row 7.118e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+CHECK (11, 'tile', 'after') True relative L2 error 6.206e-02 (worst row 7.118e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+CHECK (11, 'parent', 'after') True relative L2 error 6.211e-02 (worst row 7.124e-02) [bound 0.150: 2.5 x the reference's 0.062 with FP8 E4M3 queries + 0.015]
+{"index": 11, "shape": {"batch": 2, "ctx": 8192, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 8832, "splits": 69, "uses_native_merge": true, "baseline": "parent", "baseline_us": 10.960000567138195, "composed_us": 7.311999797821045, "paired_delta_us": -3.6639999598264694}
+{"index": 11, "shape": {"batch": 2, "ctx": 8192, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 8832, "splits": 69, "uses_native_merge": true, "baseline": "tile", "baseline_us": 7.968000136315823, "composed_us": 7.360000163316727, "paired_delta_us": -0.6079999729990959}
+CHECK (12, 'composed', 'eager') True relative L2 error 6.423e-02 (worst row 6.642e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+CHECK (12, 'composed', 'captured') True relative L2 error 6.423e-02 (worst row 6.642e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+CHECK (12, 'tile', 'eager') True relative L2 error 6.423e-02 (worst row 6.642e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+CHECK (12, 'tile', 'captured') True relative L2 error 6.423e-02 (worst row 6.642e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+CHECK (12, 'parent', 'eager') True relative L2 error 6.436e-02 (worst row 6.646e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+CHECK (12, 'parent', 'captured') True relative L2 error 6.436e-02 (worst row 6.646e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+CHECK (12, 'composed', 'after') True relative L2 error 6.423e-02 (worst row 6.642e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+CHECK (12, 'tile', 'after') True relative L2 error 6.423e-02 (worst row 6.642e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+CHECK (12, 'parent', 'after') True relative L2 error 6.436e-02 (worst row 6.646e-02) [bound 0.150: 2.5 x the reference's 0.064 with FP8 E4M3 queries + 0.015]
+{"index": 12, "shape": {"batch": 2, "ctx": 9000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 9676, "splits": 76, "uses_native_merge": true, "baseline": "parent", "baseline_us": 10.752000845968723, "composed_us": 7.77599960565567, "paired_delta_us": -2.944000530987978}
+{"index": 12, "shape": {"batch": 2, "ctx": 9000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 9676, "splits": 76, "uses_native_merge": true, "baseline": "tile", "baseline_us": 8.415999822318554, "composed_us": 7.807999849319458, "paired_delta_us": -0.5759997293353081}
+CHECK (13, 'composed', 'eager') True relative L2 error 6.841e-02 (worst row 7.599e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (13, 'composed', 'captured') True relative L2 error 6.841e-02 (worst row 7.599e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (13, 'tile', 'eager') True relative L2 error 6.841e-02 (worst row 7.599e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (13, 'tile', 'captured') True relative L2 error 6.841e-02 (worst row 7.599e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (13, 'parent', 'eager') True relative L2 error 6.839e-02 (worst row 7.597e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (13, 'parent', 'captured') True relative L2 error 6.839e-02 (worst row 7.597e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (13, 'composed', 'after') True relative L2 error 6.841e-02 (worst row 7.599e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (13, 'tile', 'after') True relative L2 error 6.841e-02 (worst row 7.599e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+CHECK (13, 'parent', 'after') True relative L2 error 6.839e-02 (worst row 7.597e-02) [bound 0.150: 2.5 x the reference's 0.068 with FP8 E4M3 queries + 0.015]
+{"index": 13, "shape": {"batch": 2, "ctx": 9000, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 9728, "splits": 76, "uses_native_merge": true, "baseline": "parent", "baseline_us": 11.232000775635242, "composed_us": 7.712000049650669, "paired_delta_us": -3.5520000383257866}
+{"index": 13, "shape": {"batch": 2, "ctx": 9000, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 9728, "splits": 76, "uses_native_merge": true, "baseline": "tile", "baseline_us": 8.320000022649765, "composed_us": 7.728000171482563, "paired_delta_us": -0.6079999729990959}
+CHECK (14, 'composed', 'eager') True relative L2 error 5.485e-02 (worst row 5.646e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (14, 'composed', 'captured') True relative L2 error 5.485e-02 (worst row 5.646e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (14, 'tile', 'eager') True relative L2 error 5.485e-02 (worst row 5.646e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (14, 'tile', 'captured') True relative L2 error 5.485e-02 (worst row 5.646e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (14, 'parent', 'eager') True relative L2 error 5.489e-02 (worst row 5.655e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (14, 'parent', 'captured') True relative L2 error 5.489e-02 (worst row 5.655e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (14, 'composed', 'after') True relative L2 error 5.485e-02 (worst row 5.646e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (14, 'tile', 'after') True relative L2 error 5.485e-02 (worst row 5.646e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+CHECK (14, 'parent', 'after') True relative L2 error 5.489e-02 (worst row 5.655e-02) [bound 0.150: 2.5 x the reference's 0.055 with FP8 E4M3 queries + 0.015]
+{"index": 14, "shape": {"batch": 2, "ctx": 16000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 17201, "splits": 135, "uses_native_merge": false, "baseline": "parent", "baseline_us": 12.51199934631586, "composed_us": 11.999999172985554, "paired_delta_us": -0.49599912017583847}
+{"index": 14, "shape": {"batch": 2, "ctx": 16000, "page": 1, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 17201, "splits": 135, "uses_native_merge": false, "baseline": "tile", "baseline_us": 11.999999172985554, "composed_us": 11.968000791966915, "paired_delta_us": -0.031999312341213226}
+CHECK (15, 'composed', 'eager') True relative L2 error 4.355e-02 (worst row 4.554e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+CHECK (15, 'composed', 'captured') True relative L2 error 4.355e-02 (worst row 4.554e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+CHECK (15, 'tile', 'eager') True relative L2 error 4.355e-02 (worst row 4.554e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+CHECK (15, 'tile', 'captured') True relative L2 error 4.355e-02 (worst row 4.554e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+CHECK (15, 'parent', 'eager') True relative L2 error 4.360e-02 (worst row 4.557e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+CHECK (15, 'parent', 'captured') True relative L2 error 4.360e-02 (worst row 4.557e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+CHECK (15, 'composed', 'after') True relative L2 error 4.355e-02 (worst row 4.554e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+CHECK (15, 'tile', 'after') True relative L2 error 4.355e-02 (worst row 4.554e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+CHECK (15, 'parent', 'after') True relative L2 error 4.360e-02 (worst row 4.557e-02) [bound 0.124: 2.5 x the reference's 0.044 with FP8 E4M3 queries + 0.015]
+{"index": 15, "shape": {"batch": 2, "ctx": 16000, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 17216, "splits": 135, "uses_native_merge": false, "baseline": "parent", "baseline_us": 13.120000250637531, "composed_us": 12.112000025808811, "paired_delta_us": -0.9920001029968262}
+{"index": 15, "shape": {"batch": 2, "ctx": 16000, "page": 64, "heads": "tp8", "kv_scale": 1.0, "dist": "coherent", "layer": "full", "q_len": 1, "spread": "agentic"}, "span": 17216, "splits": 135, "uses_native_merge": false, "baseline": "tile", "baseline_us": 12.06399966031313, "composed_us": 12.095999903976917, "paired_delta_us": -0.06399955600500107}
