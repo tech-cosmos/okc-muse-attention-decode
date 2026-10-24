@@ -1,0 +1,26 @@
+{
+  "production_sha256": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+  "generated_sources_reproducible": true,
+  "source_hashes": {
+    "production_snapshot.py": "1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548",
+    "diagnostic.cu": "81aa75670b9891e47c1967b31fdd5aea0cd6c1837f2be47a1d4fbd840bf30dc2",
+    "binding.cpp": "823991cd0f7272ce8948584e043ee67afede58cfe7bcaa1509cf97ac0f3fc4f5"
+  },
+  "adjacent_graph_pairs": 9520,
+  "reference_checks_at_comparison_checkpoints": 540,
+  "independent_clock_trace_replays": 2208,
+  "fresh_replays": 364,
+  "suite_passes": 16,
+  "suite_actual_native_cases": 3,
+  "bench_shapes": 12,
+  "profile_reference_checks": 3,
+  "unclocked_sass_identity_both_pages": true,
+  "clock_placement_variants": 26,
+  "register_range": [
+    74,
+    75
+  ],
+  "trace_index_injective": true,
+  "sanitizer": "not run; no sanitizer coverage claimed",
+  "judge_requests": 0
+}

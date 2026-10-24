@@ -3900,3 +3900,112 @@ actual check limit10/day. No pending Codex jobs. Neither STOP file exists.
    evidence; do not reopen these parameter sweeps.
 3. Keep22ca912 separate. Finish clean on pushed codex, remove claim and post
    results. No judge job requires waiting.
+
+## Session 32 — 2026-10-24, 03:37–03:46 UTC
+
+Completed a focused **native sliding phase-latency diagnosis** to establish a
+measured target after the rejected instruction/fusion families. **No production
+kernel/dispatch change and no judge requests.** Experiment **3b0b2e9** is pushed
+on **codex-exp/native-phase-latency**; start with
+`experiments/phase_latency/README.md`. Frozen sources, generator, raw graph pairs,
+per-warp cycle traces, fresh checks, SASS/resources, unmodified-production NCU
+source/metric CSVs and CPU audit are archived. Production audit copy:
+`profiles/session32-native-audit.json`.
+
+Fetched main at start/end; **origin/main47bcae0** is already merged. Production
+SHA256 remains
+`1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548`.
+Native CUDA, Triton/Gluon, plans and dispatch are unchanged; session26 production
+validation still applies. No experimental imports or redundant unchanged-source
+production suite were introduced.
+
+### Probe design and findings
+
+Each diagnostic kernel timestamps one phase with two volatile clock64 reads,
+then writes each warp leader's pair to fresh, disjoint trace storage at the end.
+Ten adjacent intervals, whole-body and consecutive-clock controls; a no-clock
+variant compiles instrumentation away. No extra synchronization or omitted
+computation. Complete wrapper preserves native shape predicate and PDL merge.
+Two production graph captures provide an additional identical-code control.
+
+Seven shapes initially, five second-seed/reversed-capture confirmations. Median
+warp-zero cycles, initial/confirmation (warp zero holds all8 real query heads):
+
+| interval | B1/80K/page1 | B8/80K/page1 |
+|---|---:|---:|
+| metadata/gather issue |1726/1611|1833/1875|
+| query/new-KV preparation |2448/2401|5662/5573|
+| residual copy wait |5/5|5/5|
+| first CTA rendezvous |21/21|22/23|
+| V conversion/publication |347/347|408/403|
+| QK+wait |128/128|177/173|
+| softmax/probability packing |657/656|769/770|
+| PV+wait |182/182|251/247|
+| whole body |5674/5697|9960/10100|
+
+B1/page64 repeats the pattern. Other warps reach copy wait earlier and wait
+~1530–1576cycles initially atB1/page1: gathering is overlapped, not free. Short
+B1ctx10 behaves differently around the new-token owner: warp1 publication~850
+cycles; warp0's V-publication interval~1140cycles. Raw owner/non-owner summaries
+are retained. All phase readings are cycles, not converted kernel microseconds.
+
+The front of the kernel is a more promising target than small matrix/conversion
+loops. This is a broad latency diagnosis, **not a production speedup or proof
+that the preparation duration is removable**. Separate compiled probes and
+replays have different scheduling: do not sum their interval medians. Initial/
+confirmation B1/page1 whole-body instrumentation graph deltas+0.272/+0.032us;
+identical production capture offsets range-0.256 to+0.160us across shapes/runs.
+No-clock SASS-identical control offsets reach+0.224/-0.176us. Capture/allocation
+variation limits small timing claims. No H200 extrapolation or new cutoff.
+
+SASS confirms all26page/phase variants' clock placements, including single copy
+DEPBAR and complete QK/PV operations+waits. Consecutive-clock interval has no
+intervening instruction and reports2cycles. No-clock control is instruction-for-
+instruction identical to production on both pages (1056/1064sites). Diagnostic
+kernels use74registers except QK interval75;17408shared,zero stack/local.
+This control measures clock instruction overhead but cannot subtract away all
+instrumentation-induced scheduling or late trace-store effects.
+
+Three unmodified-production NCU launches after all timing/fresh work:
+B1page1/B8page1/B1page64 long-scoreboard samples55/207/52 of176/595/167;
+barrier22/88/21; executed warp instructions164482/1315856/167042. Achieved
+active-warp percentages5.96/21.52/5.96. Small PC sample counts support broad
+memory-dependency interpretation only, not exact stage percentages or isolated
+cache latency. Profiler durations are not graph timings. Each profiled output/
+cache independently passes reference.
+
+### Validation and limits
+
+- Diagnostic whole-body wrapper16/16 (3actual-native,13fallback), followed by
+  all12bench shapes;1.982x versus fixed SGLang/H200 times is diagnostic evidence.
+- **9520 adjacent AB/BA graph pairs**,540independent output/cache checks at
+  comparison checkpoints. TP8/DP,pages1/64,scales1/1/64,soft/coherent/edges,
+  contexts10/2047/4096/80K,B1/3/8. Separate **2208 cold trace replays**.
+- **364actual-native fresh graph replays**,7shapes x13modes x4inputs. QKV/cache/
+  routes/lengths/positions/cache slots change; shortened and empty contexts pass.
+- Custom drivers lock generation/reference/capture/replay/profiling, flush512MB
+  before every timed or traced replay, and subtract empty replay for graph times.
+  Standard suite/bench retains bench.py's timing-loop lock; no own GPU overlap.
+- No sanitizer run or new sanitizer claim. Synchronization is unchanged; CPU
+  audit exhaustively checks trace indexing is in-bounds/injective for allS1–32
+  and used batch/head shapes. Audit reproduces sources, verifies frozen production
+  identity, SASS control/clock locations, raw pair medians and all result counts.
+  Generated CUDA archive/SASS/resources received whitespace-only normalization
+  after testing; no CUDA token change. All local processes completed.
+
+### Budget and next cycle
+
+Session **0checks,0scored**, no withdrawals. Codex2026-10-24 stays **5/8checks,
+3/3scored**. Official account **8/10checks,4/10scored**,2checks/6scored remaining;
+actual check cap10/day. Board best **2.1129x,rank18**, Claude's completedd0f30.
+Current CodexSHA1bcf still lacks exact-source H200 qualification. No pending
+Codex jobs and neither STOP file exists. Do not poll older resolved jobs.
+
+1. Read COORD/fetch main; preserve scarce shared checks while Codex's scored
+   allowance is exhausted. Claude currently owns Gluon consumer pipelining.
+2. Further native work needs a distinct way to reduce metadata/preparation
+   dependency or redundant work without a larger launch/synchronization cost.
+   These measurements do not reopen session19 load-placement, session14L8
+   preparation, padded-row softmax, reduction/PDL, cluster or tile sweeps.
+3. Keep diagnostic3b0b2e9 separate. Finish clean on pushed codex, remove shared
+   claim, record results, and stop. No judge job requires waiting.
