@@ -1091,7 +1091,7 @@ def _combine_hb(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
 def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
                  HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
                  D: tl.constexpr, B: tl.constexpr, B_PAD: tl.constexpr, P: tl.constexpr, NID: tl.constexpr,
-                 BN: tl.constexpr, SB: tl.constexpr, HB: tl.constexpr):
+                 BN: tl.constexpr, SB: tl.constexpr, HB: tl.constexpr, ONE: tl.constexpr = True):
     """_combine_hb for balanced splits (_gw_bal): request b's partials are at ids p + b for the programs p whose
     tile range meets b's tiles, and its new tokens at P + B + b."""
     tok = tl.program_id(0)
@@ -1114,28 +1114,49 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     gdc_wait()
     row = (h * NID + b) * M + (tok % L) * G + head0 % G + hb  # [HB] rows at id b (p = 0)
     nrow = row + (P + B) * M
-    m_max = tl.load(pml_ptr + nrow * 2)
     sb = tl.arange(0, SB)
-    for i in range(p_lo, p_hi + 1, SB):
-        pp = i + sb
-        st = pp * tt // P
-        en = (pp + 1) * tt // P
-        ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
-        at = row[None, :] + (pp * M)[:, None]
-        m_max = tl.maximum(m_max, tl.max(tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30), 0))
-    wn = tl.exp2(tl.load(pml_ptr + nrow * 2) - m_max)
-    denom = wn * tl.load(pml_ptr + nrow * 2 + 1)
-    acc = wn[:, None] * tl.load(pacc_ptr + nrow[:, None] * D + d[None, :]).to(tl.float32)
-    for i in range(p_lo, p_hi + 1, SB):
-        pp = i + sb
-        st = pp * tt // P
-        en = (pp + 1) * tt // P
-        ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
-        at = row[None, :] + (pp * M)[:, None]
-        w = tl.exp2(tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30) - m_max[None, :])
-        denom += tl.sum(w * tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0), 0)
-        a = tl.load(pacc_ptr + at[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0).to(tl.float32)
-        acc += tl.sum(w[:, :, None] * a, 0)
+    if ONE:
+        # One online pass: each chunk's maxima, sums and accumulators load together (one L2 round trip per chunk).
+        m_max = tl.load(pml_ptr + nrow * 2)
+        denom = tl.load(pml_ptr + nrow * 2 + 1)
+        acc = tl.load(pacc_ptr + nrow[:, None] * D + d[None, :]).to(tl.float32)
+        for i in range(p_lo, p_hi + 1, SB):
+            pp = i + sb
+            st = pp * tt // P
+            en = (pp + 1) * tt // P
+            ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
+            at = row[None, :] + (pp * M)[:, None]
+            m = tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30)
+            l = tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0)
+            a = tl.load(pacc_ptr + at[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0).to(tl.float32)
+            m_new = tl.maximum(m_max, tl.max(m, 0))
+            alpha = tl.exp2(m_max - m_new)
+            w = tl.exp2(m - m_new[None, :])
+            denom = denom * alpha + tl.sum(w * l, 0)
+            acc = acc * alpha[:, None] + tl.sum(w[:, :, None] * a, 0)
+            m_max = m_new
+    else:
+        m_max = tl.load(pml_ptr + nrow * 2)
+        for i in range(p_lo, p_hi + 1, SB):
+            pp = i + sb
+            st = pp * tt // P
+            en = (pp + 1) * tt // P
+            ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
+            at = row[None, :] + (pp * M)[:, None]
+            m_max = tl.maximum(m_max, tl.max(tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30), 0))
+        wn = tl.exp2(tl.load(pml_ptr + nrow * 2) - m_max)
+        denom = wn * tl.load(pml_ptr + nrow * 2 + 1)
+        acc = wn[:, None] * tl.load(pacc_ptr + nrow[:, None] * D + d[None, :]).to(tl.float32)
+        for i in range(p_lo, p_hi + 1, SB):
+            pp = i + sb
+            st = pp * tt // P
+            en = (pp + 1) * tt // P
+            ok = ((pp <= p_hi) & (st < incl) & (en > excl) & (en > st))[:, None]
+            at = row[None, :] + (pp * M)[:, None]
+            w = tl.exp2(tl.load(pml_ptr + at * 2, mask=ok, other=-1.0e30) - m_max[None, :])
+            denom += tl.sum(w * tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0), 0)
+            a = tl.load(pacc_ptr + at[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0).to(tl.float32)
+            acc += tl.sum(w[:, :, None] * a, 0)
     o = acc / denom[:, None] * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
     tl.store(out_ptr + tok * HQ * D + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
@@ -1383,7 +1404,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
     _combine_bal[(batch * length, hq // hb)](
         qkv, data["seq_lens"], pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, B=batch, B_PAD=b_pad, P=progs, NID=nid,
-        BN=plan["block_n"], SB=plan.get("sb", triton.next_power_of_2(progs // batch + 3)), HB=hb,
+        BN=plan["block_n"], SB=plan.get("sb", triton.next_power_of_2(progs // batch + 3)), HB=hb, ONE=MERGE1,
         num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
     return out
 
