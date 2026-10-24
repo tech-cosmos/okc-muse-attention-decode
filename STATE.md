@@ -1,6 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-24 ~20:35 UTC (session 71 = unattended session 3 of the #1-push brief).
+Updated 2026-10-24 ~20:45 UTC (session 72 = unattended session 4 of the #1-push brief).
 
 ## Board and best run
 
@@ -22,15 +22,17 @@ Updated 2026-10-24 ~20:35 UTC (session 71 = unattended session 3 of the #1-push 
 
 ## Code state
 
-- main = 14355d4 kernel (+ notes/tools commits). Scored. No unchecked kernel changes on main.
-- Dispatch: verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
+- main = c9b3242 (session 72): 14355d4's kernel + the native cluster decode-sliding kernel `_CSL` (tools/s72/csl.cu)
+  for decode sliding at batch <= 16. Checked a6081cf6: 2.322x [2.287, 2.357] (noise on untouched shapes); decode 1
+  sliding 5.63 us (was 6.05), decode 16 sliding 8.70 (was 10.72). NOT yet scored: re-check/submit next UTC day.
+- Dispatch: decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per request, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full`; sliding + small -> Triton
   `_attn_split` + PDL merges.
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- Account: checks 11/20 used, scored 9/10 used (1 left). Claude share: 6/8 checks used -> 2 left today;
-  scored: only 1 left on the account.
+- Account: checks 12/20 used, scored 9/10 used (1 left). Claude share: 7/8 checks used -> 1 left today;
+  scored: only 1 left on the account. Resets 00:00 UTC.
 
 ## Current direction (session 69): native verify-full consumer (CUDA, inline-PTX wgmma)
 
@@ -50,6 +52,9 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Ranked ideas
 
+0. (s72) Extend the cluster kernel: verify 1 sliding (64 rows/head, extra 8-key tile for the block's new tokens),
+   then batch 32 decode sliding (csl2 NC 8 needs register/load-order fixes), verify 16 sliding. NOTES session 72.
+
 1. Native verify-full kernel BUILT (session 71, branch exp/nverify 5bc0e6a, tools/s71/nverify.cu): correct, but H200
    check 19485acf kernel 209.9/112.0 us vs Gluon 209.8/109.2 at verify 32/16 = tie/loss. Producer (gathers + FP8 V
    transpose) and consumer contend for issue; see NOTES session 71 for the measured levers. Resume only with a
@@ -60,9 +65,13 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Queued for checks
 
-- Nothing (main is the scored kernel). 2 Claude checks left today; nverify was checked (tie), not worth scoring.
+- main c9b3242 (csl decode sliding) was checked once (a6081cf6, 2.322x, per-shape win); next UTC day: re-check with the
+  next change and submit if > 2.343.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- Cluster DSMEM merges: from Triton dead (s70), but native with st.async + mbarrier complete_tx WORKS (s72). Pitfalls:
+  release cluster barriers (~0.5 us), and loads placed after page-table-dependent ones (in-order issue).
 
 - Native CUDA verify full with FP8 P@V (s71, exp/nverify): H200 tie with Gluon. Lessons: page-table entries off the
   per-tile DRAM chain (smem ring), 8 lanes per 128-B row, NS >= LAG + 2.

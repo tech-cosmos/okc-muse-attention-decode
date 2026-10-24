@@ -3068,3 +3068,63 @@ the producer's extra transpose work.
 ### Budget (UTC day 2026-10-24)
 
 This session: 1 check (19485acf), 0 scored. Claude day: 6/8 checks, scored 3/3 (account: 11/20 checks, 9/10 scored).
+
+## Session 72 (overnight agent, 2026-10-24 20:12-~21:30 UTC; unattended session 4 of the #1-push brief)
+
+Board at start: #1 colinlikescode 2.844x, #2 2.726x; ours #15 2.343x (7f45c5c6). Branch **exp/csl** (c9b3242).
+
+### Native decode-sliding kernel with an in-cluster merge (tools/s72/csl.cu; exp/csl submission.py `_CSL`)
+
+One kernel per decode sliding layer, one **16-CTA thread-block cluster per request** (grid 16 * B, 256 threads):
+CTA rank r takes window keys [128 r, 128 r + 128) of both KV heads, 8 warps = (head, 32 keys). No smem staging:
+- mma.sync m16n8k32 E4M3 for QK^T: A = Q (rows 0-7 = the 8 query heads, rows 8-15 zero), B = K rows loaded straight
+  into registers (thread (g, c) loads key 8j + g's bytes [16c, 16c + 16) as one LDG.128; the contraction dim d is
+  permuted identically in Q, so no shuffles). On sm_90 FP8 mma.sync lowers to HMMA.16816 + converts (no QMMA), fine.
+- P@V as O^T = V^T P^T, also m16n8k32 E4M3 (P in E4M3 with FA3's max offset 8, cited in session 70): the S
+  accumulator's (row g, keys 2c, 2c+1 of tiles j) is exactly the B fragment of P^T with key slots {2c, 2c+1, 8+2c,
+  9+2c}; V^T's A fragment is built from 8 LDG.64 per thread (8 key rows x d 8g..8g+7) with 4x4 byte PRMT transposes
+  (d permuted: m-tile i row g = d 8g + 2i, row g + 8 = 8g + 2i + 1).
+- Merge: the 4 warps of a head pre-merge in smem (one __syncthreads), then each (head, row) partial (64 floats + m, l)
+  goes to the owning CTA (query head h*8+row = rank) with **st.async ... mbarrier::complete_tx::bytes** into its smem;
+  the owner's mbarrier expects 16 x 264 bytes; one warp per owner merges 16 partials (no block barriers), RMSNorm,
+  sigmoid(gate), BF16 store. No final cluster barrier.
+- New token: CTA 15's last warp per head computes k/v (norm, RoPE, E4M3), writes the cache, and substitutes it as key 2047.
+Correct on all tests (16/16) and extra cases (ctx 10 page 64, edges, kv_scale, batch 32).
+
+What mattered (H100, decode 1 sliding, graph-timed; tools/s72/csl.py ablations):
+- First version 5.0-5.15 us vs main 4.5: (a) a **release** cluster barrier after the DSMEM pushes cost ~0.5 us (it
+  also waits for the new token's global cache stores); st.async + mbarrier complete_tx removes it. (b) 64 per-warp
+  partials pushed to owners merged with 3 __syncthreads: pre-merge per head in the CTA + 1-warp owner merge is cheaper.
+  (c) **Load issue order**: warps issue in order and the gathers' addresses stall on the page-table trip, so every load
+  placed after them in program order (queries, cos/sin, new token, gate) paid an extra DRAM trip; the Q path was 4-5
+  trips deep. Issuing all page-table-independent loads first: 4.5 -> 4.2-4.5 us.
+- Cluster launch cost: chain-only (seq -> page table -> K/V, then exit) 2.2-2.5 us with the 16-cluster vs 1.7-2.0
+  without the cluster attribute (~+0.45 us for the cluster launch / mbarrier init + fence).
+- Paired vs main (tools/s72/ab.py, 7 rounds): **decode 1 sliding 4.70 -> 3.84 us (7/7), decode 16 sliding 10.61 ->
+  9.14 (7/7)**, decode 32 sliding 15.84 -> 15.94 (512 CTAs at 80 regs = 3 CTAs/SM, two waves; __launch_bounds__
+  (256, 4) made every shape worse). Dispatch: decode sliding at batch <= 16 (CSL_MAX_BATCH).
+- tools/s72/csl2.cu: cluster size 8 (2 chunks of 32 keys per warp, 2 owned rows per CTA) for batch 32: 145 registers
+  (1 CTA/SM) and the load order regressed (NC 16 build of it also slower: 4.08 / 11.10). Not usable as is.
+
+**H200 check a6081cf6 (c9b3242): 2.322x [2.287, 2.357], 16/16.** Touched shapes: decode 1 sliding **5.63 us** (vs
+6.05 in 7f45c5c6, 5.78 in 19485acf), decode 16 sliding **8.70** (vs 10.72 / 10.56; profile: csl kernel 4.0 / 7.0 us,
+one kernel). Untouched shapes drifted up vs 19485acf (verify 1 sliding 6.47 -> 7.09, verify 32 sliding 17.20 -> 17.83,
+same code), so the total is below the board's 2.343 and it was **not submitted** (rule: submit only after a check that
+beats the board). Per-load estimate vs 7f45c5c6 at equal noise: decode 1 +3.9%, decode 16 +5.2%, ~+1.5% overall.
+Merged to main anyway (per-shape evidence is far outside noise). Next UTC day: re-check main (plus any new change) and
+submit if it beats 2.343.
+
+### Next ideas (ranked)
+
+1. **Verify 1 sliding on the same structure** (H200 7.1 us, 1 us there = ~1.3% overall): 64 rows per KV head (8 tokens
+   x 8 heads) -> mma.sync m-tiles of 16 rows; split rows over warps to keep S/acc registers sane (a warp = 32 keys x 32
+   rows: S 32 regs, acc 64); window union [seq - 2047, seq + 7] = 2055 keys: CTA 15 takes an extra 8-key tile for the
+   block's 8 new tokens (causal mask within the block, window mask per token on the oldest keys).
+2. Batch 32 decode sliding (13.4 us H200): needs fewer, fuller CTAs: fix csl2 (NC 8) register use / load order (copy
+   the csl.cu issue order exactly; maybe 2 CTAs of 8 warps each per 256 keys instead of 2 chunks per warp).
+3. Verify 16/32 sliding on the cluster kernel after 1.
+4. Shave csl itself: compute after the gathers ~0.8 us and merge ~0.8 us on H100 (ablations), cluster launch ~0.45.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 1 check (a6081cf6), 0 scored. Claude day: 7/8 checks, scored 3/3 (account: 12/20 checks, 9/10 scored).
