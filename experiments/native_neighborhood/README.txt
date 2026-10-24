@@ -101,3 +101,41 @@ This aggregate is a local benchmark, not a new H200 estimate or a paired score.
 Audit validates exact source hashes,14 shared main helper ASTs, unchanged native
 extension/dispatcher ASTs and complete result/log counts. Native kernels retain
 prior sanitizer coverage; no new sanitizer run was necessary for a plan merge.
+
+Late-main integration (separate source and evidence)
+-------------------------------------------------
+A final fetch found main824e52a after check3e786 had already been requested.
+Merged as codex d8bab0a. Final production SHA256:
+1bcf42aa6edf7f25a02117e3eabebb6f5b2e69967359137e015b2f79d445a548
+Main adds a CTA-uniform last-tile predicate around the existing Gluon key mask.
+Every key remains attended and all precision/native code remains unchanged.
+This is Claude's source change, not a Codex plan/kernel modification.
+
+For reproducibility, compare.py now imports initial_snapshot.py rather than a
+moving submission.py. Its archived initial timings are unchanged. audit.py also
+reads that frozen initial source. final_compare.py uses final_snapshot.py against
+initial_snapshot.py; final_main_snapshot.py preserves exact main824e52a.
+
+Final standard suite16/16, full bench1.987x; verify16/32 full139.50/260.08us.
+Seven complete-kernel pairs at80rounds each isolate the last-tile-mask update:
+B6/8/16/17/32 at80K/page1, DP2 at20K/page64/scale1/64, and B6 mixed4K/page64
+with edge keys. All have independent output/cache checks before capture, after
+first replay and after timing. B16 145.584->139.920us, paired-5.808us; B32
+268.016->257.584us, paired-10.320us. These are separate paired baselines from the
+initial suite; do not simply sum improvements from different runs/seeds.
+
+Reproduce final phase sequentially:
+python experiments/native_neighborhood/final_compare.py compare --suite integration --rounds 80 --name final-integration
+python experiments/native_neighborhood/final_compare.py fresh --suite integration
+python experiments/native_neighborhood/audit_final.py
+
+The final phase adds560 graph pairs,42 output/cache reference checks,56 fresh
+replays (28 each source; final28 all Gluon). The final audit checks all shared
+helper ASTs INCLUDING the nested Gluon functions against main824e52a, unchanged
+native source/dispatch versus initial,16tests and complete result/log counts.
+Current production must match final_snapshot.py for audit_final.py to pass.
+
+Check3e786669e1bb41a8 covers ONLY initial SHA6f0f, not final SHA1bcf42aa6edf.
+No second Codex check was requested after this late merge: official shared usage
+rose to8/10checks, leaving2; preserve that budget pending existing jobs and a
+stable source. Neither source has a new scored request; Codex's3/day are used.

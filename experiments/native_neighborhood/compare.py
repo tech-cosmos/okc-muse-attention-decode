@@ -10,7 +10,7 @@ sys.path.insert(0, '.')
 import numpy as np
 import torch
 import triton
-import submission
+from experiments.native_neighborhood import initial_snapshot as submission
 import reference
 from experiments.native_neighborhood import main_snapshot, previous_snapshot
 main = main_snapshot

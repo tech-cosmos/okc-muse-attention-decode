@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent
 sources={n:(ROOT/f'{n}_snapshot.py').read_bytes() for n in ('main','previous')}
-sources['current']=Path('submission.py').read_bytes()
+sources['current']=(ROOT/'initial_snapshot.py').read_bytes()
 expected={'main':'01a58b8042e2c8fbeba1b351f90ba487973d956fdd8e3bfe4d5c2a773a98be9f',
           'previous':'6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf',
           'current':'6f0fcb357146bbfd4e69e3f9d8a3ea2d9968f09c26b5876a0aa83af63ebe8c05'}

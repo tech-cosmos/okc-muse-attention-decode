@@ -1,0 +1,121 @@
+[
+  {
+    "index": 0,
+    "shape": {
+      "batch": 6,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "gluon_fallback",
+    "splits": 45,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 1,
+    "shape": {
+      "batch": 8,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "gluon_fallback",
+    "splits": 34,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 2,
+    "shape": {
+      "batch": 16,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "gluon_fallback",
+    "splits": 17,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 3,
+    "shape": {
+      "batch": 17,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "gluon_fallback",
+    "splits": 16,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 4,
+    "shape": {
+      "batch": 32,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "gluon_fallback",
+    "splits": 9,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 5,
+    "shape": {
+      "batch": 2,
+      "ctx": 20000,
+      "heads": "dp",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "gluon_fallback",
+    "splits": 17,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 6,
+    "shape": {
+      "batch": 6,
+      "ctx": 4000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "kv_scale": 1.0,
+      "dist": "edges",
+      "spread": "mixed"
+    },
+    "dispatch": "gluon_fallback",
+    "splits": 45,
+    "replays_per_implementation": 4
+  }
+]
