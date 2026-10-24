@@ -2329,3 +2329,146 @@ same instructions again is not justified. Preserve session16's nearby-boundary
 patch for a future substantive production update requiring its own exact-source
 check. End this cycle on clean pushed codex, with experiment separate and shared
 claim removed/results recorded; do not wait idle for the scored queue.
+
+## Session 19 — 2026-10-24, 01:17–01:33 UTC
+
+### Outcome and source state
+
+Resolved scored **71e2eaa7b52c407f**: **16/16, 2.057970x**, CI
+**[2.027101, 2.088840]**, no flags/rejections/errors. New account best,
+**rank23**. This is session17's already-submitted exact3fb391f source; no
+resubmission. Read the entire passing profile, saved under `profiles/submission.71e2*`.
+The interval overlaps the previous best; do not attribute the entire aggregate
+increase to native code or claim a statistically established rank improvement.
+
+Merged **origin/main a82d996** as **d08ef14**: Claude's warp-specialized Gluon
+full-verify kernel, dispatched above16 request/head pairs. Then integrated the
+previously validated session16 **B*Hkv<=16** native sliding L1 boundary extension
+as **45c56bc**. Native CUDA arithmetic and the small-full native merge are unchanged.
+No Triton/Gluon code or plans were tuned. The boundary patch changes nearby shapes,
+not a scored shape. No rejected prologue-load variant was integrated.
+
+Final production SHA256:
+`e9a877984ef70a7067cce7ed85b8e573c95edc693b661b6e7ed16fa99136f349`.
+Sent this exact source for **check b4853b2accdc4b50**, still **queued** at01:31UTC.
+Only this new check can qualify the new source for scoring. Resolved checks2776/
+4d36508 and scored71e2 cannot qualify it. Do not resubmit any of those jobs.
+
+### Combined-source validation and measured improvement
+
+- Local full suite **16/16**, then full bench **1.944x** against the fixed
+  SGLang/H200 numbers. Verify32 full **275.92us**. This local aggregate is not
+  an H200 speedup estimate or a paired aggregate comparison.
+- **24 fresh-input CUDA graph replays** over8 shapes,3 seeds each, with changed
+  QKV/cache/routes/lengths/positions/cache slots and empty contexts. Nine native
+  sliding calls,12 Gluon full-verify calls,3 existing Triton fallback calls.
+  Full cases include B17/B24/B32 TP8 and B3 DP, pages1/64, scales1/1/64,
+  contexts3000–80000; sliding cases B3/B8/DP1. All independent reference/cache
+  checks pass. These extra full cases explicitly exercise the new Gluon path.
+- Same-process balanced adjacent AB/BA CUDA graph comparisons against the old
+  production source,60 pairs/shape, independent reference/cache before capture,
+  after replay, and after timing:
+
+| shape | previous production us | combined us | paired delta us |
+|---|---:|---:|---:|
+| B8 sliding L1 |7.696|7.424|-0.256|
+| B16 full L8 (unchanged path control) |150.528|149.488|-1.024|
+| B17 full L8 |160.416|165.344|+4.960|
+| B24 full L8 |216.656|212.224|-4.144|
+| B32 full L8 |289.744|269.616|-19.952|
+
+Main's B32 improvement reproduces. The **B17 ~3% regression** is recorded in our
+COORD line for Claude to review; we did not tune its owned dispatch. The small
+unchanged B16 difference is timing variation. The nearby native B8 win agrees
+with session16's broader evidence. No blanket nearby-shape speedup claim.
+
+`profiles/session19-integrated-{test,bench,fresh,pairs}*` holds results and raw
+pairs. Drivers and old-source snapshot are on the experiment branch described
+below. Custom drivers lock generation/reference/capture/replay, flush512MB before
+each timed graph, and subtract an empty replay. Full bench retains bench.py's
+own timing lock; our other GPU work had completed first. No new integrated
+sanitizer claim: native implementation is unchanged, while Gluon belongs to main.
+
+### Native independent-load experiment: rejected
+
+Experiment **51229d6**, pushed on **codex-exp/cuda-sliding-loads**, starts at
+`experiments/sliding_loads/README.txt`. Baseline SourceCounters identifies a
+page-result long-scoreboard wait before query loads. The two page indices
+already load together, so batching them would not remove a serial round trip.
+
+- **qpre:** preload raw BF16 Q with inline loads before gather; normalize later.
+- **plain:** same source order with ordinary C++ loads.
+- **rope:** also preload Q's eight cosine/sine pairs.
+- **ordered:** volatile Q and page loads enforce Q-before-page issue order.
+
+qpre/plain/rope can still calculate cache addresses from page results ahead of
+Q loads in SASS. The ordered control actually emits Q loads first, but adds
+STRONG.SYS semantics; it does not isolate ordering from memory semantics.
+Every key, new-token/cache write, query/cache precision, FP16 PV, FP32 partial,
+BF16 output and existing PDL merge are preserved.
+
+Initial60 adjacent balanced pairs/shape,seed103,H100 microseconds:
+
+| variant | B1 base/candidate | B1 paired delta | B2 paired delta |
+|---|---:|---:|---:|
+| qpre |4.240/4.256|0.000|-0.096|
+| plain |4.320/4.336|0.000|-0.192|
+| rope |4.352/4.160|-0.192|-0.080|
+| ordered |4.352/4.816|+0.512|+0.544|
+
+Rope's second-seed120-pair confirmation gives B1 **4.480/4.320us** but median
+paired delta only **-0.048us**; nearby B2ctx1024/page64 regresses **+0.496us**.
+No dependable scored gain justifies promotion or an experimental H200 check.
+B16/32 forced-native controls already lose to production; no broad dispatch claim.
+Do not infer paired savings by subtracting separately computed medians.
+
+All variants compile to74 registers,17408 shared bytes (cuobjdump),16384(ptxas),
+zero stack/local memory/spills. Matrix sites remain2QGMMA/4HGMMA,3CTA barriers.
+SourceCounters executed warp instructions baseline/qpre/rope/ordered:
+**164482/169922/167820/171714**; shared excess wavefronts **4104** in each.
+Samples stay spread over memory/constant/instruction/barrier waits. No achieved
+occupancy claim, and no use of NCU duration as graph timing.
+
+Validation: all four **16/16** (3 native/13 fallback), each followed by full
+bench; **240 all-native fresh graph replays**,60/variant over10 cases, including
+TP8/DP, pages1/64, scales1/1/64, short/long/empty contexts and fresh metadata.
+Rope/ordered each isolated **memcheck0, synccheck0, racecheck0 hazards/errors/
+warnings**;12 native calls per tool/variant, independent torch reduction plus
+output/cache reference. qpre/plain have no separate sanitizer claim. Runtime
+coverage is EARLY=True; EARLY=False is compiled only. There are50 candidate/
+control shape comparisons:40 with60 pairs and10 confirmation entries with120.
+All custom GPU drivers hold the shared lock throughout; final profiles follow
+all these comparisons and correctness work. All local processes have completed.
+
+`profiles/session19-audit.py` reproduces generated variants from the archived
+generator, confirms unchanged embedded native CUDA, and audits all pass counts,
+sanitizer summaries, raw-pair counts and final source hash. Reports:
+`profiles/session19-{native,validation}-audit.json`. Only generated report text
+whitespace was normalized. Experiments remain separate from production imports.
+
+### H200 profile, budget, and next cycle
+
+Scored71e2 H200 decode1 sliding **5.73us**, decode1/verify1 full **14.42/16.14us**;
+verify16/32 full **154.11/294.22us**. Native attention profile **3.0us**, sliding
+merge **1.4us**; native small-full reduction **1.8/2.4us**. PDL rows include waits
+and overlap; do not sum them to infer graph latency. This scored profile predates
+the Gluon merge and boundary extension.
+
+Session **1 check,0 scored**, no withdrawals. Codex2026-10-24 totals
+**3/8 checks,1/3 scored**. Official shared account **5/10 checks,1/10 scored**,
+leaving5 checks/9 scored. Actual check cap is10/day, not20. Current best
+**2.057970x**,rank23. Neither STOP file exists. CLI is
+`/home/daytona/.okc/bin/okc` (not on this shell's PATH; venv activation alone
+also does not add it).
+
+1. Resolve **b4853b2accdc4b50** without resubmitting; read its passing profile.
+   Score exact45c56bc only if that check beats the then-current account best.
+   Earlier scored71e2 is resolved and is the new best; do not poll it again.
+2. Fetch main/read COORD. Claude now owns the new Gluon producer/consumer path
+   as well as Triton. Our B17 regression evidence is recorded for its review.
+3. Close the native Q/RoPE preloading family along with recent padded-row,
+   warp-MMA, QK/V scheduling, last-CTA and small-merge sweeps. Future native work
+   needs a distinct measured mechanism, not further placement permutations.
+4. Session16's boundary patch is now integrated and validated; do not reapply it.
+   Keep experiment51229d6 separate. End on clean pushed codex, shared claim removed
+   and result posted; do not wait idle for the new check queue.

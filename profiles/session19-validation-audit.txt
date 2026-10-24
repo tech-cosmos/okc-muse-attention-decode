@@ -1,0 +1,39 @@
+{
+  "source_sha256": "e9a877984ef70a7067cce7ed85b8e573c95edc693b661b6e7ed16fa99136f349",
+  "experiment_branch": "codex-exp/cuda-sliding-loads",
+  "variants": {
+    "qpre": {
+      "suite_passed": 16,
+      "fresh_replays": 60,
+      "paired_shapes": 10,
+      "rounds": 60
+    },
+    "plain": {
+      "suite_passed": 16,
+      "fresh_replays": 60,
+      "paired_shapes": 10,
+      "rounds": 60
+    },
+    "rope": {
+      "suite_passed": 16,
+      "fresh_replays": 60,
+      "paired_shapes": 10,
+      "rounds": 60,
+      "sanitizers": "memcheck/synccheck/racecheck: zero errors/hazards"
+    },
+    "ordered": {
+      "suite_passed": 16,
+      "fresh_replays": 60,
+      "paired_shapes": 10,
+      "rounds": 60,
+      "sanitizers": "memcheck/synccheck/racecheck: zero errors/hazards"
+    }
+  },
+  "rope_confirmation_B1_delta_us": -0.047999899834394455,
+  "integrated_tests": 16,
+  "integrated_fresh_replays": 24,
+  "integrated_pair_shapes": 5,
+  "scored_job": "71e2eaa7b52c407f",
+  "speedup": 2.057970403576182,
+  "new_check": "b4853b2accdc4b50"
+}

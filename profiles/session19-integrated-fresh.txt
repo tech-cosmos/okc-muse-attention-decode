@@ -1,0 +1,9 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS fresh graph integrated True {'batch': 3, 'ctx': 4000, 'heads': 'tp8', 'layer': 'sliding', 'page': 1, 'q_len': 1, 'kv_scale': 1.0, 'dist': 'coherent'} 3 seeds, including empty contexts
+PASS fresh graph integrated True {'batch': 8, 'ctx': 80000, 'heads': 'tp8', 'layer': 'sliding', 'page': 64, 'q_len': 1, 'kv_scale': 0.015625, 'dist': 'coherent'} 3 seeds, including empty contexts
+PASS fresh graph integrated True {'batch': 1, 'ctx': 2049, 'heads': 'dp', 'layer': 'sliding', 'page': 64, 'q_len': 1, 'kv_scale': 1.0, 'dist': 'coherent'} 3 seeds, including empty contexts
+PASS fresh graph integrated True {'batch': 17, 'ctx': 3000, 'heads': 'tp8', 'layer': 'full', 'page': 64, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'coherent'} 3 seeds, including empty contexts
+PASS fresh graph integrated True {'batch': 24, 'ctx': 8192, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'coherent'} 3 seeds, including empty contexts
+PASS fresh graph integrated True {'batch': 32, 'ctx': 80000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'coherent'} 3 seeds, including empty contexts
+PASS fresh graph integrated True {'batch': 3, 'ctx': 4000, 'heads': 'dp', 'layer': 'full', 'page': 64, 'q_len': 8, 'kv_scale': 0.015625, 'dist': 'coherent'} 3 seeds, including empty contexts
+PASS fresh graph integrated True {'batch': 16, 'ctx': 6000, 'heads': 'tp8', 'layer': 'full', 'page': 1, 'q_len': 8, 'kv_scale': 1.0, 'dist': 'coherent'} 3 seeds, including empty contexts
