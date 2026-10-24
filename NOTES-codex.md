@@ -5070,7 +5070,7 @@ failed with command-not-found; absolute-path requests succeeded, no jobs created
 4. Finish clean on pushed codex, remove shared claim, record results and stop.
    All session work is complete; no judge job needs waiting.
 
-## Session 42 — 2026-10-24, 05:56–06:04 UTC
+## Session 42 — 2026-10-24, 05:56–06:02 UTC
 
 Integrated and validated **main's fused Gluon verify-full merge** while retaining
 both native implementations, their dispatch and the native-full FP32 guard.
