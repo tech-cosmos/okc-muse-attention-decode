@@ -513,7 +513,8 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
-                BALANCE: tl.constexpr = False):
+                BALANCE: tl.constexpr = False, SFUSE: tl.constexpr = False, RS: tl.constexpr = 1,
+                R_PAD: tl.constexpr = 1):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -597,6 +598,37 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
     _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
     if DUAL:
         _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S)
+
+    if SFUSE:
+        # (HPP 1, no DUAL.) The merge in this grid: once all S programs of this (request, KV head) have
+        # stored their partials, program `split` merges rows [split * RS, +RS); programs past the last row
+        # just arrive. Counter word: arrivals in the low 16 bits, a generation above (as _gw_verify).
+        cnt = cnt_ptr + b * HKV + hp0
+        tl.debug_barrier()
+        old = tl.atomic_add(cnt, 1, sem="acq_rel", scope="gpu")
+        if split * RS < MG:
+            if (old & 0xFFFF) == S - 1:
+                tl.atomic_add(cnt, 0x10000 - S, sem="relaxed", scope="gpu")
+            else:
+                while ((tl.load(cnt, volatile=True) ^ old) >> 16) == 0:
+                    pass
+            tl.inline_asm_elementwise("fence.acq_rel.gpu;", "=r", [], dtype=tl.int32, is_pure=False, pack=1)
+            s3 = tl.arange(0, S_PAD)[:, None, None]
+            r1 = split * RS + tl.arange(0, R_PAD)
+            ok1 = (r1 < split * RS + RS) & (r1 < MG)
+            r1 = tl.minimum(r1, MG - 1)
+            ok3 = (s3 < S) & ok1[None, :, None]
+            at = ((b * HKV + hp0) * S + s3) * MG + r1[None, :, None]  # [S_PAD, R_PAD, 1]
+            m = tl.load(pml_ptr + at * 2, mask=ok3, other=-1.0e30, cache_modifier=".cg")
+            w = tl.exp2(m - tl.max(m, 0)[None, :, :])
+            denom = tl.sum(w * tl.load(pml_ptr + at * 2 + 1, mask=ok3, other=0.0, cache_modifier=".cg"), 0)
+            d = tl.arange(0, D)
+            a = tl.load(pacc_ptr + at * D + d[None, None, :], mask=ok3, other=0.0, cache_modifier=".cg")
+            o = tl.sum(w * a.to(tl.float32), 0) / denom * tl.load(vs_ptr)  # [R_PAD, D]
+            _norm_gate_store(o, qkv_ptr, out_ptr, b * L + r1 // G, hp0 * G + r1 % G, d, ok1[:, None], HQ, HKV, D)
+        else:
+            if (old & 0xFFFF) == S - 1:
+                tl.atomic_add(cnt, 0x10000 - S, sem="relaxed", scope="gpu")
 
     if FUSE:
         # The last of this (request, head pair)'s S programs to finish merges the partials and
@@ -822,16 +854,22 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     pml = torch.empty((batch, hkv, splits, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
     fuse = plan["fuse"] and splits <= 64 and not dual  # the fused merge unrolls over splits
+    # sfuse: the slice merge in the same grid (needs one KV head per program; S programs of a request
+    # are consecutive in the grid, so its waits only need S programs resident).
+    sfuse = plan.get("sfuse", False) and not fuse and hpp == 1 and not dual and splits < 0xFFFF
+    rs = triton.cdiv(rows, splits)
     _attn_split[(splits, batch, hkv // (2 if dual else hpp))](
         qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
-        data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
+        data["seq_lens"], data["cache_loc"], pacc, pml,
+        _counters(batch * hkv, device, "s") if sfuse else _counters(batch * hkv, device), out,
         cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse and not sfuse, DOT=DOT_DTYPE,
+        SFUSE=sfuse, RS=rs, R_PAD=triton.next_power_of_2(rs), PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
-    if fuse:
+    if fuse or sfuse:
         return out
     hb = plan.get("hb", 1) if group % plan.get("hb", 1) == 0 else 1
     if hb > 1:
