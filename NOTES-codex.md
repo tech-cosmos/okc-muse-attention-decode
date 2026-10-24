@@ -5297,3 +5297,98 @@ Pin this cycle at main8c4394f; a later upstream update belongs to the next cycle
    micro-optimization families remain closed absent a distinct critical-work
    reduction supported by generated assembly and complete graphs.
 4. Finish clean on pushed codex,remove claim,post result and stop. No job awaits.
+
+## Session 44 — 2026-10-24, 06:16–06:24 UTC
+
+Rejected two native sliding address-arithmetic variants. **Production source and
+both native dispatches remain unchanged; no judge requests.** Merged main
+**e1b9a40**, notes only, as **d41438a**. Exact production SHA256 remains
+`a7a3db9737aa25b42695a31b4c16d4da3649d910b2366bcfc18453a6a5a9b9e3`.
+This source still has no exact-source H200 check qualification.
+
+Experiment **1d164bf** is pushed on **codex-exp/native-sliding-geometry**;
+start at `experiments/sliding_geometry/README.md`. Frozen production and both
+candidates, generator, paired raw data, fresh checks, SASS/resources and CPU
+audit are archived. Production audit copy: `profiles/session44-native-audit.json`.
+No experimental import or native-full/Triton/Gluon/plan/precision change.
+
+### Mechanism and decision
+
+Session32 identified substantial preparation/metadata time, but prior load-order
+experiments already ruled out simple scheduling changes. This cycle removes
+runtime stride arithmetic: instantiate native sliding for HKV2/HQ16 and
+HKV16/HQ128, retaining runtime geometry otherwise. The second variant also uses
+unsigned thread/lane/gather-chunk indices, removing signed divide/remainder
+correction sequences for nonnegative indices. Original64-bit cache row addressing,
+coverage, cache writes, matrix operations, barriers and launches are preserved.
+This is distinct from session4's native-full merge indexing specialization.
+
+Page1/early-gather static instruction sites: production1056, geometry1040,
+geometry+unsigned928. Sites before first LDGSTS:109/100/79. All74regs,
+17408reported shared bytes,zero stack/local allocation. Every instantiation
+retains4LDGSTS,3BAR.SYNC,2QGMMA,4HGMMA sites. Four geometry-only generic
+instantiations have instruction-text-identical SASS to production. These are
+static counts, not isolated critical-path latency or occupancy measurements.
+
+H100 complete cold-L2 graph paired candidate-minus-production us, initial /
+second-seed reversed-capture confirmation:
+
+| Sliding L1 | geometry | geometry + unsigned |
+|---|---:|---:|
+|B1 TP8 80K,page1,scored|0.000 / +0.032|-0.016 / -0.032|
+|B2 TP8 80K,page1,mixed|0.000 / 0.000|-0.064 / -0.048|
+|B8 TP8 80K,page1,mixed|+0.192 / +0.208|-0.064 / -0.224|
+|B1 TP8 80K,page64|+0.064 / +0.112|+0.112 / -0.160|
+|B8 TP8 80K,page64,mixed|+0.064 / -0.016|-0.096 / -0.128|
+|B1 DP6K,page64,scaled edges|-0.032 / -0.032|-0.224 / 0.000|
+
+Neither establishes a material scored improvement. Geometry's B8 regression
+repeats; unsigned's nearby effects vary. Unchanged controls range-0.064..+0.192us
+across the two variants/runs. Do not promote or fit a nearby dispatch cutoff.
+Separate medians need not subtract to paired median deltas.
+
+### Validation and limits
+
+- Both candidates **16/16**, then all12bench shapes; descriptive local aggregates
+  2.026x/1.998x versus fixed SGLang/H200 times. Unchanged paths vary, so these
+  are not paired candidate improvements or regressions, nor H200 qualification.
+- Each14initial+8confirmation cases x80adjacent AB/BA pairs: **3520total pairs**,
+  **264independent output/cache reference checks** around capture/timing.
+- Each **112fresh graph replays**,56candidate+56parent; total224. Per variant,
+  48candidate calls use changed native code and8are unchanged controls.
+  QKV,FP8cache,routes,lengths,positions,new cache slots change, including halved
+  and empty histories. TP8/DP,pages1/64,scales1/1/64,soft/edges,contexts10–120K.
+- Three standard cases per candidate exercise native sliding. Explicit12native
+  cases plus2controls supply scored TP8,DP,nearby and window/tile boundaries.
+- CPU audit verifies exact source generation,allASTs outside native sliding,
+  production identity,generic geometry-only SASS identity,matrix/copy/barrier
+  counts,copy topology bijection,raw medians and validation counts. Passes.
+- No new sanitizer,NCU,runtime-generic-geometry or H200 claim. Generic fallback
+  is compiled; only the geometry-only fallback has exact SASS equivalence proof.
+
+Custom drivers hold the GPU lock throughout generation/reference/capture/replay,
+flush512MB before each timed graph,and subtract empty replay. Suites hold lock;
+standard benches retain timing-loop lock. Own GPU work completed sequentially.
+Initial compare ran the same timing logic before adding the output-directory/
+variant selector; its result was moved into `results/candidate` after completion.
+Only trailing blank lines of generated SASS reports were trimmed for git hygiene.
+All own builds/tests/replays finished; no task remains running.
+
+### Budget and next cycle
+
+Session **0checks,0scored**,no withdrawals. Codex2026-10-24 remains
+**5/8checks,3/3scored**; final official account **9/10checks,5/10scored**,leaving
+1check/5scored. Best remains **2.1383x,rank20**,Claude beb63898. No pending
+Codex jobs or STOP files. Budget/board snapshots saved as `profiles/session44-*`.
+Pin this cycle at maine1b9a40; Claude's active session19 owns Triton decode-full
+H200 gather efficiency and batch1tile overhead.
+
+1. Read COORD/fetch main. Preserve last shared check while Codex's scored share
+   is exhausted; current exact SHAa7a3db9737aa needs its own H200 qualification.
+2. Keep native FP32 compatibility guard and both established native dispatches.
+   Close this native sliding head-geometry/unsigned-index direction: substantial
+   static instruction reduction alone did not improve the scored complete graph.
+3. Earlier closed native architecture,query,load-order,merge and synchronization
+   families remain closed absent a distinct measured critical-work reduction.
+   Do not repeat unchanged-source integration or contribution audits.
+4. Finish on clean pushed codex,remove own claim,post results and stop.
