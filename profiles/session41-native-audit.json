@@ -1,0 +1,114 @@
+{
+  "native_sha256": "ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca",
+  "upstream_sha256": "a51db7ea928546e35e4b7e1d4825090e54c2fdc2c3672c225534731e2e29c9fb",
+  "upstream_commit": "463b0d5",
+  "shared_AST_nodes": [
+    "Config",
+    "Inputs",
+    "_attn_split",
+    "_combine",
+    "_combine_hb",
+    "_cos_sin",
+    "_counters",
+    "_finish",
+    "_new",
+    "_new_tokens",
+    "_norm_gate_store",
+    "_norm_rope",
+    "_num_sms",
+    "_plan",
+    "_tile",
+    "_verify_gluon"
+  ],
+  "runs": {
+    "compare": {
+      "cases": 27,
+      "pairs": 2160,
+      "reference_checks": 162,
+      "full_native_cases": 14,
+      "sliding_native_cases": 10,
+      "control_deltas_us": [
+        -0.03200024366378784,
+        -0.03200024366378784,
+        0.0
+      ]
+    },
+    "confirm": {
+      "cases": 15,
+      "pairs": 1200,
+      "reference_checks": 90,
+      "full_native_cases": 8,
+      "sliding_native_cases": 4,
+      "control_deltas_us": [
+        -0.0800006091594696,
+        0.09600073099136353,
+        -0.19199959933757782
+      ]
+    },
+    "scored": {
+      "cases": 12,
+      "pairs": 960,
+      "reference_checks": 72,
+      "full_native_cases": 2,
+      "sliding_native_cases": 1,
+      "control_deltas_us": [
+        -0.1600007526576519,
+        0.0479966402053833,
+        -0.12800097465515137,
+        -0.14399737119674683,
+        -0.03200024366378784,
+        -0.031999312341213226,
+        -0.3200024366378784,
+        0.0,
+        -0.12801587581634521
+      ]
+    }
+  },
+  "total_pairs": 4320,
+  "total_timing_reference_checks": 324,
+  "fresh_replays": 216,
+  "scored_local_loads": [
+    {
+      "batch": 1,
+      "q_len": 1,
+      "upstream_weighted_us": 509.37597546726465,
+      "native_weighted_us": 479.9359692260623,
+      "ratio": 1.061341529139141
+    },
+    {
+      "batch": 16,
+      "q_len": 1,
+      "upstream_weighted_us": 2540.608066134155,
+      "native_weighted_us": 2532.736006192863,
+      "ratio": 1.0031081249376341
+    },
+    {
+      "batch": 32,
+      "q_len": 1,
+      "upstream_weighted_us": 4598.720076493919,
+      "native_weighted_us": 4585.791978053749,
+      "ratio": 1.0028191637348665
+    },
+    {
+      "batch": 1,
+      "q_len": 8,
+      "upstream_weighted_us": 560.7999907806516,
+      "native_weighted_us": 554.7199742868543,
+      "ratio": 1.0109605148104028
+    },
+    {
+      "batch": 16,
+      "q_len": 8,
+      "upstream_weighted_us": 2763.583972118795,
+      "native_weighted_us": 2757.3119839653373,
+      "ratio": 1.0022746748245868
+    },
+    {
+      "batch": 32,
+      "q_len": 8,
+      "upstream_weighted_us": 4992.000014521182,
+      "native_weighted_us": 4992.288016714156,
+      "ratio": 0.9999423105814388
+    }
+  ]
+}
