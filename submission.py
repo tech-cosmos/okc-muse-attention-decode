@@ -1170,10 +1170,12 @@ def _plan(cfg, max_pages, device):
     if heads <= (2 if length == 1 else 4):
         # (Session 18's hpp 2 / block_n 64 for decode 1 full won on the H100, 18.0 -> 17.4 us, but lost on the
         # H200: check f3e099c1 decode 1 full 15.2 -> 17.6 us.)
-        # tsep as on sliding layers (verify 1 full paired -0.11 us, 9/11 rounds), with 127 splits so the merge sees
-        # at most 128 slots in one pass (-0.08, 8/11).
-        return dict(splits=127 if length > 1 else 128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16",
-                    tsep=length > 1)
+        # Verify 1 full: tsep as on sliding layers (H100 paired -0.11 us, 9/11 rounds), with 127 splits so the merge
+        # sees at most 128 slots in one pass (-0.08, 8/11); then block_n 64 with 8 stages (-0.62, 9/11; emulated H200
+        # 25.9 -> 20.3). Unchecked on the H200: if verify 1 full is worse there, revert block_n/stages first.
+        if length > 1:
+            return dict(splits=127, block_n=64, warps=4, stages=8, hpp=1, fuse=False, qk8=True, pdt="bf16", tsep=True)
+        return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="bf16")
     if length == 1:
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
             # Gluon one-warp programs (FP8 QK^T mma, new token in the last split): 1024 programs (one wave),
