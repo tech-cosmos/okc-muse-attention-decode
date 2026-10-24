@@ -699,8 +699,11 @@ def _plan(cfg, max_pages, device):
         slots = 2 * sms
         fill = {w: (w * slots // pairs) * pairs / (w * slots) for w in (1, 2)}
         waves = 2 if fill[2] > fill[1] + 0.05 else 1
-        return dict(gluon=True, splits=max(2, waves * slots // pairs), block_n=64, stages=3, lag=1, gpeel=True, pw=4,
-                    pregs=40, cregs=96, maxnreg=80)
+        splits = max(2, waves * slots // pairs)
+        # The merge: with up to 32 partials, one-warp programs over 2 heads (H100 verify 16 full 139 -> 137.5 us).
+        merge = dict(hb=2, cw=1) if splits + 1 <= 32 and (cfg["num_q_heads"] // hkv) % 2 == 0 else {}
+        return dict(gluon=True, splits=splits, block_n=64, stages=3, lag=1, gpeel=True, pw=4,
+                    pregs=40, cregs=96, maxnreg=80, **merge)
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
@@ -787,8 +790,16 @@ def _verify_gluon(data, cfg, plan):
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
         LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
     s = splits + 1
+    hb = plan.get("hb", 1)
+    if hb > 1:
+        _combine_hb[(batch * length, hq // hb)](
+            qkv, pacc, pml, data["v_scale"], out,
+            HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=s, S_PAD=triton.next_power_of_2(s),
+            SB=triton.next_power_of_2(s), HB=hb, PDL=USE_PDL, num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
+        return out
     _combine[(batch * length, hq)](
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=s, S_PAD=triton.next_power_of_2(s),
-        SB=min(128, triton.next_power_of_2(s)), PDL=USE_PDL, num_warps=4 if s > 32 else 2, launch_pdl=USE_PDL)
+        SB=min(128, triton.next_power_of_2(s)), PDL=USE_PDL, num_warps=plan.get("cw", 4 if s > 32 else 2),
+        launch_pdl=USE_PDL)
     return out
