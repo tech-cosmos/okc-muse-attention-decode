@@ -1,0 +1,79 @@
+{
+  "base": {
+    "page1_early_instruction_sites": 1056,
+    "instruction_sites": {
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "LDGSTS": 4,
+      "LDG.E.U16": 20,
+      "STRONG.SYS": 0,
+      "BAR.SYNC": 3,
+      "SHFL": 24,
+      "MUFU.EX2": 32
+    }
+  },
+  "qpre": {
+    "page1_early_instruction_sites": 1136,
+    "instruction_sites": {
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "LDGSTS": 4,
+      "LDG.E.U16": 20,
+      "STRONG.SYS": 0,
+      "BAR.SYNC": 3,
+      "SHFL": 24,
+      "MUFU.EX2": 32
+    },
+    "test_passes": 16,
+    "fresh_passes": 10,
+    "rounds": 60
+  },
+  "plain": {
+    "page1_early_instruction_sites": 1080,
+    "instruction_sites": {
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "LDGSTS": 4,
+      "LDG.E.U16": 20,
+      "STRONG.SYS": 0,
+      "BAR.SYNC": 3,
+      "SHFL": 24,
+      "MUFU.EX2": 32
+    },
+    "test_passes": 16,
+    "fresh_passes": 10,
+    "rounds": 60
+  },
+  "rope": {
+    "page1_early_instruction_sites": 1120,
+    "instruction_sites": {
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "LDGSTS": 4,
+      "LDG.E.U16": 20,
+      "STRONG.SYS": 0,
+      "BAR.SYNC": 3,
+      "SHFL": 24,
+      "MUFU.EX2": 32
+    },
+    "test_passes": 16,
+    "fresh_passes": 10,
+    "rounds": 60
+  },
+  "ordered": {
+    "page1_early_instruction_sites": 1144,
+    "instruction_sites": {
+      "QGMMA": 2,
+      "HGMMA": 4,
+      "LDGSTS": 4,
+      "LDG.E.U16": 20,
+      "STRONG.SYS": 18,
+      "BAR.SYNC": 3,
+      "SHFL": 24,
+      "MUFU.EX2": 32
+    },
+    "test_passes": 16,
+    "fresh_passes": 10,
+    "rounds": 60
+  }
+}
