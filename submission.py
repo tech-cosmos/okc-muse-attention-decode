@@ -214,7 +214,7 @@ if HAVE_GLUON:
     @gluon.jit
     def _gw_consumer_cv(q, k_ring, vh, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, hh, split,
                         HEAD: gl.constexpr, HKV: gl.constexpr, S: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
-                        BN: gl.constexpr, NS: gl.constexpr):
+                        BN: gl.constexpr, NS: gl.constexpr, PEEL: gl.constexpr):
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
                                                       instr_shape=[16, BN, 32])
         O_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
@@ -229,9 +229,13 @@ if HAVE_GLUON:
             mbarrier.wait(ready.index(s), (i // NS) & 1)
             s_tok = warpgroup_mma(q, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
                                   gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
-            t = lo + i * BN + n_s
             sc = warpgroup_mma_wait(0, deps=[s_tok])
-            sc = gl.where((t < hi)[None, :], sc, float("-inf"))
+            if PEEL:
+                # Only a chunk's last tile can run past its keys.
+                if lo + (i + 1) * BN > hi:
+                    sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+            else:
+                sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
             m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
             alpha = gl.exp2(m_i - m_new)
             p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
@@ -250,7 +254,7 @@ if HAVE_GLUON:
                    HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, D: gl.constexpr,
                    PAGE: gl.constexpr, MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr,
                    NS: gl.constexpr, PW: gl.constexpr, PREGS: gl.constexpr, CREGS: gl.constexpr,
-                   LAG: gl.constexpr = 0):
+                   LAG: gl.constexpr = 0, PEEL: gl.constexpr = False):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -302,9 +306,9 @@ if HAVE_GLUON:
         if LAG:
             gl.warp_specialize([
                 (_gw_consumer_cv, (q0, k_ring, vh0, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h,
-                                   split, 0, HKV, S, M, D, BN, NS)),
+                                   split, 0, HKV, S, M, D, BN, NS, PEEL)),
                 (_gw_consumer_cv, (q1, k_ring, vh1, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, h + 1,
-                                   split, 1, HKV, S, M, D, BN, NS)),
+                                   split, 1, HKV, S, M, D, BN, NS, PEEL)),
                 (_gw_producer_cv, (pt_row, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready, empty,
                                    lo, hi, ntiles, PAGE, ROW_W, BN, C, D, NS, PW, LAG)),
             ], [4, PW], [CREGS, PREGS])
@@ -695,7 +699,7 @@ def _plan(cfg, max_pages, device):
         slots = 2 * sms
         fill = {w: (w * slots // pairs) * pairs / (w * slots) for w in (1, 2)}
         waves = 2 if fill[2] > fill[1] + 0.05 else 1
-        return dict(gluon=True, splits=max(2, waves * slots // pairs), block_n=64, stages=3, lag=1, pw=4,
+        return dict(gluon=True, splits=max(2, waves * slots // pairs), block_n=64, stages=3, lag=1, gpeel=True, pw=4,
                     pregs=40, cregs=96, maxnreg=80)
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
@@ -781,7 +785,7 @@ def _verify_gluon(data, cfg, plan):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 0), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
+        LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
     s = splits + 1
     _combine[(batch * length, hq)](
         qkv, pacc, pml, data["v_scale"], out,
