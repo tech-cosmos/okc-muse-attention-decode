@@ -2558,3 +2558,50 @@ H100 bench 2.043 at start, 2.035 after (noise; decode 32 full 241.2 -> 240.4). T
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 53 (overnight agent, 2026-10-24 14:05-~14:55 UTC; unattended session 20 of this night)
+
+**Main fa52b18 = bf5123e + no window mask on decode's cached keys. 63a4974 / 6fb74be / d92f1ed / 652aafe / bf5123e /
+fa52b18 all UNCHECKED on the H200** (account checks 0/10 left today; Claude's 3 scored used). H100 bench 2.045 at start ->
+2.05; tests 16/16; outputs + caches bit-identical to main on 10 decode sliding cases (/tmp-only script, pattern: run
+base and new kernel_fn on the same reference.generate_input data, restore caches in between, torch.equal).
+
+### Where the batched sliding time goes (H100, attention only via tools/s38/attn_only.py)
+
+verify 32 / verify 16 / decode 32 sliding: whole 18.7 / 12.9 / 15.1 us, attention 16.4 / 10.6 / 13.6 (merge ~1.5-2.3).
+Ablation copies (paired, tools/s36/abc.py, 7 rounds):
+- split 0 without the block's new tokens (wrong results): -0.24 / -0.27 / +0.13. **Split 0's new-token work is not
+  the critical path** (so uneven chunking that gives split 0 less work can't pay).
+- page index replaced by a synthetic strided row (`t*7 % 60000`, no page-table load): -2.8 / -1.3 / -1.5. But the same
+  synthetic rows *with* the page-table load kept as a dependency (`(load >> 30) + t*7 % 60000`) are equal (-0.16 /
+  +0.02 / +0.29): **the page-index chain costs nothing; the 1.3-2.8 us is the random-row gather pattern itself**.
+  (Gotcha: `load * 0 + x` gets folded and drops the load; use `>> 30`.)
+
+### Win (small): decode sliding without the window mask on cached keys
+
+Cached keys start at base = max(seq - 2047, 0) and a decode query sits at seq, so `t > pos - WINDOW` always holds for
+them; `_attn_split` now passes WIN = 0 to `_tile` when L == 1 (the new token's own path is unchanged). Paired H100,
+15 rounds both orders: decode 16 sliding -0.14 (15/15) / -0.14 (11/15), decode 1 sliding -0.05 / 0.00, decode 32
+-0.02 / -0.06. H200 risk: none expected (fewer instructions, identical results).
+
+### Dead end: verify sliding window-mask elision (not committed; described here)
+
+A verify row j masks only keys below base + j, i.e. split 0's first tile. Tried (plan key `we` on exp/wmask, then
+reverted): (a) that tile in its own one-iteration loop before the main loop: verify 16/32 sliding +1.4/+1.7 us (split 0
+runs one unpipelined tile, and split 0 sets the critical path); (b) that tile as iteration 0 of the masked tail loop
+(`start = where(i < first, lo, ...)`), main loop unmasked: needs `peel` for any gain, and peel at 64 rows costs
+registers: verify 16/32 +0.35/+0.16 without peel, +1.5/+1.0 with; verify 1 sliding (one tile per split) +peel
+-0.14 in a sweep but a tie paired (+0.06 / 0.00). Also re-swept `dual` for verify 16/32 sliding: +3.5..+7 us.
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 48's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05, decode 16 sliding 10.27). Revert any shape
+   that got worse (decode 32 full: dbal first), submit if the total beats the board.
+2. Batched verify sliding (weight 46, ~1.8-2.3x on the H200) is per-tile-chain bound at 2 WGs/SM like verify full; the
+   random-row gather pattern is worth ~2.8 us at verify 32 but isn't controllable.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored (per this
+morning's count; `okc problems` shows 0 checks left).
