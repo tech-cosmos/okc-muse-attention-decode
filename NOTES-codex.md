@@ -4772,3 +4772,110 @@ No pending Codex jobs or STOP files.
    reduction and fusion variations remain closed. Another native proposal
    needs a larger critical-work reduction than this epilogue offers.
 4. Finish clean on pushed codex, remove shared claim, record results and stop.
+
+## Session 39 — 2026-10-24, 05:20–05:29 UTC
+
+Completed a focused **native full-merge phase diagnosis**. No optimization
+candidate was promoted, no production code changed, and no judge requests were
+made. Experiment **9fe15dd** is pushed on **codex-exp/native-merge-phases**;
+start with `experiments/merge_phases/README.md` there. Frozen sources, generator,
+raw timestamp/timing arrays, fresh checks, SASS/resources and CPU audit are
+archived. Production evidence copy: `profiles/session39-native-audit.json`.
+
+Main **06b7755** was already integrated at both fetches. Production stays code
+**d125df9**, SHA256
+`ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca`.
+The native full FP32 allocation guard, both native implementations, dispatch,
+all shared helpers and plans remain unchanged. Session36's exact-source
+production validation still applies; no redundant unchanged-production suite.
+No diagnostic clocks, trace allocation or experimental import entered production.
+
+### Diagnostic result and limits
+
+After the rejected reduction/epilogue variants, measure before proposing another
+rewrite. Each probe timestamps one instruction window with two clock64 reads,
+then saves each warp leader's stamps to fresh disjoint trace storage. Seven
+source intervals, whole-body, consecutive-clock and compiled-out controls.
+The complete timed wrapper still computes every key, updates cache and returns
+the real normalized/gated output. A separate identical-production capture
+control measures capture variation. Trace reads occur only in the offline driver.
+
+Median warp-zero cycles, initial / second-seed reversed-capture confirmation:
+
+| Full, B1,80K,page1 interval | L1 | L8 |
+|---|---:|---:|
+| Prologue |1291/1330.5|1597/1613|
+| Dependency wait |27546/27206|27848/28154|
+| Local stats/weights |837/858|989/1005|
+| Partial loads/weighted sums |975/981.5|1443/1432.5|
+| Shared publication/barrier |61/61|61/61|
+| Cross-warp merge |376.5/372|402.5/382|
+| Normalize/gate/output store |257/257|257/257|
+| Whole body |30962.5/30895.5|32381/32411|
+| Consecutive clocks |2/2|2/2|
+
+SASS confirms that the wait probe brackets exactly one ACQBULK instruction.
+The wait is substantial in these instrumented kernels; it is neither avoidable
+arithmetic nor grounds to remove PDL (session27 serialization lost). The small
+publication and epilogue windows support keeping those rejected families closed.
+Local stats/partial retrieval are possible investigative targets, not established
+removable costs or a new implementation proposal. No parameter/cutoff sweep.
+
+**Do not sum these intervals or infer production phase percentages.** Some
+probes move the dependency wait earlier relative to prologue instructions.
+Stats raises registers48->61, partial retrieval to52, several controls to58;
+other probes stay48. All20specializations use3200reported shared bytes,zero
+stack/local. All17coherent load sites remain after the wait. Both no-clock
+PDL modes are instruction-identical to production. Consecutive clocks have
+no intervening instruction but cannot correct the other compiler changes.
+
+Whole-body complete-graph deltas on B1page1 L1/L8 are +0.160/+0.064us and
+-0.096/+0.288us,initial/confirmation. Identical-production capture offsets
+range -0.192 to+0.112us; SASS-identical no-clock offsets -0.128 to+0.176us.
+Stats instrumentation costs up to1.200us and consecutive-clock control up to
+0.928us nearby, despite the2cycle interval. This limits subtractive attribution;
+none is a production speedup. B2L8,9K scaled-edge wait probes page1
+4881/5260cycles,page64 4255.5/4163.5; not an isolated occupancy diagnosis.
+
+### Validation and evidence
+
+- Whole-body diagnostic wrapper **16/16**, then all12bench shapes; local
+  aggregate **1.994x** versus fixed SGLang/H200 times, unpaired diagnostic
+  evidence only. Only2suite cases reach the modified native full merge;
+  14are unchanged controls. No new production/H200 speedup claim.
+- Six initial and four confirmation cases,11contrasts each,60adjacent AB/BA
+  complete graph pairs: **6600pairs,660independent output/cache checks**.
+- **1080separate cold trace replays**; raw timestamps/pairs archived as gzipped
+  JSON, with small summary JSON files. Missing end stamps on exited warps are
+  explicitly zero and excluded from late-window summaries.
+- **240fresh native graph replays**,216instrumented/24compiled-out controls,
+  six cases x10variants x4inputs. Fresh QKV/cache/routes/lengths/positions/cache
+  slots, halved/empty contexts,pages1/64,scales1/1/64. All pass independent output/
+  cache references. Non-PDL specializations have assembly coverage only.
+- CPU audit reproduces source, verifies unchanged AST nodes/production hash,
+  raw medians, counts, timestamp shape/order, trace index bounds/injectivity,
+  clock placement and no-clock SASS identity. No sanitizer or NCU run/claim.
+
+Custom drivers lock generation/reference/capture/replay, flush512MB before
+measured graphs, subtract empty replay. Suite holds lock; standard bench keeps
+its timing-loop lock. All own GPU/build work sequential and complete. Only
+whitespace in generated disassembly/resource reports was normalized.
+
+### Budget and next cycle
+
+Session **0checks,0scored**; Codex2026-10-24 remains **5/8checks,3/3scored**.
+Final official account **9/10checks,5/10scored**, leaving1check/5scored. Best
+remains **2.1129x,rank20**. No pending Codex jobs, no polling of Claude's scored
+job, and neither STOP file exists. Current exact production source still lacks
+its own H200 check; older main/Codex results do not qualify it.
+
+1. Read COORD/fetch main. Preserve the last shared check while today's Codex
+   scored allowance is exhausted; no qualification inferred from the board.
+2. Keep9fe15dd separate. Treat phase results as instrumented windows, not an
+   additive production model. A new native proposal needs an identified reduction
+   in complete-graph critical work; do not reopen tiny epilogue/barrier, dtype,
+   tile/grid or serialization sweeps on the strength of these traces.
+3. Keep native FP32 compatibility guard. All previously closed native attention,
+   query/RoPE/load-placement/fusion directions remain closed absent a distinct
+   mechanism and new evidence. No benchmark-only trace code belongs in submission.
+4. Finish clean on pushed codex, remove shared claim, record result and stop.

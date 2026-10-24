@@ -1,0 +1,24 @@
+{
+  "production_sha256": "ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca",
+  "candidate_sha256": "604ab8a14e79b313d5af50632fba54d4175199d87d67e97f1ce47d61be1ed769",
+  "adjacent_graph_pairs": 6600,
+  "comparison_reference_checks": 660,
+  "trace_replays": 1080,
+  "fresh_native_graph_replays": 240,
+  "suite_passes": 16,
+  "suite_changed_native_cases": 2,
+  "bench_shapes": 12,
+  "assembly_variants": 20,
+  "no_clock_sass_identity_both_pdl_modes": true,
+  "all_coherent_loads_after_wait": true,
+  "wait_probe_brackets_only_acqbulk": true,
+  "consecutive_clock_probe_has_no_intervening_instructions": true,
+  "register_range": [
+    48,
+    61
+  ],
+  "trace_indexing_injective": true,
+  "judge_requests": 0,
+  "sanitizer": "not run; trace index audit only",
+  "limitations": "Separate probes alter scheduling/registers; do not add interval medians, infer production phase percentages, or subtract clock-control graph costs."
+}
