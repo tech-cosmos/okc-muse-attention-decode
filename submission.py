@@ -119,7 +119,7 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
                                               unsigned char* kc, unsigned char* vc, const int* __restrict__ pt,
                                               const int* __restrict__ seqs, const long* __restrict__ loc,
                                               const float* __restrict__ ks, const float* __restrict__ vs,
-                                              __nv_bfloat16* __restrict__ out, int MP, float qk_scale) {
+                                              __nv_bfloat16* __restrict__ out, int MP, float qk_scale, long cbytes, int warm) {
     __shared__ __align__(16) float racc[16][D];
     __shared__ __align__(16) float rml[16][2];
     __shared__ __align__(16) float lpart[2][4][8][D];
@@ -150,6 +150,16 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
     const unsigned gw = *(const unsigned*)(qkv + (long)b * QKV_W + (HQ + 2 * HKV) * D + rank * D + 2 * lane);
     const long nloc = loc[b];
     const float kscale = *ks, vscale = *vs;
+    if (warm) {
+        // Batch 1: warm the address translations of the K/V cache (one touch per 2 MB) and the page-table row beside
+        // the seq load, so the gathers after the page-table trip don't also wait on page walks.
+        const long gi = (long)rank * 256 + tid, pages = ((cbytes - 1) >> 21) + 1;
+        if (gi < pages) {
+            asm volatile("prefetch.global.L2 [%0];" ::"l"(kc + (gi << 21)));
+            asm volatile("prefetch.global.L2 [%0];" ::"l"(vc + (gi << 21)));
+        }
+        if (gi == pages) asm volatile("prefetch.global.L2 [%0];" ::"l"(pt + (long)b * MP + MP - 1));
+    }
     const int seq = seqs[b];
     const float* csr = cs + (long)seq * D + 8 * c;
     const float4 c0 = *(const float4*)csr, c1 = *(const float4*)(csr + 4);
@@ -350,7 +360,7 @@ void csl_decode(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Te
     cfg.attrs = at; cfg.numAttrs = 1;
 #define CSL_ARGS (const unsigned short*)qkv.data_ptr(), cs.data_ptr<float>(), (unsigned char*)kc.data_ptr(), \
     (unsigned char*)vc.data_ptr(), pt.data_ptr<int>(), seq.data_ptr<int>(), loc.data_ptr<long>(), ks.data_ptr<float>(), \
-    vs.data_ptr<float>(), (__nv_bfloat16*)out.data_ptr(), mp, (float)qk_scale
+    vs.data_ptr<float>(), (__nv_bfloat16*)out.data_ptr(), mp, (float)qk_scale, (long)kc.numel(), (int)(batch == 1)
     if (page == 1) {
         static bool set = false;
         if (!set) { cudaFuncSetAttribute(csl::decode<1>, cudaFuncAttributeNonPortableClusterSizeAllowed, 1); set = true; }
@@ -366,7 +376,7 @@ void csl_decode(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Te
 '''
 try:
     _CSL = _load_inline(
-        name="muse_csl_s72",
+        name="muse_csl_s74",
         cpp_sources="void csl_decode(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, int64_t, double);",
         cuda_sources=_CSL_SRC, functions=["csl_decode"],
@@ -1615,6 +1625,9 @@ def _plan(cfg, max_pages, device):
             # + stages 2 -0.11 (9/15); decode 1 sliding tsep alone and stages 2 alone ties, both -0.35 (15/15).
             # Batched sizes lose with tsep (+0.6-2.7 us).
             tiny = heads <= 4
+            if length > 1 and heads == 32:
+                # Verify 16: 4 splits as verify 32 below (H100 12.99 vs 12.90 us at 8: tie; H200 check in session 74).
+                splits = 4
             return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
                         hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
         # Large batches: smaller, deeply pipelined programs.
