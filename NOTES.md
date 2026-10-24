@@ -1159,3 +1159,89 @@ Results (all paired, same session):
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 4/8 checks, 2/3 scored. Account at 06:15: 9/10 checks, 5/10 scored.
+
+## Session 20 (overnight agent, 2026-10-24 06:40-07:25 UTC)
+
+**Main 8aefd49 is a CANDIDATE, not yet checked as a whole: check it first thing next UTC day** (expected ~2.19x vs board
+2.138x; if it holds, submit it). It is 06b7755's plans (the code of scored beb63898) + Gluon decode full (`_gd_full`,
+from exp/gdec, batch * hkv > 2) + session 17's gfuse (verify full), with session 18's two plan changes reverted and
+the new Gluon sliding-decode path off (`USE_GSLIDE = False`). Every scored shape's code path was timed on the H200 in
+either beb63898 or f3e099c1; recombining their per-shape medians gives 2.197x (the same arithmetic reproduces
+f3e099c1's own 2.1448x exactly).
+
+Branch **exp/gslide** (from exp/gdec, so it also carries session 19's Gluon decode-full kernel): batched sliding decode
+on the same Gluon one-warp kernel `_gd_full`. Main unchanged (8c4394f kernels) until the H200 check says otherwise.
+
+### Why
+
+tools/s19/cbound.py on sliding layers (H100, real vs all-reads-in-L2): decode 16/32 sliding 10.5/15.3 vs 7.9/11.5 us,
+verify 16/32 12.5/19.7 vs 10.6/16.6. So sliding layers are mostly kernel work too, and decode sliding runs Triton's
+MMAv2 path (FP8 K upcast to FP16, as session 19 found for decode full). Plan re-sweeps of the Triton path (splits
+16/32, block_n 32/64, warps 2/4, stages 3-5) were flat or worse.
+
+### Change (b95d710)
+
+- `_gd_full` gained `WINDOW` (keys [max(seq - 2047, 0), seq) in S tile-aligned chunks), `ROPE` (q and the new K
+  roped from the [2^21, 64] cos|sin table, partner element via `c ^ 1`), and `SEP`: one extra program per (request,
+  KV pair) (split index S) handles only the new token and writes slot S; key splits store only if split < S.
+  Without SEP the last key split also does the new token and becomes the critical path: S=16 lost to S=15 (whose
+  last split happens to have no keys) until SEP.
+- `_decode_gluon` merges with `_combine_hb` (hb 2, one pass, 1 warp) when the plan has hb.
+- `_plan`: decode sliding with pairs = batch * hkv / 2 >= 12 (G 8, D 64): gdec, sep, block_n 32, NS 2, BF16
+  partials, splits 32 if pairs * 32 <= 800 else 16 if pairs * 16 <= 800 else 8.
+- tools/s20/cases.py (11 sliding cases through kernel_fn, plan override json), near.py (paired A/B vs Triton per
+  batch, splits rule SP/pairs, optional emulation), ab.py (paired USE_GDEC A/B per scored decode shape).
+
+### Measured (H100 unless noted; paired)
+
+- Decode 16/32 sliding 10.56/15.34 -> 9.62/14.06 us; emulated H200 (92 SMs) 11.54/16.37 -> 10.26/14.48.
+- Per batch (H100, best splits): B12 -0.6, B16 -1.0, B24 -1.9, B32 -1.5, B48 -2.6, B64 -4.5 us; B1-8 lose
+  +0.2..+1.8 (so they stay on Triton).
+- Bench 1.978 (main at session start) -> 1.993. Tests 16/16, tools/s20/cases.py 11/11, tools/s19/cases.py 9/9,
+  tools/nearby.py 48/48 pass, no cliffs.
+- Losing variants: block_n 64 (S 15: 14.2 vs 9.7 at B16), NS 3 (+1-1.5 us), block_n 16 NS 3, S 64 at B<=16 (1-tile
+  programs), FP32 vs BF16 partials a tie.
+- Note: tools/s20/ab.py doesn't rescale gdec decode-full splits for 92 SMs, so under emulation decode full shows
+  +24/+50 us (1024 programs x 242 regs = two waves on 92 SMs). Artifact; session 19's tools/s19/ab.py rescales.
+
+### Judge
+
+- check f3e099c1c36145dc on b95d710 (the account's last check today): **2.145x [2.113, 2.177]**, 16/16. Per shape
+  (H200 us, beb63898 -> f3e099c1): decode 1 sliding 6.47 -> 6.35, **decode 1 full 15.21 -> 17.64** (session 18's
+  hpp 2 plan: H100 win, H200 loss), **decode 16 sliding 10.36 -> 13.56, decode 32 sliding 14.56 -> 15.37** (Gluon
+  sliding: H100 and emulation said -1/-1.3 and -1.3/-1.9; the judge says a loss), **decode 16 full 98.46 -> 92.63,
+  decode 32 full 185.10 -> 173.84** (Gluon decode full: wins as emulated), verify 1 sliding 7.76 -> 7.42, verify 1 full
+  16.53 -> 16.41, verify 16 sliding 12.73 -> 12.63, verify 16 full 125.30 -> 124.65, verify 32 sliding 18.64 -> 18.34,
+  verify 32 full 232.93 -> 231.75.
+- Judge profile for decode 16 sliding (kernel times, warm): `_gd_full` 6.6 + `_combine_hb` 2.3 = 8.9 us vs Triton
+  7.1 + 1.7 = 8.8 us, a tie; but cold-L2 graph replays median 17.9 vs 14.5 us raw. So the loss is in the cold
+  start (not visible on the H100's bench or emulation), and the merge is slower too: S + 1 = 33 slots pads
+  `_combine_hb` to S_PAD 64. Untested guesses: the Gluon kernel's cold instruction fetch / constant loads (one-warp
+  programs, 528 of them), the merge padding. Don't retry sliding on _gd_full without an H200 check in the loop.
+- submit 10d12495c672420b: the exact file of f3e099c1 (b95d710; it beat board 2.138x): RESULT see COORD.md / okc
+  status. (Profiles of it land in /tmp/s20sub/profiles, not the repo.)
+- Lesson: two H100-and-emulation wins (decode 1 full hpp 2, Gluon sliding) were H200 losses, while the H200 judged
+  the Gluon decode full better than the H100 did. Small latency-bound shapes don't transfer; budget checks for them.
+
+  H200 reference (check beb63898, main kernels then): decode 16/32 sliding 10.36/14.56, decode 16/32 full
+  98.46/185.10, decode 1 full 15.21 us.
+
+### Also measured
+
+- `sep` on decode full gdec: tie/worse (130.1-130.7 vs 130.6 decode 16, 244.5-245.3 vs 243.1 decode 32).
+- Verify sliding (Triton, M 64) already runs QK^T as native FP8 wgmma (ttgir: warp_group_dot on f8E4M3 operands;
+  only V converts to FP16), so the session 19 "hidden K upcast" doesn't exist there.
+
+### Next ideas
+
+1. Check main 8aefd49 on the H200 (new UTC day); submit if it beats the board (2.138x, or whatever the submit
+   10d12495 gives).
+2. Decode 32 sliding on the H200: session 18's hpp 2 plan (H100 15.97 -> 15.41) is unchecked there; try it in a
+   later check together with something else.
+3. Gluon decode full: tune on the H200 only (the H100 can't see its win). E.g. splits so S + 1 = 64 vs 32, NS 3.
+4. Verify full is the largest remaining time (124.7/231.8 us on the H200 vs SGLang 205/389).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 1 check (f3e099c1), 1 scored (10d12495). Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks,
+6/10 scored.
