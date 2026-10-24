@@ -1242,6 +1242,12 @@ def _plan(cfg, max_pages, device):
             # (16 splits) a tie, so they keep hpp 1. (Session 43: kst-style stacked P@V in Triton loses: +0.9 us.)
             return dict(splits=splits, block_n=32, warps=4, stages=5, hpp=2, fuse=False, qk8=True, hb=2, sb=splits,
                         cw=1, pdt=pdt)
+        if length > 1 and heads >= 64:
+            # Verify from batch 32: 4 splits of 64-key tiles instead of 8 of 32, a quarter of the programs (256 at
+            # batch 32) with the same per-program chain, and half the FP32 partials for the merge to read. Paired
+            # H100 verify 32/40/48/64 sliding -1.6/-5.8/-6.7/-7.5 us (7/7 or 9/9 each); batch 20 +0.9, 24 -0.2.
+            return dict(splits=4, block_n=64, warps=4, stages=5, hpp=1, fuse=False, qk8=True, hb=2, sb=4, cw=1,
+                        pdt=pdt)
         return dict(splits=splits, block_n=32, warps=2 if length == 1 else 4, stages=5, hpp=1, fuse=False,
                     qk8=True, peel=length > 1, hb=2, sb=splits, cw=1, pdt=pdt)
     # Full layers' Triton paths write BF16 partial accumulators (unnormalized; FP16 could overflow): H100
