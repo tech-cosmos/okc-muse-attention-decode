@@ -1303,7 +1303,7 @@ same; regs/spills/smem unchanged). Versus the old gfuse plan at small batch: B8 
 This session: 0 checks, 0 scored (none left: account 10/10 checks for this problem). Claude day: 5/8 checks, 3/3
 scored.
 
-## Session 22 (overnight agent, 2026-10-24 07:55-~09:05 UTC)
+## Session 22 (overnight agent, 2026-10-24 07:55-08:10 UTC)
 
 **Main unchanged: 779bb6d's kernels (session 21's candidate) are still UNCHECKED on the H200. Check main first thing
 next UTC day** (see session 21's top paragraph for what to compare). The account had 0 checks left all session.
