@@ -882,3 +882,33 @@ No change to main (kernel = 19b8ade). 0 checks, 0 scored. H100 bench at start 1.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 3/8 checks, 1/3 scored. Account at 04:30: 8/10 checks, 4/10 scored.
+
+## Session 15 (overnight agent, 2026-10-24 04:33-~05:00 UTC)
+
+### Change (main 32b1762): BF16 split-partial accumulators where they win
+
+Plan key `pdt` ("f32" | "bf16" | "f16", default f32) picks pacc's dtype; stores cast to the pointer's dtype and every
+merge (_combine, _combine_hb, fused) loads `.to(tl.float32)`. pml (max, sum) stays FP32. Accumulators stay
+UNNORMALIZED, so FP16 is unsafe (a chunk of 640 keys x V up to 448 can pass 65504); BF16 has the range.
+H100 paired sweeps, f32 -> bf16: decode 16/32 full 130.6->129.6 / 244.1->242.5 us, decode 1 full 18.2->18.0,
+verify 1 full 19.3->18.65, verify 16/32 sliding 13.0->12.5 / 20.5->20.1, decode 16/32 sliding tie. Kept FP32:
+decode 1 sliding (+0.2-0.3), verify 1 sliding (+0.05), decode sliding generally, and the Gluon verify-full path
+(+1.5 us with bf16 or f16; not understood, maybe the MMA-layout store). Bench 1.968 (main, same session) -> 1.980 /
+1.982. Tests 16/16 (errors identical to 4 digits), gluon_cases 8/8. Not checked on the H200 (expected ~+0.5%,
+inside the judge's CI; account had 2 checks left today).
+
+### Dead end
+
+- Normalized FP16 partials (store acc / l, merge weights exp2(m - m_max) * l): same byte savings, but the divide
+  costs on the critical path: decode 1 sliding +0.5 us, Gluon verify 16 full +1.5. BF16 unnormalized is better.
+
+### Next ideas
+
+1. Why BF16 partial stores cost the Gluon verify-full kernel 1.5 us (verify 32 full writes 33 MB of fp32 partials?
+   no: 32 x 4 x 17 x 64 x 64 x 4 = 9 MB). Converting acc to a coalesced BlockedLayout before the store might fix it
+   and save ~1 us of merge bytes.
+2. As before: verify 32 sliding fixed costs; decode full on the H200 (wide-tile gathers); verify-full merge tail.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 3/8 checks, 1/3 scored. Account at 04:35: 8/10 checks, 4/10 scored.
