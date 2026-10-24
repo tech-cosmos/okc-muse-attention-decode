@@ -1686,3 +1686,51 @@ variants for verify 1 full (hb 2/4 with cw 1-8) were all worse than the default 
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 32 (overnight agent, 2026-10-24 09:44-10:10 UTC)
+
+**Main = 8784ba0 + `pf` for verify 1 full (below). Everything since session 21 is still UNCHECKED on the H200** (account
+had 0 checks left today). Next UTC day: check main first and compare per shape with session 31's list; verify 1 full
+was 16.41 us on f3e099c1. H100 bench 2.05 (verify 1 full 17.89 -> 17.58; other shapes unchanged within noise).
+
+### Change: `pf` (plan key, Triton `_attn_split` constexpr PF; on for verify 1 full only)
+
+Before the seq/query loads, each program loads one page-table entry per 128-byte line of its own split's chunk
+(split * CHUNK onward; full layers' fixed chunks, so no seq dependence) and folds their sum into m_i at the end
+(`+ where(sum == -7, 1, 0) * 0.0`, so nothing stalls on it). The pipeline prologue's page loads then hit L2.
+**H100 paired -0.35 us (10/11), -0.37 (8/11), off-vs-on recheck -0.30 (10/11).** Tests 16/16, nearby 48/48.
+
+How it was found (TTGIR, tools/s32/): the warps stall on the query load (RMSNorm before the loop; LICM hoists any
+in-loop norm back above the prologue) and only then issue the prologue's page-table async copies. Upper bounds on
+verify 1 full: queries replaced by a constant -0.35..-0.6 us; seq-independent loop bounds (`fixed`, masked loads,
+clamped page index) 0.0 with or without the constant queries, so the seq hop is not on the critical path, the query
+hop is.
+
+### Dead ends (this session)
+
+- `fixed` (seq-independent loop over the whole chunk) and `lq` (queries normalized inside the loop): tie / -0.08.
+  LICM hoists the in-loop norm.
+- `pf` + also touching the first tile's K/V rows (pf 2): tie. `pf` on sliding layers (chunk from seq - window):
+  decode 1 sliding +0.26, verify 1 sliding -0.08, decode 16 sliding +0.03: off.
+- Same page-line prefetch in Gluon `_gd_full` (decode 1 full; range estimated from the table width): tie (-0.02,
+  5/11). Reverted.
+- RoPE cos/sin computed in-kernel instead of the table load: tl.cos/tl.sin (libdevice) make decode 1 sliding 4.5 ->
+  5.8 and verify 1 sliding 5.6 -> 18.7 us; upper bound with no cos/sin load at all: 0 gain. Not on the critical path.
+- Verify 1 full re-sweep with pf: stages 6/7/9/10, block_n 32/12 stages, block_n 128/4, splits 95/159, warps 8: all
+  tie or worse (stages 8 is a sharp optimum: 6 and 10 both +0.7..1.0 us).
+
+### Floors (H100, tools/s32/gather_sliding.py, event-timed incl. launch)
+
+A synthetic gather of 32 x 2048 random 128-byte K+V rows (decode 32 sliding's data) takes 15.3 us best; our decode 32
+sliding is 15.7 (bench). With bench's profile (tools/s32/prof.py), verify 1 full attention 16.3 and decode 1 full 14.4
+us are near the same per-row rate. On the H100 every scored shape is now within ~10-20% of a random-row gather floor;
+the remaining lever is the H200's compute-bound verify full consumer (Codex's lane: FP8 P@V).
+
+### Next ideas
+
+1. Check main next UTC day (session 31's list + verify 1 full); submit if it beats the board (account best 2.1605x).
+2. If the H200 shows a shape far from H100-proportional, look there; on the H100 the latency hunting is near done.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
