@@ -2961,3 +2961,62 @@ Synthetic split partials ([16 rows x 64] fp32 + m/l per split CTA, cold global r
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/20 checks, 9/10 scored.
+
+## Session 70 (overnight agent, 2026-10-24 18:44-~19:20 UTC; unattended session 2 of the #1-push brief)
+
+**Main code unchanged (14355d4 kernel = scored 7f45c5c6, 2.343x). 0 judge runs.** Board at start: #1 colinlikescode
+2.834x, ours #14 2.343x. Budget (API): checks 10/20 used, scored 9/10 used; Claude share 3 checks left today.
+
+### Dead end: thread-block cluster (DSMEM) merges from Triton (branch exp/cluster, plan keys cl / ccl)
+
+How: a Triton kernel compiled normally (num_ctas 1; compiling with num_ctas > 1 splits the program's tensors over
+the cluster, tools/s70/nctas.py) launched as clusters by calling its CompiledKernel.run with packed metadata
+(num_warps, NC, shared): Triton's own launcher then sets gridDim.x *= NC, the cluster attribute and (NC 16) the
+non-portable size. Inline PTX: `mov.u32 a, global_smem` (Triton's dynamic smem symbol; exists only if the kernel
+uses smem), `mapa.shared::cluster` + `st.shared::cluster` push, `barrier.cluster.arrive.release/wait.acquire`.
+Correct on all tested shapes (tools/s70/t1.py, t2.py). H100 timings:
+- Batch-1 sliding, one 16-CTA cluster per KV head (16 splits x 128 keys, owners merge from smem): decode 1 6.1-6.2
+  vs main 4.45 us; verify 1 9.3 vs 5.7. Breakdown (decode 1): attention alone in the 16x128 layout 4.26 (32x64:
+  3.63), cluster launch +0.1, a *release* cluster barrier ~+0.4 each (a relaxed one ~+0.1), push + smem merge ~+1.4.
+- Batched sliding (cl at the existing 16/8/8/4 splits): decode 16/32 13.3/17.0 vs 10.2/15.5, verify 16/32
+  19.1/25.0 vs 12.7/18.6; the cluster *launch* alone costs +1.3 (decode 16) / +2.3 (verify 16) us.
+- Decode 1 full merge as NC-CTA clusters per head (`_combine_cl`, partial merges pushed to rank 0): NC 8/4/2
+  +3.2/+0.7/+0.8 us vs the 16-program _combine (with or without PDL).
+Clusters launched this way don't pay anywhere; don't retry them from Triton/Gluon.
+
+### FP8 P@V in the native verify-full consumer: -8% (the best verify-full lever measured so far)
+
+tools/s70/cmicro8.{cu,py} = tools/s69/cmicro + `PV8=1`: P as E4M3 (FA3's Max_offset 8, i.e. exp2(s - (m - 8)),
+P <= 256; with LAZY the offset is 0, since lazy maxima already let P reach 2^8), packed with cvt.rn.satfinite.e4m3x2;
+P@V as two `wgmma m64n64k32.f32.e4m3.e4m3` with A from registers and B = V^T FP8 K-major SW64 (desc SBO 512 mode 2,
++32 B per k step, same as Q). The S accumulator's columns don't match the FP8 A fragment, so V^T's keys are permuted
+instead of P's registers (no shuffles): MMA k slot 32kk + 16half + 4t + i holds key 32kk + 16half + {2t, 2t+1, 2t+8,
+2t+9}[i]; A reg order per k32 step = (r0: n8 blocks 4kk,4kk+1), (r1: same), (r0: 4kk+2,4kk+3), (r1: same).
+Correct (rel err 2.5e-2 vs FP32 P reference; FP16 P 2e-4; the s22 Gluon pv8 errors on real cases were 0.030-0.073,
+passing). Verify-32-sized consumer-only work (264 CTAs x 152 tiles, H100):
+- FP16 P: unpipelined 163, FA3 intra-WG pipelined 166, 1 CTA/SM 168 (as session 69).
+- FP8 P: 164 / **152** / 153; + LAZY (warp-vote rescale, threshold 8): 158 / **149** / 150. 3 CTAs/SM spills (537).
+So a native consumer reaches ~149 us vs the Gluon consumer-only 178 (-16%). If the H200 overhead over consumer-only
+stays ~30 us (Gluon: 178 -> 209.8 real), verify 32/16 full would go ~210/109 -> ~180/95 us: about +3.5-4% overall.
+FA3 source confirmation (required by CLAUDE.md before relying on FP8 P): hopper/mainloop_fwd_sm90_tma_gmma_ws.hpp
+has `Transpose_V = Is_FP8 && !V_colmajor`, `static_assert(!(!MmaPV_is_RS && Is_FP8), "MmaPV must be RS if FP8")`,
+and before P@V `permute_Cregs_fp8(tSrS)` then `convert_type_out(tOrP_acc, tOrP)` (tOrP is Element = e4m3);
+hopper/flash_fwd_kernel_sm90.h: `flash::Softmax<..., /*Max_offset=*/!Is_FP8 ? 0 : 8>`. So P in E4M3 with offset 8 is
+exactly SGLang's FA3 FP8 path.
+
+### Next: build the native verify-full kernel (ranked idea 1 now)
+
+Producer warpgroup (128 threads) per CTA, 2 consumer WGs (one per KV head), 2 CTAs/SM, gbal ranges (port _gw_bal /
+_gw_seg), partials in the gbal format [HKV, NID, M, D] at id p + b so _new_tokens and _combine_bal stay as they are.
+Smem (NS 3): K ring 3 x 8 KB SW128, V staging 3 x 8 KB (cp.async destination; swizzle its 16 B chunks by row so the
+transpose reads are conflict-free), V^T 3 x 2 x 4 KB SW64 (keys permuted as above), Q 2 x 4 KB: ~80 KB.
+The V transpose is the risk (s22: in Gluon it cost more than it saved): do it as FA3 does (ldmatrix .trans b16 +
+byte PRMT + stmatrix, i.e. S2RTiledCopyVt / R2STiledCopyV) or a 4x4-byte register transpose with conflict-free
+banks; FA3 picks the key permutation to suit the transpose, and so can we (only P's register order must match).
+Step 1: a producer-only microbench (real gathers from a cold cache + transpose, consumers just arrive) for verify-32
+size; it must stay well under ~150 us H100 (Gluon producer-only: 107). Step 2: join it with cmicro8's consumer.
+Step 3: integrate, test, bench, then check (verify 16/32 full only).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/20 checks, 9/10 scored.

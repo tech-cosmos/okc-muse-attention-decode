@@ -1,10 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-24 ~19:00 UTC (session 69 = unattended session 1 of the #1-push brief).
+Updated 2026-10-24 ~19:20 UTC (session 70 = unattended session 2 of the #1-push brief).
 
 ## Board and best run
 
-- Board 2026-10-24 18:05Z: #1 colinlikescode 2.834x, #2 2.726x, #3 2.624x, #12 2.343x; **ours #13 2.343x**
+- Board 2026-10-24 18:05Z: #1 colinlikescode 2.834x, #2 2.726x, #3 2.624x, #12 2.343x; **ours #14 2.343x** (18:45Z)
   (scored **7f45c5c6**, commit 14355d4 = main's kernel). Need ~+21% for #1.
 - Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
 
@@ -50,12 +50,15 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Ranked ideas
 
-1. **Native single-kernel sliding with a 16-CTA cluster push-merge** (NOTES session 69, idea 1): start with decode/
-   verify 1 sliding (~1.4% overall per us; H200 merge kernel there is 1.8 us), then batched sliding. Base on Codex's
-   `_NATIVE_SLIDING` (origin/codex submission.py). Expected -1..-1.5 us per sliding shape on the H200 (~+4% overall
-   if it holds for all six). Needs a check before it counts (H100 sliding wins have lost on the H200 before).
-2. Native verify-full kernel: ~+1.5-2% at best (lazy rescale + lower overhead than Gluon's 178 us consumer).
-3. Merge tail on verify full (`_combine_bal` ~8-10 us exposed on H200).
+1. **Native verify-full kernel with FP8 P@V** (NOTES session 70): native consumer-only microbench (tools/s70/cmicro8)
+   152 us with E4M3 P (FA3 Max_offset 8; V^T FP8 K-major with permuted keys, no register shuffles), 149 with lazy
+   rescale, vs Gluon consumer-only 178 and native FP16-P 166. Estimated verify 32/16 full H200 210/109 -> ~180/95,
+   ~+3.5-4% overall. Risk: the producer's FP8 V transpose (do it FA3's way, ldmatrix.trans + PRMT + stmatrix, or a
+   conflict-free 4x4-byte register transpose). Step 1 = producer-only microbench with real gathers + transpose.
+   FA3 source citations for E4M3 P are in NOTES session 70.
+2. Sliding shapes: no cheap lever left in Triton (cluster merges dead, s70); a native sliding kernel would have to
+   beat `_attn_split` + PDL merge on the H200 (Codex's native sliding didn't).
+3. Merge tail on verify full (~7 us on the H200 at verify 16/32 = ~0.8% overall at most).
 
 ## Queued for checks
 
@@ -69,4 +72,6 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 - Decode full: near gather floor (s39: dense read 232 vs random 236 us H100).
 - Batch-1 sliding: fused last-program merge (s36, s43, s50), Gluon cluster merge (s25: Gluon DSMEM
   codegen was slow; the native push-merge in tools/s69/cmerge.cu is a different, faster pattern).
+- Thread-block cluster (DSMEM) merges launched from Triton (s70, exp/cluster): batch-1 sliding +1.7 us, batched
+  sliding +3..+6 (cluster launch alone +1.3/+2.3), decode 1 full merge +0.7..+3.2. Dead from Triton/Gluon.
 - H100-only sliding wins that lost on the H200: batched sliding hpp 2 (scored 56fca423), Gluon sliding (f3e099c1).
