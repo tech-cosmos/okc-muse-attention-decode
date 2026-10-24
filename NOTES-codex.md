@@ -1709,3 +1709,137 @@ qualification notice; source/reports9c846a4). Production source/notes156eaa1
 was pushed. Both judge jobs remain queued; source SHA256 is unchanged from
 3fb391f. Official final budget confirms3/10 shared checks,0/10 scored. Shared
 claim removed and results posted. No local subprocesses or STOP files remain.
+
+## Session 14 — 2026-10-24, 00:19–00:33 UTC
+
+### Outcome and source state
+
+Implemented and rejected a distinct native **L8 sliding single-tile** design,
+then two controls: vector query/RoPE loads, and preparation once per request/head
+with dependent launch. All lose to production. **No production change, no new
+judge jobs.** Experiment **fac5298** is pushed on `codex-exp/cuda-sliding-verify`, starting with
+`experiments/sliding_verify/README.txt`. Sources, reproducible generators,
+comparisons, full tests, fresh replays, sanitizers and SASS reports are archived.
+
+Fetched main at start and during work; **origin/main908ec4f/57ad70c** is already
+merged. Production remains exact **3fb391f**, SHA256
+`16a7db558d53ddc110e2bf6ccec1ff243f4407b817ec939eeee409fbe2b8f16e`.
+Existing native small-sliding L1 attention and small-full reduction stay.
+No Triton source or plans were tuned. No redundant production-only suite was
+needed for unchanged source; the experimental suites cover its fallback paths.
+
+The CLI was absent from this session's PATH even after venv activation. Using
+its existing `/home/daytona/.okc/bin/okc` installation resolved this; no install,
+new credentials, login or rules acceptance was performed.
+
+### Native L8 design and diagnosis
+
+Each128-thread CTA handles64 positions of one KV head. All64 WGMMA rows now
+contain useful queries: two tokens per warp, eight Q heads each. Per-row masks
+cover its causal upper bound and individual2048-token lower bound. The union
+has up to2055 positions, hence up to33 partials. Each new token is inserted into
+its natural tile only after historical cp.async zero-fill copies finish; one
+owner writes each new cache slot. Every key is attended. FP8 queries/cache,
+FP16 PV operands, FP32 partials and normalized/gated BF16 output are preserved.
+
+Both early/late gather orderings were tested. Vector controls use64-bit Q and
+cos/sin loads for L8's fully occupied query tile. This does not reopen the prior
+L1 vector sweep. The preparation-once variant writes fresh Q and new-KV scratch
+in a separate timed native kernel. Dependent attention can begin its historical
+gathers before waiting for preparation; coherent volatile Q loads follow
+ACQBULK. The inherited PDL merge follows attention. All three kernels and
+all input-derived work remain inside each timed call.
+
+Independent balanced cold-L2 CUDA graph comparisons, EARLY versions, microseconds:
+
+| L8 sliding | parent/native B1 | parent/native B16 | parent/native B32 |
+|---|---:|---:|---:|
+| fused scalar query |5.784/7.952|12.632/28.544|20.200/53.096|
+| fused vector query |5.664/7.272|12.568/27.456|20.160/51.176|
+| preparation once |5.760/8.256|12.704/29.728|20.080/52.160|
+
+These are separate runs; compare each candidate with its paired parent.
+Each entry has40 adjacent balanced AB/BA pairs. All custom drivers hold the
+shared GPU lock over generation/reference/capture/replay, flush512MB before
+each replay, and subtract empty replay cost. Nearby B2/page64/DP/scaled/edge/
+coherent cases and B1 ctx10 lose too. Full-suite bench warmups did not overlap
+these comparisons; all custom timing was completed before source profiling.
+
+Offline merge-omission diagnostic at B1 ctx80K: parent full/attention-only
+**5.728/4.112us**, native LATE **7.760/5.952**, native EARLY **8.016/6.368**.
+Attention itself accounts for most of the regression. The33-to64 merge padding
+is not the main explanation. Preparation-once removes repeated query work but
+adds a launch, scratch traffic and dependency, with no end-to-end win. These
+individual costs were not separately measured; avoid a stronger causal claim.
+
+### Validation and mechanism
+
+- All **six family/order combinations pass16/16**, three native L8 sliding
+  cases and13 production fallbacks each; each suite followed by a full bench.
+  Local native/fallback geomeans versus fixed SGLang/H200 numbers are scalar
+  **1.729/1.723**, vector **1.755/1.735**, prepare-once **1.703/1.711**, LATE/EARLY.
+  These are rejected experiments, not production regressions or judge results.
+- Scalar and prepare-once each pass **84 all-native fresh graph replays**:
+  42/order, seven shapes, TP8/DP, pages1/64, scales1/1/64, contexts10–120K,
+  soft/coherent/edge data, changed QKV/cache/routes/lengths/positions/cache slots,
+  including empty contexts. Combined168. Vector has no fresh/sanitizer claim.
+- Three comparison drivers each have14 shape/order entries,42 total, with
+  independent reference/cache checks before and after capture, including
+  repeated production controls. Raw pairs and deltas are archived.
+- Native-only sanitizers independently reduce FP32 partials in torch and check
+  output/cache, without the Triton loader. Each tool/family executes24 calls:
+  two orderings, two pages, two scales, three changing-QKV calls. Scalar and
+  prepare-once both have **memcheck0 errors, synccheck0 errors, racecheck0
+  hazards/errors/warnings**. No local processes remain.
+
+SASS page1 LATE/EARLY registers: scalar79/74, vector80/80, prepare-once
+attention75/75, preparation42. All zero stack/local allocations and spills.
+Attention shared bytes17408 from cuobjdump,16384 from ptxas; preparation0.
+Vector query loads replace32 scalar BF16 plus32 scalar float sites with24
+64-bit sites. Matrix operations remain2 QGMMA and4 HGMMA. Preparation-once
+attention has758 static instructions versus scalar1481/1457, no RSQ, and
+Q loads after ACQBULK; EARLY historical gathers precede ACQBULK. A separate
+preparation kernel is added, so this is not a total instruction-speedup claim.
+
+### Judge jobs, budget, and next cycle
+
+Both session13 jobs were still queued at the latest read during local work:
+**4d36508dda044b58** (older5641ff1) and **2776be989f794588** (exact current3fb391f).
+Neither was resubmitted. Main's checkfdccc1c6fa704926 had moved to running.
+Only2776 can qualify production for scoring; the older check can isolate the
+L1 native change but cannot qualify the merged current source. No passing
+profiles for these jobs exist yet. Final status/budget updates follow below.
+
+This cycle **0 checks,0 scored**, no withdrawals. Codex2026-10-24 remains
+**2/8 checks,0/3 scored**. Account start **3/10 checks,0/10 scored** (official
+check cap remains10, not20). Board start: best **2.020924x**, rank24.
+
+1. Resolve both pending Codex checks and read their passing profiles. Do not
+   resubmit. Score exact current source only if2776 passes and beats the refreshed
+   account best, within the official remaining budget. New main source changes
+   require their own exact-source qualification.
+2. Close this L8 single-tile/direct-query/preparation family; no native L8 path
+   is promoted. The L1 win does not extend by filling all64 WGMMA rows.
+3. Small merge changes alone cannot bridge the measured attention gap. More
+   native work needs a distinct measured mechanism; do not repeat old vector,
+   stage/register/gather/pipeline sweeps. The session11 full rawvk64 building
+   block remains slower than main and its QK/V-overlap variants remain closed.
+4. Fetch/merge main and read COORD.md before further source work; finish on
+   clean pushed codex. Experimental sources and results remain separate.
+
+Final source profiles: native LATE/EARLY execute315056/311872 warp instructions;
+prepare-once attention192998 plus preparation5104. Source-attributed excess
+shared wavefronts4104/4556/4564/0, respectively. Long-scoreboard stalls remain
+distributed. Profiles ran sequentially under the shared GPU lock after timing/
+full benches and serialized against sanitizers. No profiler duration is used
+as graph timing. The audit reproduces sources and verifies all claimed logs.
+
+Final fetch brought **origin/main8b0ac0c**, notes only, documenting main check
+fdccc1c6:16/16,2.013x, verify32full295.4us. It does not qualify Codex's source.
+It is below the account best, so main did not score it. No source change and
+no redundant production test needed when merging these notes.
+
+Final00:31–00:32UTC snapshots: both Codex checks remain **queued**. Official
+account usage **3/10 checks,0/10 scored**, Codex **2/8,0/3**, best2.020924x,
+rank24. No new job, withdrawal, or STOP file. Do not wait idle or resubmit;
+carry these exact two pending IDs into the next cycle.
