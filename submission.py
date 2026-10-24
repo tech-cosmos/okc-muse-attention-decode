@@ -88,11 +88,12 @@ def _cos_sin(theta, d, device):
     return cache
 
 
-def _counters(n, device):
-    """Zeroed int32 arrival counters for the fused merge; each call leaves them zeroed again."""
-    buf = _COUNTERS.get(device)
+def _counters(n, device, tag=""):
+    """Zeroed int32 arrival counters for the fused merges; each call leaves them zeroed again (the Gluon
+    merge's generation words, tag "g", just count up)."""
+    buf = _COUNTERS.get((device, tag))
     if buf is None or buf.numel() < n:
-        buf = _COUNTERS[device] = torch.zeros(max(n, 4096), dtype=torch.int32, device=device)
+        buf = _COUNTERS[(device, tag)] = torch.zeros(max(n, 4096), dtype=torch.int32, device=device)
     return buf
 
 
@@ -142,6 +143,47 @@ if HAVE_GLUON:
         parts = ((b * HKV + hh) * SP + split) * M + rs
         gl.store(pml_ptr + parts * 2, m_i)
         gl.store(pml_ptr + parts * 2 + 1, l_i)
+
+    @gluon.jit
+    def _gw_merge_rows(qkv_ptr, b, h, split, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr,
+                       L: gl.constexpr, M: gl.constexpr, D: gl.constexpr, RS: gl.constexpr, R_PAD: gl.constexpr):
+        """Program `split`'s slice of the merge: rows [split * RS, +RS) of the pair's 2 * M rows (KV heads h,
+        h + 1), and their gate logits (loaded before the wait for the other programs)."""
+        ML: gl.constexpr = gl.BlockedLayout([1, 4], [2, 16], [4, 1], [1, 0])
+        r2 = split * RS + gl.arange(0, R_PAD, layout=gl.SliceLayout(1, ML))
+        ok = (r2 < split * RS + RS) & (r2 < 2 * M)
+        r2 = gl.minimum(r2, 2 * M - 1)
+        hh = h + r2 // M
+        r = r2 % M
+        c = gl.arange(0, D, layout=gl.SliceLayout(0, ML))
+        QKV_W: gl.constexpr = (2 * HQ + 2 * HKV) * D
+        tok = b * L + r // G
+        col = (hh * G + r % G)[:, None] * D + c[None, :]
+        gate = gl.load(qkv_ptr + tok[:, None] * QKV_W + (HQ + 2 * HKV) * D + col).to(gl.float32)
+        return hh, r, c, ok, tok, col, gate
+
+    @gluon.jit
+    def _gw_merge(pacc_ptr, pml_ptr, out_ptr, vs, b, hh, r, c, ok, tok, col, gate, HQ: gl.constexpr,
+                  HKV: gl.constexpr, S: gl.constexpr, M: gl.constexpr, D: gl.constexpr, R_PAD: gl.constexpr):
+        """_combine inside _gw_verify for _gw_merge_rows' slice: merge all S + 1 partials, then the per-head
+        RMSNorm and sigmoid(gate)."""
+        ML: gl.constexpr = gl.BlockedLayout([1, 4], [2, 16], [4, 1], [1, 0])
+        SP: gl.constexpr = S + 1
+        base = (b * HKV + hh) * SP * M + r
+        m_max = gl.full([R_PAD], -1.0e30, gl.float32, layout=gl.SliceLayout(1, ML))
+        for s in gl.static_range(SP):
+            m_max = gl.maximum(m_max, gl.load(pml_ptr + (base + s * M) * 2, cache_modifier=".cg"))
+        denom = gl.zeros([R_PAD], gl.float32, layout=gl.SliceLayout(1, ML))
+        acc = gl.zeros([R_PAD, D], gl.float32, layout=ML)
+        for s in gl.static_range(SP):
+            w = gl.exp2(gl.load(pml_ptr + (base + s * M) * 2, cache_modifier=".cg") - m_max)
+            denom += w * gl.load(pml_ptr + (base + s * M) * 2 + 1, cache_modifier=".cg")
+            acc += w[:, None] * gl.load(pacc_ptr + (base + s * M)[:, None] * D + c[None, :],
+                                        cache_modifier=".cg").to(gl.float32)
+        o = acc / denom[:, None] * vs
+        o = o * gl.rsqrt(gl.sum(o * o, 1) / D + 1e-5)[:, None]
+        o = o / (1.0 + gl.exp2(gate * -1.4426950408889634))
+        gl.store(out_ptr + tok[:, None] * (HQ * D) + col, o.to(gl.bfloat16), mask=ok[:, None])
 
     @gluon.jit
     def _gw_consumer(q, k_ring, v_ring, vh, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, hh,
@@ -265,7 +307,9 @@ if HAVE_GLUON:
                    HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, D: gl.constexpr,
                    PAGE: gl.constexpr, MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr,
                    NS: gl.constexpr, PW: gl.constexpr, PREGS: gl.constexpr, CREGS: gl.constexpr,
-                   LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False):
+                   LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
+                   FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
+                   R_PAD: gl.constexpr = 1):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -334,9 +378,29 @@ if HAVE_GLUON:
             (_gw_producer, (pt_row, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, ready, empty, lo, hi, ntiles,
                             PAGE, ROW_W, BN, C, NS, PW)),
         ], [4, PW], [CREGS, PREGS])
-        # This grid was launched alongside _new_tokens (which needs nothing from it); finish only after
-        # it, so the merge (waiting on this grid) sees slot S too.
+        if FUSE:
+            # The merge, in this grid: once all S programs of this (request, KV head pair) have stored their
+            # partials, each merges a slice of the rows. One counter word per pair: arrivals in the low 16
+            # bits, a generation above; the last arrival clears the arrivals and bumps the generation, which
+            # the others wait on (so each call leaves the arrivals at 0). The plan keeps this grid to one
+            # wave, so every program waited for is resident. (Fences as cooperative groups' grid sync: the
+            # partition barrier, then the acq_rel atomics.)
+            hh, r, c, ok, tok, col, gate = _gw_merge_rows(qkv_ptr, b, h, split, HQ, HKV, G, L, M, D, RS, R_PAD)
+            vs = gl.load(vs_ptr)
+            cnt = cnt_ptr + b * (HKV // 2) + gl.program_id(2)
+            gl.barrier()
+            old = gl.atomic_add(cnt, 1, sem="acq_rel", scope="gpu")
+            if (old & 0xFFFF) == S - 1:
+                gl.atomic_add(cnt, 0x10000 - S, sem="relaxed", scope="gpu")
+            else:
+                while ((gl.load(cnt, volatile=True) ^ old) >> 16) == 0:
+                    pass
+            gl.inline_asm_elementwise("fence.acq_rel.gpu;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+        # This grid was launched alongside _new_tokens (which needs nothing from it); finish (or merge) only
+        # after it, so the merge sees slot S too.
         gl.inline_asm_elementwise("griddepcontrol.wait;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+        if FUSE:
+            _gw_merge(pacc_ptr, pml_ptr, out_ptr, vs, b, hh, r, c, ok, tok, col, gate, HQ, HKV, S, M, D, R_PAD)
 
 
 @triton.jit
@@ -719,8 +783,11 @@ def _plan(cfg, max_pages, device):
         splits = max(2, waves * slots // pairs)
         # The merge: with up to 32 partials, one-warp programs over 2 heads (H100 verify 16 full 139 -> 137.5 us).
         merge = dict(hb=2, cw=1) if splits + 1 <= 32 and (cfg["num_q_heads"] // hkv) % 2 == 0 else {}
+        # gfuse: the merge runs in the same grid (each program merges a slice of rows once its request's
+        # programs have all stored; H100 verify 16/32 full 136.8 -> 136.0 / 257.2 -> 256.2 us). The separate
+        # merge (hb/cw) remains for two-wave plans.
         return dict(gluon=True, splits=splits, block_n=64, stages=3, lag=1, gpeel=True, pw=4,
-                    pregs=40, cregs=96, maxnreg=80, lsum=True, **merge)
+                    pregs=40, cregs=96, maxnreg=80, lsum=True, gfuse=True, **merge)
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
@@ -796,6 +863,11 @@ def _verify_gluon(data, cfg, plan):
     pml = torch.empty((batch, hkv, splits + 1, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
     qk_scale = cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E
+    # The in-grid merge (gfuse) needs every program resident at once (one wave).
+    pairs = batch * (hkv // 2)
+    fuse = plan.get("gfuse", False) and splits * pairs <= 2 * _num_sms(device) \
+        and splits < 0xFFFF
+    rs = triton.cdiv(2 * rows, splits)
     _new_tokens[(batch, hkv)](
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], data["seq_lens"], data["cache_loc"],
         pacc, pml, qk_scale, HQ=hq, HKV=hkv, G=group, L=length, MG=rows, L_PAD=max(16, triton.next_power_of_2(length)),
@@ -805,7 +877,10 @@ def _verify_gluon(data, cfg, plan):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), LSUM=plan.get("lsum", False), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
+        LAG=plan.get("lag", 0), PEEL=plan.get("gpeel", False), LSUM=plan.get("lsum", False), FUSE=fuse, cnt_ptr=_counters(pairs, device, "g"), out_ptr=out, RS=rs,
+        R_PAD=triton.next_power_of_2(rs), num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
+    if fuse:
+        return out
     s = splits + 1
     hb = plan.get("hb", 1)
     if hb > 1:
