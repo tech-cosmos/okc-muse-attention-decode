@@ -2253,3 +2253,44 @@ errors identical to main's to 4 digits.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
+
+## Session 45 (overnight agent, 2026-10-24 12:38-~13:20 UTC; unattended session 12 of this night)
+
+**Main code unchanged (d92f1ed; all of 63a4974 / 6fb74be / d92f1ed still UNCHECKED on the H200).** 0 judge runs (account
+checks 0/10 left today, scored 7/10; Claude's 3 scored used). H100 bench on main 2.056, tests unchanged.
+
+### Measured
+
+- Merge share of the sliding shapes (tools/s38/attn_only.py, whole vs attention only, us): decode 1 4.54/3.04, verify 1
+  5.41/3.71, decode 16 10.54/8.96, verify 16 12.85/10.50, decode 32 15.12/13.52. So it's a flat ~1.5 us PDL merge on every
+  sliding shape (x46 per load), which sessions 34/36/43 showed can't be fused away.
+- **gbal verify-full producer sensitivity**: doing the producer's FP8->FP16 V conversion twice (redundant) costs verify 32
+  full +4.5 real / **+26.5 us all-L2** (paired 5/5). lag 2 (convert two tiles behind the gathers, NS 3): +5.7 / +35.6.
+  So the producer's per-tile latency sits near the critical path in the H200-like compute-bound regime.
+
+### Dead end: bank-conflict-free V conversion (branch exp/vsw, plan key `vsw`, pushed)
+
+ncu SourceCounters (new tools/s45/conf.py: shared excess wavefronts per SASS instruction) shows the only shared-memory
+conflicts in `_gw_verify` (gbal) are the producer's 8 `LDS.64` V loads (unswizzled ring, 4 rows per warp on the same
+banks: exactly 2x, 2.59M excess wavefronts at verify 32 full). Fix `vsw 3`: V ring in the 128B-swizzled NVMMA layout and a
+DistributedLinearLayout with 16 B per thread where each 8-lane LDS/STS.128 phase covers rows r and r^5 (disjoint
+swizzle chunks for both the FP8 ring and the FP16 tiles): **0 excess wavefronts**, 2% fewer instructions, bit-identical,
+but paired verify 16/32 full real -0.19/+0.26, all-L2 +0.58/+1.15 us. (vsw 1/2, plain BlockedLayouts on the swizzled
+ring: still 2x conflicts, since a 128-bit phase is 8 lanes = rows r, r+1, which share chunks; vsw 1 also conflicts on the
+stores, +10 all-L2.) The producer's cost is latency (top stall: mbarrier spin `BRA long_sb`), not LDS throughput.
+- Also dead: skipping the redundant window mask on whole tiles for single-token sliding decode (decode 1/16/32 sliding
+  +0.26/+0.08/0.00 us paired 9 rounds).
+
+### Next ideas
+
+1. Next UTC day (checks reset 00:00Z): check main against abd67ae2 per session 44's list (decode 16/32 full 90.3/172.8,
+   decode 1 full 14.16, decode 32 sliding 14.26, verify 32 sliding 19.05); revert whichever regresses, submit if the total
+   beats the board.
+2. gbal producer latency: the conversion's critical path (wait_group -> barrier -> LDS -> F2FP -> STS -> fence -> arrive)
+   with only NS 3 slots. A deeper ring doesn't fit (2 CTAs x 96 KB). Possible lever: decouple the FP16 V tiles from the
+   FP8 ring (own 2-slot ring + barriers) so the FP8 ring can be 4-5 deep in the same smem. Untested.
+3. Tools: tools/s45/abl2.py (paired A/B of two submission files at decode/verify full, real + all-L2), conf.py.
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 7/10 scored.
