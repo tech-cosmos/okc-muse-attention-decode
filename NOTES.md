@@ -1573,3 +1573,36 @@ splits on chip, only if the H200 confirms USE_GD1.
 ### Budget (UTC day 2026-10-24)
 
 This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
+
+## Session 29 (overnight agent, 2026-10-24 09:06-09:50 UTC)
+
+**Main kernels unchanged (de522ae). Still UNCHECKED on the H200: check main first thing next UTC day, exactly as
+session 24's top paragraph says** (verify 16/32 full vs f3e099c1 for gbal, decode 1 full vs 15.21 us for USE_GD1,
+decode 16/32 full vs 92.63/173.84 for cw 1). The account still had 0 checks left (10/10 for this problem today).
+
+### Dead end: decode 1 full with W warps per CTA, merged on chip (branch exp/gd4, plan key `w4`, tools/s29/)
+
+Session 23's idea 2. `_gd_full4`: the `_gd_full` one-warp chain written with rank-3 tensors (warps on dim 0; Gluon
+`mma_v2` takes batched [W, M, K] operands: tools/s29/probe3d.py), each warp its own key split, the CTA merging its
+W partials before the store, so the merge reads S + 1 = 128 slots instead of 512. Correct (tools/s29/cases.py: 6
+decode-1 full cases, same errors as main). H100 (tools/s23/abl.py, total / no-merge us), base 15.7 / 12.4:
+- W 4, 127 CTAs: 16.1-16.6 / 13.6-13.7. Merge itself 3.3 -> 2.4 as predicted, but attention +1.3:
+  - the 4-warp layout alone (direct per-warp stores, no exchange): +0.7-0.9;
+  - the on-chip exchange (STS acc [W, 16, 128] fp32 + barrier + LDS): +0.5 (`gl.sum` over the warp dim
+    emitted 68 `bar.sync`, worse: 14.4); swizzle (xv 4, xp 8) helps a little.
+  - not the per-tile barriers: `bar.warp.sync` instead of `gl.barrier()` (wsync) and V loaded straight into the
+    dot layout (vd, no convert_layout STS/BAR) both tie.
+- Even W 1 through the new code: 13.5 attention (exchange epilogue; 12.6 with direct stores).
+- W 2 / 255 CTAs: paired (tools/s26/abp.py, 7 rounds) +0.08 us, 3/7 wins. W 8 / 127: 16.4; W 8 / 63: 17.8;
+  W 4 / 255: 16.9; W 4 / 191: 16.2.
+The one-warp `_gd_full` + 512-slot merge stays. Don't retry multi-warp CTAs for this kernel.
+
+### Next ideas
+
+Unchanged: (1) check main de522ae (session 24's list); submit if it beats the board (account best 2.1605x); (2)
+verify full's consumer is the only large lever left (FP8 P@V needs a conflict-free V transpose: inline PTX, Codex's
+lane).
+
+### Budget (UTC day 2026-10-24)
+
+This session: 0 checks, 0 scored. Claude day: 5/8 checks, 3/3 scored. Account: 10/10 checks, 6/10 scored.
