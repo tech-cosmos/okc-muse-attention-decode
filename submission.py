@@ -327,6 +327,170 @@ if HAVE_GLUON:
         # it, so the merge (waiting on this grid) sees slot S too.
         gl.inline_asm_elementwise("griddepcontrol.wait;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
 
+    # ---- Balanced variant: programs split the batch's total cached keys evenly ----
+    # Program p of P takes global keys [p*cg, (p+1)*cg) of the requests laid end to end (cg = cdiv(T, P)), as
+    # one segment per request it touches. Segment (p, b) writes partial slot p + b (unique: the segments form
+    # a staircase in (p, b)); slots P + B + b hold the new tokens. The merge (_combine_bal) finds request b's
+    # programs from the same prefix sums.
+    @gluon.jit
+    def _gb_add(a, b):
+        return a + b
+
+    @gluon.jit
+    def _gb_range(seq_ptr, pid, P, NB: gl.constexpr, BP: gl.constexpr, NW: gl.constexpr):
+        L1: gl.constexpr = gl.BlockedLayout([1], [32], [NW], [0])
+        bs = gl.arange(0, BP, layout=L1)
+        sq = gl.load(seq_ptr + bs, mask=bs < NB, other=0)
+        cend = gl.associative_scan(sq, 0, _gb_add)
+        tot = gl.sum(sq, 0)
+        cg = gl.maximum(gl.cdiv(tot, P), 1)
+        g0 = gl.minimum(pid * cg, tot)
+        g1 = gl.minimum(g0 + cg, tot)
+        b0 = gl.sum((cend <= g0).to(gl.int32), 0)
+        b1 = gl.sum((cend < g1).to(gl.int32), 0)
+        nseg = gl.where(g1 > g0, b1 - b0 + 1, 0)
+        return sq, cend, bs, g0, g1, b0, nseg
+
+    @gluon.jit
+    def _gb_seg(sq, cend, bs, g0, g1, b0, k):
+        b = b0 + k
+        ce = gl.sum(gl.where(bs == b, cend, 0), 0)
+        cs = ce - gl.sum(gl.where(bs == b, sq, 0), 0)
+        lo = gl.maximum(g0, cs) - cs
+        hi = gl.minimum(g1, ce) - cs
+        return b, lo, hi
+
+    @gluon.jit
+    def _gb_producer(seq_ptr, pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, P,
+                     PAGE: gl.constexpr, MAX_PAGES: gl.constexpr, ROW_W: gl.constexpr, BN: gl.constexpr,
+                     C: gl.constexpr, D: gl.constexpr, NS: gl.constexpr, PW: gl.constexpr, LAG: gl.constexpr,
+                     NB: gl.constexpr, BP: gl.constexpr):
+        GLY: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [PW, 1], [1, 0])
+        VL: gl.constexpr = gl.BlockedLayout([1, 8], [4, 8], [PW, 1], [1, 0])
+        n_g = gl.arange(0, BN, layout=gl.SliceLayout(1, GLY))
+        c_g = gl.arange(0, C, layout=gl.SliceLayout(0, GLY))
+        sq, cend, bs, g0, g1, b0, nseg = _gb_range(seq_ptr, gl.program_id(0), P, NB, BP, PW)
+        base = 0
+        for k in range(nseg):
+            b, lo, hi = _gb_seg(sq, cend, bs, g0, g1, b0, k)
+            ntiles = gl.cdiv(gl.maximum(hi - lo, 0), BN)
+            pt_row = pt_ptr + b.to(gl.int64) * MAX_PAGES
+            t = gl.maximum(gl.minimum(lo + n_g, hi - 1), 0)
+            pg = gl.load(pt_row + t // PAGE)
+            for i in range(ntiles + LAG):
+                if i < ntiles:
+                    s = (base + i) % NS
+                    off = ((pg.to(gl.int64) * PAGE + t % PAGE) * ROW_W)[:, None] + c_g[None, :]
+                    t = gl.maximum(gl.minimum(lo + (i + 1) * BN + n_g, hi - 1), 0)
+                    pg = gl.load(pt_row + t // PAGE)
+                    mbarrier.wait(empty.index(s), (((base + i) // NS) & 1) ^ 1)
+                    cp.async_copy_global_to_shared(k_ring.index(s), kbase + off)
+                    cp.async_copy_global_to_shared(v_ring.index(s), vbase + off)
+                cp.commit_group()
+                if i >= LAG:
+                    if i - LAG < ntiles:
+                        sj = (base + i - LAG) % NS
+                        cp.wait_group(LAG)
+                        gl.barrier()
+                        vt = v_ring.index(sj)
+                        vh0.index(sj).store(vt.slice(0, D, 1).load(VL).to(gl.float16))
+                        vh1.index(sj).store(vt.slice(D, D, 1).load(VL).to(gl.float16))
+                        fence_async_shared()
+                        gl.barrier()
+                        mbarrier.arrive(ready.index(sj))
+            base += ntiles
+
+    @gluon.jit
+    def _gb_consumer(seq_ptr, qkv_ptr, q_s, k_ring, vh, ready, empty, P, scale, pacc_ptr, pml_ptr, hh,
+                     HEAD: gl.constexpr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr,
+                     M: gl.constexpr, D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr, NB: gl.constexpr,
+                     BP: gl.constexpr, NSLOT: gl.constexpr):
+        S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
+                                                      instr_shape=[16, BN, 32])
+        O_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
+                                                      instr_shape=[16, D, 16])
+        P_L: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=O_L, k_width=2)
+        QL: gl.constexpr = gl.BlockedLayout([1, 8], [4, 8], [4, 1], [1, 0])
+        QKV_W: gl.constexpr = (2 * HQ + 2 * HKV) * D
+        r = gl.arange(0, M, layout=gl.SliceLayout(1, QL))
+        cq = gl.arange(0, D, layout=gl.SliceLayout(0, QL))
+        n_s = gl.arange(0, BN, layout=gl.SliceLayout(0, S_L))
+        pid = gl.program_id(0)
+        sq, cend, bs, g0, g1, b0, nseg = _gb_range(seq_ptr, pid, P, NB, BP, 4)
+        base = 0
+        for k in range(nseg):
+            b, lo, hi = _gb_seg(sq, cend, bs, g0, g1, b0, k)
+            ntiles = gl.cdiv(gl.maximum(hi - lo, 0), BN)
+            q_off = (b * L + r // G)[:, None] * QKV_W + (hh * G + r % G)[:, None] * D + cq[None, :]
+            x = gl.load(qkv_ptr + q_off).to(gl.float32)
+            q_s.store((x * gl.rsqrt(gl.sum(x * x, 1) / D + 1e-5)[:, None]).to(gl.float8e4nv))
+            fence_async_shared()
+            gl.barrier()
+            m_i = gl.full([M], -1.0e30, gl.float32, layout=gl.SliceLayout(1, S_L))
+            l_i = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, S_L))
+            acc = gl.zeros([M, D], gl.float32, layout=O_L)
+            for i in range(ntiles):
+                s = (base + i) % NS
+                mbarrier.wait(ready.index(s), ((base + i) // NS) & 1)
+                s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                      gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                sc = warpgroup_mma_wait(0, deps=[s_tok])
+                if lo + (i + 1) * BN > hi:
+                    sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+                alpha = gl.exp2(m_i - m_new)
+                p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
+                l_i = l_i * alpha + gl.sum(p, 1)
+                m_i = m_new
+                acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
+                p16 = gl.convert_layout(p.to(gl.float16), P_L)
+                a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
+                acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
+                gl.barrier()
+                mbarrier.arrive(empty.index(s))
+            base += ntiles
+            _gw_store(pacc_ptr, pml_ptr, 0, hh, pid + b, m_i, l_i, acc, HKV, NSLOT, M, D, gl.SliceLayout(1, S_L),
+                      O_L)
+
+    @gluon.jit
+    def _gb_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, pt_ptr, seq_ptr, pacc_ptr, pml_ptr, qk_scale, P,
+                   HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr, D: gl.constexpr,
+                   PAGE: gl.constexpr, MAX_PAGES: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
+                   PW: gl.constexpr, PREGS: gl.constexpr, CREGS: gl.constexpr, LAG: gl.constexpr,
+                   NB: gl.constexpr, BP: gl.constexpr, NSLOT: gl.constexpr):
+        M: gl.constexpr = L * G
+        C: gl.constexpr = 2 * D
+        h = gl.program_id(2) * 2
+        gl.inline_asm_elementwise("griddepcontrol.launch_dependents;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+        ROW_W: gl.constexpr = HKV * D
+        SH8: gl.constexpr = gl.NVMMASharedLayout(swizzle_byte_width=128, element_bitwidth=8, rank=2)
+        SH16: gl.constexpr = gl.NVMMASharedLayout(swizzle_byte_width=128, element_bitwidth=16, rank=2)
+        VSH: gl.constexpr = gl.SwizzledSharedLayout(1, 1, 1, [1, 0])
+        SQ: gl.constexpr = gl.NVMMASharedLayout(swizzle_byte_width=64, element_bitwidth=8, rank=2)
+        k_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, BN, C], SH8)
+        v_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, BN, C], VSH)
+        vh0 = gl.allocate_shared_memory(gl.float16, [NS, BN, D], SH16)
+        vh1 = gl.allocate_shared_memory(gl.float16, [NS, BN, D], SH16)
+        q0 = gl.allocate_shared_memory(gl.float8e4nv, [M, D], SQ)
+        q1 = gl.allocate_shared_memory(gl.float8e4nv, [M, D], SQ)
+        ready = gl.allocate_shared_memory(gl.int64, [NS, 1], mbarrier.MBarrierLayout())
+        empty = gl.allocate_shared_memory(gl.int64, [NS, 1], mbarrier.MBarrierLayout())
+        for j in gl.static_range(NS):
+            mbarrier.init(ready.index(j), count=1)
+            mbarrier.init(empty.index(j), count=2)
+        scale = qk_scale * gl.load(ks_ptr)
+        fence_async_shared()
+        gl.barrier()
+        gl.warp_specialize([
+            (_gb_consumer, (seq_ptr, qkv_ptr, q0, k_ring, vh0, ready, empty, P, scale, pacc_ptr, pml_ptr, h,
+                            0, HQ, HKV, G, L, M, D, BN, NS, NB, BP, NSLOT)),
+            (_gb_consumer, (seq_ptr, qkv_ptr, q1, k_ring, vh1, ready, empty, P, scale, pacc_ptr, pml_ptr, h + 1,
+                            1, HQ, HKV, G, L, M, D, BN, NS, NB, BP, NSLOT)),
+            (_gb_producer, (seq_ptr, pt_ptr, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready, empty,
+                            P, PAGE, MAX_PAGES, ROW_W, BN, C, D, NS, PW, LAG, NB, BP)),
+        ], [4, PW], [CREGS, PREGS])
+        gl.inline_asm_elementwise("griddepcontrol.wait;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+
 
 @triton.jit
 def _norm_rope(ptr, off, ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr, HPP: tl.constexpr):
@@ -552,9 +716,11 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
 @triton.jit
 def _new_tokens(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
                 HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, MG: tl.constexpr,
-                L_PAD: tl.constexpr, D: tl.constexpr, S: tl.constexpr, DOT: tl.constexpr):
+                L_PAD: tl.constexpr, D: tl.constexpr, S: tl.constexpr, DOT: tl.constexpr,
+                BAL: tl.constexpr = False, NSLOT: tl.constexpr = 0, NB: tl.constexpr = 0):
     """For _gw_verify: one program per (request, KV head) stores the block's new keys and values as FP8
-    and attends them causally, into partial slot S (of S + 1)."""
+    and attends them causally, into partial slot S (of S + 1). BAL (_gb_verify): slot NSLOT - NB + b of
+    the head's NSLOT."""
     b = tl.program_id(0)
     hp0 = tl.program_id(1)
     gdc_launch_dependents()
@@ -572,7 +738,11 @@ def _new_tokens(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, seq_ptr, loc_ptr, pacc_
     acc = tl.zeros([MG, D], tl.float32)
     m_i, l_i, acc = _new(0, b, seq, j, q, m_i, l_i, acc, hp0, c, qk_scale * k_scale, k_scale, qkv_ptr, qkv_ptr,
                          kc_ptr, vc_ptr, vs_ptr, loc_ptr, HQ, HKV, 1, L, L_PAD, MG, D, False, S, True, DOT)
-    _finish(S, b, j, m_i, l_i, acc, hp0, 0, rr, rr < MG, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S + 1)
+    if BAL:
+        _finish(NSLOT - NB + b, 0, j, m_i, l_i, acc, hp0, 0, rr, rr < MG, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D,
+                NSLOT)
+    else:
+        _finish(S, b, j, m_i, l_i, acc, hp0, 0, rr, rr < MG, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S + 1)
 
 
 @triton.jit
@@ -614,6 +784,52 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
         si = i + sb
         w = tl.exp2(tl.load(pml_ptr + (row + si * M) * 2, mask=si < S, other=-1.0e30) - m_max)
         a = tl.load(pacc_ptr + (row + si * M)[:, None] * D + d[None, :], mask=(si < S)[:, None], other=0.0)
+        acc += tl.sum(w[:, None] * a, 0)
+    o = acc / denom * tl.load(vs_ptr)
+    o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
+    tl.store(out_ptr + tok * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
+
+
+@triton.jit
+def _combine_bal(qkv_ptr, pacc_ptr, pml_ptr, seq_ptr, vs_ptr, out_ptr, P,
+                 HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
+                 D: tl.constexpr, NB: tl.constexpr, BP: tl.constexpr, NSLOT: tl.constexpr, SB: tl.constexpr,
+                 PDL: tl.constexpr):
+    """_combine for _gb_verify's slots: request b's programs p_first .. p_last wrote slots p + b."""
+    tok = tl.program_id(0)
+    head = tl.program_id(1)
+    b = tok // L
+    h = head // G
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    d = tl.arange(0, D)
+    gate = tl.load(qkv_ptr + tok * QKV_W + (HQ + 2 * HKV) * D + head * D + d).to(tl.float32)
+    bs = tl.arange(0, BP)
+    sq = tl.load(seq_ptr + bs, mask=bs < NB, other=0)
+    tot = tl.sum(sq, 0)
+    cg = tl.maximum(tl.cdiv(tot, P), 1)
+    cs = tl.sum(tl.where(bs < b, sq, 0), 0)
+    seq = tl.sum(tl.where(bs == b, sq, 0), 0)
+    p_first = cs // cg
+    n = tl.where(seq > 0, (cs + seq - 1) // cg - p_first + 1, 0)
+    if PDL:
+        gdc_wait()
+    row = h * NSLOT * M + (tok % L) * G + head % G
+    sb = tl.arange(0, SB)
+    # Slot list: n cached-key slots p_first + b + i, then the new tokens' slot NSLOT - NB + b.
+    m_max = tl.load(pml_ptr + (row + (NSLOT - NB + b) * M) * 2)
+    for i in range(0, n, SB):
+        si = p_first + b + i + sb
+        m_max = tl.maximum(m_max, tl.max(tl.load(pml_ptr + (row + si * M) * 2, mask=i + sb < n, other=-1.0e30), 0))
+    rn = row + (NSLOT - NB + b) * M
+    wn = tl.exp2(tl.load(pml_ptr + rn * 2) - m_max)
+    denom = wn * tl.load(pml_ptr + rn * 2 + 1)
+    acc = wn * tl.load(pacc_ptr + rn * D + d)
+    for i in range(0, n, SB):
+        si = p_first + b + i + sb
+        ok = i + sb < n
+        w = tl.exp2(tl.load(pml_ptr + (row + si * M) * 2, mask=ok, other=-1.0e30) - m_max)
+        denom += tl.sum(w * tl.load(pml_ptr + (row + si * M) * 2 + 1, mask=ok, other=0.0), 0)
+        a = tl.load(pacc_ptr + (row + si * M)[:, None] * D + d[None, :], mask=ok[:, None], other=0.0)
         acc += tl.sum(w[:, None] * a, 0)
     o = acc / denom * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
@@ -764,6 +980,8 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
 
 
 def _verify_gluon(data, cfg, plan):
+    if plan.get("bal"):
+        return _verify_gluon_bal(data, cfg, plan)
     batch, length = cfg["batch"], cfg["q_len"]
     hq, hkv, d = cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
     group = hq // hkv
@@ -791,4 +1009,35 @@ def _verify_gluon(data, cfg, plan):
         qkv, pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=s, S_PAD=triton.next_power_of_2(s),
         SB=min(128, triton.next_power_of_2(s)), PDL=USE_PDL, num_warps=4 if s > 32 else 2, launch_pdl=USE_PDL)
+    return out
+
+
+def _verify_gluon_bal(data, cfg, plan):
+    batch, length = cfg["batch"], cfg["q_len"]
+    hq, hkv, d = cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
+    group = hq // hkv
+    rows = length * group
+    qkv = data["qkv"]
+    device = qkv.device
+    page_table = data["page_table"]
+    progs = plan.get("progs") or plan["splits"] * batch
+    nslot = progs + 2 * batch
+    bp = max(32, triton.next_power_of_2(batch))
+    pacc = torch.empty((hkv, nslot, rows, d), dtype=torch.float32, device=device)
+    pml = torch.empty((hkv, nslot, rows, 2), dtype=torch.float32, device=device)
+    out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
+    qk_scale = cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E
+    _new_tokens[(batch, hkv)](
+        qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], data["seq_lens"], data["cache_loc"],
+        pacc, pml, qk_scale, HQ=hq, HKV=hkv, G=group, L=length, MG=rows, L_PAD=max(16, triton.next_power_of_2(length)),
+        D=d, S=0, DOT=DOT_DTYPE, BAL=True, NSLOT=nslot, NB=batch, num_warps=4)
+    _gb_verify[(progs, 1, hkv // 2)](
+        qkv, data["k_cache"], data["v_cache"], data["k_scale"], page_table, data["seq_lens"], pacc, pml, qk_scale,
+        progs, HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1],
+        BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
+        LAG=plan.get("lag", 1), NB=batch, BP=bp, NSLOT=nslot, num_warps=4, maxnreg=plan["maxnreg"], launch_pdl=True)
+    _combine_bal[(batch * length, hq)](
+        qkv, pacc, pml, data["seq_lens"], data["v_scale"], out, progs,
+        HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, NB=batch, BP=bp, NSLOT=nslot, SB=32, PDL=USE_PDL,
+        num_warps=4, launch_pdl=USE_PDL)
     return out
