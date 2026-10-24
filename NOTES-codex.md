@@ -2958,3 +2958,116 @@ Snapshots: `profiles/session23-*`. Neither STOP file exists.
    earlier paired-head/full-row native designs remain rejected on their timings.
 3. Keep experiment699f81e separate. End on clean pushed codex, remove shared
    claim/post result, and do not wait idle for judge completion.
+
+## Session 24 — 2026-10-24, 02:11–02:19 UTC
+
+### Outcome and production state
+
+Resolved current-source H200 check **24414e478fa345a2** and submitted that exact
+source as **fe512312803447b2**. The native new-value staging experiment does not
+improve the scored shape, so **production is unchanged**. No new check request.
+
+Fetched main at start/end; **origin/main3daf4a4** remains already merged.
+Production SHA256 remains
+`6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf`.
+Native small-sliding attention, its B*Hkv<=16 boundary, small-full reduction,
+Triton/Gluon and plans are unchanged. Existing session21 integrated16/16,
+bench and fresh validation applies; no redundant unchanged-production suite.
+
+### Exact-source H200 qualification
+
+Check **24414e478fa345a2** completed at **02:13:01UTC**: **16/16,2.082939x**,
+CI **[2.051695,2.114183]**, no flags/rejections/errors. Read all12 passing
+profiles; complete status/JSON/log and readable profiles are archived under
+`profiles/session24-current-status.json` and `profiles/submission.24414*`.
+H200 decode1 sliding **5.795us**, decode1/verify1 full **14.895/16.388us**,
+verify16/32 full **153.704/259.405us**. Gluon profile: attention249.2us,
+merge116.1us,new tokens3.4us,GPU busy260.3us; overlapping rows include waiting
+and must not be summed as end-to-end time.
+
+Refreshed board **2.057970x,rank26**, budget6/10checks,2/10scored. Check exceeds
+that best, within overlapping confidence intervals. Submitted unchanged
+submission.py from this branch as **fe512312803447b2**; its content_hash
+`3690964f4e69213c64b1d9903bc486924698d1e57b37fbcae0046f4ea2f1f1b9`
+matches check24414 exactly. Existing local validation applies to this same
+source. The experimental modules are not imported or submitted.
+
+Older scored **78b6db684e514dd6** (exact45c56bc/SHAe9a877984ef7) and new scored
+**fe512312803447b2** remain queued at this writing. Neither is a duplicate
+request; do not resubmit them. Check24414 is now resolved and should not be
+polled again. No Codex scored allowance remains on2026-10-24.
+
+### Native direct new-value staging: rejected
+
+Experiment **2bdea47** is pushed on **codex-exp/cuda-sliding-direct-newv**, starting at
+`experiments/sliding_direct_newv/README.txt`. Sources, reproducible generator,
+raw graph pairs, validation, sanitizer reports and SASS/resources are archived.
+Production evidence copy: `profiles/session24-native-audit.json`.
+
+The existing native sliding kernel stages new V bytes in raw shared memory,
+then synchronizes before other threads convert them into the final FP16 tile.
+The **direct** candidate quantizes new V to identical FP8 bytes, expands those
+bytes to FP16, and writes the final swizzled tile directly. Other threads skip
+that row during conversion. The first barrier still protects zero-filled K
+before new K insertion; the final proxy fence/barrier publishes both operands.
+This removes the middle barrier without changing precision or any attention.
+The **conditional** control retains raw staging but executes the middle barrier
+only in the CTA owning the new token (a CTA-uniform predicate).
+
+Balanced adjacent AB/BA cold-L2 CUDA-graph pairs,60rounds/shape,H100 microseconds:
+
+| shape | base/direct us | direct paired delta | conditional paired delta |
+|---|---:|---:|---:|
+|B1 80K fixed (scored)|4.256/4.288|+0.048|0.000|
+|B2 80K agentic|4.960/4.992|0.000|-0.064|
+|B3 80K agentic|5.248/5.344|+0.112|+0.096|
+|B8 80K agentic|7.264/7.504|+0.192|+0.112|
+
+Each variant has its own paired parent. Short/page64/DP cases are mixed;
+no scored benefit warrants promotion, further sweeps or an experimental check.
+This does not isolate the barrier's latency from added predicates/instructions.
+
+Page1/EARLY SASS base/direct/conditional has **3/2/3 CTA barrier sites**,
+**1056/1088/1056 instructions including padding NOPs**, **52/53/52 F2FP sites**.
+All retain2QGMMA/4HGMMA,74registers,17408shared bytes(cuobjdump)/16384(ptxas),
+zero stack/local memory and spills. Direct EARLY=False compiles to75registers;
+only EARLY=True has runtime coverage. No NCU, dynamic-instruction, occupancy
+or isolated barrier-latency claim.
+
+### Validation and handoff
+
+- Both **16/16** (3native,13production fallback), each followed by the full
+  broad-native bench: **1.920/1.925x** direct/conditional. Experimental local
+  aggregates, not production regressions or H200 estimates.
+- **120 all-native fresh graph replays**,60/variant over10cases: changed QKV,
+  cache/routes/lengths/positions/cache slots, including empty contexts; TP8/DP,
+  pages1/64,scales1/1/64,contexts10–120K,soft/coherent/edge inputs.
+- **24 bit-exact partial/cache comparisons**,12case/seed combinations per variant.
+- Custom drivers lock generation/reference/capture/replay, flush512MB before
+  every timed graph and subtract an empty replay. Full benches run sequentially
+  with our other GPU work and retain bench.py's timing-loop lock.
+- Source generator and audit verify exact native baseline identity and all
+  reported result counts. Final sanitizer/audit completion is recorded below.
+
+Session **0checks,1scored**, no withdrawals. Codex2026-10-24 totals **4/8checks,
+3/3scored**. Official shared usage **6/10checks,3/10scored**, leaving4checks/7scored
+account-wide; the smaller actual check cap is10/day. CLI remains
+`/home/daytona/.okc/bin/okc`; no login, installation or new credentials.
+
+Next cycle: resolve **78b6db684e514dd6** and **fe512312803447b2** without
+resubmitting, read their passing profiles and refresh board/budget. No more
+Codex scored runs today. Fetch/read main and COORD before source work. Close
+this raw-new-V dependency/barrier family along with the earlier L1 micro-work;
+it does not justify revisiting shared-layout, scheduling or merge sweeps.
+Keep experiments separate, finish on clean pushed codex, remove the shared
+claim/post results, and do not wait idle for the judge queue.
+
+Final **02:19UTC**: both variants independently pass **memcheck0errors,
+synccheck0errors,racecheck0hazards/errors/warnings**. Each tool checks12native
+calls per variant (two pages,two scales,three changed-QKV calls), independently
+reducing partials with Torch and checking output/cache. All local processes
+finished. Generated report whitespace was normalized; the audit reran and passed.
+Experiment2bdea47 is pushed separately. Both78b6 andfe512 remain **queued**;
+board2.057970x/rank26,official budget6/10checks,3/10scored. Neither STOP file
+exists. Final source hash and already-merged main3daf4a4 are reconfirmed.
+Shared claim removed and result posted; finish on clean pushed codex.

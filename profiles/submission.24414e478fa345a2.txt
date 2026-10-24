@@ -1,0 +1,95 @@
+Job 24414e478fa345a2
+passed=True speedup=2.0829393400813587 CI=[2.0516952499801384, 2.114183430182579]
+decode 1 sliding: 5.795162 us, 3.539504x
+decode 1 full: 14.894591 us, 2.086126x
+decode 16 sliding: 10.384522 us, 2.582305x
+decode 16 full: 98.680392 us, 2.036473x
+decode 32 sliding: 14.115685 us, 2.198972x
+decode 32 full: 185.606047 us, 2.059847x
+verify 1 sliding: 7.500001 us, 3.029333x
+verify 1 full: 16.387932 us, 2.201620x
+verify 16 sliding: 12.503844 us, 2.316088x
+verify 16 full: 153.704486 us, 1.330449x
+verify 32 sliding: 18.711724 us, 1.842695x
+verify 32 full: 259.404838 us, 1.507882x
+
+{'batch': 1, 'ctx': 80000, 'dist': 'soft', 'heads': 'tp8', 'layer': 'sliding', 'load': 'decode 1', 'page': 1, 'seed': 1630397448297137912, 'weight': 46}
+kernel                                                           GPU time  share  calls
+void sliding<1, true>(__nv_bfloat16 const*, float const*,...       3.1 µs  67.6%      1
+_combine_hb                                                        1.5 µs  32.4%      1
+total                                                              4.5 µs
+
+{'batch': 1, 'ctx': 80000, 'dist': 'coherent', 'heads': 'tp8', 'layer': 'full', 'load': 'decode 1', 'page': 1, 'seed': 1630668357325047645, 'weight': 16}
+kernel                                                           GPU time  share  calls
+_attn_split                                                       10.6 µs  85.5%      1
+void reduce_kernel<8, 16, true>(__nv_bfloat16 const*, flo...       1.8 µs  14.5%      1
+total                                                             12.4 µs
+
+{'batch': 16, 'ctx': 80000, 'dist': 'soft', 'heads': 'tp8', 'layer': 'sliding', 'load': 'decode 16', 'page': 1, 'seed': 1630939266352957379, 'spread': 'agentic', 'weight': 46}
+kernel                                                           GPU time  share  calls
+_attn_split                                                        7.1 µs  81.1%      1
+_combine_hb                                                        1.7 µs  18.9%      1
+total                                                              8.8 µs
+
+{'batch': 16, 'ctx': 80000, 'dist': 'coherent', 'heads': 'tp8', 'layer': 'full', 'load': 'decode 16', 'page': 1, 'seed': 1631210175380867114, 'spread': 'agentic', 'weight': 16}
+kernel                                                           GPU time  share  calls
+_attn_split                                                       94.8 µs  70.5%      1
+_combine                                                          39.7 µs  29.5%      1
+total                                                            134.5 µs
+GPU busy (kernels overlap: PDL or streams)                        98.0 µs
+an overlapping kernel's time includes any wait for the one before it, so the rows add up to more
+
+{'batch': 32, 'ctx': 80000, 'dist': 'soft', 'heads': 'tp8', 'layer': 'sliding', 'load': 'decode 32', 'page': 1, 'seed': 1631481084408776850, 'spread': 'agentic', 'weight': 46}
+kernel                                                           GPU time  share  calls
+_attn_split                                                       11.0 µs  87.9%      1
+_combine_hb                                                        1.5 µs  12.1%      1
+total                                                             12.5 µs
+
+{'batch': 32, 'ctx': 80000, 'dist': 'coherent', 'heads': 'tp8', 'layer': 'full', 'load': 'decode 32', 'page': 1, 'seed': 1631751993436686587, 'spread': 'agentic', 'weight': 16}
+kernel                                                           GPU time  share  calls
+_attn_split                                                      182.3 µs  59.1%      1
+_combine                                                         126.0 µs  40.9%      1
+total                                                            308.3 µs
+GPU busy (kernels overlap: PDL or streams)                       185.7 µs
+an overlapping kernel's time includes any wait for the one before it, so the rows add up to more
+
+{'batch': 1, 'ctx': 80000, 'dist': 'soft', 'heads': 'tp8', 'layer': 'sliding', 'load': 'verify 1', 'page': 1, 'q_len': 8, 'seed': 1632022902464596325, 'weight': 46}
+kernel                                                           GPU time  share  calls
+_attn_split                                                        4.3 µs  73.6%      1
+_combine_hb                                                        1.5 µs  26.4%      1
+total                                                              5.8 µs
+
+{'batch': 1, 'ctx': 80000, 'dist': 'coherent', 'heads': 'tp8', 'layer': 'full', 'load': 'verify 1', 'page': 1, 'q_len': 8, 'seed': 1632293811492506064, 'weight': 16}
+kernel                                                           GPU time  share  calls
+_attn_split                                                       11.8 µs  83.1%      1
+void reduce_kernel<8, 16, true>(__nv_bfloat16 const*, flo...       2.4 µs  16.9%      1
+total                                                             14.2 µs
+
+{'batch': 16, 'ctx': 80000, 'dist': 'soft', 'heads': 'tp8', 'layer': 'sliding', 'load': 'verify 16', 'page': 1, 'q_len': 8, 'seed': 1632564720520415804, 'spread': 'agentic', 'weight': 46}
+kernel                                                           GPU time  share  calls
+_attn_split                                                        9.2 µs  81.8%      1
+_combine_hb                                                        2.0 µs  18.2%      1
+total                                                             11.3 µs
+
+{'batch': 16, 'ctx': 80000, 'dist': 'coherent', 'heads': 'tp8', 'layer': 'full', 'load': 'verify 16', 'page': 1, 'q_len': 8, 'seed': 1632835629548325545, 'spread': 'agentic', 'weight': 16}
+kernel                                                           GPU time  share  calls
+_attn_split                                                      148.6 µs  65.5%      1
+_combine                                                          78.4 µs  34.5%      1
+total                                                            227.1 µs
+GPU busy (kernels overlap: PDL or streams)                       155.2 µs
+an overlapping kernel's time includes any wait for the one before it, so the rows add up to more
+
+{'batch': 32, 'ctx': 80000, 'dist': 'soft', 'heads': 'tp8', 'layer': 'sliding', 'load': 'verify 32', 'page': 1, 'q_len': 8, 'seed': 1633106538576235287, 'spread': 'agentic', 'weight': 46}
+kernel                                                           GPU time  share  calls
+_attn_split                                                       14.9 µs  84.4%      1
+_combine_hb                                                        2.8 µs  15.6%      1
+total                                                             17.7 µs
+
+{'batch': 32, 'ctx': 80000, 'dist': 'coherent', 'heads': 'tp8', 'layer': 'full', 'load': 'verify 32', 'page': 1, 'q_len': 8, 'seed': 1633377447604145030, 'spread': 'agentic', 'weight': 16}
+kernel                                                           GPU time  share  calls
+_gw_verify                                                       249.2 µs  67.6%      1
+_combine                                                         116.1 µs  31.5%      1
+_new_tokens                                                        3.4 µs   0.9%      1
+total                                                            368.6 µs
+GPU busy (kernels overlap: PDL or streams)                       260.3 µs
+an overlapping kernel's time includes any wait for the one before it, so the rows add up to more
