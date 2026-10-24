@@ -389,7 +389,8 @@ if HAVE_GLUON:
     def _gw_consumer_bal(qkv_ptr, q_s, k_ring, vh, ready, empty, seq_ptr, pid, h, scale, pacc_ptr, pml_ptr,
                          HEAD: gl.constexpr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr,
                          B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, NID: gl.constexpr, M: gl.constexpr,
-                         D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr, QREG: gl.constexpr = False):
+                         D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr, QREG: gl.constexpr = False,
+                         DBG: gl.constexpr = 0, dbg_ptr=None):
         """_gw_consumer_cv (PEEL, LSUM) over the program's segments: each loads its request's queries and stores
         its partial at id p + b."""
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
@@ -407,21 +408,14 @@ if HAVE_GLUON:
         for sg in range(nseg):
             b = b_first + sg
             lo, hi, ntiles = _gw_seg(idx, seqv, tiles, start, end, b, BN)
-            if QREG:
-                # Queries loaded straight into QK^T's register A layout (no convert_layout).
+            x = gl.load(qkv_ptr + (b * L + r // G)[:, None] * QKV_W + ((h + HEAD) * G + r % G)[:, None] * D
+                        + cq[None, :]).to(gl.float32)
+            q_s.store((x * gl.rsqrt(gl.sum(x * x, 1) / D + 1e-5)[:, None]).to(gl.float8e4nv))
+            fence_async_shared()
+            gl.barrier()
+            if QREG == 2:
                 QD: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=S_L, k_width=4)
-                rd = gl.arange(0, M, layout=gl.SliceLayout(1, QD))
-                cd = gl.arange(0, D, layout=gl.SliceLayout(0, QD))
-                xd = gl.load(qkv_ptr + (b * L + rd // G)[:, None] * QKV_W + ((h + HEAD) * G + rd % G)[:, None] * D
-                             + cd[None, :]).to(gl.float32)
-                qa = (xd * gl.rsqrt(gl.sum(xd * xd, 1) / D + 1e-5)[:, None]).to(gl.float8e4nv)
-            else:
-                x = gl.load(qkv_ptr + (b * L + r // G)[:, None] * QKV_W + ((h + HEAD) * G + r % G)[:, None] * D
-                            + cq[None, :]).to(gl.float32)
-                q_s.store((x * gl.rsqrt(gl.sum(x * x, 1) / D + 1e-5)[:, None]).to(gl.float8e4nv))
-                fence_async_shared()
-                gl.barrier()
-                qa = q_s
+                qa = q_s.load(QD)
             m_i = gl.full([M], -1.0e30, gl.float32, layout=gl.SliceLayout(1, S_L))
             acc = gl.zeros([M, D], gl.float32, layout=O_L)
             l8 = gl.sum(gl.reshape(gl.zeros([M, BN], gl.float32, S_L), [M, BN // 8, 8]), 1)
@@ -429,9 +423,36 @@ if HAVE_GLUON:
                 s = (it + i) % NS
                 mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
                 # (Synchronous with register queries: an FP8 register operand can't be a wait dependency.)
-                s_tok = warpgroup_mma(qa, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
-                                      gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                if QREG == 2:
+                    # Held in registers; each tile's operand is qa ^ (a loop-variant zero) so ptxas can't fold it
+                    # into qa's registers.
+                    zt = gl.full([M, D], 0, gl.int8, QD) + ((it + i) >> 30).to(gl.int8)
+                    qt = gl.inline_asm_elementwise("xor.b32 $0, $1, $2;", "=r,r,r", [qa, zt], dtype=gl.float8e4nv,
+                                                   is_pure=False, pack=4)
+                elif QREG:
+                    # Queries read into registers each tile (held across the loop, ptxas reused their registers
+                    # after the first tile: NaN scores).
+                    qt = q_s.load(gl.DotOperandLayout(operand_index=0, parent=S_L, k_width=4))
+                else:
+                    qt = q_s
+                s_tok = warpgroup_mma(qt, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                      gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=not QREG)
                 sc = warpgroup_mma_wait(0, deps=[s_tok])
+                if DBG:
+                    t2 = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                       gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                    sc2 = warpgroup_mma_wait(0, deps=[t2])
+                    if DBG == 3:
+                        if (pid == 0) & (sg == 0) & (i == 1):
+                            ro = gl.arange(0, M, layout=gl.SliceLayout(1, S_L))
+                            co = gl.arange(0, BN, layout=gl.SliceLayout(0, S_L))
+                            gl.store(dbg_ptr + HEAD * 2 * M * BN + ro[:, None] * BN + co[None, :], sc)
+                            gl.store(dbg_ptr + (HEAD * 2 + 1) * M * BN + ro[:, None] * BN + co[None, :], sc2)
+                        sc = sc2
+                    elif DBG == 1:
+                        sc = gl.where(gl.abs(sc - sc2) > 0.5, float("nan"), sc2)
+                    else:
+                        sc = sc2
                 if lo + (i + 1) * BN > hi:
                     sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
                 m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
@@ -634,7 +655,8 @@ if HAVE_GLUON:
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
                    R_PAD: gl.constexpr = 1, BAL: gl.constexpr = False, B: gl.constexpr = 1,
-                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, QREG: gl.constexpr = False):
+                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, QREG: gl.constexpr = False,
+                   DBG: gl.constexpr = 0, dbg_ptr=None):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -691,9 +713,9 @@ if HAVE_GLUON:
         if BAL:
             gl.warp_specialize([
                 (_gw_consumer_bal, (qkv_ptr, q0, k_ring, vh0, ready, empty, seq_ptr, split, h, scale, pacc_ptr,
-                                    pml_ptr, 0, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, QREG)),
+                                    pml_ptr, 0, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, QREG, DBG, dbg_ptr)),
                 (_gw_consumer_bal, (qkv_ptr, q1, k_ring, vh1, ready, empty, seq_ptr, split, h, scale, pacc_ptr,
-                                    pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, QREG)),
+                                    pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, QREG, DBG, dbg_ptr)),
                 (_gw_producer_bal, (seq_ptr, pt_ptr, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready,
                                     empty, split, B, B_PAD, NP, MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW,
                                     LAG)),
@@ -1425,7 +1447,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=progs,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 1), BAL=True, QREG=plan.get("qreg", False), B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
+        LAG=plan.get("lag", 1), BAL=True, QREG=plan.get("qreg", False), DBG=plan.get("dbg", 0), dbg_ptr=plan.get("dbg_buf"), B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
         launch_pdl=True)
     hb = plan.get("hb", 2)
     _combine_bal[(batch * length, hq // hb)](
