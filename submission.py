@@ -665,7 +665,8 @@ if HAVE_GLUON:
     def _gw_producer_bal(seq_ptr, pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, p,
                          B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, MAX_PAGES: gl.constexpr,
                          PAGE: gl.constexpr, ROW_W: gl.constexpr, BN: gl.constexpr, C: gl.constexpr,
-                         D: gl.constexpr, NS: gl.constexpr, PW: gl.constexpr, LAG: gl.constexpr):
+                         D: gl.constexpr, NS: gl.constexpr, PW: gl.constexpr, LAG: gl.constexpr,
+                         PTPF: gl.constexpr = 0):
         """_gw_producer_cv over the program's segments (the ring position carries across them)."""
         GLY: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [PW, 1], [1, 0])
         VL: gl.constexpr = gl.BlockedLayout([1, 8], [4, 8], [PW, 1], [1, 0])
@@ -677,6 +678,14 @@ if HAVE_GLUON:
             b = b_first + sg
             lo, hi, ntiles = _gw_seg(idx, seqv, tiles, start, end, b, BN)
             pt_row = pt_ptr + b.to(gl.int64) * MAX_PAGES
+            if PTPF > 0:
+                # L2 prefetch of the segment's page-table entries (one per 128-byte line), so the per-tile entry
+                # loads below (one tile ahead, on the gathers' critical chain) hit L2 instead of DRAM.
+                LPF: gl.constexpr = gl.BlockedLayout([PTPF // (32 * PW)], [32], [PW], [0])
+                ln = gl.arange(0, PTPF, layout=LPF) * (128 // 4 * PAGE)
+                ln = gl.minimum(lo + ln, gl.maximum(hi - 1, 0))
+                gl.inline_asm_elementwise("prefetch.global.L2 [$1];\n\tmov.u32 $0, 0;", "=r,l", [pt_row + ln // PAGE],
+                                          dtype=gl.int32, is_pure=False, pack=1)
             t = gl.maximum(gl.minimum(lo + n_g, hi - 1), 0)
             pg = gl.load(pt_row + t // PAGE)
             for i in range(ntiles + LAG):
@@ -997,7 +1006,7 @@ if HAVE_GLUON:
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
                    R_PAD: gl.constexpr = 1, BAL: gl.constexpr = False, B: gl.constexpr = 1,
-                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1):
+                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, PTPF: gl.constexpr = 0):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -1059,7 +1068,7 @@ if HAVE_GLUON:
                                     pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS)),
                 (_gw_producer_bal, (seq_ptr, pt_ptr, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready,
                                     empty, split, B, B_PAD, NP, MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW,
-                                    LAG)),
+                                    LAG, PTPF)),
             ], [4, PW], [CREGS, PREGS])
         elif LAG:
             gl.warp_specialize([
@@ -1694,7 +1703,7 @@ def _plan(cfg, max_pages, device):
         # real 136.4/255.4 -> 138.8/250.7, batch 40/48/64 real -8.8/-7.1/-8.4. Below 16 pairs the lost in-grid
         # merge (gfuse) costs more than the balance gains (batch 8: +4 us real).
         return dict(gluon=True, splits=splits, block_n=64, stages=3, lag=1, gpeel=True, pw=4,
-                    pregs=40, cregs=96, maxnreg=80, lsum=True, gfuse=True, gbal=USE_GBAL and pairs >= 16, **merge)
+                    pregs=40, cregs=96, maxnreg=80, lsum=True, gfuse=True, gbal=USE_GBAL and pairs >= 16, ptpf=512, **merge)
     fill = {per: max(4, per * sms // pairs) * pairs / (per * sms) for per in (3, 4)}
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
@@ -1847,8 +1856,8 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=progs,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
-        launch_pdl=True)
+        LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, PTPF=plan.get("ptpf", 0), num_warps=4,
+        maxnreg=plan["maxnreg"], launch_pdl=True)
     hb = plan.get("hb", 2)
     _combine_bal[(batch * length, hq // hb)](
         qkv, data["seq_lens"], pacc, pml, data["v_scale"], out,
