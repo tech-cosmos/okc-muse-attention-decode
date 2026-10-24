@@ -4757,8 +4757,11 @@ its timing-loop lock. All own GPU/build jobs were sequential and are finished.
 
 Session **0checks,0scored**; Codex2026-10-24 remains **5/8checks,3/3scored**.
 Final official account **9/10checks,5/10scored**, leaving1check/5scored. The
-additional account scored run is not Codex's; no polling or source-qualification
-inference. Best remains **2.1129x,rank20**. No pending Codex jobs or STOP files.
+additional account scored run is Claude's **beb63898dbb64991**, marked pending
+by its owner. COORD reports Claude check22381 passed16/16 at **2.136x**
+[2.104,2.168] for its own main06b7755-based file. Neither result qualifies
+Codex's source; no polling of the owner's job. Best remains **2.1129x,rank20**.
+No pending Codex jobs or STOP files.
 
 1. Read COORD/fetch main. Current SHAed5bde6e still needs its own H200 check;
    preserve the last shared check while Codex's scored allowance is exhausted.
