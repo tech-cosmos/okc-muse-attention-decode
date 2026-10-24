@@ -1,0 +1,82 @@
+{
+  "production_sha256": "6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf",
+  "main_sha256": "51567b72a7b9fdf9b08dc07757570a453497aa06b587f18006a3503d507f53a1",
+  "main_commit": "3daf4a4",
+  "common_function_asts_identical": [
+    "_attn_split",
+    "_combine",
+    "_combine_hb",
+    "_cos_sin",
+    "_counters",
+    "_finish",
+    "_new",
+    "_new_tokens",
+    "_norm_gate_store",
+    "_norm_rope",
+    "_num_sms",
+    "_plan",
+    "_tile",
+    "_verify_gluon"
+  ],
+  "timing_files": {
+    "initial": {
+      "shapes": 50,
+      "rounds_per_shape": 80,
+      "dispatch_counts": {
+        "native_sliding": 24,
+        "triton_fallback": 13,
+        "native_full_merge": 13
+      }
+    },
+    "split-boundary": {
+      "shapes": 12,
+      "rounds_per_shape": 80,
+      "dispatch_counts": {
+        "triton_fallback": 2,
+        "native_full_merge": 10
+      }
+    },
+    "verify-split-boundary": {
+      "shapes": 2,
+      "rounds_per_shape": 80,
+      "dispatch_counts": {
+        "triton_fallback": 1,
+        "native_full_merge": 1
+      }
+    },
+    "confirmation": {
+      "shapes": 8,
+      "rounds_per_shape": 120,
+      "dispatch_counts": {
+        "native_full_merge": 7,
+        "triton_fallback": 1
+      }
+    }
+  },
+  "total_adjacent_pairs": 6080,
+  "reference_checks_in_timing": 432,
+  "fresh_shapes": 24,
+  "fresh_replays_per_implementation": 96,
+  "fresh_codex_dispatch_counts": {
+    "native_sliding": 28,
+    "triton_fallback": 28,
+    "native_full_merge": 40
+  },
+  "initial_dispatch_ranges": {
+    "native_full_merge": {
+      "count": 24,
+      "median_delta_min_us": -1.9199997186660767,
+      "median_delta_max_us": 0.19199959933757782
+    },
+    "native_sliding": {
+      "count": 24,
+      "median_delta_min_us": -1.3759997673332691,
+      "median_delta_max_us": -0.19199959933757782
+    },
+    "triton_fallback": {
+      "count": 16,
+      "median_delta_min_us": -0.06400048732757568,
+      "median_delta_max_us": 0.2560000866651535
+    }
+  }
+}

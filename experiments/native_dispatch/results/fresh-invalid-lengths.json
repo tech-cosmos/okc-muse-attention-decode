@@ -1,0 +1,19 @@
+[
+  {
+    "index": 0,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "dispatch": "native_sliding",
+    "splits": 32,
+    "replays_per_implementation": 4
+  }
+]

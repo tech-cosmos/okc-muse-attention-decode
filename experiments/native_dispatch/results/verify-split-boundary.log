@@ -1,0 +1,4 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+{"index": 62, "shape": {"batch": 1, "ctx": 8184, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "triton_fallback", "splits": 64, "main_us": 8.191999979317188, "codex_us": 8.25599953532219, "paired_delta_us": 0.06400048732757568, "balanced_block_delta_us": 0.06400025449693203, "block_bootstrap_ci": [-0.039999838918447495, 0.13599987141788006]}
+{"index": 63, "shape": {"batch": 1, "ctx": 8185, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 65, "main_us": 7.279999554157257, "codex_us": 6.591999903321266, "paired_delta_us": -0.7199998944997787, "balanced_block_delta_us": -0.6799998227506876, "block_bootstrap_ci": [-0.743999844416976, -0.6079997401684523]}

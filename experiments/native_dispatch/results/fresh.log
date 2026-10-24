@@ -1,0 +1,218 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+replay 0 0 0
+replay 0 0 1
+replay 0 1 0
+replay 0 1 1
+replay 0 2 0
+replay 0 2 1
+replay 0 3 0
+replay 0 3 1
+PASS fresh {"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "soft", "spread": "fixed"}, "dispatch": "native_sliding", "splits": 32, "replays_per_implementation": 4}
+replay 2 0 0
+replay 2 0 1
+replay 2 1 0
+replay 2 1 1
+replay 2 2 0
+replay 2 2 1
+replay 2 3 0
+replay 2 3 1
+PASS fresh {"index": 2, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "dispatch": "native_sliding", "splits": 32, "replays_per_implementation": 4}
+replay 3 0 0
+replay 3 0 1
+replay 3 1 0
+replay 3 1 1
+replay 3 2 0
+replay 3 2 1
+replay 3 3 0
+replay 3 3 1
+PASS fresh {"index": 3, "shape": {"batch": 9, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "soft", "spread": "agentic"}, "dispatch": "triton_fallback", "splits": 16, "replays_per_implementation": 4}
+replay 8 0 0
+replay 8 0 1
+replay 8 1 0
+replay 8 1 1
+replay 8 2 0
+replay 8 2 1
+replay 8 3 0
+replay 8 3 1
+PASS fresh {"index": 8, "shape": {"batch": 1, "ctx": 63, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "soft", "spread": "fixed"}, "dispatch": "native_sliding", "splits": 1, "replays_per_implementation": 4}
+replay 12 0 0
+replay 12 0 1
+replay 12 1 0
+replay 12 1 1
+replay 12 2 0
+replay 12 2 1
+replay 12 3 0
+replay 12 3 1
+PASS fresh {"index": 12, "shape": {"batch": 1, "ctx": 65, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "soft", "spread": "fixed"}, "dispatch": "native_sliding", "splits": 2, "replays_per_implementation": 4}
+replay 18 0 0
+replay 18 0 1
+replay 18 1 0
+replay 18 1 1
+replay 18 2 0
+replay 18 2 1
+replay 18 3 0
+replay 18 3 1
+PASS fresh {"index": 18, "shape": {"batch": 1, "ctx": 2049, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 1.0, "dist": "soft", "spread": "fixed"}, "dispatch": "native_sliding", "splits": 32, "replays_per_implementation": 4}
+replay 20 0 0
+replay 20 0 1
+replay 20 1 0
+replay 20 1 1
+replay 20 2 0
+replay 20 2 1
+replay 20 3 0
+replay 20 3 1
+PASS fresh {"index": 20, "shape": {"batch": 1, "ctx": 4000, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 0.015625, "dist": "soft", "spread": "fixed"}, "dispatch": "native_sliding", "splits": 32, "replays_per_implementation": 4}
+replay 22 0 0
+replay 22 0 1
+replay 22 1 0
+replay 22 1 1
+replay 22 2 0
+replay 22 2 1
+replay 22 3 0
+replay 22 3 1
+PASS fresh {"index": 22, "shape": {"batch": 1, "ctx": 4000, "heads": "dp", "layer": "sliding", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "soft", "spread": "fixed"}, "dispatch": "native_sliding", "splits": 32, "replays_per_implementation": 4}
+replay 28 0 0
+replay 28 0 1
+replay 28 1 0
+replay 28 1 1
+replay 28 2 0
+replay 28 2 1
+replay 28 3 0
+replay 28 3 1
+PASS fresh {"index": 28, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 126, "replays_per_implementation": 4}
+replay 29 0 0
+replay 29 0 1
+replay 29 1 0
+replay 29 1 1
+replay 29 2 0
+replay 29 2 1
+replay 29 3 0
+replay 29 3 1
+PASS fresh {"index": 29, "shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "agentic"}, "dispatch": "triton_fallback", "splits": 489, "replays_per_implementation": 4}
+replay 34 0 0
+replay 34 0 1
+replay 34 1 0
+replay 34 1 1
+replay 34 2 0
+replay 34 2 1
+replay 34 3 0
+replay 34 3 1
+PASS fresh {"index": 34, "shape": {"batch": 2, "ctx": 120000, "heads": "tp8", "layer": "full", "q_len": 1, "page": 64, "kv_scale": 0.015625, "dist": "coherent", "spread": "agentic"}, "dispatch": "triton_fallback", "splits": 504, "replays_per_implementation": 4}
+replay 40 0 0
+replay 40 0 1
+replay 40 1 0
+replay 40 1 1
+replay 40 2 0
+replay 40 2 1
+replay 40 3 0
+replay 40 3 1
+PASS fresh {"index": 40, "shape": {"batch": 2, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "agentic"}, "dispatch": "native_full_merge", "splits": 112, "replays_per_implementation": 4}
+replay 41 0 0
+replay 41 0 1
+replay 41 1 0
+replay 41 1 1
+replay 41 2 0
+replay 41 2 1
+replay 41 3 0
+replay 41 3 1
+PASS fresh {"index": 41, "shape": {"batch": 3, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "agentic"}, "dispatch": "triton_fallback", "splits": 132, "replays_per_implementation": 4}
+replay 44 0 0
+replay 44 0 1
+replay 44 1 0
+replay 44 1 1
+replay 44 2 0
+replay 44 2 1
+replay 44 3 0
+replay 44 3 1
+PASS fresh {"index": 44, "shape": {"batch": 1, "ctx": 120000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "kv_scale": 0.015625, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 118, "replays_per_implementation": 4}
+replay 46 0 0
+replay 46 0 1
+replay 46 1 0
+replay 46 1 1
+replay 46 2 0
+replay 46 2 1
+replay 46 3 0
+replay 46 3 1
+PASS fresh {"index": 46, "shape": {"batch": 1, "ctx": 1024, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "triton_fallback", "splits": 9, "replays_per_implementation": 4}
+replay 48 0 0
+replay 48 0 1
+replay 48 1 0
+replay 48 1 1
+replay 48 2 0
+replay 48 2 1
+replay 48 3 0
+replay 48 3 1
+PASS fresh {"index": 48, "shape": {"batch": 1, "ctx": 9000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 64, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 71, "replays_per_implementation": 4}
+replay 50 0 0
+replay 50 0 1
+replay 50 1 0
+replay 50 1 1
+replay 50 2 0
+replay 50 2 1
+replay 50 3 0
+replay 50 3 1
+PASS fresh {"index": 50, "shape": {"batch": 1, "ctx": 8191, "heads": "tp8", "layer": "full", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "triton_fallback", "splits": 64, "replays_per_implementation": 4}
+replay 51 0 0
+replay 51 0 1
+replay 51 1 0
+replay 51 1 1
+replay 51 2 0
+replay 51 2 1
+replay 51 3 0
+replay 51 3 1
+PASS fresh {"index": 51, "shape": {"batch": 1, "ctx": 8192, "heads": "tp8", "layer": "full", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 65, "replays_per_implementation": 4}
+replay 54 0 0
+replay 54 0 1
+replay 54 1 0
+replay 54 1 1
+replay 54 2 0
+replay 54 2 1
+replay 54 3 0
+replay 54 3 1
+PASS fresh {"index": 54, "shape": {"batch": 1, "ctx": 8191, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 65, "replays_per_implementation": 4}
+replay 55 0 0
+replay 55 0 1
+replay 55 1 0
+replay 55 1 1
+replay 55 2 0
+replay 55 2 1
+replay 55 3 0
+replay 55 3 1
+PASS fresh {"index": 55, "shape": {"batch": 1, "ctx": 8192, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 65, "replays_per_implementation": 4}
+replay 58 0 0
+replay 58 0 1
+replay 58 1 0
+replay 58 1 1
+replay 58 2 0
+replay 58 2 1
+replay 58 3 0
+replay 58 3 1
+PASS fresh {"index": 58, "shape": {"batch": 2, "ctx": 8191, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 65, "replays_per_implementation": 4}
+replay 59 0 0
+replay 59 0 1
+replay 59 1 0
+replay 59 1 1
+replay 59 2 0
+replay 59 2 1
+replay 59 3 0
+replay 59 3 1
+PASS fresh {"index": 59, "shape": {"batch": 2, "ctx": 8192, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 65, "replays_per_implementation": 4}
+replay 62 0 0
+replay 62 0 1
+replay 62 1 0
+replay 62 1 1
+replay 62 2 0
+replay 62 2 1
+replay 62 3 0
+replay 62 3 1
+PASS fresh {"index": 62, "shape": {"batch": 1, "ctx": 8184, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "triton_fallback", "splits": 64, "replays_per_implementation": 4}
+replay 63 0 0
+replay 63 0 1
+replay 63 1 0
+replay 63 1 1
+replay 63 2 0
+replay 63 2 1
+replay 63 3 0
+replay 63 3 1
+PASS fresh {"index": 63, "shape": {"batch": 1, "ctx": 8185, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "fixed"}, "dispatch": "native_full_merge", "splits": 65, "replays_per_implementation": 4}

@@ -1,0 +1,410 @@
+[
+  {
+    "index": 0,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "dispatch": "native_sliding",
+    "splits": 32,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 2,
+    "shape": {
+      "batch": 8,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "dispatch": "native_sliding",
+    "splits": 32,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 3,
+    "shape": {
+      "batch": 9,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "soft",
+      "spread": "agentic"
+    },
+    "dispatch": "triton_fallback",
+    "splits": 16,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 8,
+    "shape": {
+      "batch": 1,
+      "ctx": 63,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "dispatch": "native_sliding",
+    "splits": 1,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 12,
+    "shape": {
+      "batch": 1,
+      "ctx": 65,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "dispatch": "native_sliding",
+    "splits": 2,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 18,
+    "shape": {
+      "batch": 1,
+      "ctx": 2049,
+      "heads": "tp8",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 1.0,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "dispatch": "native_sliding",
+    "splits": 32,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 20,
+    "shape": {
+      "batch": 1,
+      "ctx": 4000,
+      "heads": "dp",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 0.015625,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "dispatch": "native_sliding",
+    "splits": 32,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 22,
+    "shape": {
+      "batch": 1,
+      "ctx": 4000,
+      "heads": "dp",
+      "layer": "sliding",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "soft",
+      "spread": "fixed"
+    },
+    "dispatch": "native_sliding",
+    "splits": 32,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 28,
+    "shape": {
+      "batch": 1,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 126,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 29,
+    "shape": {
+      "batch": 2,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "triton_fallback",
+    "splits": 489,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 34,
+    "shape": {
+      "batch": 2,
+      "ctx": 120000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "triton_fallback",
+    "splits": 504,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 40,
+    "shape": {
+      "batch": 2,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 112,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 41,
+    "shape": {
+      "batch": 3,
+      "ctx": 80000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "agentic"
+    },
+    "dispatch": "triton_fallback",
+    "splits": 132,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 44,
+    "shape": {
+      "batch": 1,
+      "ctx": 120000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "kv_scale": 0.015625,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 118,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 46,
+    "shape": {
+      "batch": 1,
+      "ctx": 1024,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "triton_fallback",
+    "splits": 9,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 48,
+    "shape": {
+      "batch": 1,
+      "ctx": 9000,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 64,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 71,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 50,
+    "shape": {
+      "batch": 1,
+      "ctx": 8191,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "triton_fallback",
+    "splits": 64,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 51,
+    "shape": {
+      "batch": 1,
+      "ctx": 8192,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 1,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 65,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 54,
+    "shape": {
+      "batch": 1,
+      "ctx": 8191,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 65,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 55,
+    "shape": {
+      "batch": 1,
+      "ctx": 8192,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 65,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 58,
+    "shape": {
+      "batch": 2,
+      "ctx": 8191,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 65,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 59,
+    "shape": {
+      "batch": 2,
+      "ctx": 8192,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 65,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 62,
+    "shape": {
+      "batch": 1,
+      "ctx": 8184,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "triton_fallback",
+    "splits": 64,
+    "replays_per_implementation": 4
+  },
+  {
+    "index": 63,
+    "shape": {
+      "batch": 1,
+      "ctx": 8185,
+      "heads": "tp8",
+      "layer": "full",
+      "q_len": 8,
+      "page": 1,
+      "kv_scale": 1.0,
+      "dist": "coherent",
+      "spread": "fixed"
+    },
+    "dispatch": "native_full_merge",
+    "splits": 65,
+    "replays_per_implementation": 4
+  }
+]

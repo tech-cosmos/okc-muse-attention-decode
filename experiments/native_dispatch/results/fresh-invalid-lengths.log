@@ -1,0 +1,22 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+PASS fresh {"index": 0, "shape": {"batch": 1, "ctx": 80000, "heads": "tp8", "layer": "sliding", "q_len": 1, "page": 1, "kv_scale": 1.0, "dist": "soft", "spread": "fixed"}, "dispatch": "native_sliding", "splits": 32, "replays_per_implementation": 4}
+Traceback (most recent call last):
+  File "/home/daytona/codex-repo/experiments/native_dispatch/audit_dispatch.py", line 150, in <module>
+    (compare if args.mode=='compare' else fresh)(args)
+  File "/home/daytona/codex-repo/experiments/native_dispatch/audit_dispatch.py", line 137, in fresh
+    graph.replay();check(data,out,(index,i,j))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/daytona/codex-repo/experiments/native_dispatch/audit_dispatch.py", line 66, in check
+    torch.cuda.synchronize()
+  File "/home/daytona/okc/lib/python3.12/site-packages/torch/cuda/__init__.py", line 1281, in synchronize
+    return torch._C._cuda_synchronize()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.AcceleratorError: CUDA error: an illegal memory access was encountered
+Search for `cudaErrorIllegalAddress' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+The CUDA driver logged these messages, which may provide useful details:
+Returning 700 (CUDA_ERROR_ILLEGAL_ADDRESS) from cuCtxSynchronize_v2
+
+
