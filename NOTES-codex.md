@@ -4389,7 +4389,7 @@ H200 qualification. No pending Codex jobs; neither STOP file exists.
 4. Keep fded6bf separate. Finish clean on pushed codex, remove the shared claim,
    post results, and stop. No judge job needs waiting.
 
-## Session 36 — 2026-10-24, 04:39–04:56 UTC
+## Session 36 — 2026-10-24, 04:39–04:58 UTC
 
 Completed native **deferred denominator reductions** and integrated main's new
 BF16 partial-storage policy with a native-interface guard. No judge requests.
@@ -4544,8 +4544,10 @@ cold-L2 and empty-replay conventions; source/count/median audit passes.
 ### Budget and next cycle
 
 Session **0checks,0scored**, no withdrawals. Codex2026-10-24 remains
-**5/8checks,3/3scored**. Official account **8/10checks,4/10scored**, leaving
-2checks/6scored; actual account check cap10/day. Best remains **2.1129x,rank20**,
+**5/8checks,3/3scored**. Final official account **9/10checks,4/10scored**, leaving
+1check/6scored; actual account check cap10/day. One additional account check
+appeared at the final read; it was not a Codex request and its owner/ID was not
+yet recorded on COORD. No polling or qualification inference from that job. Best remains **2.1129x,rank20**,
 Claude's d0f30 score. No pending Codex jobs; neither STOP file exists.
 
 1. Read COORD/fetch main. Final SHAed5bde6e requires its own exact-source H200
