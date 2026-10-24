@@ -1443,3 +1443,120 @@ remain **3/8 checks, 2/3 scored**. Shared account at final read: **12/20 checks,
 4. Keep experiments separate and finish on clean, pushed codex. No production
    attention prototype is promoted. Neither STOP file exists. Claim removal and
    shared result posting are part of this handoff.
+
+## Session 12 — 2026-10-23 23:52 to 2026-10-24 00:01 UTC
+
+### Outcome and source state
+
+Completed the session11 QK/V-overlap hypothesis. Native QK now overlaps V
+conversion in generated SASS, but **does not improve large-batch latency**.
+Production remains unchanged; no new judge jobs. Experiments are pushed on
+**codex-exp/cuda-qk-overlap**, source/results **7393688**, final log cleanup
+**79e2e25**. Start with `experiments/qk_overlap/README.txt` on that branch.
+The experiment includes source generation, tests, graph comparisons, fresh-data
+replays, sanitizers, SASS/resource reports and isolated NCU profiles.
+
+Fetched main at start and before finishing; **origin/main 89f8df9** remains
+already merged. Production submission.py remains exact **5e2441f/effc2bf**,
+SHA256 `a66802981a86065ee7647e4b773b9d811db7ac567a76983d544a42fc7a6a59b1`.
+No Triton source/plans were tuned. Existing native small-full reduction stays.
+No redundant production GPU rerun was needed for unchanged source.
+
+### Native scheduling changes
+
+Baseline is session11 rawvk64, with only build/module names changed. Same
+stages4, split heuristic, paired FP8 gathers, query/cache precision, FP16 PV
+operands, FP32 partials, all-key attention and new-token/cache behavior.
+
+- **overlap:** keep K's proxy fence and pre-QK consumer barrier; issue/commit
+  QK, convert/stage V, fence and synchronize V, then wait for QK scores.
+- **latebar:** defer V's publication barrier until after softmax, just before PV.
+- **nobar / latebar_nobar:** respective versions without the extra pre-QK
+  consumer barrier. Each consumer still acquires the completed producer
+  mbarrier and executes K's proxy fence; consumers do not write K. All V stores
+  remain fenced and synchronized before PV; QK scores are untouched until wait.
+  PV still completes before the raw-ring empty-slot release.
+
+SASS confirms QGMMA before the V stores and QK DEPBAR after them, with some V
+loads/conversions interleaved between QK instructions. This is real instruction
+rescheduling, not a throughput win. Removing the pre-QK barrier removes its
+SASS instructions, but an extra proxy fence/MEMBAR remains compared to baseline.
+Conversion, vector-store and matrix-operation counts are unchanged. Compiled
+registers baseline/overlap/latebar/nobar/latebar_nobar **89/91/93/91/93**;
+cuobjdump shared bytes **62,528** (ptxas **61,504**), no spills, two CTAs/SM.
+
+Final isolated same-process H100 cold-L2 CUDA graph medians, empty replay
+subtracted, 60 rotating/reversing rounds and within-round deltas. This is not
+the judge's balanced adjacent-pair estimator; small differences are not robust
+speedup claims. GPU lock covers generation, reference checks, captures and timing.
+
+| full verify | B1 | B16 | B32 |
+|---|---:|---:|---:|
+| production |18.176 us|154.304 us|303.856 us|
+| prior native rawvk64 |33.072|190.240|358.608|
+| overlap |32.640|193.504|366.128|
+| latebar |32.960|195.920|370.144|
+| nobar |33.200|191.152|360.576|
+| latebar_nobar |33.280|193.904|367.408|
+
+Nobar's within-round deltas against prior native are **+1.216 / +2.240 us** at
+B16/B32. It recovers most of the extra-barrier loss but still trails production
+by **19–24%**. The best native building block remains session11 rawvk64.
+
+The first comparison showed the same large-batch regression for overlap/latebar.
+The second exploratory comparison overlapped the validation driver's lifetime:
+reference tests serialized on the GPU lock, but bench.py's unlocked warmups could
+have overlapped its final shape. Do not use that second comparison as clean timing.
+The final all-variant comparison above ran after all other local tests/benches/
+sanitizers finished, before sequential profiles; it is the authoritative result.
+
+### Validation and profiling
+
+- All **four variants pass 16/16** full reference tests: five native full-verify
+  cases, eleven production fallbacks each. Each suite was followed by a full
+  native/fallback bench: **1.702 / 1.683 / 1.685 / 1.693x**, respectively, against
+  fixed SGLang/H200 numbers. These are local experiments, not judge results or
+  production regressions.
+- Nobar and latebar_nobar each pass **42 all-native fresh graph replays** (84
+  combined): seven nearby shapes, TP8/DP, pages1/64, scales1/1/64, contexts10–120K,
+  soft/coherent/edge data, changed QKV/cache/routes/lengths/positions/cache slots,
+  including empty contexts.
+- Isolated native **memcheck 0 errors, synccheck 0 errors, racecheck 0 hazards /
+  errors / warnings**. Each tool runs24 calls across those two variants, four
+  page/scale cases and three changed-QKV calls; torch independently reduces
+  FP32 partials and checks output/cache against reference. No Triton loader.
+- Extra-barrier overlap/latebar have full-suite and scored reference/capture
+  coverage, but no fresh-input/sanitizer claim. Runtime validation is stages4.
+- Final comparison has18 variant/shape entries, checked before/after capture;
+  first comparison12, exploratory second15. Generator reproduces all variants.
+  All local subprocesses completed. Only trailing whitespace/blank lines were
+  removed from generated logs for git hygiene.
+
+Isolated NCU baseline/nobar/latebar_nobar occupancy **28.97/28.53/28.73%**;
+issued warps per scheduler **0.58 for all three**. Shared-load conflicts
+**19/25/21**, store conflicts **747579/766737/688001**. Source-attributed raw-V
+and QK excess shared wavefronts stay zero; gather excess stays **2584128**.
+The extra overlap does not improve useful occupancy or issue throughput. Profiles
+run sequentially after final timing, under the shared GPU lock; no profiler
+latency is used as a graph time. `summary.json` records the validation audit.
+
+### Budget and next cycle
+
+Session12 uses **0 checks, 0 scored**, no withdrawals; no pending Codex jobs.
+UTC day **2026-10-23** closes at Codex **3/8 checks, 2/3 scored**, shared account
+**12/20 checks, 7/10 scored**. Limits reset while wrapping up: final official
+read on **2026-10-24** reports account **0/20 checks, 0/10 scored**; Codex starts
+that day at **0/8 checks, 0/3 scored**. Account best remains **2.020924x, rank22**.
+Snapshots are `profiles/session12-{board,budget}-{start,final}.json`.
+
+1. Fetch/merge main and read COORD.md before source work; preserve ownership.
+   Any new production source needs its own exact-source check beating the current
+   account best before scoring. No jobs from this session need follow-up.
+2. Close QK/V overlap and these barrier placements. Keep session11 rawvk64 as
+   the native building block; more stage/register sweeps are not justified.
+3. The remaining native direction with a concrete motivation is sliding first-
+   gather/prologue overlap from main's session6 notes. It needs a new efficient
+   attention design; the rejected session2 sliding prototype remains too slow.
+   Claim only a distinct structural experiment, not another old-parameter sweep.
+4. Finish on clean pushed codex; experiments stay separate. Neither STOP file
+   exists. Shared claim removal and results posting complete the handoff.
