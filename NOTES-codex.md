@@ -4681,3 +4681,91 @@ inference from that job. No pending Codex jobs. Neither STOP file exists.
    registers. Earlier native attention/gather/query/fusion families stay closed.
 4. Finish clean on pushed codex, remove shared claim, post results and stop.
    No judge job requires waiting; all session work is complete.
+
+## Session 38 — 2026-10-24, 05:12–05:19 UTC
+
+Completed a focused native **denominator-folded RMSNorm** experiment. Correct,
+but no consistent complete-graph win; **production unchanged, no judge requests**.
+Experiment **249da70** (source/results1b6b0d6) is pushed separately on
+**codex-exp/native-homogeneous-norm**. Start with
+`experiments/homogeneous_norm/README.md` there. Frozen sources, generator,
+raw graph pairs, fresh/synthetic checks, SASS/resources and CPU audit are archived.
+Production evidence copy: `profiles/session38-native-audit.json`.
+
+Main06b7755 was already integrated at both fetches. Production kernel stays
+**d125df9**, SHA256
+`ed5bde6e29882a90249d327c30602a9b07e83ad0d710288420c7a6c7eb23f9ca`.
+Native FP32 allocation guard, kernels, dispatch and all shared helpers remain
+unchanged. Session36 exact-source validation still applies; no redundant
+unchanged-production suite. No experimental import was added.
+
+### Mechanism and decision
+
+For numerator n, positive denominator d and cache scale v, replace
+`a=n*v/d; a*rsqrt(mean(a*a)+eps)` with
+`n*v*rsqrt(v*v*mean(n*n)+eps*d*d)`. This preserves epsilon and all denominator
+contributions; no precision reduction or skipped attention. It removes the
+normalization divide from the vector square/reduction dependency chain. Only
+the native full merger's final arithmetic changes. Main/Triton is untouched.
+
+H100 cold-L2 complete CUDA graphs,80adjacent AB/BA pairs/case; microseconds:
+
+| Full case | initial old/candidate | initial paired delta | second-seed delta |
+|---|---:|---:|---:|
+|B1,L1,80K,page1|17.040/17.024|-0.096|+0.176|
+|B1,L8,80K,page1|18.528/18.384|-0.096|-0.096|
+|B1,L1,80K,page64|16.672/16.816|+0.224|-0.016|
+|B1,L8,80K,page64|17.856/17.952|+0.064|-0.160|
+|B2,L8,9K,page64,scaled edges|10.064/10.016|-0.032|-0.032|
+|B2,L8,9K,page1,scaled edges|11.360/11.264|-0.096|+0.128|
+
+Confirmation reverses module/capture order. Mixed small effects, plus unchanged
+control offsets up to0.112us, do not establish a gain. No favorable shape cutoff,
+second precision variant or H200 request justified. Separate medians need not
+subtract to paired medians. Close this standalone algebraic epilogue direction.
+
+### Validation and evidence
+
+- Candidate16/16 then all12bench shapes, local aggregate2.001x against fixed
+  SGLang/H200 times; not an H200 estimate. Only2suite cases reach the changed
+  native merger,14are unchanged controls.
+- 16initial+6confirmation cases: **1760adjacent pairs,132output/cache checks**.
+  Eleven initial and all6confirmation cases reach native;5initial are controls.
+- **128fresh wrapper graph replays**,64/source, including44changed-native and
+  44old-native calls. Fresh QKV/cache/routes/lengths/positions/cache slots,
+  shortened/empty history, pages1/64, scales1/1/64, multiple distributions.
+- Isolated merger **72fresh replays** over12cases: PDL on/off,S1/16/64/65/76/128,
+  L1/8,TP8/DP,empty split groups, zero/near-zero through4.48e8 numerator scales,
+  denominators through1e6 and cache scales1/256,1/64,1,8. Independent float64
+  reference, max relative L2 **0.00176830** including BF16 output rounding.
+  Zero numerators give exact zero. Initial driver stopped on dtype comparison
+  (FP32 actual versus FP64 reference); retained failed log, then corrected
+  check_dtype=False and all72passed. No failed numerical timing was used.
+- Both native specializations retain48registers,3200reported shared bytes,
+  zero local/stack. Reciprocal sites7->6; EX2 remains11. Static sites including
+  padding: non-PDL536->536,PDL544->536. All17coherent PDL loads follow ACQBULK.
+- CPU audit reproduces candidate, verifies all other AST nodes unchanged,
+  complete counts/raw medians and SASS/resources. No new sanitizer/NCU claim:
+  memory accesses and synchronization are unchanged. Generated disassembly
+  trailing whitespace normalized in a follow-up commit, no history rewrite.
+
+Custom drivers lock generation/reference/capture/replay, flush512MB before
+measured graphs, subtract empty replay. Suite holds lock; standard bench keeps
+its timing-loop lock. All own GPU/build jobs were sequential and are finished.
+
+### Budget and next cycle
+
+Session **0checks,0scored**; Codex2026-10-24 remains **5/8checks,3/3scored**.
+Final official account **9/10checks,5/10scored**, leaving1check/5scored. The
+additional account scored run is not Codex's; no polling or source-qualification
+inference. Best remains **2.1129x,rank20**. No pending Codex jobs or STOP files.
+
+1. Read COORD/fetch main. Current SHAed5bde6e still needs its own H200 check;
+   preserve the last shared check while Codex's scored allowance is exhausted.
+2. Retain native FP32 storage guard. Keep249da70 separate. Denominator folding
+   removes an instruction but does not materially shorten the whole graph.
+3. Do not repeat head/token indexing specialization: session4 already removed
+   the divide-heavy prologue and rejected it. Prior dtype, gate scheduling,
+   reduction and fusion variations remain closed. Another native proposal
+   needs a larger critical-work reduction than this epilogue offers.
+4. Finish clean on pushed codex, remove shared claim, record results and stop.
