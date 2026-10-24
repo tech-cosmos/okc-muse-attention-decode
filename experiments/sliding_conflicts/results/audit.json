@@ -1,0 +1,133 @@
+{
+  "production_sha256": "6b171beb8ed5e2a306ff67c3820ba7e83943f73c1a73d7b06eeeb630e0d0eecf",
+  "native_source_equals_production": true,
+  "probes": {
+    "0-0": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 0,
+      "all_source_excess": 0,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 0,
+        "st": 0,
+        "gmma": 0
+      }
+    },
+    "0-1": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 0,
+      "all_source_excess": 0,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 0,
+        "st": 0,
+        "gmma": 0
+      }
+    },
+    "0-2": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 14336,
+      "all_source_excess": 22528,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 8192,
+        "st": 0,
+        "gmma": 0
+      }
+    },
+    "1-0": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 2048,
+      "all_source_excess": 2048,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 0,
+        "st": 0,
+        "gmma": 0
+      }
+    },
+    "1-1": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 2048,
+      "all_source_excess": 2048,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 0,
+        "st": 0,
+        "gmma": 0
+      }
+    },
+    "1-2": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 14336,
+      "all_source_excess": 22528,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 8192,
+        "st": 0,
+        "gmma": 0
+      }
+    },
+    "2-0": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 2048,
+      "all_source_excess": 2048,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 0,
+        "st": 0,
+        "gmma": 0
+      }
+    },
+    "2-1": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 2048,
+      "all_source_excess": 2048,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 0,
+        "st": 0,
+        "gmma": 0
+      }
+    },
+    "2-2": {
+      "copy_instruction_sites": 2,
+      "copy_source_excess": 14336,
+      "all_source_excess": 22528,
+      "copy_source_ideal": 2048,
+      "hardware_conflicts": {
+        "ldgsts": 0,
+        "ld": 8192,
+        "st": 0,
+        "gmma": 0
+      }
+    }
+  },
+  "native": {
+    "copy_instruction_sites": 4,
+    "copy_source_excess": 4104,
+    "all_source_excess": 4104,
+    "copy_source_ideal": 4112,
+    "hardware_conflicts": {
+      "ldgsts": 0,
+      "ld": 0,
+      "st": 0,
+      "gmma": 0
+    }
+  },
+  "fresh_graphs_per_probe": 3,
+  "fresh_graphs_total": 27,
+  "diagnostic_sanitizers": {
+    "memcheck": "permuted source / SW64 only: 3 fresh graphs, 0 errors/hazards",
+    "synccheck": "permuted source / SW64 only: 3 fresh graphs, 0 errors/hazards",
+    "racecheck": "permuted source / SW64 only: 3 fresh graphs, 0 errors/hazards"
+  }
+}

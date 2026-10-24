@@ -1,0 +1,3 @@
+========= COMPUTE-SANITIZER
+PASS source=2 dest=1 fresh_graphs=3 bytes_per_graph=262144
+========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)
