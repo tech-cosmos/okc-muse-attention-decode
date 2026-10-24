@@ -1,0 +1,6 @@
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+env: torch 2.14.1+cu130, triton 3.8.0
+{"index": 1, "shape": {"batch": 5, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "agentic"}, "dispatch": "triton_fallback", "splits": 79, "main_us": 61.02399853989482, "codex_us": 60.959998052567244, "paired_delta_us": 0.0800006091594696, "balanced_block_delta_us": 0.12799911201000214, "block_bootstrap_ci": [-0.360000878572464, 0.5280002951622009]}
+{"index": 2, "shape": {"batch": 6, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "agentic"}, "dispatch": "gluon_fallback", "splits": 45, "main_us": 67.87200039252639, "codex_us": 66.99200114235282, "paired_delta_us": -1.0560005903244019, "balanced_block_delta_us": -0.9360015392303467, "block_bootstrap_ci": [-1.1519994586706161, -0.7839985191822052]}
+{"index": 3, "shape": {"batch": 8, "ctx": 80000, "heads": "tp8", "layer": "full", "q_len": 8, "page": 1, "kv_scale": 1.0, "dist": "coherent", "spread": "agentic"}, "dispatch": "gluon_fallback", "splits": 34, "main_us": 83.67999969050288, "codex_us": 79.53599793836474, "paired_delta_us": -4.240002483129501, "balanced_block_delta_us": -4.120003432035446, "block_bootstrap_ci": [-4.408000037074089, -3.879999741911888]}
