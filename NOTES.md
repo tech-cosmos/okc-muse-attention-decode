@@ -3189,3 +3189,30 @@ kernel at 2.321-2.322, 7f45c5c6's 2.343 looks like a good-noise run. Not submitt
 ### Budget (UTC day 2026-10-24)
 
 This session: 1 check (8bd56b13), 0 scored. Account: 13/20 checks, 9/10 scored.
+
+## Session 74 (overnight agent, 2026-10-24 21:29-~23:00 UTC; unattended session 6 of the #1-push brief)
+
+Board at start: #1 colinlikescode 2.844x, #2 2.726x; ours #15 2.343x (7f45c5c6). Branch **exp/s74**.
+
+### Dead ends (H100, all measured this session; tools/s74)
+
+- **Native nverify (exp/nverify) at verify 1 full** (gbal forced, attention only via tools/s38/gattn.py): fill (264
+  progs) 18.2 us, splits 66/132/200 = 20.9/19.4/17.8 vs Triton main 14.8. Dead at batch 1.
+- **Page-table row prefetch in csl** (prefetch.global.L2 of the whole 320 KB row beside the seq load): decode 1
+  sliding +0.03 (tie), decode 16 sliding +1.34 us (16 x 320 KB of extra traffic). Dead.
+- **TLB warm in csl** (one prefetch per 2 MB of k/v cache + the page-table row, beside the seq load): H100 decode 1
+  sliding -0.03 (6/11), decode 16 +0.21. Kept on exp/s74 gated to batch 1 only to test on the H200 (judge flushes
+  might evict TLB differently); see the check below.
+- **Per-row bulk-copy gathers** (tools/s74/tgather.cu: one producer warp per CTA issues cp.async.bulk 128 B per K/V
+  row into an mbarrier ring): throughput scales only with CTAs per SM, not with stages: best 2.35 TB/s (4000 CTAs,
+  BN 32, NS 4) vs 2.77 for the LSU gather (tools/gather.py). Each issuing warp manages ~1 copy per ~100 cycles. Not
+  a way to cut producer instructions in a native verify-full kernel. Dead.
+- **In-cluster reduce-scatter merge at verify volume** (tools/s74/vmerge.cu: 16-CTA clusters, each CTA's 64x64 FP32
+  partial + m/l to row owners, 4 rows per owner): st.async v2 1.92 us (2 clusters) / 7.7 (32); local staging + one
+  cp.async.bulk shared::cta->cluster per owner 1.76 / 5.9; same without the transfer (cluster barrier exposed +
+  staging + owner merge) 1.1-1.3 / 2.9; plain kernel 0.2-0.4. So the DSMEM transfer is ~0.5-0.7 us at batch 1 and
+  ~3 us at 32 clusters (8.6 MB at ~2.9 TB/s aggregate). A native verify-1-sliding kernel can save at most ~0.5-0.8 us
+  vs Triton + _combine_hb (~1% overall) and loses at batch 16. Parked.
+- H100 sweep near-ties (H200 candidates): verify 16 sliding splits 4 12.99 vs 12.90; verify 1 sliding stages 3 5.60
+  vs 5.58; decode 16 full dbal 134.59 vs 134.35. Clear losers: verify 32 sliding splits 8 / stages 3-4 (+3.2..+3.8),
+  decode 32 sliding splits 4/16 / stages 4 (+2..+3), decode 1 full splits 255/383 (+1.1..+1.9).
