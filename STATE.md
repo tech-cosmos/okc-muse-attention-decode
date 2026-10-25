@@ -1,6 +1,12 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~04:40 UTC (session 87 = unattended session 20 of the #1-push brief).
+Updated 2026-10-25 ~05:15 UTC (session 88 = unattended session 21 of the #1-push brief).
+
+**s88: batch-1 full probes, all dead, no checks** (tools/s88). H100: decode 1 full merge exposure 2.9 us = acc loads 1.0
++ fixed 1.9; native gather floor for its bytes 9.5 us vs `_gd_full` attention 11.7. Dead: `_gd_full` hoisted prologue
+(deeper rings still lose), `_combine` num_ctas 2/4 (+3.4), verify 1 full dual/splits 191-255/peel, uniform-branch tail
+mask (-16% loop instructions, tie). Since 04:09Z agent2 (~/repo2) owns batch 16/32 sliding and gets >= 8 checks/day;
+merge its COORD "Ready to merge" wins. NOTES s88.
 
 **s87: three H100 probes, all dead, no checks** (branch exp/gdpf): verify 1 full / decode 1 full plan knobs at
 optimum; `_gd_full` page-table L2 prefetch = tie (repeat of s32); K/V-row L2 prefetch ahead of the gbal producer
@@ -13,18 +19,8 @@ out-of-line `noinline` redo copy (2x PTX). Loop form (one body in `while go:`, s
 H200 check e1620b92 2.359x (verify 1 sliding 7.32), scored 8aec5993 2.354x (verify 1 sliding 6.91). `_gd_full` loop
 form loses +1.2 H100 (keeps noinline, which is fine in Gluon); verify 1 full SPEC +0.35 H100 (off). NOTES s86.
 
-**s85: SPEC on main (fcc6a51).** Batch 1, page 1: seq = page-table width - L (SGLang slices the table to the longest
-length), loads start at once, real seq_lens checked on device, everything redone on mismatch (bit-identical; never
-depends on the guess). In csl (decode 1 sliding) and `_gd_full` (decode 1 full). H200 checks: f51b8c4b 2.300x (verify
-1 sliding SPEC+pre 2 judged 9.55 vs 7.2: off, not understood), 297d496a 2.347x = tie overall but decode 1 sliding
-5.43 -> 5.18/4.75, decode 1 full 14.73 -> 14.43/13.98 in the two checks. Not submitted (needs > 2.353).
-H100 gather floors (tools/s85/sgather.py): decode 1/16/32 sliding 3.6/6.9/10.1 us vs main 5.95/10.1/15.3. NOTES s85.
-
-**s84: two brief items closed as dead (no checks).** (1) Native verify-1-sliding cluster kernel (tools/s84/vsl.cu,
-FP16 mma.sync, owner-row st.async merge) correct (10x lower error than main) but H100 9.6-9.9 us (cluster per head) /
-11-12 (cluster per request) vs main 7.7: beyond the shared 3-trip chain, compute ~2.3 + in-cluster merge ~2.4 us
-(globaltimer stamps). (2) Physical-order decode full gate: bucketing 2.59M page-table entries by physical window =
-42+ us H100 (page-table read alone ~7; contended global atomics dominate) vs the <= ~5 us gate. NOTES s84.
+**s84-s85 (NOTES has the detail):** s85 SPEC (batch-1 seq from the page-table width) on main; s84 native verify-1-sliding
+cluster kernel lost (H100 9.6 vs 7.7 us), physical-order bucketing pass failed its gate (42+ us).
 
 **s76-s81 (one line each; NOTES has the detail):** s81 LZ 4 FMNMX-free lazy max = H200 tie (f4199324). s80 H200
 bandwidth: decode 32 full bytes dense 144.7 / sorted 148.4 / random ~164 us (`_gd_full` at the random ceiling).
@@ -109,16 +105,14 @@ numbers: NOTES s69.)
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
 
+- s88: `_gd_full` HOIST prologue, `_combine` num_ctas 2/4, verify 1 full dual / splits 191-255 / peel / CM tail mask.
 - s87: plan knobs verify 1 full / decode 1 full (fewer splits, deeper stages), `_gd_full` ptpf, gbal producer K/V
   L2 prefetch-ahead (pfd, incl. evict_last).
 - s86: noinline redo copy in Triton _attn_split (H200 +2 us cold), loop-form SPEC in Gluon _gd_full (+1.2 H100),
   verify 1 full SPEC (+0.35 H100).
-
 - s85: SPEC in _attn_split for verify 1 sliding (H200 judge +2.4 us, unexplained) and verify 1 full (H100 +0.1..0.2).
-
 - s84: native verify-1-sliding cluster kernel (vsl, NPH 8/16), physical-order bucketing pass (bucket.cu, 42+ us),
   verify 1 sliding 64 splits.
-
 - s83: TV (tensor-core V convert in _gw_verify, exp/tv), decode 1 full merge cw/csb/splits.
 
 - s82: F2FP/MUFU pipe sharing (none), verify 1 full on gw_verify (tie/loss), verify full 1 CTA/SM incl. BN 128.
