@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~12:50 UTC (agent2 session 12).
+Updated 2026-10-25 ~13:05 UTC (agent2 session 13).
 
 ## Scope
 
@@ -18,6 +18,10 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Candidates
 
+- (s13) QUEUED for agent2's first check after 00:00Z: agent2-exp/half 0ae2b8a = nvs NV_HALF (CTA per (request,
+  KV head, split), 2 WGs = 2 halves merged in smem, partials halved) + NS 5 LAG 2: H100 paired vs 652f126 verify 16
+  sliding -0.48 (9/9), verify 32 -0.27 (9/9); tests 16/16. Not in Ready to merge until checked. NOTES-agent2 s13.
+
 - (s12) READY TO MERGE (COORD): agent2 652f126 = nds (decode 32 sliding) + nvs verify 16; check 9249146d 2.527x:
   decode 32 sliding 12.20, verify 16 sliding 12.06 (H200). LAG 2 at S 4 reverted (verify 32 15.41 = tie/loss).
 - Checks used by agent2 on 2026-10-25: 5 (+9249146d); account 19/20, the last one left to agent 1.
@@ -25,8 +29,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Ranked ideas
 
-00000. (s12) Nothing queued for checks. Idea: verify CTA per (request, KV head, half window), 2 consumer WGs merged in
-    smem (partials 4 -> 2 MB at verify 32, est. -0.5 us). H200 favors cp.async-ring designs by ~0.5 us vs H100.
+00000. (s13) built as NV_HALF (above). Next: same half split for nds (decode 32), est. <= 0.3 us.
 0000. (s11) merges are the wall (~2 us on the H100 for every split design: PDL release ~0.5 + post-wait partial
     reads ~1.2; last-CTA tails the same). Only csl-style small-CTA clusters hide it (decode 16). New structural ideas
     needed; nds NS 4 at decode 16 = kernel 8.6-8.9 (-1.2 vs NS 3) if a cheap merge ever appears.
