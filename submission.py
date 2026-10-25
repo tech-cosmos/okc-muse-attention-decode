@@ -1356,6 +1356,7 @@ _NDS_SRC = r'''#define NV_NS 3
 #define NV_MAXR 96
 #define NV_PREGS 40
 #define NV_CREGS 152
+#define NV_PAIR 1
 // agent2 nds (decode sliding, both KV heads in one consumer warpgroup) built on nvs: native verify-SLIDING attention (L 8, G 8, D 64, HKV 2, page 1), from tools/s71/nverify.cu.
 // One CTA per (split, request): warpgroup 0 gathers both KV heads' K/V rows (128-B lines) with cp.async and
 // transposes V to FP8 V^T; warpgroups 1/2 (KV head 0/1) normalize + RoPE their queries, run QK^T (FP8 wgmma),
@@ -1463,6 +1464,10 @@ template <int NS> struct Smem {
     alignas(1024) uint8_t knew[BN * 128];      // last split: the 8 new keys as a K tile (rows 0-7; rows 8-63 zero)
     alignas(1024) uint8_t vtnew[2][HD * BN];   // and their V^T (key slots 0-7 of group 0; the rest zero)
 };
+template <int NS> struct Pair {
+    Smem<NS> s[1 + NV_PAIR];
+    float xp[NV_PAIR ? 36 * 32 : 1];  // the odd split's live warp: o (32 per lane) / m / l, [k][lane]
+};
 // Staging swizzle: SW128 (r & 7) for the ldmatrix transpose (8 consecutive rows per phase), else conflict-free for
 // the 4-row register transpose.
 __device__ __forceinline__ uint32_t vsw(int r) { return NV_TR ? (r & 7) : (((r >> 1) & 3) | (((r >> 4) & 1) << 2)); }
@@ -1485,8 +1490,8 @@ __device__ __forceinline__ void cp4ca(uint32_t dst, const void* src) {
 
 template <int NS>
 __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict__ kc, const uint8_t* __restrict__ vc,
-                                         const int* __restrict__ pt, Range rg, int maxp) {
-    const int tid = threadIdx.x;  // 0..127
+                                         const int* __restrict__ pt, Range rg, int maxp, int pbar) {
+    const int tid = threadIdx.x & 127;
     const int total = rg.n;
     const int* ptr = pt + (long long)rg.b * maxp;
     // Warp 0 stages each tile's page-table entries NV_PFD tiles ahead in sm.ptr (2 x 4-byte cp.async per lane: the
@@ -1501,7 +1506,7 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
         for (int j = 0; j < min(NV_PFD, total); ++j) stage(j);
     cp_commit();
     cp_wait<0>();
-    asm volatile("bar.sync 1, 128;" ::: "memory");
+    asm volatile("bar.sync %0, 128;" ::"r"(pbar) : "memory");
     const int grow = tid >> 3;
     const uint32_t kdst = smem_u32(&sm.k[0][0]) + grow * 128, vdst = smem_u32(&sm.vs[0][0]) + grow * 128;
     const int lane = tid & 31;
@@ -1527,7 +1532,7 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
         if (i >= NV_LAG) {
             const int s = (i - NV_LAG) % NS;
             cp_wait<NV_LAG>();
-            asm volatile("bar.sync 1, 128;" ::: "memory");
+            asm volatile("bar.sync %0, 128;" ::"r"(pbar) : "memory");
             {
                 const uint32_t vsb = smem_u32(&sm.vs[s][0]), vtb = smem_u32(&sm.vt[s][0][0]);
                 const int wq = tid >> 5, mi = lane >> 3, ri = lane & 7;
@@ -1672,7 +1677,8 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
                                           const float* __restrict__ cs, Range rg, int split, int S, int qkv_w,
                                           float scale, int win, float* __restrict__ pacc, float* __restrict__ pml,
                                           uint8_t* __restrict__ kc, uint8_t* __restrict__ vc,
-                                          const long long* __restrict__ loc, float ksv, float vsv, __nv_bfloat16* __restrict__ out) {
+                                          const long long* __restrict__ loc, float ksv, float vsv, __nv_bfloat16* __restrict__ out,
+                                          int cbar, int pv, float* __restrict__ xp) {
     const int tid = threadIdx.x & 127, lane = tid & 31, w = tid >> 5;
     uint8_t* qd = &sm.q[0][0];  // [64 rows][128 B] SW128
     const uint32_t qa = smem_u32(qd);
@@ -1685,14 +1691,15 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
 #pragma unroll
             for (int j = 0; j < 4; ++j) vz[tid + 128 * j] = z;
         }
-        if (w > 0) {
-            uint4* qz = reinterpret_cast<uint4*>(qd + 16 * 128);
+        // NV_PAIR: the odd split's live rows are 16-31 (warp 1), so the pair's 2 softmax warps (CTA warps 4 and 13)
+        // sit on different SM sub-partitions.
+        uint4* qz = reinterpret_cast<uint4*>(qd);
 #pragma unroll
-            for (int j = 0; j < 4; ++j) qz[tid - 32 + 96 * j] = z;
-        }
-        asm volatile("bar.sync 2, 128;" ::: "memory");
+        for (int j = 0; j < 4; ++j) qz[tid + 128 * j] = z;
+        asm volatile("bar.sync %0, 128;" ::"r"(cbar) : "memory");
     }
-    if (w == 0) {   // Queries: row r = query head r (KV head r / 8); 2 lanes per row (32 d each).
+    const int lw = NV_PAIR ? pv : 0;  // the live warp
+    if (w == lw) {   // Queries: row 16 lw + r = query head r (KV head r / 8); 2 lanes per row (32 d each).
         const int r = lane >> 1, half = lane & 1, h = r >> 3;
         const int pos = rg.seq;
         const __nv_bfloat16* src = qkv + (long long)b * qkv_w + r * HD + half * 32;
@@ -1728,10 +1735,11 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
 #pragma unroll
         for (int j = 0; j < 8; ++j) pk[j] = pack_e4(x[4 * j], x[4 * j + 1], x[4 * j + 2], x[4 * j + 3]);
         const int c0 = h * 4 + half * 2, z0 = (1 - h) * 4 + half * 2;  // 16-B chunks: live d, zero d
-        *reinterpret_cast<uint4*>(qd + r * 128 + ((c0 ^ (r & 7)) << 4)) = make_uint4(pk[0], pk[1], pk[2], pk[3]);
-        *reinterpret_cast<uint4*>(qd + r * 128 + (((c0 + 1) ^ (r & 7)) << 4)) = make_uint4(pk[4], pk[5], pk[6], pk[7]);
-        *reinterpret_cast<uint4*>(qd + r * 128 + ((z0 ^ (r & 7)) << 4)) = make_uint4(0, 0, 0, 0);
-        *reinterpret_cast<uint4*>(qd + r * 128 + (((z0 + 1) ^ (r & 7)) << 4)) = make_uint4(0, 0, 0, 0);
+        uint8_t* qr = qd + (16 * lw + r) * 128;
+        *reinterpret_cast<uint4*>(qr + ((c0 ^ (r & 7)) << 4)) = make_uint4(pk[0], pk[1], pk[2], pk[3]);
+        *reinterpret_cast<uint4*>(qr + (((c0 + 1) ^ (r & 7)) << 4)) = make_uint4(pk[4], pk[5], pk[6], pk[7]);
+        *reinterpret_cast<uint4*>(qr + ((z0 ^ (r & 7)) << 4)) = make_uint4(0, 0, 0, 0);
+        *reinterpret_cast<uint4*>(qr + (((z0 + 1) ^ (r & 7)) << 4)) = make_uint4(0, 0, 0, 0);
         if (last_split) {
             // The step's new token: lane = KV head (lane / 16), d 4 (lane % 16) + 0..3: RMS-norm + RoPE, E4M3 (as
             // _new), stored into the cache and into the new-token K row 0 / V^T key slot 0.
@@ -1761,7 +1769,7 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
         }
     }
     asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
-    asm volatile("bar.sync 2, 128;" ::: "memory");
+    asm volatile("bar.sync %0, 128;" ::"r"(cbar) : "memory");
     float o[64], s[32];
 #pragma unroll
     for (int i = 0; i < 64; ++i) o[i] = 0.f;
@@ -1769,7 +1777,7 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
     uint32_t pa[8], pb[8];
 #pragma unroll
     for (int i = 0; i < 8; ++i) { pa[i] = 0u; pb[i] = 0u; }
-    const bool live = w == 0;
+    const bool live = w == lw;
     // Window start relative to key lo: keys t < seq - (win - 1) are out.
     const int thr = win > 0 ? rg.seq - (win - 1) - lo : -(1 << 30);
     bool newdone = false;
@@ -1836,6 +1844,36 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
     if (!live) return;
     l[0] += __shfl_xor_sync(0xffffffff, l[0], 1); l[0] += __shfl_xor_sync(0xffffffff, l[0], 2);
     l[1] += __shfl_xor_sync(0xffffffff, l[1], 1); l[1] += __shfl_xor_sync(0xffffffff, l[1], 2);
+#if NV_PAIR
+    // Split pair (2 v, 2 v + 1) in one CTA: the odd split's live warp hands its o / m / l to the even one's through
+    // smem (xp[k][lane], conflict-free); the even one merges and writes partial slot split / 2 of S / 2.
+    if (pv) {
+#pragma unroll
+        for (int j = 0; j < 8; ++j) {
+            xp[(4 * j + 0) * 32 + lane] = o[j * 4 + 0]; xp[(4 * j + 1) * 32 + lane] = o[j * 4 + 1];
+            xp[(4 * j + 2) * 32 + lane] = o[32 + j * 4 + 2]; xp[(4 * j + 3) * 32 + lane] = o[32 + j * 4 + 3];
+        }
+        xp[32 * 32 + lane] = m[0]; xp[33 * 32 + lane] = m[1]; xp[34 * 32 + lane] = l[0]; xp[35 * 32 + lane] = l[1];
+        asm volatile("bar.arrive 5, 64;" ::: "memory");
+        return;
+    }
+    asm volatile("bar.sync 5, 64;" ::: "memory");
+    {
+        const float m0 = xp[32 * 32 + lane], m1 = xp[33 * 32 + lane];
+        const float n0 = fmaxf(m[0], m0), n1 = fmaxf(m[1], m1);
+        const float a0 = ex2(m[0] - n0), b0 = ex2(m0 - n0), a1 = ex2(m[1] - n1), b1 = ex2(m1 - n1);
+        l[0] = l[0] * a0 + xp[34 * 32 + lane] * b0; l[1] = l[1] * a1 + xp[35 * 32 + lane] * b1;
+        m[0] = n0; m[1] = n1;
+#pragma unroll
+        for (int j = 0; j < 8; ++j) {
+            o[j * 4 + 0] = o[j * 4 + 0] * a0 + xp[(4 * j + 0) * 32 + lane] * b0;
+            o[j * 4 + 1] = o[j * 4 + 1] * a0 + xp[(4 * j + 1) * 32 + lane] * b0;
+            o[32 + j * 4 + 2] = o[32 + j * 4 + 2] * a1 + xp[(4 * j + 2) * 32 + lane] * b1;
+            o[32 + j * 4 + 3] = o[32 + j * 4 + 3] * a1 + xp[(4 * j + 3) * 32 + lane] * b1;
+        }
+        split >>= 1; S >>= 1;
+    }
+#endif
     const int ra = lane >> 2;
     const long long part0 = (((long long)b * 2 + 0) * S + split) * 8, part1 = (((long long)b * 2 + 1) * S + split) * 8;
     float* pa0 = pacc + (part0 + ra) * HD;
@@ -1867,22 +1905,29 @@ const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ cs,
                                               float* __restrict__ pml, float qk_scale, int S, int ch, int maxp,
                                               int qkv_w, int win, __nv_bfloat16* __restrict__ out) {
     extern __shared__ __align__(1024) uint8_t smraw[];
-    Smem<NS>& sm = *reinterpret_cast<Smem<NS>*>((reinterpret_cast<uintptr_t>(smraw) + 1023) & ~uintptr_t(1023));
+    Pair<NS>& pr = *reinterpret_cast<Pair<NS>*>((reinterpret_cast<uintptr_t>(smraw) + 1023) & ~uintptr_t(1023));
     asm volatile("griddepcontrol.launch_dependents;" ::: "memory");
-    const int tid = threadIdx.x, wg = tid >> 7;
-    if (tid == 0) {
+    const int tid = threadIdx.x, wg = tid >> 7, pv = NV_PAIR ? tid >> 8 : 0;  // pv: the split of the CTA's pair
+    Smem<NS>& sm = pr.s[pv];
+    if ((tid & 255) == 0) {
         for (int i = 0; i < NS; ++i) { mb_init(&sm.ready[i], 4); mb_init(&sm.empty[i], 4); }
         asm volatile("fence.mbarrier_init.release.cluster;" ::: "memory");
     }
     __syncthreads();
-    const int split = blockIdx.x % S;
-    const Range rg = rng(seq, blockIdx.x / S, split, ch, win);
-    if (wg == 0) {
+    const int split = NV_PAIR ? (blockIdx.x % (S / 2)) * 2 + pv : blockIdx.x % S;
+    const Range rg = rng(seq, blockIdx.x / (S / (1 + NV_PAIR)), split, ch, win);
+    if ((wg & 1) == 0) {
         asm volatile("setmaxnreg.dec.sync.aligned.u32 %0;\n" ::"n"(NV_PREGS));
-        producer<NS>(sm, kc, vc, pt, rg, maxp);
+        if (pv == 0) producer<NS>(pr.s[0], kc, vc, pt, rg, maxp, 1);  // separate copies: immediate barrier ids
+        else producer<NS>(pr.s[NV_PAIR], kc, vc, pt, rg, maxp, 3);
     } else {
         asm volatile("setmaxnreg.inc.sync.aligned.u32 %0;\n" ::"n"(NV_CREGS));
-        dconsumer<NS>(sm, qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0], vsc[0], out);
+        if (pv == 0)
+            dconsumer<NS>(pr.s[0], qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0], vsc[0],
+                          out, 2, 0, pr.xp);
+        else
+            dconsumer<NS>(pr.s[NV_PAIR], qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0],
+                          vsc[0], out, 4, 1, pr.xp);
     }
 }
 }  // namespace nv
@@ -1892,11 +1937,11 @@ void nds(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
          torch::Tensor seq, torch::Tensor pacc, torch::Tensor pml, torch::Tensor out, double qk_scale, int64_t S, int64_t ch,
          int64_t win) {
     auto f = nv::nds<NV_NS>;
-    const int smem = (int)sizeof(nv::Smem<NV_NS>) + 1024;
+    const int smem = (int)sizeof(nv::Pair<NV_NS>) + 1024;
     static bool once = false;
     if (!once) { cudaFuncSetAttribute(f, cudaFuncAttributeMaxDynamicSharedMemorySize, smem); once = true; }
     const int B = (int)seq.size(0);
-    f<<<dim3((unsigned)(S * B)), 256, smem, c10::cuda::getCurrentCUDAStream()>>>(
+    f<<<dim3((unsigned)(S * B / (1 + NV_PAIR))), 256 * (1 + NV_PAIR), smem, c10::cuda::getCurrentCUDAStream()>>>(
         (const __nv_bfloat16*)qkv.data_ptr(), (const float*)cs.data_ptr(), (uint8_t*)kc.data_ptr(),
         (uint8_t*)vc.data_ptr(), (const float*)ks.data_ptr(), (const float*)vsc.data_ptr(),
         (const long long*)loc.data_ptr(), (const int*)pt.data_ptr(),
@@ -1906,7 +1951,7 @@ void nds(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
 '''
 try:
     _NDS = _load_inline(
-        name="muse_nds_a2s10",
+        name="muse_nds_a2s16p",
         cpp_sources="void nds(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, "
                     "int64_t, int64_t, int64_t);",
@@ -1918,6 +1963,7 @@ except Exception as _e:  # noqa: BLE001
 # Decode sliding from this batch on nds (agent2 s10: nvs's producer + ONE consumer warpgroup for both KV heads, 8
 # splits, 2 CTAs/SM at 96 launch registers): H100 decode 32 sliding 15.2 -> ~14.1 us. Batch 16 stays on csl.
 NDS_MIN_BATCH = 32
+NDS_PAIR = '#define NV_PAIR 1' in _NDS_SRC
 
 
 RMS_EPS = 1e-5
@@ -3783,15 +3829,16 @@ def _decode_nds(data, cfg):
     S = 8  # 256 CTAs at batch 32, 2 per SM
     chunk = triton.cdiv(triton.cdiv(cfg["window"], S), 64) * 64
     rows = hq // hkv
-    pacc = torch.empty((batch, hkv, S, rows, d), dtype=torch.float32, device=device)
-    pml = torch.empty((batch, hkv, S, rows, 2), dtype=torch.float32, device=device)
+    SP = S // 2 if NDS_PAIR else S  # partial slots (NV_PAIR: split pairs merged in the CTA)
+    pacc = torch.empty((batch, hkv, SP, rows, d), dtype=torch.float32, device=device)
+    pml = torch.empty((batch, hkv, SP, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
     _NDS.nds(qkv, _cos_sin(cfg["rope_theta"], d, device), data["k_cache"], data["v_cache"], data["k_scale"],
              data["v_scale"], data["cache_loc"], data["page_table"], data["seq_lens"], pacc, pml, out,
              cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E, S, chunk, cfg["window"])
     _combine_hb[(batch, hq // 2)](
         qkv, pacc, pml, data["v_scale"], out,
-        HQ=hq, HKV=hkv, G=rows, L=1, M=rows, D=d, S=S, S_PAD=S, SB=S, HB=2,
+        HQ=hq, HKV=hkv, G=rows, L=1, M=rows, D=d, S=SP, S_PAD=SP, SB=SP, HB=2,
         ONE=MERGE1, PDL=USE_PDL, num_warps=1, launch_pdl=USE_PDL)
     return out
 
