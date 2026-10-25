@@ -1244,7 +1244,7 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
-LZ = 3  # _gw_verify softmax: 3 = exact per-warp lazy max (session 79), 0 = per-tile row max + rescale
+LZ = 10  # _gw_verify softmax: 10 = fixed reference after LZ_PK exact tiles + REDO (s105), 3 = exact per-warp lazy max (s79), 0 = per-tile row max + rescale
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
@@ -1581,6 +1581,8 @@ if HAVE_GLUON:
         a += [f"mul.f32 ${j}, ${j}, {'$130' if j & 2 else '$128'};" for j in range(64)] + ["LZ_SKIP:", "}"]
         return "\n".join(a)
 
+    LZ_PK = gl.constexpr(4)  # LZ 10: exact tiles per segment
+    LZ_DELTA = gl.constexpr(14.0)  # LZ 10: FP16 headroom (binades)
     LZ_ACC = gl.constexpr(_lz_acc_asm())
     LZ_ACC_CON = gl.constexpr(",".join(["=f"] * 64 + ["f"] * 128))
     LZ_ASM = gl.constexpr(_lz_asm())
@@ -1677,38 +1679,83 @@ if HAVE_GLUON:
             m_i = gl.full([M], -1.0e30, gl.float32, layout=gl.SliceLayout(1, S_L))
             acc = gl.zeros([M, D], gl.float32, layout=O_L)
             l8 = gl.sum(gl.reshape(gl.zeros([M, BN], gl.float32, S_L), [M, BN // 8, 8]), 1)
-            for i in range(ntiles):
-                s = (it + i) % NS
-                mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
-                s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
-                                      gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
-                sc = warpgroup_mma_wait(0, deps=[s_tok])
-                if lo + (i + 1) * BN > hi:
-                    sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
-                if LZ:
-                    p, me = gl.inline_asm_elementwise(
-                        LZ_ASM if LZ == 1 else LZ_ASM2, LZ_CON, [sc, gl.zeros([M, BN], gl.float32, S_L) + m_i[:, None],
-                                         gl.zeros([M, BN], gl.float32, S_L) + scale],
-                        dtype=(gl.float32, gl.float32), is_pure=True, pack=32)
-                    m_new = gl.reduce(me, 1, _gw_pick)
-                else:
-                    m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+            if LZ == 10:
+                # Fixed-reference softmax (session 105): the first LZ_PK tiles run the exact update against their
+                # row maxima + LZ_DELTA binades; later tiles exponentiate against that fixed reference (no row max,
+                # no alpha, no acc rescale, no vote: the s78 no-max loop). FP16 P overflows only if a row's scores
+                # grow > 16 + LZ_DELTA binades past the first tiles' max (scored inputs: <= 23.2 at LZ_PK 4, 7 seeds,
+                # tools/s105/growth.py); such rows end with a non-finite acc, store m = +inf, and _combine_bal REDO
+                # recomputes them exactly. Precision: with the max P at 2^-LZ_DELTA the FP16 (subnormal) step is
+                # 2^(LZ_DELTA - 25) of the max, still >= 2x finer than E4M3 P against the exact max (FA3, SGLang).
+                for i in range(gl.minimum(ntiles, LZ_PK)):
+                    s = (it + i) % NS
+                    mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
+                    s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                          gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                    sc = warpgroup_mma_wait(0, deps=[s_tok])
+                    if lo + (i + 1) * BN > hi:
+                        sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                    m_new = gl.maximum(m_i, gl.max(sc, 1) * scale + LZ_DELTA)
                     p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
-                alpha = gl.exp2(m_i - m_new)
-                l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
-                    gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
-                m_i = m_new
-                if LZ >= 3:
-                    acc = gl.inline_asm_elementwise(
-                        LZ_ACC, LZ_ACC_CON, [acc, gl.zeros([M, D], gl.float32, O_L) +
-                                             gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]],
-                        dtype=gl.float32, is_pure=True, pack=64)
-                else:
+                    alpha = gl.exp2(m_i - m_new)
+                    l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
+                        gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                    m_i = m_new
                     acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
-                p16 = gl.convert_layout(p.to(gl.float16), P_L)
-                a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
-                acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
-                mbarrier.arrive(empty.index(s))
+                    p16 = gl.convert_layout(p.to(gl.float16), P_L)
+                    a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
+                    acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
+                    mbarrier.arrive(empty.index(s))
+                for i in range(LZ_PK, ntiles):
+                    s = (it + i) % NS
+                    mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
+                    s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                          gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                    sc = warpgroup_mma_wait(0, deps=[s_tok])
+                    if lo + (i + 1) * BN > hi:
+                        sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                    p = gl.exp2(gl.fma(sc, scale, -m_i[:, None]))
+                    l8 = l8 + gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                    p16 = gl.convert_layout(p.to(gl.float16), P_L)
+                    a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
+                    acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
+                    mbarrier.arrive(empty.index(s))
+                # (x - x != 0 exactly for inf and NaN.)
+                asum = gl.convert_layout(gl.sum(acc, 1), gl.SliceLayout(1, S_L))
+                m_i = gl.where(asum - asum == 0.0, m_i, float("inf"))
+            else:
+                for i in range(ntiles):
+                    s = (it + i) % NS
+                    mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
+                    s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                          gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                    sc = warpgroup_mma_wait(0, deps=[s_tok])
+                    if lo + (i + 1) * BN > hi:
+                        sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                    if LZ:
+                        p, me = gl.inline_asm_elementwise(
+                            LZ_ASM if LZ == 1 else LZ_ASM2, LZ_CON, [sc, gl.zeros([M, BN], gl.float32, S_L) + m_i[:, None],
+                                             gl.zeros([M, BN], gl.float32, S_L) + scale],
+                            dtype=(gl.float32, gl.float32), is_pure=True, pack=32)
+                        m_new = gl.reduce(me, 1, _gw_pick)
+                    else:
+                        m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+                        p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
+                    alpha = gl.exp2(m_i - m_new)
+                    l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
+                        gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                    m_i = m_new
+                    if LZ >= 3:
+                        acc = gl.inline_asm_elementwise(
+                            LZ_ACC, LZ_ACC_CON, [acc, gl.zeros([M, D], gl.float32, O_L) +
+                                                 gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]],
+                            dtype=gl.float32, is_pure=True, pack=64)
+                    else:
+                        acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
+                    p16 = gl.convert_layout(p.to(gl.float16), P_L)
+                    a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
+                    acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
+                    mbarrier.arrive(empty.index(s))
             it += ntiles
             l_i = gl.convert_layout(gl.sum(l8, 1), gl.SliceLayout(1, S_L))
             _gw_store(pacc_ptr, pml_ptr, 0, h + HEAD, pid + b, m_i, l_i, acc, HKV, NID, M, D, gl.SliceLayout(1, S_L),
@@ -2629,7 +2676,8 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
                  HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
                  D: tl.constexpr, B: tl.constexpr, B_PAD: tl.constexpr, P: tl.constexpr, NID: tl.constexpr,
                  BN: tl.constexpr, SB: tl.constexpr, HB: tl.constexpr, ONE: tl.constexpr = True,
-                 PROP: tl.constexpr = False):
+                 PROP: tl.constexpr = False, REDO: tl.constexpr = False, kc_ptr=None, vc_ptr=None, ks_ptr=None,
+                 pt_ptr=None, qk_scale=1.0, MAX_PAGES: tl.constexpr = 1, PAGE: tl.constexpr = 1):
     """_combine_hb for balanced splits (_gw_bal): request b's partials are at ids p + b for the programs p whose
     tile range meets b's tiles, and its new tokens at P + B + b."""
     tok = tl.program_id(0)
@@ -2708,6 +2756,36 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
             denom += tl.sum(w * tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0), 0)
             a = tl.load(pacc_ptr + at[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0).to(tl.float32)
             acc += tl.sum(w[:, :, None] * a, 0)
+    if REDO:
+        if tl.max(m_max, 0) == float("inf"):
+            # Cold path: a _gw_verify LZ 10 partial of these rows overflowed (m = +inf: a row's scores grew by > 30
+            # binades past its segment's first tiles; never seen on the scored data). Recompute the rows' attention over all the
+            # request's cached keys exactly (same FP8 queries and scale, FP32 P), then add the new tokens' partial.
+            ROW_W: tl.constexpr = HKV * D
+            BK: tl.constexpr = 8  # (small: wider tiles cost this kernel registers on the hot path)
+            x = tl.load(qkv_ptr + tok * QKV_W + col).to(tl.float32)
+            q8 = (x * tl.rsqrt(tl.sum(x * x, 1) / D + 1e-5)[:, None]).to(tl.float8e4nv).to(tl.float32)
+            scale = qk_scale * tl.load(ks_ptr)
+            seq = tl.load(seq_ptr + b)
+            kk = tl.arange(0, BK)
+            m_max = tl.load(pml_ptr + nrow * 2)
+            denom = tl.load(pml_ptr + nrow * 2 + 1)
+            acc = tl.load(pacc_ptr + nrow[:, None] * D + d[None, :]).to(tl.float32)
+            for k0 in range(0, seq, BK):
+                t = k0 + kk
+                okk = t < seq
+                pg = tl.load(pt_ptr + b.to(tl.int64) * MAX_PAGES + t // PAGE, mask=okk, other=0)
+                off = ((pg.to(tl.int64) * PAGE + t % PAGE) * ROW_W + h * D)[:, None] + d[None, :]
+                kt = tl.load(kc_ptr + off, mask=okk[:, None], other=0.0).to(tl.float32)
+                vt = tl.load(vc_ptr + off, mask=okk[:, None], other=0.0).to(tl.float32)
+                sc = tl.sum(q8[:, None, :] * kt[None, :, :], 2) * scale
+                sc = tl.where(okk[None, :], sc, float("-inf"))
+                m_new = tl.maximum(m_max, tl.max(sc, 1))
+                alpha = tl.exp2(m_max - m_new)
+                pw = tl.exp2(sc - m_new[:, None])
+                denom = denom * alpha + tl.sum(pw, 1)
+                acc = acc * alpha[:, None] + tl.sum(pw[:, :, None] * vt[None, :, :], 1)
+                m_max = m_new
     o = acc / denom[:, None] * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
     tl.store(out_ptr + tok * HQ * D + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
@@ -3082,6 +3160,8 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         qkv, data["seq_lens"], pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, B=batch, B_PAD=b_pad, P=progs, NID=nid,
         BN=plan["block_n"], SB=plan.get("sb", triton.next_power_of_2(progs // batch + 3)), HB=hb, ONE=MERGE1,
+        REDO=plan.get("lz", LZ) == 10, kc_ptr=data["k_cache"], vc_ptr=data["v_cache"], ks_ptr=data["k_scale"],
+        pt_ptr=page_table, qk_scale=qk_scale, MAX_PAGES=page_table.shape[1], PAGE=cfg["page_size"],
         num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
     return out
 
