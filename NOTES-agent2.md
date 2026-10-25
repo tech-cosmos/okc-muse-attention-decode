@@ -751,3 +751,29 @@ critical path (the producer chain seq -> page table -> rows is). No change shipp
 
 ### Next (unchanged)
 - First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpf 6a9a26a** (verify 32 cl; decode 16/32 pf).
+
+## Session 19 (2026-10-25 15:33 - ~16:00 UTC): nds K-early barrier = small H100 win at decode 32 (0 checks)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main 4c00ee9
+(agent 1 s121/s122 tools/notes) into agent2 (0a8d56c); submission.py unchanged by it.
+
+### K-early barrier in nds (decode 32 sliding), agent2 565c536
+The producer arrives `ready[s]` right after its `cp.async.wait_group` (+ fence.proxy.async), BEFORE the bar.sync and
+the V transpose, then arrives a new `readyv[s]` after the transpose. The consumer waits `ready` before QK(i) (as
+before) and `readyv[sp]` between issuing QK(i) and PV(i-1) (and in the last-tile PV): the V transpose leaves the
+gather -> QK chain. No barrier between softmax and P@V (agent 1's s46 lesson in NOTES.md: that costs more there).
+Results bit-identical in kind (same math), tests 16/16, chk.py 12/12.
+| H100 paired (tools/a2/vab.py) | diff |
+|---|---|
+| nds kr vs agent2 (decode 32), 11 rounds x2 | **-0.06 (10/11), -0.10 (10/11)** |
+| nds kr vs halfpf 6a9a26a (decode 32), 15 rounds | **-0.14 (13/15)** |
+| same in nvs (verify 16 / 32, NV_HALF base) | +0.10 (3/11) / +0.19 (2/11): not applied (nvs is gather-throughput-bound) |
+| nds kr + K and V in separate cp.async groups (wait K first) | +0.24 (1/11): dead |
+Gotcha: adding `readyv` to nvs's Smem moved `xo` off 16-B alignment ("misaligned address" from its float4 stores):
+any Smem field added before xo needs `alignas(16) float xo[...]`.
+Check candidate: **agent2-exp/halfpfkr abc5f38** = halfpf 6a9a26a + kr (merge of agent2 565c536); tests 16/16.
+
+### Next
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpfkr abc5f38** (replaces halfpf 6a9a26a: same code +
+  nds kr). Per shape vs the H200: verify 32 sliding (cl) vs ~15.4, decode 16 sliding (pf) vs 8.13, decode 32 sliding
+  (pf + kr) vs 12.20. List only the winners.

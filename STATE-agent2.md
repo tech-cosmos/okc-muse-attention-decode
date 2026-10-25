@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~15:40 UTC (agent2 session 18; s18 = 3 dead H100 probes, no code change). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
+Updated 2026-10-25 ~16:00 UTC (agent2 session 19; s19 = nds K-early barrier, H100 decode 32 -0.06..-0.14). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
 
 ## Scope
 
@@ -18,7 +18,9 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Candidates
 
-- (s17) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/halfpf 6a9a26a** = half e5f65ed (verify 32 cl, below) +
+- (s19) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/halfpfkr abc5f38** = halfpf 6a9a26a (below) + nds K-early
+  barrier (agent2 565c536: H100 decode 32 -0.14 (13/15) on halfpf). tests 16/16. Same per-shape comparison as below.
+- (s17) superseded by halfpfkr: agent2-exp/halfpf 6a9a26a = half e5f65ed (verify 32 cl, below) +
   pf 946a445 (page-table L2 prefetch in csl/nds: H100 decode 16 -0.11..-0.13, decode 32 -0.06..-0.24). tests 16/16.
   Compare verify 32 sliding vs 15.4, decode 16 vs 8.13, decode 32 vs 12.20 H200; list only winners.
 
@@ -40,6 +42,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+- s19: K-early (readyv) in nvs +0.10/+0.19 verify 16/32; nds K and V in separate cp.async groups +0.24. NOTES-agent2 s19.
 - s18: nds cos/sin trip (constant-position upper bound -0.13), split-major CTA order +0.35, even/odd split halves +0.11. NOTES-agent2 s18.
 - s17: page-table L2 prefetch in nvs (verify 16/32) +0.18/+0.19 (thread 32), +0.32/+0.35 (thread 160). NOTES-agent2 s17.
 - s16: nds split pairs packed in one 512-thread CTA + smem merge (agent2-exp/ndp): +0.74 decode 32 (packaging +0.96,
