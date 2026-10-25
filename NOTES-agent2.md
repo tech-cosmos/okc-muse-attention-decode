@@ -735,7 +735,7 @@ H100 bench decode 16/32 sliding 9.52/13.42, verify 16/32 sliding 13.14/15.87.
 - Same trick elsewhere: agent 1's batched full layers (_gd_full / _gw_verify) read seq -> page table too, but
   their page-table reads are long streams (not on a single chain); probably nothing there.
 
-## Session 18 (2026-10-25 15:12 - ~16:10 UTC): decode 32 head-chain / CTA-order probes, all dead (0 checks)
+## Session 18 (2026-10-25 15:12 - ~15:40 UTC): decode 32 head-chain / CTA-order probes, all dead (0 checks)
 
 Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main 28ba08b
 (agent 1 s119/s120 tools) into agent2; submission.py unchanged.
