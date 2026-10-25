@@ -4859,3 +4859,48 @@ Multi-session; s71's producer contention is the other risk (nverify tied Gluon o
 
 ### Budget (UTC day 2026-10-25)
 - s110: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 111 (unattended session 44, 2026-10-25 11:47 - ~13:20 UTC): native verify-full kernel built, loses (H100 only, no checks)
+
+Board 11:47Z: #1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.460x (8725ba7e). Account: checks 18/20 (2 left =
+agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.** main unchanged (05efdde code).
+
+Built s110's lead on branch **exp/nvf 4eb2b26** (tools/s111/nvf{,2,3,4,5}.cu, build.py, run.py): native verify-full
+(gbal partitions, LZ 10 fixed reference: 4 exact tiles vs row max + 14, then fixed; m = +inf on a non-finite acc for
+REDO), FP16 P @ FP16 V (RS wgmma, V widened from FP8 in smem), FA3 intra-WG pipelining (QK(i) + PV(i-1) in flight
+during softmax(i), one P buffer repacked after PV drains). **Every version passes all 23 cases** (tools/s111/run.py:
+7 gbal cases incl. page 64 + the 16 bench tests, kernel swapped in for `_gw_verify` via a monkeypatch). All are
+slower than Gluon. Timings H100, verify 32 full, us incl. ~15.5 of new-token + merge launches (ABL 9):
+
+| version | layout | real | all-L2 | notes |
+|---|---|---|---|---|
+| Gluon main | 2 CTA/SM x (prod WG + 2 cons WG) | 254.5 | 172.8 | ref |
+| v1 NS 3 | same, prod gathers+widens, cons 104 | 360.7 | | pipelined consumer holds 2 of 3 slots |
+| v1 NS 4 + 2-slot FP16 V ring | same | 298 | | **C7512: ptxas serialized every wgmma** at 104 regs |
+| v2 | 9 warps (1 gather warp), all 112 regs | 391 | | **1 CTA/SM**: an SMSP's 16K regs can't hold 2x9 warps at 112 |
+| v3 | 1 CTA/SM = 2 programs, 20 warps, cons 112 (setmaxnreg pool 96x5 = 32 + 4x112), consumers widen own V half | 278.5 (CVP 0) / 298 (CVP 2) | 203.7 | no C7512 |
+| v4 | v3 but 1 widen warp per program | 311.8 | 304.5 | one widen warp ~2 us/tile: bottleneck |
+| v5 | Gluon layout, 2 gather + 2 widen warps, cons 104 | 283.5 | 222.0 | C7512 again |
+
+v3 ablations (verify 32 full, us incl. 15.5 overhead): producer only (consumers just sync) 260.7; no DRAM (gathers
+only first 4 tiles) 244 (CVP 2) / 181 (CVP 0); no DRAM + no widen 158.9; pure consumer compute (no waits, no widen)
+**145.1, = s110 microbench (127 + overhead)**, and PIPE 0 = PIPE 1 there (145.6 vs 145.1).
+
+Lessons (why the s110 microbench's -22% doesn't transfer):
+- The pipelined consumer has 80 registers in flight (o 32 + S 32 + P 16); ptxas needs >= 112 per consumer thread to
+  keep wgmmas async (C7512 at 104 in every layout; the setmaxnreg pool at 2 CTAs x 12 warps is 80 x 3 = 240 =
+  32 + 2 x 104, so 112 deadlocks: setmaxnreg.inc waits forever; pool must cover pregs + 2 cregs).
+- 112-register consumers fit only as 1 CTA/SM x 2 programs (20 warps), which leaves 4 producer warps/SM for gathers
+  AND the FP8 -> FP16 V widen (Gluon has 8). Widen in the consumers costs ~25% of consumer issue (no-DRAM 145 -> 181);
+  in 1-2 dedicated warps it is the bottleneck. The widen is unavoidable: FP8 P@V needs P in E4M3, which the fixed
+  reference's 14-30 binade range can't use.
+- Gather-only warps with `cp.async.mbarrier.arrive.noinc` (never wait on their own copies) + row indices two tiles
+  ahead in registers spread by shfl work fine (producer-only 260 vs Gluon whole kernel 254; v1-style 253).
+- PIPE 0 = PIPE 1 in the native kernel at 4 consumer WGs/SM: cross-WG overlap already hides the chain, so the
+  pipelining itself may not be worth much at this occupancy; the FIX loop (no max/rescale) is what Gluon LZ 10 has.
+- Dead: native pipelined verify-full at 2 programs/SM in all five layouts. Untried: v5 with a truly unpipelined loop
+  (QK -> wait -> softmax -> PV -> wait: <= 48 regs in flight, no C7512 at 104) = Gluon's loop natively (s71's tie
+  risk; only worth it with a new producer trick).
+
+### Budget (UTC day 2026-10-25)
+- s111: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
