@@ -4428,3 +4428,34 @@ ranges at the same rate, so they sweep the pool from low to high rows roughly in
 
 ### Budget (UTC day 2026-10-25)
 - s99: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
+
+## Session 100 (unattended session 33, 2026-10-25 08:21 - ~09:05 UTC): H200 check of main 1e4c80e (vtk wins, overall tie); launch floor probes
+
+Board 08:55Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; ours 2.445x (08bf9391, not in the top 14 shown).
+No new "Ready to merge" items. Per the human's 08:10Z COORD decision: ONE check of main.
+
+- **check 55444f1953764d0f, main 1e4c80e (vtk verify 1 sliding + s95 red decode 1 full): 2.444x [2.408, 2.481], score
+  1540.78 us vs best 1540.6 = tie, NOT submitted** (the human's condition was "beats 1540.6"). Per shape (H200, us):
+  decode 1 4.65 / 13.98; decode 16 7.94 / 89.85; decode 32 13.79 / 168.80; verify 1 **5.64** / 16.56; verify 16 12.53 /
+  114.16; verify 32 14.90 / 210.12 (sliding / full). **vtk is a real H200 win: verify 1 sliding 6.75-6.96 -> 5.64 us**
+  (profile: vtk::verify 4.7 us alone). The full layers ran slow on this node (decode 32/16 full 168.8/89.9 vs 161.9/86.6
+  in 08bf9391), which ate the gain. Decode 1 full 13.98 (13.53 in 257c10be): noise band. Profiles: csl decode 3.6 us;
+  decode 1 full _gd_full 7.9 + _red_fin 1.7; verify 1 full _attn_split 12.8 + _combine 2.6; verify 32 full _gw_verify
+  204.3, busy 211.4.
+- **Launch floor probes (tools/s100/floor.py, H100, bench.py timing minus the empty graph):** an empty kernel costs 1.89 us
+  at 1x32 threads, 1.95-2.05 at 32x128, 2.18 at 256x128, so the floor is the launch itself, not smem/cluster/params.
+  The minimal batch-1 chain (launch + one page-table load + one dependent random 64-B row load + store per thread):
+  **3.18 us at 32 CTAs, 3.6-3.9 at 256 CTAs.** Against that, H100 csl decode 1 sliding is 5.12 (~1.9 us of compute +
+  merge over the chain) and vtk verify 1 sliding 6.24 (~2.5 us over). These are the only batch-1 sliding headroom
+  (1.5-1.75 % overall per us); s72/s91 split csl's into ~0.8 compute + ~0.8 merge, and the micro-variants tied.
+- H100 bench (session start): geomean 2.038 (decode 1 sliding 5.12, verify 1 sliding 6.24, decode 1 full 13.82).
+
+### Next
+- **First after 00:00Z 2026-10-26: re-check main 1e4c80e; submit if it beats the board best** (expected ~+1.5% from vtk
+  on a normal node).
+- Batch-1 sliding: anything new has to cut csl's/vtk's ~1.9/2.5 us of post-gather compute + merge (e.g. merge with fewer
+  serialized smem/DSMEM hops); the launch and the two DRAM trips (~3.2 us H100) are fixed.
+
+### Budget (UTC day 2026-10-25)
+- s100: 1 check (55444f19), 0 scored. Account: checks 17/20, scored 6/10 (Claude's 6 used; the human's 2 reserve scored
+  runs were not needed). 3 checks left: agent2 <= 2.

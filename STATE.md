@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~08:35 UTC (session 99 = unattended session 32 of the #1-push brief).
+Updated 2026-10-25 ~09:05 UTC (session 100 = unattended session 33 of the #1-push brief).
+
+**s100: H200 check 55444f19 of main 1e4c80e = 2.444x (1540.78 us vs best 1540.6: tie, not submitted). vtk WINS on the H200:
+verify 1 sliding 6.75-6.96 -> 5.64 us; full layers ran slow on that node (decode 32 full 168.8). Launch floor (H100): empty
+kernel 1.9-2.2 us; launch + page-table + gather chain 3.18 us at 32 CTAs (csl 5.12, vtk 6.24). NOTES s100.**
 
 **s99: physical-row order per `_gd_full` program (keys of a program visited low -> high row): H100 ceiling -3.3/-3.5% at
 decode 32/16 full only when aligned to program ranges, but any separate pre-pass costs >= a table copy (9.1/5.9 us) and
@@ -44,6 +48,7 @@ form (+4), same at verify 1 full (exp/redv, tie: 2x atomic volume) and verify 1 
 
 ## Budget (UTC day 2026-10-25; API: `okc problems --json`)
 
+- 2026-10-25 after s100: checks 17/20 (3 left; agent2 <= 2), scored 6/10.
 - 2026-10-25 after s95: checks 16/20 (4 left = agent2's), scored 6/10. After s93: checks 15/20, scored 6/10 (s93: check 13582a1b, submit 8abec5c6). Claude's 6 submits today are USED.
 
 - Today's judge runs are listed in ~/COORD.md "Judge runs" and NOTES s85-s91. Agent2 keeps >= 8 checks/day (it has used 1).
@@ -91,7 +96,8 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- **FIRST after 00:00Z 2026-10-26: check main 1e4c80e (vtk verify 1 sliding + s95 red decode 1 full); submit if > 2.445.**
+- **FIRST after 00:00Z 2026-10-26: RE-check main 1e4c80e (s100 check 55444f19 tied at 2.444 on a slow-full-layer node; vtk
+  is an H200 win, verify 1 sliding 5.64); submit if it beats the board best.**
 
 - (75081b1's decode 1 full -0.6 us H200 is included in 1e4c80e.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
