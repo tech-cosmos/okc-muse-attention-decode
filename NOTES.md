@@ -4945,3 +4945,45 @@ merge". Account at start: checks 19/20, scored 8/10 (Claude's 6 submits for the 
 
 ### Budget (UTC day 2026-10-25)
 - s112: 1 check (2d0bfdc6), 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 113 (unattended session 46, 2026-10-25 13:32 - ~14:35 UTC): batch-1 full warm/cold split, exp/hdiag3, FPIPE dead (no checks)
+
+Board 13:32Z: #1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). Account: checks 20/20 (0 left
+today), scored 8/10. No new "Ready to merge". **0 checks, 0 scored.** main code unchanged (f2b1c52). H100 bench at start
+2.063 (decode 1 4.99 / 14.02, verify 1 6.24 / 17.26). Tools: tools/s113/ (on exp/fpipe and exp/hdiag3): d1f.py (s101
+decomposition, env WARM=1 = no flush at all), d1warm.py (plan variants cold vs "warm"; its warm column subtracts a cold
+empty replay, so only compare within a column), cmp.py (outputs under two plan overrides, 2 seeds).
+
+### Batch-1 full, H100 cold vs fully warm (tools/s113/d1f.py, us; whole / first kernel only / merge only)
+- decode 1 full: cold 14.0 / 12.2 / 3.3; **warm 8.2 / 6.3 / 1.8**. Warm first kernel ~4.4 us after the ~1.9 launch =
+  ~L2-bandwidth time for 20 MB: decode 1 full is memory-system-bound in both regimes. Deeper stages / more splits are
+  worse even warm (d1warm: base best; stages 3/4 +0.6/+1.1, splits 1023 +0.4, 255 +3.3).
+- verify 1 full: cold 17.3 / 14.9 / 5.0; **warm 13.7 / 10.5 / 2.2**, i.e. ~4.2 us over decode 1 full on the same bytes
+  even from L2 = the consumer chain (s90's read). CUPTI cold: _attn_split 13.98 vs hfloor (pure gather) 9.25.
+- s110 cmicro (consumer-only, smem-resident) at verify-1 size (127 CTAs x 10 tiles, FIX): 0.50 us/tile unpipelined,
+  0.41 pipelined vs Triton's ~0.9 us/tile (with gathers). On the H100 the gathers (~0.76 us/tile-equivalent) are as slow
+  as Triton's chain, so a pipelined consumer can't show there; only the H200 (gathers ~1.4x faster) could pay, ~1 us.
+
+### FPIPE (exp/fpipe ff8a1f0-ish, plan fix 101): DEAD
+Fixed-reference loop software-pipelined by hand in _attn_body (QK^T of tile i issued before P@V of tile i-1; P/V of the
+previous tile carried as FP16 registers). Bit-identical output (cmp.py: 0.0 diff, 2 seeds). H100 verify 1 full +1.0 us
+cold / +0.55 warm (stages 6 / 4: worse). SASS: Triton still `WARPGROUP.DEPBAR.LE gsb0, 0x0` right after each wgmma (no
+overlap) and adds 8 BAR.SYNCs per tile for the carried operands. Triton can't express FA3 intra-WG pipelining; it needs
+Gluon/native (and s109's gw at verify 1 full only reached 13.54 vs 13.98 kernel + a 4.2 us _new_tokens kernel).
+
+### exp/hdiag3 (pushed; DIAG ONLY, never submit) = main f2b1c52 + exp/hdiag2's machinery (clean merge)
+Dropped the H200-verified pairs (LZ 3/10, red/nored, fix 0/1). Kept decode 1 full plan variants + floors; added verify 1
+full variants with more bytes in flight / shorter chains (`v1s10`, `v1s12`, `v1p255`, `v1p255s5`, `v1p191`, `v1gw`) +
+`v1fl2/v1fl4/v1dense` floors; verify/decode 32 full floors. Tests 16/16. H100 dry run (CUPTI, cold): v1a 13.98, s10
+14.43, s12 14.98, p255 14.88, p191 14.43, gw 13.54 (+ new_tokens 4.19); hfloor 9.25 / dense 8.67; d1a 11.62, s3 11.87,
+s4 12.51, p1023 12.03. Read `<variant>_attn_split` / `_gd_full` / `hfloor` durations; merges are PDL (durations include
+waiting). This is the s112 "first after 00:00Z" diag (use hdiag3 instead of hdiag2).
+
+### Next
+- After 00:00Z 2026-10-26: check exp/hdiag3. If the H200 hfloor at batch 1 full is <= ~7 us while `_gd_full` / 
+  `_attn_split` stay ~8 / ~13, batch-1 full has real headroom (decode 1 full -> native/Gluon with more in flight; verify 1
+  full -> a pipelined Gluon/native consumer). If any v1/d1 plan variant beats v1a/d1a on the H200 by > 0.3 us, port it.
+- Agent2's NV_HALF (verify 16 sliding -0.27 H200, s112) is the only known pending per-shape win: merge when listed.
+
+### Budget (UTC day 2026-10-25)
+- s113: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.

@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~14:20 UTC (session 112 = unattended session 45 of the #1-push brief).
+Updated 2026-10-25 ~14:35 UTC (session 113 = unattended session 46 of the #1-push brief).
+
+**s113 (0 checks): H100 warm/cold split: decode 1 full is memory-bound (warm 8.2 vs cold 14.0); verify 1 full carries ~4.2 us
+of consumer chain over decode 1 full even warm. FPIPE (hand-pipelined Triton loop) DEAD (+1.0, Triton waits 0 per wgmma).
+Built exp/hdiag3 (main f2b1c52 + diag; replaces hdiag2): the FIRST check after 00:00Z. NOTES s113.**
 
 **s112: check 2d0bfdc6 (main + agent2 NV_HALF) 2.507x: NV_HALF wins verify 16 sliding 11.63 (vs 11.90), ties verify 32 sliding;
 overall drop is noise on untouched shapes. Checks 20/20 used today. Per-us lever table in NOTES s112. Next: H200 batch-1 gather floor (hdiag2).**
@@ -93,6 +97,7 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
+- **s113: use exp/hdiag3 (pushed; main f2b1c52 + diag, obsolete pairs dropped, verify 1 full in-flight variants added) instead of hdiag2.**
 - **s112 FIRST after 00:00Z 2026-10-26: check exp/hdiag2 98153b5 (diag) mainly for the `hfloor` batch-1 full floors on the H200 (decides whether decode/verify 1 full has 3-4 us of headroom).** NV_HALF verify 16 sliding is H200-verified (agent2 to list it in Ready to merge).
 
 - **FIRST after 00:00Z 2026-10-26: main's s103/s105/s106 changes are now inside scored e64d3450 (2.542x); compare its per-shape
@@ -106,6 +111,7 @@ numbers: NOTES s69.)
 
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s113: FPIPE (hand-pipelined fixed-reference loop in Triton _attn_split: no wgmma overlap, +8 barriers/tile).
 - s111: native pipelined verify-full (exp/nvf v1-v5): C7512 at 104 regs, 1 CTA/SM x 2 programs starves the V widen.
 - s110: pipelined LZ 10 loop in Gluon (C7512 at 2 CTAs/SM; 1 CTA/SM +24 us), ones-column (n72) row sums (ceiling 0).
 - s109: csl keys per warp 16 (w8) / 128 (w1, no premerge) vs 32; gw / gbal Gluon at verify 1 full even with LZ 10.
