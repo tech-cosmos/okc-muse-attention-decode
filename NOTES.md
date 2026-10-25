@@ -4459,3 +4459,43 @@ No new "Ready to merge" items. Per the human's 08:10Z COORD decision: ONE check 
 ### Budget (UTC day 2026-10-25)
 - s100: 1 check (55444f19), 0 scored. Account: checks 17/20, scored 6/10 (Claude's 6 used; the human's 2 reserve scored
   runs were not needed). 3 checks left: agent2 <= 2.
+
+## Session 101 (unattended session 34, 2026-10-25 08:33 - ~09:30 UTC): verify-full consumer probes dead; decoupled V ring (nh) H200 diag
+
+Board 08:35Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391, below #16 shown). No "Ready to merge".
+
+### Dead ends (H100, tools/s101/cmicro.cu = s69 consumer-only microbench + variants; verify-32-sized work)
+- **FA3 inter-WG ping-pong** (named barriers alternate the two consumer WGs' softmax; PING 1 = release after softmax,
+  2 = after the P@V issue): 165.9 / 163.9 vs base 162.8 us at 2 CTAs/SM; 1 CTA/SM 162.9 vs 165.5 (helps only at 1 CTA/SM,
+  still no better than base). Dead.
+- **Dual-head ILP** (one WG runs both KV heads, two independent softmax chains per warp): 176.7 us at 8 warps/SM vs 161.6
+  base; at 16 warps/SM (4 CTAs) it cannot fit 128 regs (spills: 291-473 us). Dead.
+- (s69 recap: no MUFU 145, so XU is not the limiter; poly exp lost.) The native consumer floor stays ~160 us H100.
+- ncu `_gw_verify` verify 32 full (H100 real, DRAM 78%): issue 50%, eligible 1.14/scheduler, stalls per issue
+  long_sb 2.20, wait 2.03, barrier 1.69, not_selected 1.19, mio 0.85, math_pipe 0.42.
+- **Decode 1 full**: CUPTI (tools/s101/prof.py): H100 `_gd_full` duration 11.0 us (no hidden launch gap: starts 2.3 us after the flush
+  ends), `_red_fin` ends 1.9 us later; csl 3.9 us. Splits 511/767/1023: 13.97/13.95/14.06 (2047: 18.0; BN 16 / stages 3
+  +0.8): not occupancy-limited. tools/s101/d1f.py: decode 1 full first kernel alone 12.2, merge alone 3.5; verify 1 full
+  15.4 / 5.2 (whole 17.7).
+
+### exp/vhring: FP16 V ring decoupled from the FP8 ring (plan key `nh`, _gw_verify gbal)
+Hypothesis (Little's law): with NS 3, LAG 1 and the FP16 V tile sharing the FP8 slot, ~1 tile (16 KB) per CTA is in
+flight = 32 KB/SM, under the H200's ~60-90 KB need at 4 TB/s x 2 us loaded latency (= the s77 overlap loss 209 vs
+max(171, 167)). nh 2: vh0/vh1 get their own 2-deep ring (barrier vempty, freed after P@V), the FP8 K/V slot is freed
+right after QK^T, NS 4 at the same 96 KB. Bit-identical output, tests pass.
+H100 (tools/s101/nh.py, 5 rounds): verify 32 full real 264.3 -> 263.7 (nh2 s4) / 262.7 (+lag 2); all-L2 230.6 -> 237.2;
+verify 16 real 138.8 -> 139.0, all-L2 105.3 -> 105.5. nh 3 s4 = 1 CTA/SM (+46). H100 can't decide it (DRAM-bound).
+- **H200 diag check 6d7905ae60434251 (exp/vhdiag, diag only, never submit; score meaningless)**: L2-flushed renamed copies (us):
+  verify 16 full base_a 105.8 / base_b 106.9 | nh2s4 108.1 / 107.8 | nh2s4 lag2 107.5 | nh2s3 106.5;
+  verify 32 full base_a 203.6 / base_b 204.0 | nh2s4 204.3 / 205.6 | lag2 202.1 | nh2s3 204.0. **Dead**: more gathers in
+  flight do not reduce the H200 overlap loss, so it is not ring depth / latency coverage. (With s87 pfd, both
+  "more in flight" levers are now closed; the loss must be issue/smem contention between producer and consumers.)
+  Branches exp/vhring (plan key nh, default off) and exp/vhdiag pushed; main unchanged.
+
+### Next
+- First after 00:00Z 2026-10-26: re-check main 1e4c80e (unchanged queue).
+- Verify full: the producer/consumer contention (not depth) is the remaining overlap loss; only a cut in producer
+  issue/smem traffic per tile can help (V convert ~5-7 us H200, s77). Consumer variants are exhausted (s37, s69, s101).
+
+### Budget (UTC day 2026-10-25)
+- s101: 1 check (6d7905ae diag), 0 scored. Account: checks 18/20 (2 left = agent2's), scored 6/10.

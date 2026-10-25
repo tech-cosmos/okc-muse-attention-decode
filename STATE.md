@@ -1,6 +1,11 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~09:05 UTC (session 100 = unattended session 33 of the #1-push brief).
+Updated 2026-10-25 ~09:15 UTC (session 101 = unattended session 34 of the #1-push brief).
+
+**s101: verify-full H200 overlap loss is NOT ring depth: diag check 6d7905ae (exp/vhdiag) of a decoupled FP16 V ring
+(exp/vhring, plan nh 2 / NS 4: 2 tiles in flight per CTA instead of 1) = tie/loss (verify 16 full 105.8-106.9 base vs
+107.8-108.1; verify 32 203.6-204.0 vs 204.3-205.6). Microbench dead: inter-WG ping-pong, dual-head ILP. Decode 1 full
+splits 511-1023 flat (not occupancy). main unchanged 1e4c80e. NOTES s101.**
 
 **s100: H200 check 55444f19 of main 1e4c80e = 2.444x (1540.78 us vs best 1540.6: tie, not submitted). vtk WINS on the H200:
 verify 1 sliding 6.75-6.96 -> 5.64 us; full layers ran slow on that node (decode 32 full 168.8). Launch floor (H100): empty
@@ -48,6 +53,7 @@ form (+4), same at verify 1 full (exp/redv, tie: 2x atomic volume) and verify 1 
 
 ## Budget (UTC day 2026-10-25; API: `okc problems --json`)
 
+- 2026-10-25 after s101: checks 18/20 (2 left = agent2's), scored 6/10.
 - 2026-10-25 after s100: checks 17/20 (3 left; agent2 <= 2), scored 6/10.
 - 2026-10-25 after s95: checks 16/20 (4 left = agent2's), scored 6/10. After s93: checks 15/20, scored 6/10 (s93: check 13582a1b, submit 8abec5c6). Claude's 6 submits today are USED.
 
@@ -103,6 +109,8 @@ numbers: NOTES s69.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s101: decoupled V ring / more gathers in flight in gbal (H200 diag tie/loss), FA3 ping-pong, dual-head ILP (microbench), decode 1 full splits.
 
 - s99: per-program physical order in _gd_full (pre-pass >= copy floor; aligned-sort ceiling only -3.3%).
 
