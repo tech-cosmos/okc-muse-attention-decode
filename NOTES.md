@@ -4499,3 +4499,183 @@ verify 16 real 138.8 -> 139.0, all-L2 105.3 -> 105.5. nh 3 s4 = 1 CTA/SM (+46). 
 
 ### Budget (UTC day 2026-10-25)
 - s101: 1 check (6d7905ae diag), 0 scored. Account: checks 18/20 (2 left = agent2's), scored 6/10.
+
+## Session 102 (unattended session 35, 2026-10-25 09:02 - ~09:55 UTC): submitted main (2.460x, new best); exp/hdiag built
+
+Board 09:05Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; ours 2.445x before this session. No "Ready to merge".
+
+### Submit (lead agent's 08:58Z decision: submit main once even though check 55444f19 tied)
+- Tests 16/16 on main cc93187 (submission.py = 1e4c80e). **submit 8725ba7e835c4b6b: 2.460x [2.423, 2.506], 1531.2 us,
+  16/16 = NEW ACCOUNT BEST** (was 08bf9391 2.445x). Per shape (H200 us): decode 1 4.55 / 13.71; decode 16 7.70 / 89.55;
+  decode 32 13.83 / 168.92; verify 1 5.53 / 16.45; verify 16 12.43 / 113.28; verify 32 15.21 / 209.94 (sliding / full).
+  Profile: decode 1 full `_gd_full` 8.1 + `_red_fin` 1.6; verify 1 full `_attn_split` 12.9 + `_combine` 2.6; vtk 4.8;
+  csl 3.5. Do not resubmit unchanged code.
+- **Judge node noise on full layers is bimodal**: decode 32 full was 161.7-161.9 us in exactly two runs (08bf9391,
+  13582a1b; decode 16 full 86.6-86.7, verify 16/32 full 112.4-112.8 / 206.6-207.5) and 167.5-170.3 in all ~20 others
+  (decode 16 full 89.0-90.8, verify 32 full 208.7-213.5), the same code included. The fast level is a lucky node, not a
+  regression; compare full-layer numbers within the slow level. (The new json has `machine.node`, e.g. 8725ba7e ran on
+  n-n5ig53xatkvzqcfmh7y7k2a7fu at 1980 MHz SM / 3201 MHz mem; older runs didn't record it.)
+- H200 vs H100 decode 1 full: whole 13.71 vs ~13.85 us: the H200's extra bandwidth doesn't help, so this shape is
+  latency/structure-bound and its H100-tuned plan (511 splits, BN 32, stages 2) may not be the H200 optimum.
+
+### exp/hdiag 63dd0fd (diag only, NEVER submit: the score is meaningless)
+kernel_fn now runs the real path via `_run_plan`, then for decode 1/16/32 full and verify 1 full re-runs the path with
+plan overrides (`_DIAG`), each variant after a 2 GB L2 flush with its kernels renamed (`<variant>_gd_full`,
+`<variant>_red_fin`, `<variant>_attn_split`, `<variant>_combine`, `<variant>_combine_bal`), plus a native gather floor
+`hfloor<R, DENSE>` (all rows' 128-B K and V through the page table, R rows per 8-lane group; DENSE 1 = rows in physical
+order) for decode 1/32 full and verify 1 full. Read the `_gd_full` / `_attn_split` / `hfloor` durations in the profile
+(merge kernels are PDL-launched: their durations include waiting; ignore them). Tests 16/16.
+H100 dry run (tools/s101/prof.py, CUPTI median of 20, flushed), kernel durations in us:
+- decode 1 full `_gd_full`: base 11.46/11.49, stages 3 11.65, stages 4 12.10, splits 1023 11.58, splits 255 12.83, 255 st4
+  13.89, BN 16 st4 12.61, 255 BN 64 18.69; floor random R2 9.34, R4 9.47, dense 8.86.
+- verify 1 full `_attn_split`: base 14.24/14.30, stages 6 14.46, 12 14.98, splits 63 18.85, 255 15.58, BN 128 st4 17.54.
+- decode 16 full: base 123.4, stages 3 124.6, splits 127 126.3, dbal 1024 progs 122.65 (merge differs: check whole time).
+- decode 32 full: base 241.3/240.7, stages 3 242.9, stages 4 282.0, dprogs 768 243.0, 1536 249.4; floor random 233.8.
+**Queued: first check after 00:00Z 2026-10-26 = exp/hdiag** (one check answers: the H200 gather floor for each full shape,
+and whether any plan variant wins there; port winners to main per shape, then check main).
+
+### Next
+- If the H200 `_gd_full` decode 1 full duration is far above `hfloor` (H100 gap 2.1 us), the gap is the target
+  (structure: one-warp programs x 2 stages; atomic burst at the end ~1.1 us, s95). Idea not yet built: 4-warp CTAs
+  with one split per warp, pre-summed in smem at the fixed reference max before ONE set of atomics per CTA (4x less
+  atomic volume in the end-of-grid burst).
+- If decode 32 full's H200 floor (random) is ~145 us vs our 169, the full layers are the big lever (s80/s99 notes).
+
+### Budget (UTC day 2026-10-25)
+- s102: 0 checks, 1 scored (8725ba7e). Account: checks 18/20 (2 left = agent2's), scored 7/10. Claude's submits today
+  are used (this one came from the lead agent's reserve).
+
+## Session 103 (unattended session 36, 2026-10-25 09:19 - ~10:00 UTC): plan red on batched decode full (H100 win, on main)
+
+Board 09:20Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 abhishekgahlot2 2.710x; ours 2.460x (8725ba7e). Account:
+checks 18/20 (the 2 left are agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored this session.**
+Tools: tools/s103/tail.py (whole call vs first kernel with merge kernels no-op'd = merge tail), tools/s103/cmp.py
+(outputs of several submission files vs the first; use with a forced-fallback copy to test red's exact path).
+
+### Merge tails on the full layers (H100, tail.py)
+Whole minus attention-kernel-alone: verify 16 full 3.2-3.65 us, verify 32 full 3.5-4.1, decode 16 full 3.6-3.9, decode
+32 full 3.0-3.25. Weighted, that is ~0.4 % overall per us summed over the four shapes.
+
+### Decode 1 full red internals (dead ends)
+- Atomics vs plain stores in `_gd_red_add` (timing only): -0.06 us. The atomic burst is not the cost; s102's "pre-sum
+  4 warps in smem before the atomics" idea is dead.
+- Replicas NR (paired vs 4): 1 +3.73, 2 +0.99, 6 -0.02, 8 +0.11, 16 +0.98. 4 stays.
+
+### WIN (H100): plan red on batched decode full (main d4e6c17 + bf12587)
+`_gd_full`'s RED path now works per request: request b's sums at b * NR * M * (D + 1), its out-of-range list at b * RCW
+(RCW = slots + 2; listed entries are partial slots, BAL: ids), `_red_fin` grid (batch,) (BAL/SL/RCW constexprs; batch 1
+compiles as before: RCW 0). Batched buffers are per batch size (`_red_buf(..., tag)`, `_counters(..., "r<B>")`) so a
+larger shape never reallocates a buffer an earlier graph captured. Replicas BNR = 1 for batched (paired vs NR 4:
+decode 16/32 full NR 1 -0.94/-1.18, 2 -0.02/-0.70, 4 +0.75/-0.65 vs _combine, 8 +3.4/+1.1: unlike batch 1's 511-way
+contention, fewer distinct lines win at 32-64 adds per address). With red replacing `_combine_bal`, **dbal now wins at
+decode 16 too** (-1.54 us, 10/10, vs equal splits + red; dprogs 768 -0.63 at 16 but +3.5 at 32; 512/1536 lose).
+- Final, paired vs previous main (1e4c80e code): **decode 16 full -1.58 us (20/20), decode 32 full -1.09 (10/10)**
+  (earlier run -1.32, 12/12); decode 1 full tie (+0.12, = the A/A order bias +0.09 of tools/s55/abalt.py).
+- Remaining tail with red: 1.5-2.5 us (`_red_fin` after the PDL wait). Outputs vs old main rel L2 <= 1.5e-4 (BF16
+  rounding; atomic order varies); forced-fallback copy (every partial listed) <= 6e-5. Tests 16/16.
+- Expected H200: ~-1..-1.5 us on decode 16/32 full = ~+0.25 % overall (unverified: check main first tomorrow).
+
+### Dead: plan red on verify 16/32 full (gbal `_gw_verify`)
+Consumers atomically add each segment's [64, 64] partial into (request, KV head) sums + `_red_fin_v` (exact merge with
+the new-token slot and listed partials). Correct (rel L2 <= 2.3e-5, fallback too) but **+30/+49 us** (verify 16/32 full):
+the consumer partition (cregs 96) spills (~100 STL/LDL). Variants: atomics from the wgmma layout (no convert) +9; branch-free
+(always store + zero-weight add) +11.5; cregs 104 +7.5 (32 spills), 112 +143; plain stores instead of atomics still +6.3.
+So any extra epilogue in the verify consumer costs more than the ~3.5 us tail. (Code not kept; s81's lesson again.)
+- `_combine_bal` hb/cw sweep at verify 16/32 full (hb 1/4/8, cw 2/4): ties within 0.7 us. Already tuned.
+
+### Next
+- **First check after 00:00Z 2026-10-26: main bf12587** (= 8725ba7e's code + red on decode 16/32 full + dbal at 16).
+  Compare decode 16/32 full within the same node level (judge full layers are bimodal, s102); submit if the score beats
+  1531.2 us (2.460x). Then exp/hdiag (diag only; based on the old main, fine for its plan/floor questions).
+- Decode 16 dprogs 768 (-0.63 H100) only if the H200 shows red/dbal winning there.
+
+## Session 104 (unattended session 37, 2026-10-25 09:39 - ~11:05 UTC): verify-full lazy-max gap decomposed (H100 only)
+
+Board 09:40Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 abhishekgahlot2 2.710x; ours 2.460x (8725ba7e).
+Account: checks 18/20 (the 2 left are agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.**
+main unchanged (bf12587 code). Tools: tools/s104/mk.py builds the variants below from exp/lz4's submission.py
+(`git show exp/lz4:submission.py > /tmp/s104/lz4.py`), timed with tools/s54/abl2.py (H100 paired, 5 rounds, verify 32 full).
+
+### Question
+s78's no-max ceiling (SPEC 2) was -26 us on the H200 verify 32 full kernel (178 vs 204), but the exact LZ 4 (s81) tied
+LZ 3 on the H200. What in LZ 4 costs the difference? (Real H100 timings are DRAM-bound and say nothing; all-L2 = proxy.)
+
+### H100 all-L2 verify 32 full, paired (A -> B)
+| A -> B | all-L2 | real |
+|---|---|---|
+| LZ 3 -> LZ 4 | 189.1 -> 184.8 (-4.3, 5/5) | -0.13 |
+| LZ 4 -> c2 = no-max ceiling on the same base (P = exp2(s*scale - m), m fixed 0, no alpha, no acc rescale, no asm) | 185.1 -> 173.0 (**-12.2**, 5/5) | -0.62 (5/5) |
+| LZ 4 -> d1 = LZ 4 without the acc *= alpha asm (LZ_ACC) | +2.1 (worse: the acc asm costs nothing) | tie |
+| LZ 4 -> d3 = no in-loop `i == 0` branch (wrong: tile 0 overflows, m = inf, alpha = NaN, so acc rescales every tile) | +7.8 | tie |
+| LZ 4 -> lz4nb = no branch, m starts at 0 (fallback storm: coherent rows exceed 2^15 sums) | +10.5 | tie |
+| c2 -> c2bf = c2 with BF16 P and V (Triton's fp8 -> bf16 convert in the producer) | **+96.9** | +18.8 |
+| c2 -> c2bfa = same, V via a 9-instruction PRMT/LOP3 asm (unscaled bits, timing only) | **+17.6** | +0.4 |
+
+Reading: the exact lazy max still costs ~12 us all-L2 over the no-max form, and it is not the acc rescale asm. What is
+left in LZ 4's hot loop vs c2: the big asm block (vote + data-dependent branch + the fallback code and its extra live
+registers), alpha = exp2(m_i - m_new) and the l4 update, and the in-loop `i == 0` choice of asm (the d3/lz4nb proxies
+were broken by NaN alpha / fallback storms, so the branch's own cost is still unmeasured).
+The idea I priced and dropped this session: BF16 P/V (no FP16 overflow, so no per-tile check: peel tile 0 for an exact
+reference, fixed m afterwards, redo only on inf). It dies on the producer: e4m3 -> bf16 has no single sm_90 cvt (f16x2 only),
+and even a 9-op asm convert costs +17.6 us all-L2, more than the 12 us it would buy. A 4-op form (cvt.rn.f16x2.e4m3x2 + shr +
+lop3 + exponent fix folded into P's bias as 2^56 and acc's as 2^-56) might be ~2x cheaper but is still unlikely to pay.
+
+### Next (verify full)
+- Find the 12 us: build a correct peeled variant (iteration 0 written out before the loop with the exact max; loop
+  from 1 with the non-peel asm only) and time it vs LZ 4; then strip the asm to "vote only, no fallback code" (timing)
+  to price the fallback code's registers. If a variant reaches ~c2 on the H100 all-L2, one H200 check (diag copies like
+  exp/lazydiag) decides: c2-class costs were worth -26 us at verify 32 / -16 at verify 16 on the H200 (~+3% overall).
+- Unchanged queue: first check after 00:00Z 2026-10-26 = main bf12587, then exp/hdiag (diag only).
+
+### Budget (UTC day 2026-10-25)
+- s104: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 105 (unattended session 38, 2026-10-25 09:55 - ~10:20 UTC): LZ 10 fixed-reference softmax for verify full (on main)
+
+Board 09:56Z unchanged (#1 pjmullin3 2.910x, ours 2.460x 8725ba7e). Account: checks 18/20 (2 left = agent2's), scored 7/10.
+No new "Ready to merge". **0 checks, 0 scored.** main = **d6cb195** (bf12587 + LZ 10), branch exp/lz10. Tools: tools/s105.
+
+### Locating LZ 4's 12 us (H100 all-L2 verify 32 full, paired vs LZ 4; mk.py builds from exp/lz4)
+| variant | all-L2 | real |
+|---|---|---|
+| pl: properly peeled tile 0 (exact), loop with non-peel asm only | +1.04 | -0.74 |
+| pl_nv: pl without vote/fallback in the softmax asm (timing only) | -3.68 | -0.54 |
+| c2: no-max ceiling | -12.0 | -0.94 |
+| lz9: pl with +14 binades headroom after tile 0 (fallback never taken) | +1.87 | -0.14 |
+So the in-loop branch structure (vote + fallback, and the acc asm's vote) costs ~12 us, not the data: even with no
+fallbacks taken (lz9) it does not move. Only a branch-free loop reaches c2.
+
+### Growth measurement (tools/s105/growth.py; NB the reference multiplies q by QK_SCALE_FACTOR 5.473: my first run
+forgot it and wrongly showed 4-6 binades)
+Max over all rows/segment starts of (max over the next 160 tiles - max over the first K tiles), binades of P:
+scored coherent shapes K=1: 19.8-25.8 (7 seeds at B32 L8: 23.8-25.8); K=4: 19.3-23.2; K=8: 17.8-22.0. Normal-dist
+tests reach 32-36 (K=1). So s79's LZ 6 verdict (rows grow > 16 binades) was right for zero headroom.
+
+### LZ 10 (main d6cb195)
+- Per segment: the first LZ_PK = 4 tiles run the exact update against row max + LZ_DELTA = 14 binades; later tiles
+  P = exp2(s * scale - m) against that fixed m (c2's loop: no row max, alpha, acc rescale, vote). Overflow (FP16 P >
+  65504) needs growth > 30 binades past the first 4 tiles' max: max seen on scored data 23.2. Rows whose acc ends
+  non-finite (x - x != 0) store m = +inf; _combine_bal REDO (ported from exp/lz4) recomputes those rows exactly.
+- Precision: the max P is ~2^-14 (FP16 subnormal range): step 2^(14-25) = 2^-11 of the row max, vs E4M3 P (FA3's FP8
+  path = SGLang) whose error near the max is 2^-4 relative and 2^-10 absolute in its subnormals: >= 2x finer everywhere.
+  Tests: errors equal to main's to 4 digits on tests 5/7/8, +0.01-0.3% relative on 13/15 (coherent dp). (δ 12 would
+  halve that, at 2 binades less margin.)
+- REDO cost if it ever fires: ~17 ms (77 flagged rows, serial BK 8 loop over the whole request). Correct but would wreck
+  that load's time; scored-data probability estimated ~1e-4 per run (Gaussian tail beyond the 7-seed maximum). If the
+  judge ever shows a verify full time in the ms, this is why: lower LZ_DELTA risk, raise LZ_PK, or LZ = 3.
+- Variants: lz7 (K 1, no headroom) = REDO storm (17 ms); lz8 (K 1, δ 14) all-L2 -11.0/-5.6 vs LZ 4 (risky margin
+  4 binades); lz10 K 8 -7.7/-2.3; **K 4 -9.7/-4.1** vs LZ 4.
+- **H100 paired vs old main (LZ 3), 7/7: verify 32 full all-L2 189.26 -> 175.73 (-13.46), real -0.62; verify 16
+  full all-L2 104.67 -> 97.71 (-6.83), real -0.19.** Tests 16/16, tools/s105/adv.py (late keys aligned with the
+  queries, forced overflow + REDO) passes with errors equal to exact LZ 4. Bench geomean 2.037 (H100 DRAM-bound).
+- H200 expectation: s78's c2-class ceiling was -26/-16 us on the verify 32/16 full kernel (H200 is consumer-bound).
+
+### Next
+- FIRST check after 00:00Z 2026-10-26: main d6cb195 (red decode 16/32 full + LZ 10 verify 16/32 full; independent
+  shapes, keep each per shape). Submit if it beats 1531.2 us. If verify full loses: LZ = 3.
+- Same trick for other consumer-bound loops: agent2's nvs (verify 16/32 sliding: ~0.85 us/tile chain, softmax issue)
+  and vtk / _attn_split at verify 1 sliding/full. Sliding windows are shorter, so growth should be smaller.
+- Make REDO parallel (per flagged segment, wide tiles) so a rare trigger costs ~a kernel, not 17 ms.
+
+### Budget (UTC day 2026-10-25)
+- s105: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
