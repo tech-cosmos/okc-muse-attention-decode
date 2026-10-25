@@ -4137,3 +4137,38 @@ edges / 4097 / 80000 / 100000 kv_scale 1/64), errors identical to the reference'
 - Conclusion: a native batch-1 full kernel with a separate merge can't beat Gluon `_gd_full` + `_combine`; the only
   remaining lever on decode 1 full is removing the second kernel (~2.9 us), and every fused merge so far lost (s36, s43,
   s50, s73). Not worth a check.
+
+## Session 93 (unattended session 26, 2026-10-25 06:05 - ~06:55 UTC): merged agent2 nvs, check 2.465x, scored 2.385x; batch-1 sliding probes dead
+
+Board 06:05Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391). Account at start: checks 14/20, scored 5/10.
+COORD "Ready to merge": agent2 e2513ab (native verify-sliding kernel nvs for verify sliding batch >= 32).
+
+### Merge + judge runs
+- Merged agent2 e2513ab into main -> **4e63331** (tests 16/16; H100 bench geomean 1.993, verify 32 sliding 16.45).
+- **check 13582a1b7d65412e** (main 4e63331): **2.465x** [2.428, 2.515], 16/16. H200 us: decode 1 4.35 / 14.14; decode 16
+  8.00 / 86.72; decode 32 13.82 / 161.72; verify 1 6.75 / 16.93; verify 16 12.35 / 112.78; verify 32 **15.14** / 207.54.
+- **submit 8abec5c6b5714eab** (same code): **2.385x** [2.350, 2.421], a noisy node on the full layers (decode 16/32 full 90.35 /
+  170.25, verify 16/32 full 114.2 / 211.1; sliding: decode 1 4.63, verify 1 7.09, verify 32 15.44). The board keeps 2.445x.
+  Lesson again: per-run judge noise on the full layers is ~5%; one scored run can land well below its check.
+
+### Probes (H100, all dead, no checks)
+- nvs (agent2's native verify-sliding kernel) at **verify 1 sliding** with S = 8/16/32 key splits (tools/s93/v1nvs.py):
+  10.18 / 9.12 / 8.48 us vs main Triton 7.73. Correct (rel 0.004-0.006 vs main). Dead: the per-CTA warp-spec fixed cost.
+- csl `ptsh` (each warp loads its 32 page-table entries with one coalesced load, shuffles spread them; tools/s93/cslvar2.py):
+  decode 1 sliding +0.02 (6/11), decode 16 +0.22 (0/11). Dead.
+- csl `nc` (gathers via ld.global.nc.L1::no_allocate): +0.00 / +0.00. Dead.
+- csl phase stamps on the current per-KV-head layout (tools/s93/cslstamp.py, fixed indexing for 32 CTAs x 4 warps), H100
+  cold (warm), us: page table 1.00 (0.61) | K landed + QK 2.07 (1.28), worst CTA 2.34 | PV 2.32 | premerge sync 2.36 |
+  before cluster wait 2.61 | pushed 2.71 (worst 2.94) | owner mbarrier 3.07 | merge loop 3.21 | shuffles 3.37 | pre-store
+  3.48 | stored 3.52. The owner waits on the slowest CTA's gather (+0.27 over the median); the tail after PV is 1.2 us
+  of short serial phases. Cold costs ~0.4 us more than warm on each of the two DRAM trips (page table, rows).
+  Estimated payoff of restructuring the tail (e.g. warps split by rows over all 128 keys with smem-staged K/V, no premerge):
+  <= ~0.1-0.15 us, not built.
+
+### Next
+- Batch-1 sliding natives are at their structure's floor (2 DRAM trips + ~1.2 us tail). Remaining batch-1 lever is still the
+  full-layer merge (~2.9 us), closed on every tried path. The biggest gap to #1 remains the full layers (verify 16/32 full
+  1.83/1.90x vs SGLang): only with a structural idea (STATE ranked ideas).
+
+### Budget (UTC day 2026-10-25)
+- s93: 1 check (13582a1b), 1 scored (8abec5c6). Account after: checks 15/20, scored 6/10. Claude's 6 submits/day are used up.
