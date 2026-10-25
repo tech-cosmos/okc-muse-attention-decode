@@ -5086,3 +5086,38 @@ variant tried in s72-s109 ties or loses. No new lever found.
 
 ### Budget (UTC day 2026-10-25)
 - s115: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 116 (unattended session 49, 2026-10-25 14:18 - ~14:45 UTC): decode 1 full atomics ablation (dead); exp/hdiag4 diag built (no checks)
+
+Board 14:20Z: #1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). Account: checks 20/20 (0 left
+today), scored 8/10. No new COORD "Ready to merge". **0 checks, 0 scored.** main code unchanged (5e3d586); H100 bench
+2.046 (decode 1 5.14 / 14.02, decode 16 9.58 / 125.63, decode 32 13.66 / 244.11, verify 1 6.37 / 17.74, verify 16
+13.06 / 135.02, verify 32 16.38 / 255.36).
+
+### Decode 1 full end-of-grid atomics: ablation says <= 0.4 us, so s102's "pre-sum per CTA before the atomics" is dead
+Timing-only env switch in `_gd_red_add` (GD_ABL; not committed): 0 = main's v4 FP32 atomics, 1 = plain stores to the
+same addresses, 2 = no write at all (wrong output). tools/s115/d1warm.py decode '[{}]' 5, two alternating rounds, H100:
+cold 13.98/14.14 (0), 14.16/14.19 (1), 13.66/13.66 (2); warm 11.33/11.33, 11.73/11.84, 10.86/10.34. So the whole
+atomic burst costs 0.3-0.4 us cold (plain stores cost more than the relaxed atomics), and any scheme that cuts its
+volume (4-warp CTAs pre-summing in smem, staggered split ends) is capped at ~0.4 us H100 = ~0.2% overall. The decode
+1 full tail is the _red_fin PDL hop (~1.8 us whole over the first kernel, s113) and the in-grid alternatives to it
+are dead (s95). Dead.
+
+### exp/hdiag4 @ 8b557ec (DIAG ONLY, never submit) = exp/hdiag3 + origin/main 5e3d586 (NV_HALF) + new variants
+For tomorrow's single diag check: hdiag3 timed decode 32 full only at the base plan + floors, but full layers are where
+#1's lead most plausibly is (s116 arithmetic: verify/decode 16/32 full at ~decode-full-on-H200-dense rates alone would
+give ~2.9x). Added, each after the diag's explicit flush:
+- decode 32 full: `d32s3` (stages 3), `d32p768s3` (dprogs 768 + stages 3), `d32p1536` (dprogs 1536), `d32b16s4`
+  (block_n 16 stages 4), floor `d32fl4` (R4). H100 CUPTI cold `_gd_full`: d32a 241.7, s3 243.4, p768s3 244.6, p1536
+  246.6, b16s4 248.3; hfloor R2 234.2 / R4 234.1 / dense 209.4 (physical order 11% faster than random on the H100 here).
+- verify 32 full: `v32lag2` (lag 2), `v32s2` (stages 2). H100 CUPTI cold `_gw_verify` 248.2 / 252.7 / 255.5 (H100 is
+  gather-bound at verify full; the H200 is consumer-bound, so the ranking can differ).
+Tests 16/16. Reading: port a d32 variant if it beats `d32a` by > 2 us (then try it at decode 16), a v32 variant if it
+beats `v32a` by > 2 us (then verify 16), and the d1/v1 rules from s113/s115.
+
+### Next (after 00:00Z 2026-10-26, new sandbox)
+1. Check main (5e3d586 code); submit if it beats 1481.9 us.
+2. Check exp/hdiag4 (diag, never submit) instead of hdiag3.
+
+### Budget (UTC day 2026-10-25)
+- s116: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
