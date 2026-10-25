@@ -1,6 +1,9 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~08:55 UTC (session 97 = unattended session 30 of the #1-push brief).
+Updated 2026-10-25 ~08:50 UTC (session 98 = unattended session 31 of the #1-push brief).
+
+**s98: vtk probes dead on the H100 (coalesced page table + shfl: tie; empty-body vtk grid = 2.2-2.4 us launch floor at any
+cluster size, so vtk = ~2.3 floor + ~4.1 work). main unchanged 1e4c80e, no checks. NOTES s98.**
 
 **s97: H100 probes only, all dead, main unchanged (1e4c80e): s71 nverify at verify 1 full is gather-bound (slope 0.111 vs
 Triton 0.112 us/1k keys; consumers-only 0.085, gathers-only 0.094; ~6 us fixed in every design) -> native verify 1 full
@@ -87,12 +90,11 @@ numbers: NOTES s69.)
 - **FIRST after 00:00Z 2026-10-26: check main 1e4c80e (vtk verify 1 sliding + s95 red decode 1 full); submit if > 2.445.**
 
 - (75081b1's decode 1 full -0.6 us H200 is included in 1e4c80e.)
-- Idea (H100 first): vtk page-table entries via one coalesced load per warp + shfl (8 token clusters read the same entries;
-  vtk 1->4 token clusters costs +0.6 us unexplained, NOTES s97).
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
 
+- s98: vtk coalesced page table + shfl (tie), cluster size vs launch floor (none).
 - s97: nverify at verify 1 full (gather-bound, ~1 us H200 ceiling), vtk2a re-ablated (base 6.88 > vtk 6.45), vtk disjoint
   windows (7.4: shared lines help).
 - s96: vtk2a (2 tokens per cluster, 8.1+), vtkp 8-CTA x 8-warp clusters (7.1 vs 6.5), reciprocal divides in decode csl (tie).

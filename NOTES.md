@@ -4357,3 +4357,31 @@ not per-SM bytes (still 16 KB/SM at 4 tokens). Unexplained; candidates: L2 reque
 
 ### Budget (UTC day 2026-10-25)
 - s97: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
+
+## Session 98 (unattended session 31, 2026-10-25 07:56 - ~08:50 UTC): vtk probes on the H100, dead (no checks)
+
+Board 07:58Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; ours 2.445x (08bf9391). No new COORD "Ready to
+merge" items. Account: checks 16/20 (the 4 left are agent2's), scored 6/10 (Claude's 6 used). **No checks, main
+unchanged (1e4c80e).** H100 bench this session: geomean 2.039 (verify 1 sliding 6.18, decode 1 full 13.79).
+Tools: tools/s98/vtkpt.cu (vtk.cu + ABL 1 = coalesced page table + shfl, ABL 2 = empty body, ABL 3 = cluster barrier
+only; VCL = cluster size for the empty variants), tools/s98/vtk.py (= s96 vtk.py + VCL flag). `SRC=tools/s98/vtkpt.cu
+ABL=1 python tools/s98/vtk.py check|time`.
+
+- **vtk page-table entries by one coalesced 128-B load per warp + 12 shfl** (s97's idea for the unexplained 1->4 token
+  cost): correct (7/7), H100 tie: all tokens 6.35-6.50 vs 6.42-6.74 (ABL 0, same runs), 4 tokens 5.73-5.92 vs 5.82-6.18.
+  At most -0.05 us; not worth a check. Same verdict as csl ptsh (s93).
+- **Launch floor**: vtk's grid with an empty body (ABL 2) costs 2.2-2.4 us over the empty graph at 32/64/128/256 CTAs,
+  and the same for cluster sizes 1, 2, 8, 16 (VCL 1 at 256 CTAs 2.88). A cluster barrier only (ABL 3): 2.3-2.5. So vtk
+  = ~2.3 us launch floor + ~4.1 us of work (cold q/page-table trip, gather trip, mma/softmax, DSMEM merge, store), and
+  csl's ~0.45 us "cluster launch" (s72) does not show here. Nothing to gain from cluster shape.
+- Reviewed (no build): verify-full consumer-side V^T fragments (wgmma RS with A = V^T from registers, O^T = V^T P^T):
+  moves ~20 instr/tile into the consumer, which is the H200 limiter (consumer-only 170 us at verify 32): dead on paper.
+
+### Next
+- **First after 00:00Z 2026-10-26: check main 1e4c80e (vtk + s95 red); submit if > 2.445.** (unchanged)
+- Batch-1 is down to launch floor (~2.3 us H100) + 1-2 DRAM trips + small compute in every shape; only fusing
+  the batch-1 full merges (dead 6 times) or a new full-layer structure would move it. Big remaining piles are verify 16/32
+  full (H200 112/206 vs consumer-only 87/170) and agent2's batched sliding.
+
+### Budget (UTC day 2026-10-25)
+- s98: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
