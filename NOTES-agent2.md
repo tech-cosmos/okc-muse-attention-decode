@@ -82,3 +82,104 @@ merge" (agent 1 merges + submits). Budget: agent2 1 check today (account 10/20 c
 3. Decode 32: smem-staged (cp.async full-line, swizzled) csl-style CTAs in 8-CTA clusters (256 keys/CTA, 64 KB smem,
    2 CTAs/SM = one wave), compute per 32-key chunk as each cp.async group lands. Risky: s73 csl8 (similar) lost
    16.8 vs 15.9 H100 (compute 2.7 + merge 2 us exposed after the last load).
+
+## Session 2 (2026-10-25 04:41 - ~05:00 UTC by the sandbox clock), branch agent2-exp/clmerge (dead, pushed)
+
+Merged origin/main (e85e702; submission.py unchanged). H100 baseline (tools/a2/b4.py, new: times the 4 shapes):
+decode 16/32 sliding 9.63/15.07, verify 16/32 sliding 13.66/18.46 us. No checks used.
+
+### Dead: merge inside _attn_split via thread-block clusters (plan `cl`, agent2-exp/clmerge 5d94cbf, off)
+
+Idea: launch the S splits of each (request, KV head) as one S-CTA cluster, and after the partial stores run
+`barrier.cluster.arrive.release` / `wait.acquire` (hardware, co-scheduled, unlike s17's sfuse atomic + spin), then
+each CTA merges its MG / S rows from L2 (.cg) with RMSNorm * sigmoid(gate): no _combine_hb launch. How to launch a
+Triton kernel as clusters without num_ctas layouts: compile normally (program_id = %ctaid with num_ctas 1), then set
+the CompiledKernel's `packed_metadata` = (num_warps, cl, shared): the launcher sets gridDimX = gridX * cl and the
+cluster attribute (`_launch_cl` in the branch; only the CL=True specialization is patched). Correct (chk.py 12/12).
+H100 paired (abp.py, 9 rounds): **verify 32 +1.87, verify 16 +1.30, decode 32 +1.22 us (0/9 each)**. Ablations at
+verify 32 (env CL_ABL / CL_NOCL / CL_N / CL_SMEM in the branch):
+- attention alone, no merge, no cluster: 15.54 (so the merge costs 2.6 us of the 18.2 whole: the target).
+- same kernel as 2-CTA clusters 15.86 (+0.3), **4-CTA clusters 18.0 (+2.5)**: %smid shows the cluster launch puts
+  the 256 CTAs on only 124 SMs (8 idle, 8 SMs with 3 CTAs); a normal launch uses all 132 (124 x 2 + 8 x 1).
+  cuOccupancyMaxActiveClusters: 528/264/124/62 for cluster 1/2/4/8. Padding dynamic smem to force <= 2 CTAs/SM:
+  23.1 (clusters no longer all resident); 3/SM: 18.0.
+- + cluster barrier +0.6, + the slice merge another +1.5. So even a free co-scheduling barrier would leave at most
+  ~0.5 us. Don't retry in-grid merges for batched sliding (sfuse s17, fuse s1, cl s2 all lose).
+
+### Dead: Gluon _gw_verify with sliding-sized splits (tools/a2/proxy2.py)
+
+s75's proxy (full layer, ctx 2048, q_len 8) ran gw_verify at its one-wave splits (2-tile programs). Re-run with
+splits 2/4/8/16, gfuse on/off, uniform lengths: best B16 15.60 (s4, no gfuse), B32 19.41 (s8) us, before RoPE and
+window masks, vs real Triton verify 16/32 sliding 13.66/18.46. The warp-specialized structure loses at this size
+even tuned. (The Triton plan on that full-layer proxy reads 31/53 us; that proxy path is not representative.)
+
+### Next ideas (unchanged ranking otherwise)
+
+1. A native verify-sliding consumer still needs >= ~1.6 tiles/us/SM more than Triton at Triton's fixed cost; both
+   native attempts with clusters (s72 csv, s84 vsl) and both Gluon structures lose. If anyone builds `nvs`, launch it
+   WITHOUT clusters (above: 4-CTA cluster placement alone costs 2.5 us at 256 CTAs) and keep _combine_hb + PDL.
+2. Decode 32 sliding: no cluster designs either (same placement issue at 8-CTA clusters: 62 max active).
+
+## Session 3 (2026-10-25 04:52 - ~06:00 UTC), branch agent2-exp/nvs: native verify-sliding kernel `nvs` (WIN on H100)
+
+Merged origin/main (ad2116c: agent 1 merged maskif and submitted). Account at start: checks 10/20, scored 4/10.
+
+### Diagnosis of Triton verify 32 sliding (tools/a2/stamp.py, ao.py, top.py)
+
+- `tools/a2/ao.py`: whole vs attention-only (merge launch no-op'ed): verify 32 18.1 / 15.95 (merge 2.1-2.4),
+  verify 16 13.4 / 11.5. Splits 8 attn-only 18.1, splits 2 18.3: ~16 tile-units per SM either way.
+- ncu: issue slots 21%, DRAM 41%, SM active 68% of elapsed; stalls spread (long_sb 24%, wait 17%, short_sb 13%,
+  barrier 12%). %globaltimer stamps per program (stamp.py, inline asm in a patched copy): durations 11.7-16.5 us;
+  1-CTA SMs 11.8 vs 2-CTA SMs 14.2; split 0 (new tokens + window mask) +1.3 us median, but removing _new only moved
+  the work to the other CTAs on the SM (kernel max -0.6, graph time flat). Latency-chain bound, not issue bound.
+
+### nvs (tools/a2/nvs.cu = experiment file with ablation knobs; nvs_clean.cu = what ships; nvs.py check/out/time/stamp)
+
+From tools/s71/nverify.cu (agent 1's verify-full native kernel): one CTA per (request, split) of 384 threads, no
+clusters, S = 4 (128 CTAs at batch 32 = one per SM, __launch_bounds__(384, 1), setmaxnreg 40/160, NS 4 stages).
+Producer WG: page-table entries staged 4 tiles ahead via 4-byte cp.async (the window start is not 16-B aligned),
+8 lanes per 128-B row (both KV heads), FA3 ldmatrix.trans V transpose. Consumers (one per KV head): RMS norm + RoPE
++ E4M3 queries into smem, QK(i) || PV(i-1) wgmma pipeline, window mask on the first tile / tail mask by column
+thresholds, P in E4M3 with FA3's offset 8 (NV_LAZY 0: the lazy max is NOT used, per NOTES s70's precision note).
+New tokens: the last split's consumers normalize/RoPE/quantize the 8 new K/V rows, store them in the cache and lay
+them out as a K tile (rows 0-7, zero rows after) and a V^T tile (key slots 0-7 of group 0, zeros elsewhere), then
+run them as one causal tensor-core tile BEFORE the cached tiles (the consumers idle ~2 us waiting for the first
+gathers anyway), and rescale when the first cached tile's max arrives. Partials in _attn_split's layout -> the
+existing _combine_hb (PDL). Dispatch: window 2048, L 8, batch >= 32 (NVS_MIN_BATCH), hq 16, hkv 2, d 64, page 1.
+
+Correctness: partials vs Triton (lse exact, o within E4M3-P rounding); tools/a2/chk_nvs.py 5/5 (batch 32-64, ctx
+1500-80000, edges/soft/coherent, kv_scale 1/64), errors equal to Triton's (7.830e-2 vs 7.808e-2 at ctx 1500
+edges); tests 16/16 (they never reach nvs: batch <= 5).
+
+H100 (us): verify 32 sliding paired Triton 17.94 -> nvs 16.30 (-1.66, 9/9). Verify 16 at S 8: 13.49 vs 13.47 (tie,
+so Triton keeps it).
+
+What mattered / dead ends inside nvs:
+- New tokens on CUDA cores after the loop (512 FMA/thread): +2.5 us on the last split (it gates the kernel). In the
+  merge kernel before gdc_wait (tools/a2/cnt.py `_combine_nt`): merge 2.9 -> 7.3 us (2048 one-warp programs redo
+  the K-new norm/RoPE; they don't overlap the attention). Own CTA per request (S+1 CTAs): +2.4 us (the 32 extra
+  CTAs share SMs with main CTAs even when launched last). Early tensor-core tile: ~+0.6 us total. Winner.
+- 2 CTAs/SM (S 8, 256 CTAs) 15.5 attn-only vs S 4 14.0. NS 3/4/5/6 flat (4 best by ~0.2), LAG 2 +0.4, L2 prefetch
+  of tile i+2 rows +1.3 (i+3: broken/slow), producer-only (consumers just wait) 12.1, consumer chain with stale smem
+  (no gathers after NS tiles) 13.5: per tile ~1 us whichever side, so the kernel is a producer<->consumer chain.
+- Stamps (nvs.py stamp, NV_STAMP=1): Q ready 2.0 us, first tile ready 4.1 (seq -> page table -> gathers), loop
+  ~1.1 us/tile, stores 0.5.
+- __launch_bounds__(384, 2) with the new-token code: 80 regs, spills + "wgmma serialized" (C7512): use (384, 1).
+
+### H200 checks (session 3)
+
+- 9a841c48fc014363 (fd7fa2e, nvs at batch >= 32): 2.371x [2.335, 2.406], 16/16. **Verify 32 sliding 15.28 us** (vs 16.64
+  in a27e9a52); profile: nvs kernel 10.8 us vs Triton _attn_split 13.2, _combine_hb 2.6 (unchanged).
+- baea7057c6d3454c (2b82970, + verify 16 on nvs with 8 splits): 2.381x [2.345, 2.416], 16/16. Verify 32 sliding 15.07,
+  **verify 16 sliding 12.63 = same as Triton's 12.63** in 9a841c48: tie, so reverted (NVS_MIN_BATCH 32).
+- Branch merged origin/main 9b14e27 (agent 1's csl-per-KV-head, submitted 08bf9391 2.445x); tests 16/16 after the merge.
+  Listed in COORD "Ready to merge". Agent2 checks today: 3 (a27e9a52, 9a841c48, baea7057).
+
+### Next ideas
+
+1. nvs verify 32: the prologue is ~4 us before the first cached tile lands (seq -> 4-byte page-table cp.async ->
+   gathers). E.g. load seq + page-table entries of the first tiles with plain loads in the producer (no cp.async
+   round trip), or prefetch the first tile's rows to L2 from the consumers while they do Q/new tokens.
+2. The merge (_combine_hb, 2.6 us H200 at verify 32) is now ~20% of the shape; all in-grid merges lost before.
+3. Decode 32 sliding (H200 14.0): an nvs-style decode kernel (rows = 8 per KV head pads wgmma M 64 8x: would need
+   both KV heads + several requests per CTA, or mma.sync) - unexplored.
