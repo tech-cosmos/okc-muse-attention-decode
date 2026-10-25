@@ -2251,7 +2251,7 @@ def _norm_rope(ptr, off, ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr
 @triton.jit
 def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, MASKED: tl.constexpr,
           PAGE: tl.constexpr, ROW_W: tl.constexpr, D: tl.constexpr, WINDOW: tl.constexpr, QK8: tl.constexpr,
-          DOT: tl.constexpr, MIF: tl.constexpr = False, need=False):
+          DOT: tl.constexpr, MIF: tl.constexpr = False, need=False, FIXED: tl.constexpr = False):
     """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi.
     MIF (with MASKED): the score masks run only if the runtime scalar `need` says this tile has masked keys."""
     if MASKED:
@@ -2278,6 +2278,12 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
         s = tl.where(ok, s, float("-inf"))
     elif WINDOW > 0:
         s = tl.where(t[None, :] > pos[:, None] - WINDOW, s, float("-inf"))
+    if FIXED:
+        # Fixed reference m_i (set before the loop): no row max, alpha or rescale.
+        p = tl.exp2(tl.fma(s, scale, -m_i[:, None]))
+        l_i = l_i + tl.sum(p, 1)
+        acc = acc + tl.dot(p.to(DOT), v.to(DOT))
+        return m_i, l_i, acc
     # The scale (> 0) goes into the row maxima and the exponent's FMA, not every score.
     m_new = tl.maximum(m_i, tl.max(s, 1) * scale)
     alpha = tl.exp2(m_i - m_new)
@@ -2363,7 +2369,8 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
                 BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
-                PRE: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0):
+                PRE: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0, FIX: tl.constexpr = 0,
+                FDELTA: tl.constexpr = 14.0):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -2454,13 +2461,31 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
     # them (H100 paired decode 16 sliding -0.1 us, 11/15 and 13/15 both orders; decode 1/32 tie). A verify row j masks
     # keys below base + j (split 0's first tile only); handling that tile apart lost (+0.2..+1.7 us).
     WIN: tl.constexpr = 0 if L == 1 else WINDOW
+    if FIX > 0:
+        # Fixed reference: the row maxima of the first FIX tiles' scores (QK^T only) + FDELTA binades; every tile
+        # then exponentiates against it (no row max / alpha / rescale in the loop).
+        mref = tl.full([M_PAD], -1.0e30, tl.float32)
+        for fs in tl.range(lo, tl.minimum(lo + FIX * BLOCK_N, hi), BLOCK_N, num_stages=1):
+            ft = fs + n
+            fld = tl.minimum(ft, hi - 1)
+            frow = (tl.load(pt_row + fld // PAGE).to(tl.int64) * PAGE + fld % PAGE) * ROW_W + hp0 * D
+            fk = tl.load(kc_ptr + frow[:, None] + c[None, :])
+            fsc = tl.dot(q, tl.trans(fk if QK8 else fk.to(DOT)))
+            fsc = tl.where((ft < hi)[None, :], fsc, float("-inf"))
+            mref = tl.maximum(mref, tl.max(fsc, 1) * scale)
+        m_fx = tl.maximum(m_i, mref + FDELTA)
+        f_al = tl.exp2(m_i - m_fx)
+        l_i = l_i * f_al
+        acc = acc * f_al[:, None]
+        m_i = m_fx
+    FXD: tl.constexpr = FIX > 0
     if L == 1 or PEEL:
         full_end = lo + tl.maximum(hi - lo, 0) // BLOCK_N * BLOCK_N
     else:
         full_end = lo
     for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              False, PAGE, ROW_W, D, WIN, QK8, DOT)
+                              False, PAGE, ROW_W, D, WIN, QK8, DOT, FIXED=FXD)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
                                  False, PAGE, ROW_W, D, WIN, QK8, DOT)
@@ -2468,13 +2493,18 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
         # MIF: one loop, masks only on the tiles that need them (window start for verify rows, or past hi).
         need = (start + BLOCK_N > hi) | (start <= seq + (L - 1) - WIN) if WIN > 0 else start + BLOCK_N > hi
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              True, PAGE, ROW_W, D, WIN, QK8, DOT, MIF, need)
+                              True, PAGE, ROW_W, D, WIN, QK8, DOT, MIF, need, FIXED=FXD)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
                                  True, PAGE, ROW_W, D, WIN, QK8, DOT, MIF, need)
 
     if PF:
         m_i += tl.where(pf == -7, 1.0, 0.0) * 0.0
+    if FIX > 0:
+        # A row whose scores grew > 16 + FDELTA binades past the reference overflowed FP16 P: flag it (m = +inf,
+        # x - x != 0 exactly for inf and NaN) for _combine's exact REDO.
+        asum = tl.sum(acc, 1) + l_i
+        m_i = tl.where(asum - asum == 0.0, m_i, float("inf"))
     _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
     if DUAL:
         _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
@@ -2519,7 +2549,8 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
                 BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
-                PRE: tl.constexpr = 0, SPEC: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0):
+                PRE: tl.constexpr = 0, SPEC: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0,
+                FIX: tl.constexpr = 0, FDELTA: tl.constexpr = 14.0):
     """Kernel wrapper of _attn_body. SPEC > 0 (batch 1, page 1, shapes only): SGLang slices the page table to the
     batch's longest length, so seq = width - L is known before the seq_lens load lands; run on it at once (the
     page-table and cos/sin loads skip one DRAM trip) and redo the split with the real length if it differs."""
@@ -2530,11 +2561,11 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         seq = tl.full([], SPEC, tl.int32)
         go = True
         while go:
-            _attn_body(seq, True, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ)
+            _attn_body(seq, True, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ, FIX, FDELTA)
             go = real != seq
             seq = real
     else:
-        _attn_body(0, False, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ)
+        _attn_body(0, False, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ, FIX, FDELTA)
 
 
 @triton.jit
@@ -2583,7 +2614,9 @@ def _norm_gate_store(o, qkv_ptr, out_ptr, tok, head, c, ok, HQ: tl.constexpr, HK
 @triton.jit
 def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
              HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
-             D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, PDL: tl.constexpr, ONE: tl.constexpr = True):
+             D: tl.constexpr, S: tl.constexpr, S_PAD: tl.constexpr, SB: tl.constexpr, PDL: tl.constexpr, ONE: tl.constexpr = True,
+             REDO: tl.constexpr = False, seq_ptr=None, kc_ptr=None, vc_ptr=None, ks_ptr=None, pt_ptr=None, qk_scale=1.0,
+             MAX_PAGES: tl.constexpr = 1, PAGE: tl.constexpr = 1, CHUNK: tl.constexpr = 1):
     tok = tl.program_id(0)
     head = tl.program_id(1)
     b = tok // L
@@ -2618,6 +2651,50 @@ def _combine(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
             a = tl.load(pacc_ptr + (row + si * M)[:, None] * D + d[None, :], mask=(si < S)[:, None],
                         other=0.0).to(tl.float32)
             acc += tl.sum(w[:, None] * a, 0)
+    if REDO:
+        if tl.max(m, 0) == float("inf"):
+            # Cold path: an _attn_split FIX partial overflowed (m = +inf; never seen on the scored data). Merge again,
+            # recomputing each flagged split's keys [s * CHUNK, ..) exactly (same FP8 query and scale, FP32 P). The
+            # new tokens' slot (tsep) is exact and never flagged.
+            ROW_W: tl.constexpr = HKV * D
+            BK: tl.constexpr = 8
+            x = tl.load(qkv_ptr + tok * QKV_W + head * D + d).to(tl.float32)
+            q8 = (x * tl.rsqrt(tl.sum(x * x, 0) / D + 1e-5)).to(tl.float8e4nv).to(tl.float32)
+            scale = qk_scale * tl.load(ks_ptr)
+            seq = tl.load(seq_ptr + b)
+            kk = tl.arange(0, BK)
+            m_max = tl.full([], -1.0e30, tl.float32)
+            denom = tl.zeros([], tl.float32)
+            acc = tl.zeros([D], tl.float32)
+            for si in range(0, S):
+                ms = tl.load(pml_ptr + (row + si * M) * 2)
+                if ms == float("inf"):
+                    ms = tl.full([], -1.0e30, tl.float32)
+                    ls = tl.zeros([], tl.float32)
+                    a_s = tl.zeros([D], tl.float32)
+                    for k0 in range(si * CHUNK, tl.minimum(si * CHUNK + CHUNK, seq), BK):
+                        t = k0 + kk
+                        okk = t < seq
+                        pg = tl.load(pt_ptr + b.to(tl.int64) * MAX_PAGES + t // PAGE, mask=okk, other=0)
+                        off = ((pg.to(tl.int64) * PAGE + t % PAGE) * ROW_W + h * D)[:, None] + d[None, :]
+                        kt = tl.load(kc_ptr + off, mask=okk[:, None], other=0.0).to(tl.float32)
+                        vt = tl.load(vc_ptr + off, mask=okk[:, None], other=0.0).to(tl.float32)
+                        sc = tl.where(okk, tl.sum(q8[None, :] * kt, 1) * scale, float("-inf"))
+                        mn3 = tl.maximum(ms, tl.max(sc, 0))
+                        al3 = tl.exp2(ms - mn3)
+                        pw = tl.exp2(sc - mn3)
+                        ls = ls * al3 + tl.sum(pw, 0)
+                        a_s = a_s * al3 + tl.sum(pw[:, None] * vt, 0)
+                        ms = mn3
+                else:
+                    ls = tl.load(pml_ptr + (row + si * M) * 2 + 1)
+                    a_s = tl.load(pacc_ptr + (row + si * M) * D + d).to(tl.float32)
+                mn2 = tl.maximum(m_max, ms)
+                al2 = tl.exp2(m_max - mn2)
+                w2 = tl.exp2(ms - mn2)
+                denom = denom * al2 + w2 * ls
+                acc = acc * al2 + w2 * a_s
+                m_max = mn2
     o = acc / denom * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 0) / D + 1e-5)
     tl.store(out_ptr + tok * HQ * D + head * D + d, (o * tl.sigmoid(gate)).to(tl.bfloat16))
@@ -2859,8 +2936,11 @@ def _plan(cfg, max_pages, device):
         # 25.9 -> 20.3). Unchecked on the H200: if verify 1 full is worse there, revert block_n/stages first.
         if length > 1:
             # pf: the split's page-table lines touched before the query load (H100 paired -0.35 us, 10/11 and 8/11).
+            # fix 1 (s106): fixed-reference softmax (reference = tile 0's row max + 14 binades; no row max / alpha /
+            # rescale in the loop; overflowing rows -> _combine REDO, exact). H100 paired cold -0.19 us (9/9), warm-L2
+            # -0.4 (7/7; -1.1 with pre 0).
             return dict(splits=127, block_n=64, warps=4, stages=8, hpp=1, fuse=False, qk8=True, pdt="f32", tsep=True,
-                        pf=True, pre=2)
+                        pf=True, pre=2, fix=1)
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="f32")
     if length == 1:
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
@@ -3041,6 +3121,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     fuse = plan["fuse"] and splits <= 64 and not dual  # the fused merge unrolls over splits
     # tsep: the block's new tokens in an extra program (partial slot S) instead of split 0.
     sep = int(bool(plan.get("tsep")) and not fuse)
+    # fix (full layers, merged by _combine with its exact REDO): fixed-reference softmax in the key loop.
+    fix = plan.get("fix", 0) if sep and not rope and not cfg["window"] and not dual and not plan.get("balance") \
+        and plan.get("hb", 1) == 1 else 0
     pacc = torch.empty((batch, hkv, splits + sep, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, splits + sep, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
@@ -3054,6 +3137,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
         PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"),
         PRE=0 if dual else plan.get("pre", 0), MIF=bool(plan.get("mif")), PREQ=0 if dual else plan.get("preq", 0),
+        FIX=fix, FDELTA=plan.get("fdelta", 14.0),
         SPEC=max_pages - length if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 and not fuse else 0,
         num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
@@ -3075,7 +3159,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, S=splits, S_PAD=triton.next_power_of_2(splits),
         # Up to 128 splits in one pass, so every partial's load is in flight at once.
         SB=min(128, triton.next_power_of_2(splits)), ONE=MERGE1, PDL=USE_PDL, num_warps=4 if splits > 32 else 2,
-        launch_pdl=USE_PDL)
+        REDO=fix > 0, seq_ptr=data["seq_lens"], kc_ptr=data["k_cache"], vc_ptr=data["v_cache"], ks_ptr=data["k_scale"],
+        pt_ptr=page_table, qk_scale=cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E, MAX_PAGES=max_pages,
+        PAGE=cfg["page_size"], CHUNK=chunk, launch_pdl=USE_PDL)
     return out
 
 
