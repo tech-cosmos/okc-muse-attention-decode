@@ -741,14 +741,15 @@ _NVS_SRC = r'''// agent2 nvs: native verify-SLIDING attention (L 8, G 8, D 64, H
 // transposes V to FP8 V^T; warpgroups 1/2 (KV head 0/1) normalize + RoPE their queries, run QK^T (FP8 wgmma),
 // the online softmax and P@V with P in E4M3 (FA3's FP8 path), QK(i) overlapping PV(i-1). Partials in
 // _attn_split's layout [B, HKV, S, 64, 64] FP32 for _combine_hb. NVS_NEW: split S-1 also attends the 8 new tokens.
-#define NV_NS 4
-#define NV_LAG 1
+#define NV_NS 5
+#define NV_LAG 2
 #define NV_PFD 4
 #define NV_TR 1
 #define NV_LAZY 0
 #define NV_PREGS 40
 #define NV_CREGS 160
 #define NV_MINB 1
+#define NV_HALF 1
 #include <torch/extension.h>
 #include <c10/cuda/CUDAStream.h>
 #include <cuda_bf16.h>
@@ -833,9 +834,13 @@ template <int NS> struct Smem {
     alignas(1024) uint8_t vs[NS][BN * 128];    // V rows as gathered; 16-byte chunk c of row r at c ^ vsw(r)
     alignas(1024) uint8_t vt[NS][2][HD * BN];  // per head V^T [d][key slot], SW64 (wgmma B, K-major), keys permuted
     alignas(1024) uint8_t q[2][MR * HD];       // per head FP8 queries [row][d], SW64
-    int ptr[8][BN];                            // page 1: page-table entries of tiles i .. i + NV_PFD (ring of 8)
+    int ptr[8][(1 + NV_HALF) * BN];                            // page 1: page-table entries of tiles i .. i + NV_PFD (ring of 8)
     int lim[8];                                // and each tile's last valid key
     uint64_t ready[NS], empty[NS];
+#if NV_HALF
+    int lim2[8][2];
+    float xo[128 * 36];                        // NV_HALF: consumer 1's o / m / l for the in-CTA merge
+#endif
     alignas(1024) uint8_t knew[BN * 128];      // last split: the 8 new keys as a K tile (rows 0-7; rows 8-63 zero)
     alignas(1024) uint8_t vtnew[2][HD * BN];   // and their V^T (key slots 0-7 of group 0; the rest zero)
 };
@@ -859,6 +864,60 @@ __device__ __forceinline__ void cp4ca(uint32_t dst, const void* src) {
     asm volatile("cp.async.ca.shared.global [%0], [%1], 4;" ::"r"(dst), "l"(src) : "memory");
 }
 
+#if NV_HALF
+// NV_HALF: the CTA serves one KV head H; smem row r of tile i holds key lo0 + 64 i + r of half 0 in bytes 0-63 and key
+// lo1 + 64 i + r of half 1 in bytes 64-127 (both head H), so the consumer / transpose layout is the 2-head one with
+// "head" = half.
+template <int NS, int LAG>
+__device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict__ kc, const uint8_t* __restrict__ vc,
+                                         const int* __restrict__ pt, Range r0, Range r1, int H, int maxp) {
+    const int tid = threadIdx.x;  // 0..127
+    const int total = r0.n;
+    const int* ptr = pt + (long long)r0.b * maxp;
+    auto stage = [&](int j) {
+#pragma unroll
+        for (int c = 0; c < 2; ++c) {
+            const Range& rg = c ? r1 : r0;
+            const int kb = rg.lo + j * BN;
+            if (kb + tid < rg.hi) cp4ca(smem_u32(&sm.ptr[j & 7][c * BN + tid]), ptr + kb + tid);
+            if (kb + tid + 32 < rg.hi) cp4ca(smem_u32(&sm.ptr[j & 7][c * BN + tid + 32]), ptr + kb + tid + 32);
+            if (tid == 0) sm.lim2[j & 7][c] = rg.hi - 1 - kb;
+        }
+    };
+    if (tid < 32)
+        for (int j = 0; j < min(NV_PFD, total); ++j) stage(j);
+    cp_commit();
+    cp_wait<0>();
+    asm volatile("bar.sync 1, 128;" ::: "memory");
+    const int grow = tid >> 3;
+    const uint32_t kdst = smem_u32(&sm.k[0][0]) + grow * 128, vdst = smem_u32(&sm.vs[0][0]) + grow * 128;
+    const int lane = tid & 31;
+    const int ch = tid & 7, cc = ch >> 2;
+    const int nmine = cc ? r1.n : r0.n;
+    const uint8_t* kcb = kc + H * HD + (ch & 3) * 16;
+    const uint8_t* vcb = vc + H * HD + (ch & 3) * 16;
+    for (int i = 0; i < total + LAG; ++i) {
+        if (i < total) {
+            const int s = i % NS;
+            int cr[4];
+            if (i < nmine) {
+                const int lim = sm.lim2[i & 7][cc];
+#pragma unroll
+                for (int j = 0; j < 4; ++j) cr[j] = sm.ptr[i & 7][cc * BN + min(grow + 16 * j, lim)];
+            }
+            if (tid < 32 && i + NV_PFD < total) stage(i + NV_PFD);
+            mb_wait(&sm.empty[s], ((i / NS) & 1) ^ 1);
+            if (i < nmine) {
+#pragma unroll
+                for (int j = 0; j < 4; ++j) {
+                    const int r = grow + 16 * j;
+                    const long long off = (long long)cr[j] * 128;
+                    cp16(kdst + s * (BN * 128) + 16 * j * 128 + ((ch ^ (r & 7)) << 4), kcb + off);
+                    cp16(vdst + s * (BN * 128) + 16 * j * 128 + ((ch ^ vsw(r)) << 4), vcb + off);
+                }
+            }
+        }
+#else
 template <int NS, int LAG>
 __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict__ kc, const uint8_t* __restrict__ vc,
                                          const int* __restrict__ pt, Range rg, int maxp) {
@@ -899,6 +958,7 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
                 cp16(vdst + s * (BN * 128) + 16 * j * 128 + ((ch ^ vsw(r)) << 4), vc + off);
             }
         }
+#endif
         cp_commit();
         if (i >= LAG) {
             const int s = (i - LAG) % NS;
@@ -1003,14 +1063,17 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
                                          float scale, int win, float* __restrict__ pacc, float* __restrict__ pml,
                                          uint8_t* __restrict__ kc,
                                          uint8_t* __restrict__ vc, const long long* __restrict__ loc, float ksv,
-                                         float vsv) {
+                                         float vsv, int H, int total) {
+    // NV_HALF: h is the consumer's half (smem slot) of KV head H's split; else h is the KV head (H unused).
     const int tid = threadIdx.x & 127, lane = tid & 31, w = tid >> 5;
+    const int HH = NV_HALF ? H : h;
+    const bool isnew = NV_HALF ? (split == S - 1 && h == 1) : split == S - 1;
     const uint32_t qa = smem_u32(&sm.q[h][0]);
     const int n = rg.n, lo = rg.lo, hi = rg.hi, b = rg.b;
     {   // Queries: row r = token r / 8, head h * 8 + r % 8; 2 threads per row (32 d each); RMS-norm, RoPE, FP8.
         const int r = tid >> 1, half = tid & 1;
         const int pos = rg.seq + (r >> 3);
-        const __nv_bfloat16* src = qkv + (long long)(b * 8 + (r >> 3)) * qkv_w + (h * 8 + (r & 7)) * HD + half * 32;
+        const __nv_bfloat16* src = qkv + (long long)(b * 8 + (r >> 3)) * qkv_w + (HH * 8 + (r & 7)) * HD + half * 32;
         uint4 raw[4];
 #pragma unroll
         for (int j = 0; j < 4; ++j) raw[j] = reinterpret_cast<const uint4*>(src)[j];
@@ -1042,11 +1105,11 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
         uint32_t pk[8];
 #pragma unroll
         for (int j = 0; j < 8; ++j) pk[j] = pack_e4(x[4 * j], x[4 * j + 1], x[4 * j + 2], x[4 * j + 3]);
-        if (split == S - 1) {
+        if (isnew) {
             // The block's new token t = tid / 16, d 4 (tid % 16) + 0..3 of this KV head: RMS-norm + RoPE, E4M3 (as
             // _new), stored into the cache and into the new-token K / V^T tiles.
             const int t = tid >> 4, d0 = (tid & 15) * 4, tok = b * 8 + t, npos = rg.seq + t;
-            const __nv_bfloat16* kp = qkv + (long long)tok * qkv_w + (16 + h) * HD + d0;
+            const __nv_bfloat16* kp = qkv + (long long)tok * qkv_w + (16 + HH) * HD + d0;
             const uint2 kr = *reinterpret_cast<const uint2*>(kp), vr = *reinterpret_cast<const uint2*>(kp + 2 * HD);
             const float2 c2 = *reinterpret_cast<const float2*>(cs + (long long)npos * HD + d0 / 2);
             const float2 s2 = *reinterpret_cast<const float2*>(cs + (long long)npos * HD + 32 + d0 / 2);
@@ -1062,18 +1125,25 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
             const uint32_t kq = pack_e4((k01.x * c2.x - k01.y * s2.x) * krs / ksv, (k01.y * c2.x + k01.x * s2.x) * krs / ksv,
                                         (k23.x * c2.y - k23.y * s2.y) * krs / ksv, (k23.y * c2.y + k23.x * s2.y) * krs / ksv);
             const uint32_t vq = pack_e4(v01.x / vsv, v01.y / vsv, v23.x / vsv, v23.y / vsv);
-            *reinterpret_cast<uint32_t*>(kc + slot * 128 + h * HD + d0) = kq;
-            *reinterpret_cast<uint32_t*>(vc + slot * 128 + h * HD + d0) = vq;
+            *reinterpret_cast<uint32_t*>(kc + slot * 128 + HH * HD + d0) = kq;
+            *reinterpret_cast<uint32_t*>(vc + slot * 128 + HH * HD + d0) = vq;
             {
                 // Zero the tiles' unused rows / slots, then place this lane's 4 key bytes (row t, SW128 chunk) and
                 // 4 value bytes (V^T rows d0 .. d0 + 3, key slot of t in group 0: word t / 2, byte t % 2).
                 const uint4 z = make_uint4(0, 0, 0, 0);
                 uint4* vz = reinterpret_cast<uint4*>(&sm.vtnew[h][0]);
                 vz[tid] = z; vz[tid + 128] = z;
+#if NV_HALF
+                {
+                    uint4* kz = reinterpret_cast<uint4*>(&sm.knew[8 * 128]);
+                    for (int e = tid; e < 448; e += 128) kz[e] = z;
+                }
+#else
                 if (tid < 112) {
                     uint4* kz = reinterpret_cast<uint4*>(&sm.knew[(8 + 28 * h) * 128]);
                     kz[tid] = z; kz[tid + 112] = z;
                 }
+#endif
                 asm volatile("bar.sync %0, 128;" ::"r"(2 + h) : "memory");
                 const int c = h * 4 + (d0 >> 4);
                 *reinterpret_cast<uint32_t*>(&sm.knew[t * 128 + ((c ^ (t & 7)) << 4) + (d0 & 15)]) = kq;
@@ -1096,7 +1166,7 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
     // Window start for this warp's token 2w rows, relative to key lo: keys t < seq - (win - 1) + 2w are out.
     const int thr = win > 0 ? rg.seq - (win - 1) + 2 * w - lo : -(1 << 30);
     bool newdone = false;
-    if (split == S - 1) {
+    if (isnew) {
         // The new tokens first, as one causal 8-key tile on the tensor cores, while the cached tiles' gathers fly.
         issue_qk(s, qa, smem_u32(&sm.knew[0]) + h * 64);
         wg_wait<0>();
@@ -1155,7 +1225,39 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
     }
     l[0] += __shfl_xor_sync(0xffffffff, l[0], 1); l[0] += __shfl_xor_sync(0xffffffff, l[0], 2);
     l[1] += __shfl_xor_sync(0xffffffff, l[1], 1); l[1] += __shfl_xor_sync(0xffffffff, l[1], 2);
+#if NV_HALF
+    // Release the producer's tiles this half has no keys for, then merge half 1 into half 0 through smem.
+    for (int i = n; i < total; ++i) {
+        mb_wait(&sm.ready[i % NS], (i / NS) & 1);
+        if (lane == 0) mb_arrive(&sm.empty[i % NS]);
+    }
+    if (h == 1) {
+        float4* xo = reinterpret_cast<float4*>(&sm.xo[tid * 36]);
+#pragma unroll
+        for (int j = 0; j < 8; ++j) xo[j] = make_float4(o[4 * j], o[4 * j + 1], o[4 * j + 2], o[4 * j + 3]);
+        xo[8] = make_float4(m[0], m[1], l[0], l[1]);
+        asm volatile("bar.sync 4, 256;" ::: "memory");
+        return;
+    }
+    asm volatile("bar.sync 4, 256;" ::: "memory");
+    {
+        const float4* xo = reinterpret_cast<const float4*>(&sm.xo[tid * 36]);
+        const float4 x = xo[8];
+        const float mn0 = fmaxf(m[0], x.x), mn1 = fmaxf(m[1], x.y);
+        const float a0 = ex2(m[0] - mn0), b0 = ex2(x.x - mn0), a1 = ex2(m[1] - mn1), b1 = ex2(x.y - mn1);
+        m[0] = mn0; m[1] = mn1;
+        l[0] = l[0] * a0 + x.z * b0; l[1] = l[1] * a1 + x.w * b1;
+#pragma unroll
+        for (int j = 0; j < 8; ++j) {
+            const float4 y = xo[j];
+            o[4 * j + 0] = o[4 * j + 0] * a0 + y.x * b0; o[4 * j + 1] = o[4 * j + 1] * a0 + y.y * b0;
+            o[4 * j + 2] = o[4 * j + 2] * a1 + y.z * b1; o[4 * j + 3] = o[4 * j + 3] * a1 + y.w * b1;
+        }
+    }
+    const long long part = (((long long)b * 2 + H) * S + split) * MR;
+#else
     const long long part = (((long long)b * 2 + h) * S + split) * MR;
+#endif
     const int ra = w * 16 + (lane >> 2);
     float* pa0 = pacc + (part + ra) * HD;
     float* pa1 = pa0 + 8 * HD;
@@ -1190,14 +1292,28 @@ __global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restr
     }
     __syncthreads();
     const int split = blockIdx.x % S;
+#if NV_HALF
+    // CTA (request, KV head H, split); consumer c takes half c of the split's ch keys.
+    const int H = (blockIdx.x / S) & 1, bb = blockIdx.x / (2 * S);
+    const Range r0 = rng(seq, bb, 2 * split, ch / 2, win), r1 = rng(seq, bb, 2 * split + 1, ch / 2, win);
+    if (wg == 0) {
+        asm volatile("setmaxnreg.dec.sync.aligned.u32 %0;\n" ::"n"(NV_PREGS));
+        producer<NS, LAG>(sm, kc, vc, pt, r0, r1, H, maxp);
+    } else {
+        asm volatile("setmaxnreg.inc.sync.aligned.u32 %0;\n" ::"n"(NV_CREGS));
+        consumer<NS>(sm, wg - 1, qkv, cs, wg == 1 ? r0 : r1, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc,
+                     loc, ks[0], vsc[0], H, r0.n);
+    }
+#else
     const Range rg = rng(seq, blockIdx.x / S, split, ch, win);
     if (wg == 0) {
         asm volatile("setmaxnreg.dec.sync.aligned.u32 %0;\n" ::"n"(NV_PREGS));
         producer<NS, LAG>(sm, kc, vc, pt, rg, maxp);
     } else {
         asm volatile("setmaxnreg.inc.sync.aligned.u32 %0;\n" ::"n"(NV_CREGS));
-        consumer<NS>(sm, wg - 1, qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0], vsc[0]);
+        consumer<NS>(sm, wg - 1, qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0], vsc[0], 0, 0);
     }
+#endif
 }
 }  // namespace nv
 
@@ -1213,7 +1329,7 @@ void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
         once = true;
     }
     const int B = (int)seq.size(0);
-    f<<<dim3((unsigned)(S * B)), 384, smem, c10::cuda::getCurrentCUDAStream()>>>(
+    f<<<dim3((unsigned)(S * B * (1 + NV_HALF))), 384, smem, c10::cuda::getCurrentCUDAStream()>>>(
         (const __nv_bfloat16*)qkv.data_ptr(), (const float*)cs.data_ptr(), (uint8_t*)kc.data_ptr(),
         (uint8_t*)vc.data_ptr(), (const float*)ks.data_ptr(), (const float*)vsc.data_ptr(),
         (const long long*)loc.data_ptr(), (const int*)pt.data_ptr(),
@@ -1223,7 +1339,7 @@ void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
 '''
 try:
     _NVS = _load_inline(
-        name="muse_nvs_a2s12",
+        name="muse_nvs_a2s13h",
         cpp_sources="void nvs(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, int64_t, int64_t, "
                     "int64_t);",
@@ -1232,6 +1348,7 @@ try:
 except Exception as _e:  # noqa: BLE001
     print("nvs build failed, using Triton:", _e)
     _NVS = None
+NVS_HALF = '#define NV_HALF 1' in _NVS_SRC
 NVS_MIN_BATCH = 16  # verify sliding from this batch on nvs (verify 32: H100 paired -1.66 us, H200 16.64 -> 15.28/15.07;
 # verify 16 with 8 splits: H100 paired -0.38 us in s9 (6/7), but the H200 tied 12.63 vs 12.63 in check baea7057)
 
@@ -3639,8 +3756,12 @@ def _verify_nvs(data, cfg):
     """Verify sliding (L 8, G 8, D 64, HKV 2, page 1) on the native nvs kernel + _combine_hb."""
     batch, length, hq, hkv, d = cfg["batch"], cfg["q_len"], cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
     qkv, device = data["qkv"], data["qkv"].device
-    S = 4 if batch >= 32 else 8  # ~128 CTAs, one per SM
-    chunk = triton.cdiv(triton.cdiv(cfg["window"], S), 64) * 64
+    if NVS_HALF:  # CTA (request, KV head, split), 2 halves per split merged in the CTA
+        S = 2 if batch >= 32 else 4
+        chunk = triton.cdiv(triton.cdiv(cfg["window"], S), 128) * 128
+    else:
+        S = 4 if batch >= 32 else 8  # ~128 CTAs, one per SM
+        chunk = triton.cdiv(triton.cdiv(cfg["window"], S), 64) * 64
     rows = length * (hq // hkv)
     pacc = torch.empty((batch, hkv, S, rows, d), dtype=torch.float32, device=device)
     pml = torch.empty((batch, hkv, S, rows, 2), dtype=torch.float32, device=device)
