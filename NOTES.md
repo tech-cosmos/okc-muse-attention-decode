@@ -4027,3 +4027,80 @@ verify-1-sliding single kernel to lose**; the in-kernel cross-CTA merge at verif
 ### Budget (UTC day 2026-10-25)
 
 No checks this session. Account: checks 10/20, scored 3/10 (agent2 gets >= 8 of the remaining 10).
+
+## Session 90 (unattended session 23, 2026-10-25 04:44 - ~05:30 UTC): merged agent2's maskif, SCORED 0339a5f6 2.364x (new best); verify 1 full probes
+
+### Judge runs
+- Merged agent2 `agent2-exp/maskif` (6c6a87a: `mif` + `preq` for verify 16/32 sliding; its check a27e9a52 was 2.376x) into
+  main as ad2116c (submission.py identical to the checked code; main's code had not changed since agent2's base f34f2fe).
+  Tests 16/16. **Submitted 0339a5f60bee4cfd: 2.364x [2.329, 2.400] = new account best** (was 8aec5993 2.354x).
+  H200 per shape (us): decode 1 sliding 4.91 / full 14.24; decode 16 8.41 / 90.80; decode 32 13.85 / 169.41; verify 1
+  7.15 / 17.07; verify 16 12.52 / 115.26; verify 32 16.98 / 211.73. Profiles: decode 1 full `_gd_full` 7.3 + `_combine`
+  3.0; verify 1 full `_attn_split` 12.9 + `_combine` 2.6; verify 32 full `_gw_verify` 205.5.
+
+### Verify 1 full is compute-latency-bound in Triton (H100, tools/s90)
+- Cold vs warm (no flush, all 20 MB K/V in L2; tools/s90/warm.py), attention only: verify 1 full 15.45 cold / 14.2 warm
+  (memory is only ~1.3 us of it); decode 1 full 11.7 / 8.7.
+- Time vs ctx (tools/s90/ctx.py, attention only, 127 splits): 10k/20k/40k/80k keys = 7.3/8.5/10.9/15.1 us cold, so
+  ~6.2 us fixed (incl. ~2.5 launch) + 0.111 us per 1000 keys (8.9 us at 80k). Per-key slope by splits: 63 -> 0.175,
+  127 -> 0.111, 254 -> 0.134. Decode 1 full: cold slope 0.083, warm 0.040 (memory-bound per key; ~3.5 us fixed chain).
+- ncu (warm, locked 1.45 GHz): 127 splits: 7.5 warps/SM, CPI 4.49, IPC 1.66, nothing above 43% (L1 42.6%, ALU 24.6%).
+  254 splits: 13.7 warps/SM but CPI 7.1, IPC only 1.91 (+15%) and more total instructions (per-program prologue);
+  stalls/issue: long_scoreboard 1.25, selected 1.0, wait 0.97, barrier 0.90, short_scoreboard 0.70, mio 0.39. So more
+  warps don't help; the wgmma/barrier/softmax chain per 4-warp program is the limit, and the issue-limited ideal (416
+  instr/warp/tile x 2500 tiles) would be ~4.5 us vs 8.9.
+- tl.exp2 already lowers to ex2.approx.ftz (no denormal fixup); the per-element FSELs are only in the masked tail loop.
+- Dead: FP8 P@V in Triton `_tile` (P = exp2(x - max + 8) as E4M3, FA3 Max_offset 8; `tl.dot(p8, v_fp8)`): verify 1
+  full 27.8 vs 17.8 us, verify 1 sliding 8.19 vs 7.54 (Triton's N-major FP8 B operand path; same as session ~5).
+  Plan sweep again: block_n 128 stages 3/4 +3.1/+3.3, block_n 32 stages 12 +3.1, warps 8 +7.8.
+- Conclusion: verify 1 full's remaining lever is a native consumer with a shorter per-tile chain (two 64-key tiles in
+  flight per warpgroup, no CTA barriers: e.g. FA3-style ping-pong between 2 WGs on 128 keys), not plans. ~4 us H200 at
+  most (~2% overall). Native verify consumers so far have tied Gluon/Triton (s71, s82), so prototype the consumer alone
+  first (tools/s69 cmicro style at verify-1 size: 64 rows x 80k keys x 2 heads, all-L2) and require <= ~9 us whole.
+
+### Budget (2026-10-25)
+- Account at s90 start: checks 10/20 used, scored 3/10. s90: 0 checks, 1 scored (0339a5f6) -> scored 4/10.
+
+## Session 91 (unattended session 24, 2026-10-25 04:59 - ~06:10 UTC): csl cluster per KV head = decode 1 sliding -0.58 us (H100)
+
+Board 04:59Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.364x (#22, 0339a5f6). COORD "Ready to merge": nothing
+new (maskif already merged in s90). Account at start: checks 10/20, scored 4/10. Tools: tools/s91/ (cslstamp.py = %globaltimer
+phase stamps inside csl, cold L2, mean over runs, env VAR/WARM; cslvar.py = csl source patches by name, correctness +
+paired graph timing vs submission's csl; ifetch.py = instruction-fetch microbench).
+
+### csl timeline (decode 1 sliding, H100, cold L2, us from the first CTA's start; old layout: 16 CTAs x 8 warps)
+page table landed 1.08 | K landed + QK 2.35 | PV done 2.73 | pre-merge __syncthreads 2.86 | before cluster wait 3.15 |
+after it 3.19 | pushes issued 3.25 | owner mbarrier done 3.57 | owner merge: loop 3.74, shuffles 3.86, store 4.03.
+Warm L2: page table 0.68, K 1.57, tail phases unchanged (0.3-0.45 us each).
+- Page-table trip ~1.0 us, gather trip ~1.3 (0.3 longer: per-SM bytes, 32 KB per CTA), tail 1.6 us of serial phases.
+- Dead (H100 paired, 11 rounds): owner merge with fast reciprocal/division + gate sigmoid before the wait (`sig`) 0.00;
+  + tree max / 4 accumulators (`tree`) +0.03; cluster wait moved right after QK (`cw`) +0.06. The tail's phases don't
+  shrink with fewer instructions (stamps unchanged with sig+tree).
+- Not instruction fetch: straight-line 512-4096 FFMAs run the same after an L2 flush as warm (tools/s91/ifetch.py).
+
+### Win: one 16-CTA cluster per (request, KV head) (`cpk`, exp/cpk)
+32 CTAs x 4 warps (each warp still 32 keys x 8 rows) instead of 16 x 8 warps covering both heads: each SM gathers 16 KB
+instead of 32. Owners are ranks 0-7 (query head 8h + r; ranks 8-15 only push), expect_tx only on owners.
+H100 paired (tools/s91/cslvar.py VAR=cpk, 11 rounds): **decode 1 sliding 5.89 -> 5.31 us (11/11), decode 16 sliding
+9.97 -> 9.82 (11/11)**; identical errors on 5 cases; tests 16/16. Commit on exp/cpk.
+
+### Judge runs
+- **check 750924a080b84b17** (exp/cpk 9b14e27): **2.397x** [2.361, 2.440], 16/16. H200 (us): decode 1 sliding **4.17**
+  (0339a5f6: 4.91), decode 16 sliding **7.63** (8.41); others noise (decode 1 full 13.88, verify 1 sliding 7.23, verify 1
+  full 16.87, decode 32 sliding 13.78, verify 16/32 sliding 12.50/16.98, full 88.97/168.74/115.31/211.19). Profile: csl
+  kernel 3.6 us at decode 1 sliding, 6.1 at decode 16.
+- Merged to main (ff, 9b14e27), pushed. **Submitted 08bf9391983d432e: 2.445x [2.408, 2.481] = new account best** (was
+  0339a5f6 2.364x). Per shape: decode 1 4.73 / 14.17; decode 16 7.70 / 86.57; decode 32 14.09 / 161.89; verify 1 6.96 /
+  16.91; verify 16 12.53 / 112.39; verify 32 17.32 / 206.60 (the full shapes drew a lucky run vs the check).
+
+### Next
+- csl further along the same line: the gather trip is per-SM-bytes sensitive. 8 warps x 16 keys per CTA (same bytes,
+  half the loads per thread; needs a 16-key mma layout: QK n8 x 2, P@V k32 padded or k16 FP16) or 64-key CTAs if a
+  cluster-of-16 limit can be sidestepped (2 clusters per head would need a cross-cluster merge: dead).
+- Same idea for verify 1 sliding? Its Triton path already spreads 64 programs (32 splits x 2 heads) + tsep; the native
+  single-kernel designs died on the 16 KB/CTA merge (s89), unchanged by this.
+- Batch 32 decode sliding (agent2's lane) still on Triton: csl at batch 32 = 1024 CTAs x 4 warps; worth a paired run
+  (CSL_MAX_BATCH 32) since the CTA is now half the size (s72: 512 CTAs at 8 warps lost by 0.1).
+
+### Budget (UTC day 2026-10-25)
+- s91: 1 check (750924a0), 1 scored (08bf9391). Account after: checks 11/20, scored 5/10.

@@ -1,6 +1,15 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~05:20 UTC (session 89 = unattended session 22 of the #1-push brief).
+Updated 2026-10-25 ~05:50 UTC (session 91 = unattended session 24 of the #1-push brief).
+
+**s91: csl one 16-CTA cluster per (request, KV head), 4 warps/CTA (each SM gathers 16 KB, not 32): SCORED 08bf9391
+2.445x = NEW ACCOUNT BEST (main 9b14e27).** H200 decode 1 sliding 4.91 -> 4.17 (check) / 4.73 (scored), decode 16
+sliding 8.41 -> 7.63 / 7.70. csl stamps (tools/s91/cslstamp.py): page table 1.0 us, gathers 1.3, tail 1.6 of serial
+phases that don't shrink with fewer instructions (owner merge fast-math/tree, earlier cluster wait: ties). NOTES s91.
+
+**s90: merged agent2 maskif (mif + preq, verify 16/32 sliding) -> main ad2116c; SCORED 0339a5f6 2.364x = NEW ACCOUNT
+BEST.** Verify 1 full probes: compute-latency-bound in Triton (warm 14.2 vs cold 15.45 us; 6.2 us fixed + 0.111 us/1k
+keys; doubling warps/SM raises CPI 4.5 -> 7.1, IPC +15%); FP8 P@V in Triton dead (+10 us). NOTES s90.
 
 **s89: native wgmma verify-1-sliding single kernel (tools/s89/vsw.cu): correct, dead, no checks.** H100 8.0-8.2 vs
 main 7.6 us. Compute is fine (wgmma tile ~1.0 us after the gathers land); the wall is the cluster merge: each CTA
@@ -13,43 +22,27 @@ exchange is far worse (13.2). Third native verify-1-sliding kernel to lose (s72,
 mask (-16% loop instructions, tie). Since 04:09Z agent2 (~/repo2) owns batch 16/32 sliding and gets >= 8 checks/day;
 merge its COORD "Ready to merge" wins. NOTES s88.
 
-**s87:** plan knobs, `_gd_full` ptpf, gbal K/V L2 prefetch-ahead: all dead on H100 (NOTES s87).
-
-**s86: SCORED 8aec5993 2.354x = NEW ACCOUNT BEST (main e8a1f73, code 07a06b3).** Bisected s85's verify 1 sliding
-SPEC loss: SPEC alone (no pre 2) also lost on the H200 (diag 6e8ac91c: 9.24 us); the cause is the unexecuted
-out-of-line `noinline` redo copy (2x PTX). Loop form (one body in `while go:`, seq loop-carried) + pre 2: H100 -0.29,
-H200 check e1620b92 2.359x (verify 1 sliding 7.32), scored 8aec5993 2.354x (verify 1 sliding 6.91). `_gd_full` loop
-form loses +1.2 H100 (keeps noinline, which is fine in Gluon); verify 1 full SPEC +0.35 H100 (off). NOTES s86.
-
-**s76-s85 (NOTES has the detail):** s85 SPEC (batch-1 seq from table width, on main); s84 native vsl lost, bucketing
-gate failed; s80 H200 decode 32 full bytes dense 144.7 / random ~164 us; s79 LZ 3 lazy max (on main); s77 diag harness.
+**s76-s87:** see NOTES (s86 SPEC loop form, s85 SPEC, s84 native vsl lost, s80 H200 dense/random bytes, s79 LZ 3).
 
 ## Board and best run
 
-- Board 2026-10-25 04:15Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.354x (#26)** (scored
-  **8aec5993**, main e8a1f73; previous best 9f8e594b 2.350x). Need ~+24% for #1. Table below is the older 7f45c5c6 run (NOTES s79 has 9f8e594b's).
-- Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
-
-| load | sliding (x46) | full (x16) | load speedup |
-|---|---|---|---|
-| decode 1 | 6.05 / 21.09 / 3.48x | 13.70 / 31.46 / 2.30x | 2.96 |
-| decode 16 | 10.72 / 27.33 / 2.55x | 86.52 / 202.26 / 2.34x | 2.39 |
-| decode 32 | 13.86 / 31.58 / 2.28x | 161.70 / 386.54 / 2.39x | 2.37 |
-| verify 1 | 7.17 / 23.06 / 3.22x | 16.50 / 36.22 / 2.20x | 2.76 |
-| verify 16 | 12.91 / 29.62 / 2.29x | 115.81 / 206.83 / 1.79x | 1.91 |
-| verify 32 | 17.42 / 34.85 / 2.00x | 213.70 / 392.37 / 1.84x | 1.87 |
-
+- Board 2026-10-25 05:45Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.445x** (scored
+  **08bf9391**, main 9b14e27; previous 0339a5f6 2.364x). Need ~+23% for #1. Table below is the older 7f45c5c6 run (NOTES s90 has 0339a5f6's).
+- Per-shape H200 (08bf9391, us): decode 1 4.73 / 14.17; decode 16 7.70 / 86.57; decode 32 14.09 / 161.89; verify 1
+  6.96 / 16.91; verify 16 12.53 / 112.39; verify 32 17.32 / 206.60 (sliding / full). SGLang: tools/bench.py.
 - H200 profile (7f45c5c6): verify 16/32 full `_gw_verify` 109.2 / 209.8 us + `_combine_bal` tail; decode 32 full
   `_gd_full` 162.5 (4.0 TB/s, near the gather floor). Verify full is consumer-compute-bound on the H200.
 
 ## Code state
 
-- main = e8a1f73+ (code 07a06b3 = scored 8aec5993 2.354x).
-- Dispatch: decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per request, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
+- main = 9b14e27 (= scored 08bf9391 2.445x; csl cluster per KV head on top of ad2116c).
+- Dispatch: decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full`; sliding + small -> Triton
   `_attn_split` + PDL merges.
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
+
+- 2026-10-25 after s91: checks 11/20, scored 5/10 (s91: check 750924a0, submit 08bf9391).
 
 - 2026-10-25: checks 10/20 at s89 start (s89 used none; agent2 gets >= 8 of the rest); earlier: checks 9/20 (s86: 6e8ac91c diag 2.302x, e1620b92 2.359x; scored 8aec5993 2.354x = 3/10 scored) (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
@@ -98,9 +91,14 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- Nothing queued: main e8a1f73 = scored 8aec5993. Submit a new main only if its check beats 2.354.
+- Nothing queued: main 9b14e27 = scored 08bf9391 (2.445x). Submit a new main only if its check beats 2.445.
+- Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s91: csl owner merge fast reciprocal/sigmoid-early/tree reductions, cluster wait after QK (H100 ties); not i-fetch.
+
+- s90: FP8 P@V in Triton _tile (verify 1 full +10 us), verify 1 full block_n 128 / block_n 32 st 12 / warps 8.
 
 - s89: native wgmma verify-1-sliding kernel (vsw: st.async / bulk DSMEM / L2 exchange); cross-CTA merge at verify
   volume = 16 KB/SM of DSMEM ~1.3 us, which kills any single-kernel verify sliding design.
