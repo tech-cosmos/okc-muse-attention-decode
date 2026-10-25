@@ -915,6 +915,7 @@ if HAVE_GLUON:
                                       gl.zeros([M, BN], gl.float32, S_L) + l4[:, None], 0.0), 1)
             else:
                 l_i = gl.convert_layout(gl.sum(l8, 1), gl.SliceLayout(1, S_L))
+            # (LZ 4: a row whose P overflowed stores m = +inf; _combine_bal REDO recomputes it.)
             _gw_store(pacc_ptr, pml_ptr, 0, h + HEAD, pid + b, m_i, l_i, acc, HKV, NID, M, D, gl.SliceLayout(1, S_L),
                       O_L)
 
@@ -1665,7 +1666,8 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
                  HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
                  D: tl.constexpr, B: tl.constexpr, B_PAD: tl.constexpr, P: tl.constexpr, NID: tl.constexpr,
                  BN: tl.constexpr, SB: tl.constexpr, HB: tl.constexpr, ONE: tl.constexpr = True,
-                 PROP: tl.constexpr = False):
+                 PROP: tl.constexpr = False, REDO: tl.constexpr = False, kc_ptr=None, vc_ptr=None, ks_ptr=None,
+                 pt_ptr=None, qk_scale=1.0, MAX_PAGES: tl.constexpr = 1, PAGE: tl.constexpr = 1):
     """_combine_hb for balanced splits (_gw_bal): request b's partials are at ids p + b for the programs p whose
     tile range meets b's tiles, and its new tokens at P + B + b."""
     tok = tl.program_id(0)
@@ -1744,6 +1746,36 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
             denom += tl.sum(w * tl.load(pml_ptr + at * 2 + 1, mask=ok, other=0.0), 0)
             a = tl.load(pacc_ptr + at[:, :, None] * D + d[None, None, :], mask=ok[:, :, None], other=0.0).to(tl.float32)
             acc += tl.sum(w[:, :, None] * a, 0)
+    if REDO:
+        if tl.max(m_max, 0) == float("inf"):
+            # Cold path: a _gw_verify LZ 4 partial of these rows overflowed (m = +inf: a row's scores grew by >= 128
+            # binades within one segment; never on the scored data). Recompute the rows' attention over all the
+            # request's cached keys exactly (same FP8 queries and scale, FP32 P), then add the new tokens' partial.
+            ROW_W: tl.constexpr = HKV * D
+            BK: tl.constexpr = 8  # (small: wider tiles cost this kernel registers on the hot path)
+            x = tl.load(qkv_ptr + tok * QKV_W + col).to(tl.float32)
+            q8 = (x * tl.rsqrt(tl.sum(x * x, 1) / D + 1e-5)[:, None]).to(tl.float8e4nv).to(tl.float32)
+            scale = qk_scale * tl.load(ks_ptr)
+            seq = tl.load(seq_ptr + b)
+            kk = tl.arange(0, BK)
+            m_max = tl.load(pml_ptr + nrow * 2)
+            denom = tl.load(pml_ptr + nrow * 2 + 1)
+            acc = tl.load(pacc_ptr + nrow[:, None] * D + d[None, :]).to(tl.float32)
+            for k0 in range(0, seq, BK):
+                t = k0 + kk
+                okk = t < seq
+                pg = tl.load(pt_ptr + b.to(tl.int64) * MAX_PAGES + t // PAGE, mask=okk, other=0)
+                off = ((pg.to(tl.int64) * PAGE + t % PAGE) * ROW_W + h * D)[:, None] + d[None, :]
+                kt = tl.load(kc_ptr + off, mask=okk[:, None], other=0.0).to(tl.float32)
+                vt = tl.load(vc_ptr + off, mask=okk[:, None], other=0.0).to(tl.float32)
+                sc = tl.sum(q8[:, None, :] * kt[None, :, :], 2) * scale
+                sc = tl.where(okk[None, :], sc, float("-inf"))
+                m_new = tl.maximum(m_max, tl.max(sc, 1))
+                alpha = tl.exp2(m_max - m_new)
+                pw = tl.exp2(sc - m_new[:, None])
+                denom = denom * alpha + tl.sum(pw, 1)
+                acc = acc * alpha[:, None] + tl.sum(pw[:, :, None] * vt[None, :, :], 1)
+                m_max = m_new
     o = acc / denom[:, None] * tl.load(vs_ptr)
     o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
     tl.store(out_ptr + tok * HQ * D + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
@@ -2017,6 +2049,8 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         qkv, data["seq_lens"], pacc, pml, data["v_scale"], out,
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, B=batch, B_PAD=b_pad, P=progs, NID=nid,
         BN=plan["block_n"], SB=plan.get("sb", triton.next_power_of_2(progs // batch + 3)), HB=hb, ONE=MERGE1,
+        REDO=plan.get("lz", LZ) == 4, kc_ptr=data["k_cache"], vc_ptr=data["v_cache"], ks_ptr=data["k_scale"],
+        pt_ptr=page_table, qk_scale=qk_scale, MAX_PAGES=page_table.shape[1], PAGE=cfg["page_size"],
         num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
     return out
 
