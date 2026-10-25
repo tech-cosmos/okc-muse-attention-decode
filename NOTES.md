@@ -4499,3 +4499,48 @@ verify 16 real 138.8 -> 139.0, all-L2 105.3 -> 105.5. nh 3 s4 = 1 CTA/SM (+46). 
 
 ### Budget (UTC day 2026-10-25)
 - s101: 1 check (6d7905ae diag), 0 scored. Account: checks 18/20 (2 left = agent2's), scored 6/10.
+
+## Session 102 (unattended session 35, 2026-10-25 09:02 - ~09:55 UTC): submitted main (2.460x, new best); exp/hdiag built
+
+Board 09:05Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; ours 2.445x before this session. No "Ready to merge".
+
+### Submit (lead agent's 08:58Z decision: submit main once even though check 55444f19 tied)
+- Tests 16/16 on main cc93187 (submission.py = 1e4c80e). **submit 8725ba7e835c4b6b: 2.460x [2.423, 2.506], 1531.2 us,
+  16/16 = NEW ACCOUNT BEST** (was 08bf9391 2.445x). Per shape (H200 us): decode 1 4.55 / 13.71; decode 16 7.70 / 89.55;
+  decode 32 13.83 / 168.92; verify 1 5.53 / 16.45; verify 16 12.43 / 113.28; verify 32 15.21 / 209.94 (sliding / full).
+  Profile: decode 1 full `_gd_full` 8.1 + `_red_fin` 1.6; verify 1 full `_attn_split` 12.9 + `_combine` 2.6; vtk 4.8;
+  csl 3.5. Do not resubmit unchanged code.
+- **Judge node noise on full layers is bimodal**: decode 32 full was 161.7-161.9 us in exactly two runs (08bf9391,
+  13582a1b; decode 16 full 86.6-86.7, verify 16/32 full 112.4-112.8 / 206.6-207.5) and 167.5-170.3 in all ~20 others
+  (decode 16 full 89.0-90.8, verify 32 full 208.7-213.5), the same code included. The fast level is a lucky node, not a
+  regression; compare full-layer numbers within the slow level. (The new json has `machine.node`, e.g. 8725ba7e ran on
+  n-n5ig53xatkvzqcfmh7y7k2a7fu at 1980 MHz SM / 3201 MHz mem; older runs didn't record it.)
+- H200 vs H100 decode 1 full: whole 13.71 vs ~13.85 us: the H200's extra bandwidth doesn't help, so this shape is
+  latency/structure-bound and its H100-tuned plan (511 splits, BN 32, stages 2) may not be the H200 optimum.
+
+### exp/hdiag 63dd0fd (diag only, NEVER submit: the score is meaningless)
+kernel_fn now runs the real path via `_run_plan`, then for decode 1/16/32 full and verify 1 full re-runs the path with
+plan overrides (`_DIAG`), each variant after a 2 GB L2 flush with its kernels renamed (`<variant>_gd_full`,
+`<variant>_red_fin`, `<variant>_attn_split`, `<variant>_combine`, `<variant>_combine_bal`), plus a native gather floor
+`hfloor<R, DENSE>` (all rows' 128-B K and V through the page table, R rows per 8-lane group; DENSE 1 = rows in physical
+order) for decode 1/32 full and verify 1 full. Read the `_gd_full` / `_attn_split` / `hfloor` durations in the profile
+(merge kernels are PDL-launched: their durations include waiting; ignore them). Tests 16/16.
+H100 dry run (tools/s101/prof.py, CUPTI median of 20, flushed), kernel durations in us:
+- decode 1 full `_gd_full`: base 11.46/11.49, stages 3 11.65, stages 4 12.10, splits 1023 11.58, splits 255 12.83, 255 st4
+  13.89, BN 16 st4 12.61, 255 BN 64 18.69; floor random R2 9.34, R4 9.47, dense 8.86.
+- verify 1 full `_attn_split`: base 14.24/14.30, stages 6 14.46, 12 14.98, splits 63 18.85, 255 15.58, BN 128 st4 17.54.
+- decode 16 full: base 123.4, stages 3 124.6, splits 127 126.3, dbal 1024 progs 122.65 (merge differs: check whole time).
+- decode 32 full: base 241.3/240.7, stages 3 242.9, stages 4 282.0, dprogs 768 243.0, 1536 249.4; floor random 233.8.
+**Queued: first check after 00:00Z 2026-10-26 = exp/hdiag** (one check answers: the H200 gather floor for each full shape,
+and whether any plan variant wins there; port winners to main per shape, then check main).
+
+### Next
+- If the H200 `_gd_full` decode 1 full duration is far above `hfloor` (H100 gap 2.1 us), the gap is the target
+  (structure: one-warp programs x 2 stages; atomic burst at the end ~1.1 us, s95). Idea not yet built: 4-warp CTAs
+  with one split per warp, pre-summed in smem at the fixed reference max before ONE set of atomics per CTA (4x less
+  atomic volume in the end-of-grid burst).
+- If decode 32 full's H200 floor (random) is ~145 us vs our 169, the full layers are the big lever (s80/s99 notes).
+
+### Budget (UTC day 2026-10-25)
+- s102: 0 checks, 1 scored (8725ba7e). Account: checks 18/20 (2 left = agent2's), scored 7/10. Claude's submits today
+  are used (this one came from the lead agent's reserve).
