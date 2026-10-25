@@ -1295,6 +1295,7 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
             for (int j = 0; j < 8; ++j) xl[j] = make_float4(o[4 * j], o[4 * j + 1], o[4 * j + 2], o[4 * j + 3]);
             xl[8] = make_float4(m[0], m[1], l[0], l[1]);
             asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
+            asm volatile("barrier.cluster.wait.acquire.aligned;" ::: "memory");  // the peer's clbar init is visible
             asm volatile("bar.sync 5, 64;" ::: "memory");
             if ((tid & 63) == 0) {
                 const uint32_t src = smem_u32(&sm.xo2[tid * 36]);
@@ -1398,7 +1399,8 @@ __global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restr
         asm volatile("fence.mbarrier_init.release.cluster;" ::: "memory");
     }
     if (cl) {  // the peer's bulk copy completes on this CTA's clbar on rank 0's clbar later: its init must be visible cluster-wide
-        asm volatile("barrier.cluster.arrive.release.aligned;\nbarrier.cluster.wait.acquire.aligned;" ::: "memory");
+        // arrive now, wait only in the warps that copy into the peer (just before the copy)
+        asm volatile("barrier.cluster.arrive.release.aligned;" ::: "memory");
     } else {
         __syncthreads();
     }
@@ -1465,7 +1467,7 @@ void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
 '''
 try:
     _NVS = _load_inline(
-        name="muse_nvs_a2s14c",
+        name="muse_nvs_a2s15w",
         cpp_sources="void nvs(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, int64_t, int64_t, "
                     "int64_t, torch::Tensor, int64_t);",
