@@ -1,9 +1,11 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~15:00 UTC (session 118 = unattended session 51). **s118 (0 checks): decode 1 full %globaltimer
-timeline (first tile lands 2.56 us after start, steady 2.6 TB/s, end spread 1.4, `_red_fin` hop 1.8 after the last
-program); WIN on main ae1161c: `_red_fin` 16 warps at batch 1, H100 paired -0.22..-0.34 us (15/15 twice), bit-identical.
-Dead: FAST red_fin, decode 1 full split counts (all-keyed splits +1.4..+2.5), verify 1 full cw. NOTES s118.**
+Updated 2026-10-25 ~15:00 UTC (session 119 = unattended session 52). **s119 (0 checks): H100 reference numbers for
+exp/hdiag4's batch-1 variants (decode 1 full stages 3/4, BN 64/16, splits 255/1023; verify 1 full stages 10/12: all lose
+on the H100); dead: `_gd_full` work stealing (on paper), csl owner-merge sig/tree trims (re-tied). main unchanged ae1161c.
+NOTES s119.**
+
+**s118: decode 1 full timeline; `_red_fin` 16 warps at batch 1 on main ae1161c (H100 -0.3 us). NOTES s118.**
 
 **Earlier: s114-s117 (0 checks each): physical-order decode full CLOSED (s114), judge profile is warm (s115), decode 1
 full atomics <= 0.4 us (s116, exp/hdiag4 built), merge exposure on batched full <= 0.3% (s117).**
@@ -77,6 +79,8 @@ numbers: NOTES s69.)
 3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s119: decode 1 full stages 3/4, BN 64 s2, BN 16 s4, splits 255/1023 and verify 1 full stages 10/12 (H100; H200 via
+  hdiag4), `_gd_full` work stealing (on paper: late grab = 3 trips > 0.86 us spread), csl owner-merge sig/tree (tie again).
 - s118: FAST _red_fin (reorder), decode 1 full split counts 396-1300 (all-keyed splits +1.4..+2.5: new token must be in an
   empty program), verify 1 full _combine cw 8/16, _combine_bal cw/hb at verify 16 full.
 - s116: decode 1 full end-of-grid atomic burst (whole atomic removal -0.3..-0.4 us cold H100; pre-sum ideas capped there).

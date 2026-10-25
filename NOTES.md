@@ -5209,3 +5209,35 @@ is free, `{"splits": 505, "sep": 1, "ua": true}` is the variant to time.
 
 ### Budget (UTC day 2026-10-25)
 - s118: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 119 (unattended session 52, 2026-10-25 14:49 - ~15:00 UTC): batch-1 plan knobs (H100 refs for the diag); csl owner-merge trims re-tied (no checks)
+
+Board 14:50Z unchanged: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450, 1481.9 us).
+Account: checks 20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new (agent2 NV_HALF already on
+main). **0 checks, 0 scored. main code unchanged (ae1161c).** All local branches match origin (pushed).
+
+### H100 reference numbers for exp/hdiag4's batch-1 variants (tools/s118/ab.py, cold, paired, 9 rounds, median us)
+Use these to tell whether the H200 diag disagrees with the H100 (the H200 needs more bytes in flight per Little's law,
+so "more in flight loses on the H100" is not proof it loses on the H200):
+- decode 1 full: base (511 splits, BN 32, stages 2) 14.11 / 14.00; stages 3 14.46; stages 4 15.10; BN 64 stages 2
+  16.62; BN 16 stages 4 15.41; splits 1023 14.24; splits 255 16.24 (every variant 0/9 rounds vs base).
+- verify 1 full: base (127 splits, BN 64, stages 8) 17.78; stages 10 18.37; stages 12 18.82 (0/9).
+Reading rule for the diag stays: port a d1/v1 variant only if its H200 `_gd_full`/`_attn_split` beats `d1a`/`v1a` by > 0.3 us.
+
+### Dead
+- **Work stealing / dynamic tile grabs in `_gd_full` (decode 1 full), on paper:** s118's end spread is p50 9.19 -> max
+  10.05 us (~0.86 us, about one 32-key tile). An adaptive grab must happen late (when a program is known to be fast),
+  and then pays atomic trip + page-table trip + row trip (~3 x 0.6-0.7 us) before the stolen tile's rows land: more
+  than the spread it removes. Grabs issued early aren't adaptive (= static split). Not built.
+- **csl owner-merge trims on the current per-KV-head layout** (tools/s119/cslsig.py = s91's cslvar `sig`/`tree` patches
+  re-anchored, csl only, vtk untouched; 5/5 correctness cases pass): `sig` (gate sigmoid before the receive wait,
+  __fdividef/__frcp_rn instead of IEEE divides) decode 1 / 16 sliding -0.03 / -0.05 (9/15, 10/15) = tie; `sig,tree`
+  (+ tree max, 4 independent accumulators) +0.00 / +0.02 (5/15). Same as s91 on the old layout: the ~1.2 us tail after
+  P@V is DSMEM/smem latency + waiting for the slowest CTA, not ALU work. Instruction-level trims of csl's tail are closed.
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged from s118
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag4 @ 8b557ec (diag, never submit); compare its d1*/v1* kernel times with the H100 refs above.
+
+### Budget (UTC day 2026-10-25)
+- s119: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
