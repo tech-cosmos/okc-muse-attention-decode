@@ -676,3 +676,31 @@ tests 16/16. Found via the nds pair probe below (nds's start cluster barrier alo
 - Merge structure summary for batched sliding (H100): PDL combine ~2 us; in-cluster DSMEM exchange ~1 us chain (only
   wins when it removes the combine launch entirely: cl at S 2); global ticket/flag chains ~2.5 us. S 2 cl fits only
   verify 32 (128 CTAs, 1/SM); 4-CTA clusters cap at 30 (< 32 needed at verify 16).
+
+## Session 16 (2026-10-25 14:31 - ~15:10 UTC): nds split pairs in one CTA (smem merge) DEAD
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z (COORD human 14:10Z): **0 checks**, H100 only. Merged
+origin/main c6f8370 into agent2 (345e974; submission.py unchanged vs 7ba35f9, tests 16/16) and agent2 into
+agent2-exp/half (d7dd5a4; nvs conflicts resolved to half's cl superset = e5f65ed's submission.py).
+
+### DEAD: nds NV_PAIR (agent2-exp/ndp, tools/a2/nds_pair_cta_dead.patch, stamps tools/a2/ndpstamp.py)
+Decode 32 sliding: the 2 CTAs that already share an SM (nds: 256 CTAs, 2/SM) fused into one 512-thread CTA running
+2 adjacent splits (2 producer + 2 consumer warpgroups, 2 Smem copies, own named barriers); the odd split's live warp
+hands o / m / l to the even one through smem (bar.arrive / bar.sync 5, 64), which merges and writes partial slot
+split / 2: partials 1 -> 0.5 MB, _combine_hb S 8 -> 4. Correct (chk.py 12/12).
+| H100 paired (tools/a2/vab.py), decode 32 sliding | diff vs nds |
+|---|---|
+| NV_PAIR | **+0.74 (0/9), +0.72 (0/7)** |
+| pair launch, no merge (S 8 partials) | +0.96 (0/7): the packaging alone |
+So the in-CTA merge is worth ~-0.3 (combine 1.55 -> 1.58 us warm: still latency-bound, the gain is the 8 -> 4 slot
+tail), but one 16-warp CTA runs each split's key loop ~0.5 us slower than two 8-warp CTAs (stamps: first tile at
+2.05 us in both, loop median 3.33 -> 3.84 us; profiler warm kernel 7.71 -> 8.65). NOT explained by: the live softmax
+warps sharing a sub-partition (moved odd split's rows to warp 1: same), register-held barrier ids (per-pv copies with
+immediates: same), request locality (odd vCTA on a far split: same), smem carveout (205 vs 202 KB, both 228), regs /
+spills (96, LOCAL 0 both). Lesson: keep nds-style producer/consumer splits as separate CTAs.
+
+### Next (unchanged from s15)
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/half e5f65ed** (verify 32 sliding = cl + split barrier;
+  verify 16 = NV_HALF, already merged to main via 7ba35f9). Compare verify 32 sliding vs ~15.4 H200.
+- Batched-sliding merge options are now all priced on the H100 (PDL combine ~2, DSMEM ~1 chain, global ticket ~2.5,
+  same-SM packaging +1). Only cl at S 2 (verify 32) won.
