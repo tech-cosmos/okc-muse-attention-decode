@@ -388,7 +388,7 @@ try:
 except Exception as _e:  # noqa: BLE001
     print("csl build failed, using Triton:", _e)
     _CSL = None
-CSL_MAX_BATCH = 16  # decode sliding up to this batch on the cluster kernel (H100 paired: B1 4.70 -> 3.84, B16 10.61 -> 9.14 us; B32 15.84 -> 15.94)
+CSL_MAX_BATCH = 32  # agent2 s4: B32 on the csl-per-KV-head kernel, H100 paired 15.15 -> 14.24 (-1.02 us, 7/7); 8-CTA clusters +0.48. Before: decode sliding up to this batch on the cluster kernel (H100 paired: B1 4.70 -> 3.84, B16 10.61 -> 9.14 us; B32 15.84 -> 15.94)
 
 # agent2 s3: native verify-sliding attention (tools/a2/nvs.cu): one CTA per (request, key split), a producer warpgroup
 # gathering both KV heads' 128-B rows with cp.async (+ the FA3-style FP8 V transpose) and one consumer warpgroup per
