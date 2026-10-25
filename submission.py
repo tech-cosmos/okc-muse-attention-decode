@@ -3128,6 +3128,14 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
                     _diag_floor(data, 4, 0)
                 elif ov == "dense":
                     _diag_floor(data, 2, 1)
+                elif ov == "nobred":
+                    # The pre-s103 plan (no red on batched decode full; dbal only from 48 heads).
+                    global BRED
+                    BRED = False
+                    try:
+                        _run_plan(data, cfg, _plan(cfg, max_pages, device))
+                    finally:
+                        BRED = True
                 else:
                     _run_plan(data, cfg, {**plan, **ov})
             finally:
@@ -3383,24 +3391,26 @@ def _decode_gluon(data, cfg, plan):
 
 
 # ---- H200 diagnostics (exp/hdiag only, never submitted): (variant name, plan overrides); each after an L2 flush ----
+_GW1 = dict(gluon=True, splits=127, block_n=64, stages=3, lag=1, gpeel=True, pw=4, pregs=40, cregs=96, maxnreg=80,
+            lsum=True, gfuse=False, gbal=False)  # s94's non-bal Gluon plan at verify 1 full (H100 attention -0.7 us)
 _DIAG = {
     ("decode", 1, "full"): [("d1a", {}), ("d1s3", {"stages": 3}), ("d1s4", {"stages": 4}),
                             ("d1p1023", {"splits": 1023, "csb": 1024}), ("d1p255", {"splits": 255, "csb": 256}),
-                            ("d1p255s4", {"splits": 255, "csb": 256, "stages": 4}),
-                            ("d1b16s4", {"block_n": 16, "stages": 4}), ("d1p255b64", {"splits": 255, "csb": 256, "block_n": 64}),
-                            ("d1b", {}), ("d1fl2", "floor"), ("d1fl4", "floor4"), ("d1dense", "dense")],
-    ("verify", 1, "full"): [("v1a", {}), ("v1s6", {"stages": 6}), ("v1s12", {"stages": 12}),
-                            ("v1p63", {"splits": 63}), ("v1p255", {"splits": 255}),
-                            ("v1b128", {"block_n": 128, "stages": 4}), ("v1b", {}), ("v1fl2", "floor"),
+                            ("d1b16s4", {"block_n": 16, "stages": 4}), ("d1b", {}), ("d1fl2", "floor"),
+                            ("d1fl4", "floor4"), ("d1dense", "dense")],
+    ("verify", 1, "full"): [("v1a", {}), ("v1fix0", {"fix": 0}), ("v1gw", _GW1), ("v1s6", {"stages": 6}),
+                            ("v1p255", {"splits": 255}), ("v1b", {}), ("v1fix0b", {"fix": 0}), ("v1fl2", "floor"),
                             ("v1dense", "dense")],
-    ("decode", 32, "full"): [("d32a", {}), ("d32s3", {"stages": 3}), ("d32s4", {"stages": 4}),
-                             ("d32p768", {"dprogs": 768}), ("d32p1536", {"dprogs": 1536}), ("d32b", {}),
+    ("verify", 16, "full"): [("v16a", {}), ("v16lz3", {"lz": 3}), ("v16b", {}), ("v16lz3b", {"lz": 3})],
+    ("verify", 32, "full"): [("v32a", {}), ("v32lz3", {"lz": 3}), ("v32b", {}), ("v32lz3b", {"lz": 3}),
+                             ("v32fl2", "floor")],
+    ("decode", 32, "full"): [("d32a", {}), ("d32nored", "nobred"), ("d32b", {}), ("d32noredb", "nobred"),
                              ("d32fl2", "floor"), ("d32dense", "dense")],
-    ("decode", 16, "full"): [("d16a", {}), ("d16s3", {"stages": 3}), ("d16p127", {"splits": 127}),
-                             ("d16dbal", {"dbal": True, "dprogs": 1024, "hb": 1, "sb": 64, "cw": 2}), ("d16b", {})],
+    ("decode", 16, "full"): [("d16a", {}), ("d16nored", "nobred"), ("d16b", {}), ("d16noredb", "nobred")],
 }
 _DIAG_KERNELS = {"_gd_full": lambda: gluon.jit, "_red_fin": lambda: triton.jit, "_attn_split": lambda: triton.jit,
-                 "_combine": lambda: triton.jit, "_combine_bal": lambda: triton.jit}
+                 "_combine": lambda: triton.jit, "_combine_bal": lambda: triton.jit, "_gw_verify": lambda: gluon.jit,
+                 "_new_tokens": lambda: triton.jit, "_combine_hb": lambda: triton.jit}
 _DFLUSH = {}
 _RENAMED = {}
 
