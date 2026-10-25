@@ -1,16 +1,15 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~06:55 UTC (session 93 = unattended session 26 of the #1-push brief).
+Updated 2026-10-25 ~07:45 UTC (session 94 = unattended session 27 of the #1-push brief).
+
+**s94 (no checks): verify 1 full on gw_verify: attention -0.7 us vs Triton but whole ties (_new_tokens 0.5, merge 2.6-3);
+fused in-grid merge (gfuse, exp/v1fuse) dead: barrier +1.8 + one-pass merge body 1.5 > separate merge. NOTES s94.**
 
 **s93: merged agent2 nvs (verify sliding B>=32 native) -> main 4e63331; check 13582a1b 2.465x (verify 32 sliding 15.14),
 scored 8abec5c6 2.385x (noisy full layers, board keeps 2.445).** Dead (H100): nvs at verify 1 sliding (8.5 vs 7.7 us),
 csl coalesced page-table + shuffles, csl nc gathers. csl stamps: 2 DRAM trips ~2.07 us + 1.2 us tail. NOTES s93.
 
-**s92: native pipelined decode-1-full kernel (tools/s92/nfl.cu, exp/nfull): correct, DEAD on the H100, no checks.** Best
-15.65-15.74 us vs main 14.6 (kernel alone 12.8-13.1 vs `_gd_full` 11.7; 2.9 us fixed + 0.095 us/1k keys = the 2.7 TB/s
-gather rate; the 128-slot `_combine` still exposes ~2.9 us). Lessons: FP8 mma.sync is emulated on sm_90 (use FP16
-m16n8k16 on exact E4M3 values); no early `break` around shuffles (ENDCOLLECTIVE slow path); per-lane cp.async rings of
-small copies are issue-bound (33-49 us). NOTES s92.
+**s92: native pipelined decode-1-full kernel (tools/s92/nfl.cu, exp/nfull): dead on the H100 (15.7 vs 14.6 us). NOTES s92.
 
 **s91: csl one 16-CTA cluster per (request, KV head), 4 warps/CTA (each SM gathers 16 KB, not 32): SCORED 08bf9391
 2.445x = NEW ACCOUNT BEST (main 9b14e27).** H200 decode 1 sliding 4.91 -> 4.17 (check) / 4.73 (scored), decode 16
@@ -20,8 +19,6 @@ phases that don't shrink with fewer instructions (owner merge fast-math/tree, ea
 **s90: merged agent2 maskif (mif + preq, verify 16/32 sliding) -> main ad2116c; SCORED 0339a5f6 2.364x = NEW ACCOUNT
 BEST.** Verify 1 full probes: compute-latency-bound in Triton (warm 14.2 vs cold 15.45 us; 6.2 us fixed + 0.111 us/1k
 keys; doubling warps/SM raises CPI 4.5 -> 7.1, IPC +15%); FP8 P@V in Triton dead (+10 us). NOTES s90.
-
-(s88-s89 summaries: NOTES s88/s89 and the dead-ends index.)
 
 ## Board and best run
 
@@ -93,6 +90,8 @@ numbers: NOTES s69.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s94: verify 1 full gfuse / one-pass in-grid merge (18.7 vs 17.9), gw non-bal at verify 1 full (whole tie).
 
 - s93: nvs at verify 1 sliding (S 8/16/32), csl ptsh (coalesced page table + shfl), csl nc gathers.
 

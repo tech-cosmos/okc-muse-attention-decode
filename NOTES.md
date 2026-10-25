@@ -4172,3 +4172,36 @@ COORD "Ready to merge": agent2 e2513ab (native verify-sliding kernel nvs for ver
 
 ### Budget (UTC day 2026-10-25)
 - s93: 1 check (13582a1b), 1 scored (8abec5c6). Account after: checks 15/20, scored 6/10. Claude's 6 submits/day are used up.
+
+## Session 94 (unattended session 27, 2026-10-25 06:29 - ~07:45 UTC): verify 1 full merge structure on the H100, dead (no checks)
+
+Board 06:30Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391). Account: checks 15/20 (the 5 left
+are agent2's), scored 6/10 (Claude's 6 used). No COORD "Ready to merge" items. H100 bench of main 4e63331: geomean 2.004
+(decode 1 4.96/14.40, verify 1 7.42/17.95 sliding/full).
+
+### Arithmetic (why batch-1 matters for the geomean)
+Per-load ratios from check 13582a1b: decode 1 3.43, decode 16 2.54, decode 32 2.35, verify 1 2.80, verify 16 1.94,
+verify 32 1.94. Reaching #1's 2.91 with full layers alone is impossible: at decode 32 it would need full = 123 us
+(5.3 TB/s, above H200 peak) with our sliding. Batch-1 loads are latency-bound with sol 0.11/4.27 us, so they can move
+the geomean most: e.g. verify 1 at 4/9 us sliding/full would be 4.97x (+10% geomean). Observation: judge decode 1 full
+14.14 vs its (warm-L2) profile 7.2 + 3.1 = 10.3: ~3.8 us is launch + cold penalty (other batch-1 shapes: 0.75-1.5).
+
+### Verify 1 full on Gluon `_gw_verify` (tools/s94/v1gw.py: whole / -_new_tokens / -merge / attention only, H100 us)
+- main Triton (127 splits): 17.7-18.2 / 17.6-18.2 / 15.2-15.5 / 15.2-15.6.
+- gw non-bal 127 splits: 17.5-18.1 / 17.1-17.5 / 14.9-15.7 / **14.7** (attention -0.7 vs Triton, but `_new_tokens`
+  costs ~0.5 and the merge 2.6-3 as before: whole ties, as s82 found). 132 splits: 19.2 whole.
+- **gfuse at verify 1** (branch exp/v1fuse, env FX): 61.7 us = the `_gw_merge` body (FX 2 = barrier, no merge: 17.15
+  whole; FX 1 = no spin: still 62): its static_range(128) loop runs ~0.35 us per slot (serial L2 trips). A one-pass body
+  (`_gw_merge2`, [128 slots, 64] loaded at once per row): 18.7 (128 splits, 1 row/program) / 20.0 (127, 2 rows). So
+  in-grid barrier (+1.8 us over attention) + merge body (~1.5) > separate `_combine` (2.6-3): **fused verify 1 full
+  merge is dead** on the H100, the same wall as s36/s43/s50/s73 (release + merge body). Folding `_new_tokens` into gw
+  would save only ~0.5 us and gw whole still ties main.
+
+### Next
+- Nothing queued from s94. Untested and cheap for a future multi-variant check: gw non-bal at verify 1 full (H100 tie,
+  attention -0.7) in case the H200's compute-bound consumer favours it (s74 warns H100 ties rarely win there).
+- Batch-1 full remains: merge exposure ~2.6-3 us (fixed part ~1.9) on every path tried; a design that removes it
+  needs partial volume per program << 32 KB (verify) or a merge that overlaps the attention tail.
+
+### Budget (UTC day 2026-10-25)
+- s94: 0 checks, 0 scored. Account unchanged: checks 15/20 (5 left = agent2's), scored 6/10.
