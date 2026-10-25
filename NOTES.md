@@ -3483,3 +3483,35 @@ branch on a warp vote inside the asm (all of a row's elements live in one quad, 
   the first tile's max on the test distributions (NaN from FP16 overflow without the fallback), so a redo would be
   hot. Dead. The remaining LZ3 cost vs the no-max ceiling (170.6 all-L2) is mostly the 32 FMNMX per tile; sm_90 has no
   3-input max (ptxas rejects `max.s32 d, a, b, c`), packed bf16/f16 max needs as many converts.
+
+### H200 (session 79)
+
+- check **577c5b9d22584751** (exp/lzasm bcf7cf1 = main c9b3242 + LZ 3): **2.353x** [2.318, 2.403], 16/16. Per shape
+  (us, median): decode 1/16/32 sliding 5.16/8.73/13.86, full 14.25/89.49/167.79; verify 1/16/32 sliding
+  7.05/12.83/17.64, full 16.35/114.09/**210.06**. Profile `_gw_verify` 108.9 / **202.4** (was 109.2 / 209.8).
+- submit **9f8e594b83f24adf** (main 4aa402b, LZ hard-coded 3): **2.350x** [2.314, 2.385] = new board best for
+  tech-cosmos (was 2.343x), rank 21. Per shape: decode 5.46/8.97/13.80 sliding, 13.62/89.54/168.95 full; verify
+  6.84/12.62/17.69 sliding, 16.67/115.56/211.48 full. (decode 16 full ~89.5 in recent runs; 7f45c5c6's 86.5 was luck.)
+- So LZ 3 is worth ~-7 us on the H200 verify 32 full kernel, ~-2..-4 on the shape; less than the s78 no-max ceiling
+  (-27): the remaining cost is the 32 FMNMX + vote per tile.
+
+### Triton port (branch exp/lztri, dead)
+
+LZ_ASM2 in `_tile` (_attn_split; same [64, 64] wgmma v3 [16,64,32] warps [4,1] S layout at verify sliding / verify 1
+full, checked in TTGIR): correct (tools/s79/cmpt.py), but H100 bench in both orders: verify 32 sliding +0.5,
+verify 16 sliding +0.2, verify 1 full +0.1 us. Few tiles per program (the first always falls back), and Triton
+already fuses acc * alpha into the dot.
+
+### Next
+
+1. Verify full: remove the 32 FMNMX of LZ 3. Only exact route found: check on the partial sums (free, they feed l)
+   with a power-of-two rescale fallback per warp (exact, needs no S), the first tile peeled, and an exact redo only
+   for inf (growth >= 128 binades, i.e. never on real data): a second always-launched `_gw_verify` LZ 0 launch that
+   exits early unless a flag is set (+~1 us launch). l must then live in the asm (per-thread partial in a slice
+   tensor, quad-summed at the end) to avoid duplicating the 32 FADDs. Expected ~-8 us H100 all-L2 more.
+2. Then the producer half (H200 gathers-only ~167 us at verify 32): the combined kernel now tracks max(consumer,
+   producer) + contention.
+
+### Budget (UTC day 2026-10-25)
+
+Checks 2/20 (c5888ee5 diag, 577c5b9d), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x).

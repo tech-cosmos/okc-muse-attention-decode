@@ -1,6 +1,13 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~00:50 UTC (session 78 = unattended session 11 of the #1-push brief).
+Updated 2026-10-25 ~01:30 UTC (session 79 = unattended session 12 of the #1-push brief).
+
+**s79: exact per-warp lazy max in `_gw_verify` (LZ 3, on main 4aa402b), scored 9f8e594b 2.350x = new best.** Inline
+asm (pack 32 over S's registers; slot j = row r + 8*((j>>1)&1)) computes each thread's row maxima, warp-votes
+"max*scale - m <= 15", and exponentiates against the stale maxima (else the usual update for the warp's rows); acc
+rescale is a pack-64 asm skipped when the warp's alphas are all 1. H200 check 577c5b9d 2.353x: verify 32/16 full
+210.1/114.1 us, kernel 202.4 (was 209.8). Same trick in Triton `_tile` loses (exp/lztri). NOTES s79 Next: drop the
+32 FMNMX via sum check + power-of-two fallback + rare redo launch.
 
 **s78: lazy-max softmax for verify full = the biggest verify-full lever measured.** Exponentiate against the running
 maxima with no per-tile row max/rescale; exact iff every thread's partial row sums stay <= 2^T (P >= 0), else the
@@ -24,8 +31,8 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
 
 ## Board and best run
 
-- Board 2026-10-24 22:50Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.624x; **ours 2.343x (below #16)**
-  (scored **7f45c5c6**, commit 14355d4 = main's kernel). Need ~+21% for #1.
+- Board 2026-10-25 01:20Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.350x (#21)** (scored
+  **9f8e594b**, main 4aa402b). Need ~+24% for #1. Table below is the older 7f45c5c6 run (NOTES s79 has 9f8e594b's).
 - Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
 
 | load | sliding (x46) | full (x16) | load speedup |
@@ -51,7 +58,7 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- 2026-10-25: checks 1/20 (c5888ee5 diag), scored 1/10 (8774bdfc main 2.312x). Older 2026-10-24 notes below.
+- 2026-10-25: checks 2/20 (c5888ee5 diag, 577c5b9d 2.353x), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
@@ -72,6 +79,9 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
   PDL merge kernel (-1.6 us at 16 splits; -0.45 at 4). Pulling via map_shared_rank loads costs ~+1 us (latency).
 
 ## Ranked ideas
+
+00000. (s79) LZ 3 follow-up: sum-based check (no FMNMX), power-of-two per-warp fallback, inf-only redo launch
+   (NOTES s79 Next 1). Then the producer half.
 
 0000. (s78) Exact lazy max in the verify-full consumer at ~no cost: -27/-16 us H200 ceiling (verify 32/16 full) =
    ~+3% overall. Branches exp/lazymax (Gluon SPEC variants), exp/lazydiag (diag harness), exp/nvlazy (native). NOTES s78.
@@ -102,16 +112,12 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Queued for checks
 
-- (s78) DONE differently: check c5888ee5 = lazy-max diag. The s77 knob sweep is still unrun (low value).
-- (s77) [old] exp/h200diag variant sweep of nverify macros + `_gw_verify` constexprs (NOTES s77
-  Next 1). Then score main c9b3242 once (human-approved).
-
-- (s76) USE_GSLIDE now ties on the H200 (dea06af0): don't re-check it.
-
-- Nothing new. main c9b3242 = 2.320-2.322x in three checks (a6081cf6, 8bd56b13 kernel-equal, 9a22a5ae near-equal);
-  submit only after a real change lifts a check above 2.343.
+- Nothing queued. main 4aa402b = scored 9f8e594b 2.350x; submit only after a check beats 2.353.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s79: LZ 1 (keep S live for the fallback: spills), LZ 6 (no per-warp fallback: rows grow > 16 binades after tile
+  0), tree max (+0.8), 3-input max (not on sm_90), Triton _tile lazy max (exp/lztri, +0.1..+0.5 us).
 
 - s77: page-table L2 prefetch in the gbal producer (ptpf, H200 flushed pairs: tie); TLB touch before verify full
   (noise); speculative max inside nverify (C7512/C7511 at 104 regs).
