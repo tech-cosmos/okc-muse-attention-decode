@@ -4312,3 +4312,48 @@ cluster j writes token j's cache row (each (token, head) row written once). Code
 
 ### Budget (UTC day 2026-10-25)
 - s96: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
+
+## Session 97 (unattended session 30, 2026-10-25 07:44 - ~08:55 UTC): batch-1 probes on the H100, all dead (no checks)
+
+Board 07:45Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 abhishekgahlot2 2.643x; ours 2.445x (08bf9391; below
+#16 2.467x now). Account: checks 16/20 (the 4 left are agent2's), scored 6/10 (Claude's 6 used). No COORD "Ready to
+merge" items. **No checks, no code change on main** (main stays 1e4c80e; its check is queued for 00:00Z 2026-10-26).
+Tools: tools/s97/nv1.py (s71 nverify at verify 1 full size vs main's attention-only; env CTX, PS = CTA counts, NV_ABL),
+tools/s97/vtk_dj.cu (vtk + ABL 9 = disjoint windows per token cluster, timing only).
+
+### s71 native nverify (warp-specialized, FP8 P@V) at verify 1 full: gather-bound on the H100, no lever
+Attention only (cached keys; new tokens and merge dropped), H100 cold, us, ctx 2k / 20k / 80k:
+- main Triton `_attn_split` (127 splits): 5.3 / 8.5 / 15.2 -> ~6 us fixed + 0.112 us per 1k keys.
+- nverify 132 CTAs: 6.4 / 9.15 / 15.8 (264 CTAs 16.1, 396 21.7) -> ~6.9 fixed + 0.111.
+- nverify consumers only (NV_ABL 1, no producer): 5.7 / 7.6 / 12.75 (264 CTAs 12.74: more consumer WGs/SM don't help)
+  -> slope 0.085. Gathers only (NV_ABL 3): 5.1 / 7.5 / 13.1 -> slope 0.094 (= the H100 random-gather ceiling).
+So at batch 1 the native kernel's consumer and its gathers each cost about Triton's whole slope, and together they
+don't overlap better than Triton. Even a perfect overlap would save ~1.4-2 us on the H100 (0.112 -> 0.094 slope); the
+~6 us fixed part (launch, q norm, page-table + first gather trips, partial stores) is common to every design. On the
+H200 (gathers ~1.4x faster) the consumer slope (~0.085) is the limit, close to Triton's estimated ~0.1. Verify 1
+full native: not worth the build (<= ~1 us H200 = ~0.5% overall). Confirms s90's read; the merge (~2.6 us) is untouched.
+
+### vtk2a (2 tokens per 16-CTA cluster, verify 1 sliding) re-measured with ablations: dead for structural reasons
+tools/s96/vtk2a.cu through tools/s96/vtk.py time (H100, us; "1" = one pair launched = 32 CTAs, "all" = 128 CTAs):
+- ABL 0: all 8.22-8.26, 1 pair 7.42-7.46 (main vtk 6.45 / 1 token 5.4).
+- ABL 5 (no new-token block at all, i.e. wrong results): all 6.86-6.88, 1 pair 5.92-6.11. So the 2-token base without
+  any new-token work is already slower than vtk with it (6.45). The new-token block (still with the s96 trap pattern:
+  `if (n <= T0 + 1)` guarded stores and per-n cache-row stores in the unrolled loop) adds ~1.4 us on top. Fixing the
+  trap could at best reach ~6.9: dead either way. The base costs: second query's norm/RoPE (+16 cos/sin loads), 2x
+  P@V mma, 2x push volume (4 KB per CTA), 16 owners.
+
+### vtk scaling with token clusters: shared lines help, not hurt
+vtk (H100, us): tokens launched 1 / 2 / 4 / 8 = 5.41 / 5.5 / 6.0 / 6.5 (8 = 256 CTAs). With each token cluster on a
+disjoint 2048-key window (ABL 9, timing only: 8x the DRAM lines): 5.4 / 5.7 / 6.4 / 7.4. So the 8 clusters re-reading
+the same 1 MB is a net gain (L2 hits); the remaining ~0.6 us from 1 to 4 tokens at <= 1 CTA/SM is not DRAM volume and
+not per-SM bytes (still 16 KB/SM at 4 tokens). Unexplained; candidates: L2 request queueing on the page-table lines
+(every CTA thread loads 12 scattered entries; 8 clusters x same entries), cluster scheduling. Not pursued.
+
+### Next
+- **First after 00:00Z 2026-10-26: check main 1e4c80e (vtk + s95 red); submit if > 2.445.** (unchanged)
+- Batch-1 full: native verify-1-full is closed (above, s71/s74/s90/s94); the merges are closed (s94/s95). Batch-1 sliding:
+  csl/vtk tails ~1.2 us; vtk's 1->4 token scaling (+0.6 us) is the one unexplained cost left (try: one coalesced
+  page-table load per warp + shfl in vtk, since its 8 clusters hammer the same entries; csl's ptsh tied at 1 cluster).
+
+### Budget (UTC day 2026-10-25)
+- s97: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
