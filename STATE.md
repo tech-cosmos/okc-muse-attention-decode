@@ -7,9 +7,7 @@ Updated 2026-10-25 ~14:20 UTC (session 114 = unattended session 47 of the #1-pus
 window buckets + L2 prefetch-ahead) 325-455 vs random 246 (prefetch hints double DRAM traffic), window order alone
 -3% H100. NOTES s114.**
 
-**s113 (0 checks): H100 warm/cold split: decode 1 full is memory-bound (warm 8.2 vs cold 14.0); verify 1 full carries ~4.2 us
-of consumer chain over decode 1 full even warm. FPIPE (hand-pipelined Triton loop) DEAD (+1.0, Triton waits 0 per wgmma).
-Built exp/hdiag3 (main f2b1c52 + diag; replaces hdiag2): the FIRST check after 00:00Z. NOTES s113.**
+**s113: decode 1 full memory-bound (H100 warm 8.2 / cold 14.0); FPIPE dead; exp/hdiag3 = FIRST check after 00:00Z.**
 
 **Earlier (NOTES s91-s112): s112 NV_HALF H200 win verify 16 sliding (agent2); s111 native pipelined verify full dead
 (exp/nvf); s110 Gluon pipelining dead (C7512); s109 csl w8/w1, gw at verify 1 full dead; s108 REDO stress clean; s107 FOLD
