@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~06:00 UTC (agent2 session 3).
+Updated 2026-10-25 ~06:55 UTC (agent2 session 4).
 
 ## Scope
 
@@ -25,18 +25,25 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 - agent2-exp/nvs fd7fa2e (s3): native verify-sliding kernel `nvs` (tools/a2/nvs_clean.cu embedded as _NVS_SRC) for
   verify sliding batch >= 32: H100 paired verify 32 -1.66 us (9/9), tests 16/16, chk_nvs 5/5. H200 checks 9a841c48 / baea7057: verify 32 sliding
   16.64 -> 15.28 / 15.07 us. Verify 16 on nvs (S 8) tied on the H200 (12.63 both): off. In COORD "Ready to merge".
-- Checks used by agent2 on 2026-10-25: 3 (a27e9a52, 9a841c48, baea7057).
+- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce).
+- (s4) decode 32 sliding on csl (agent2-exp/csl32 80fabbc): H100 -1.02 us but H200 check 058b8dce 13.74 = tie with
+  Triton (13.72-14.09): NOT listed. Queued for a bundle: nvs NV_LAG 2 (H100 verify 32 -0.18 us paired 11/11).
 
 ## Ranked ideas
 
 0. (s2) H100 now: decode 16/32 sliding 9.63/15.07, verify 16/32 13.66/18.46 (tools/a2/b4.py).
 1. (built s3, see above) Native verify-sliding kernel `nvs` (NO clusters: s2 showed 4-CTA cluster placement alone +2.5 us) (2 consumer WGs per CTA, full-row cp.async gathers, wgmma; design in
    NOTES-agent2 s1 "Next ideas" 2). Biggest lever on verify 16/32 (~-1.7/-3.4 us H100 ceiling).
-1b. nvs follow-ups: cut its ~4 us prologue (seq -> page table -> first gathers; SPEC-like seq from table width
-   doesn't apply at batch > 1), and the 2-3 us _combine_hb (merge in-CTA is dead; maybe fewer/larger merge programs).
+1b. nvs follow-ups: the ~3.6 us prologue (seq -> page table -> first gathers) is 3 DRAM trips; steady state ~1 us
+   per 16-KB tile per SM. s4: fused merges dead, _combine_hb shape already best, LAG 2 -0.18 (verify 32). Small levers
+   only: direct page-table loads into producer registers, LAG 2.
 2. Decode 32 sliding: smem-staged csl-style 8-CTA clusters (risky; s73 csl8 lost).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+
+- s4: nvs fused last-CTA merge +1.6..+3.6 us (tail latency-bound on 4 warps/SM); 4-CTA clusters for nvs don't fit one
+  wave (30 max); _combine_hb HB/warps other than (2,1); csl 8-CTA clusters (+0.48), csl 64-reg cap (+2.0), csl 2 warps
+  x 2 chunks (+2.9). NOTES-agent2 s4.
 
 - s1: verify sliding fuse / dual / hpp 2 / stages 4 / splits 8; decode 32 fuse, block_n 16/64, warps 1/4,
   splits 4/16, hpp 2 (plateau); preq for decode 32 and verify 32.

@@ -1,0 +1,269 @@
+diff --git a/submission.py b/submission.py
+index 429cd3d..cccd0bf 100644
+--- a/submission.py
++++ b/submission.py
+@@ -117,16 +117,17 @@ __device__ __forceinline__ void sa2(unsigned addr, unsigned mbar, float a, float
+ }
+ __device__ __forceinline__ float bf(unsigned short x) { return __uint_as_float((unsigned)x << 16); }
+ 
+-template <int PAGE>
+-__global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__ qkv, const float* __restrict__ cs,
++template <int PAGE, int KPW>
++__global__ void __launch_bounds__(128 / KPW, KPW == 2 ? 8 : 1) decode(const unsigned short* __restrict__ qkv, const float* __restrict__ cs,
+                                               unsigned char* kc, unsigned char* vc, const int* __restrict__ pt,
+                                               const int* __restrict__ seqs, const long* __restrict__ loc,
+                                               const float* __restrict__ ks, const float* __restrict__ vs,
+                                               __nv_bfloat16* __restrict__ out, int MP, float qk_scale, int spec) {
+     __shared__ __align__(16) float racc[16][D];
+     __shared__ __align__(16) float rml[16][2];
+-    __shared__ __align__(16) float lpart[2][4][8][D];
+-    __shared__ __align__(16) float lml[2][4][8][2];
++    constexpr int NW = 4 / KPW;  // warps per CTA; each covers KPW chunks of 32 keys (KPW 2: one wave at batch 32)
++    __shared__ __align__(16) float lpart[4][8][D];
++    __shared__ __align__(16) float lml[4][8][2];
+     __shared__ __align__(16) unsigned char newkv[2][2][D];
+     __shared__ __align__(8) unsigned long long mbar;
+ 
+@@ -162,29 +163,31 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
+     float co, si;
+     int base, w0, tmax;
+     const int* ptr = pt + (long)b * MP;
+-    long kslot[4], vslot[8];
+-    uint4 kr[4];
+-    uint2 vr[8];
++    long kslot[KPW][4], vslot[KPW][8];
++    uint4 kr[KPW][4];
++    uint2 vr[KPW][8];
+ #define CSL_LOADS                                                                                              \
+     csr = cs + (long)seq * D + 8 * c;                                                                          \
+     c0 = *(const float4*)csr; c1 = *(const float4*)(csr + 4);                                                  \
+     s0 = *(const float4*)(csr + 32); s1 = *(const float4*)(csr + 36);                                          \
+     co = cs[(long)seq * D + lane]; si = cs[(long)seq * D + 32 + lane];                                         \
+     base = seq - (W - 1);                                                                                      \
+-    w0 = rank * 128 + wk * 32;                                                                                 \
++    w0 = rank * 128 + wk * 32 * KPW;                                                                           \
+     tmax = max(seq - 1, 0);                                                                                    \
+     /* Keys of this thread: K rows 8j + g (j 0..3), V rows {2c, 2c+1, 8+2c, 9+2c, 16+2c, ...}. */             \
++    _Pragma("unroll") for (int u = 0; u < KPW; ++u) {                                                          \
+     _Pragma("unroll") for (int j = 0; j < 4; ++j) {                                                            \
+-        int t = min(max(base + w0 + 8 * j + g, 0), tmax);                                                      \
+-        kslot[j] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                           \
++        int t = min(max(base + w0 + 32 * u + 8 * j + g, 0), tmax);                                             \
++        kslot[u][j] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                        \
+     }                                                                                                          \
+     _Pragma("unroll") for (int i = 0; i < 8; ++i) {                                                            \
+         int k = 8 * (i >> 1) + 2 * c + (i & 1);                                                                \
+-        int t = min(max(base + w0 + k, 0), tmax);                                                              \
+-        vslot[i] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                           \
+-    }                                                                                                          \
+-    _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[j] = *(const uint4*)(kc + kslot[j] * (HKV * D) + h * D + 16 * c); \
+-    _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[i] = *(const uint2*)(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
++        int t = min(max(base + w0 + 32 * u + k, 0), tmax);                                                     \
++        vslot[u][i] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                        \
++    } }                                                                                                        \
++    _Pragma("unroll") for (int u = 0; u < KPW; ++u) {                                                          \
++    _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[u][j] = *(const uint4*)(kc + kslot[u][j] * (HKV * D) + h * D + 16 * c); \
++    _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[u][i] = *(const uint2*)(vc + vslot[u][i] * (HKV * D) + h * D + 8 * g); }
+     CSL_LOADS
+     if (spec >= 0) {
+         const int real = seqs[b];
+@@ -219,7 +222,7 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
+     }
+ 
+     // The new token (window key 2047): CTA 15, the last warp of each head.
+-    const bool newer = rank == 15 && wk == 3;
++    const bool newer = rank == 15 && wk == NW - 1;
+     if (newer) {
+         float k0 = bf(kw & 0xffff), k1 = bf(kw >> 16);
+         float s = k0 * k0 + k1 * k1;
+@@ -235,25 +238,27 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
+         *(unsigned short*)(kc + slot) = k8;
+         *(unsigned short*)(vc + slot) = v8;
+         __syncwarp();
+-        if (g == 7) kr[3] = *(const uint4*)&newkv[h][0][16 * c];
+-        if (c == 3) vr[7] = *(const uint2*)&newkv[h][1][8 * g];
++        if (g == 7) kr[KPW - 1][3] = *(const uint4*)&newkv[h][0][16 * c];
++        if (c == 3) vr[KPW - 1][7] = *(const uint2*)&newkv[h][1][8 * g];
+     }
+ 
++    const float scale = qk_scale * kscale;
++#pragma unroll
++    for (int u = 0; u < KPW; ++u) {
+     // S = Q K^T for row g: tile j holds keys 8j + 2c + {0, 1}.
+     float sc[4][4];
+ #pragma unroll
+     for (int j = 0; j < 4; ++j) {
+         sc[j][0] = sc[j][1] = sc[j][2] = sc[j][3] = 0.f;
+-        mma8(sc[j], q8[0], 0u, q8[1], 0u, kr[j].x, kr[j].y);
+-        mma8(sc[j], q8[2], 0u, q8[3], 0u, kr[j].z, kr[j].w);
++        mma8(sc[j], q8[0], 0u, q8[1], 0u, kr[u][j].x, kr[u][j].y);
++        mma8(sc[j], q8[2], 0u, q8[3], 0u, kr[u][j].z, kr[u][j].w);
+     }
+-    const float scale = qk_scale * kscale;
+     float m = -1e30f;
+ #pragma unroll
+     for (int j = 0; j < 4; ++j)
+ #pragma unroll
+         for (int e = 0; e < 2; ++e) {
+-            bool ok = base + w0 + 8 * j + 2 * c + e >= 0;
++            bool ok = base + w0 + 32 * u + 8 * j + 2 * c + e >= 0;
+             sc[j][e] = ok ? sc[j][e] * scale : -INFINITY;
+             m = fmaxf(m, sc[j][e]);
+         }
+@@ -277,7 +282,7 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
+         const int bsel = (i & 1) ? 0x7362 : 0x5140;
+         unsigned w[8];
+ #pragma unroll
+-        for (int k = 0; k < 8; ++k) w[k] = (i < 2) ? vr[k].x : vr[k].y;
++        for (int k = 0; k < 8; ++k) w[k] = (i < 2) ? vr[u][k].x : vr[u][k].y;
+         unsigned t01 = __byte_perm(w[0], w[1], bsel), t23 = __byte_perm(w[2], w[3], bsel);
+         unsigned t45 = __byte_perm(w[4], w[5], bsel), t67 = __byte_perm(w[6], w[7], bsel);
+         acc[i][0] = acc[i][1] = acc[i][2] = acc[i][3] = 0.f;
+@@ -287,37 +292,48 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
+ 
+     // Pre-merge the 4 warps of each KV head in shared memory, then push one partial per (head, row) to its owner.
+     {
+-        float* lp = &lpart[h][wk][0][0];
++        float* lp = &lpart[wk * KPW + u][0][0];
+ #pragma unroll
+         for (int e = 0; e < 2; ++e) {
+             float* r = lp + (2 * c + e) * D + 8 * g;
+             *(float4*)r = make_float4(acc[0][e], acc[0][e + 2], acc[1][e], acc[1][e + 2]);
+             *(float4*)(r + 4) = make_float4(acc[2][e], acc[2][e + 2], acc[3][e], acc[3][e + 2]);
+         }
+-        if (c == 0) *(float2*)&lml[h][wk][g][0] = make_float2(mo, l);
++        if (c == 0) *(float2*)&lml[wk * KPW + u][g][0] = make_float2(mo, l);
++    }
+     }
+     __syncthreads();
+     {
+-        const int h2 = h, row = (tid >> 4) & 7, dc = tid & 15;
+-        float mk[4], lk[4], M = -1e30f;
++        // 128 (row, 4-d chunk) items over the CTA's 32 NW threads.
++        float o4[KPW][4], Mk[KPW], Lk[KPW];
+ #pragma unroll
+-        for (int k = 0; k < 4; ++k) {
+-            float2 v = *(const float2*)&lml[h2][k][row][0];
+-            mk[k] = v.x; lk[k] = v.y; M = fmaxf(M, v.x);
+-        }
+-        float L = 0.f, o[4] = {0.f, 0.f, 0.f, 0.f};
++        for (int it = 0; it < KPW; ++it) {
++            const int item = tid + 32 * NW * it, row = (item >> 4) & 7, dc = item & 15;
++            float mk[4], lk[4], M = -1e30f;
++#pragma unroll
++            for (int k = 0; k < 4; ++k) {
++                float2 v = *(const float2*)&lml[k][row][0];
++                mk[k] = v.x; lk[k] = v.y; M = fmaxf(M, v.x);
++            }
++            float L = 0.f, o[4] = {0.f, 0.f, 0.f, 0.f};
+ #pragma unroll
+-        for (int k = 0; k < 4; ++k) {
+-            float w = exp2f(mk[k] - M);
+-            L += w * lk[k];
+-            float4 a = *(const float4*)&lpart[h2][k][row][4 * dc];
+-            o[0] += w * a.x; o[1] += w * a.y; o[2] += w * a.z; o[3] += w * a.w;
++            for (int k = 0; k < 4; ++k) {
++                float w = exp2f(mk[k] - M);
++                L += w * lk[k];
++                float4 a = *(const float4*)&lpart[k][row][4 * dc];
++                o[0] += w * a.x; o[1] += w * a.y; o[2] += w * a.z; o[3] += w * a.w;
++            }
++            o4[it][0] = o[0]; o4[it][1] = o[1]; o4[it][2] = o[2]; o4[it][3] = o[3]; Mk[it] = M; Lk[it] = L;
+         }
+         asm volatile("barrier.cluster.wait.aligned;" ::: "memory");
+-        const unsigned owner = row;
+-        const unsigned rmb = mapa(mb, owner);
+-        sa4(mapa((unsigned)__cvta_generic_to_shared(&racc[rank][4 * dc]), owner), rmb, o[0], o[1], o[2], o[3]);
+-        if (dc == 0) sa2(mapa((unsigned)__cvta_generic_to_shared(&rml[rank][0]), owner), rmb, M, L);
++#pragma unroll
++        for (int it = 0; it < KPW; ++it) {
++            const int item = tid + 32 * NW * it, row = (item >> 4) & 7, dc = item & 15;
++            const unsigned owner = row;
++            const unsigned rmb = mapa(mb, owner);
++            sa4(mapa((unsigned)__cvta_generic_to_shared(&racc[rank][4 * dc]), owner), rmb, o4[it][0], o4[it][1], o4[it][2], o4[it][3]);
++            if (dc == 0) sa2(mapa((unsigned)__cvta_generic_to_shared(&rml[rank][0]), owner), rmb, Mk[it], Lk[it]);
++        }
+     }
+ 
+     // Merge query head `rank` from its 16 partials: one warp, two d per lane, no block barriers.
+@@ -348,46 +364,56 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
+ }
+ }  // namespace csl
+ 
++template <int KPW>
++static void csl_launch(cudaLaunchConfig_t& cfg, int64_t page, const unsigned short* qkv, const float* cs,
++                       unsigned char* kc, unsigned char* vc, const int* pt, const int* seq, const long* loc,
++                       const float* ks, const float* vs, __nv_bfloat16* out, int mp, float qk_scale, int spec) {
++    cfg.blockDim = dim3(128 / KPW);
++    if (page == 1) {
++        static bool set = false;
++        if (!set) { cudaFuncSetAttribute(csl::decode<1, KPW>, cudaFuncAttributeNonPortableClusterSizeAllowed, 1); set = true; }
++        cudaLaunchKernelEx(&cfg, csl::decode<1, KPW>, qkv, cs, kc, vc, pt, seq, loc, ks, vs, out, mp, qk_scale, spec);
++    } else {
++        static bool set = false;
++        if (!set) { cudaFuncSetAttribute(csl::decode<64, KPW>, cudaFuncAttributeNonPortableClusterSizeAllowed, 1); set = true; }
++        TORCH_CHECK(page == 64, "csl: page 1 or 64");
++        cudaLaunchKernelEx(&cfg, csl::decode<64, KPW>, qkv, cs, kc, vc, pt, seq, loc, ks, vs, out, mp, qk_scale, spec);
++    }
++}
++
+ void csl_decode(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc, torch::Tensor pt,
+                 torch::Tensor seq, torch::Tensor loc, torch::Tensor ks, torch::Tensor vs, torch::Tensor out, int64_t page,
+-                double qk_scale) {
++                double qk_scale, int64_t kpw) {
+     int batch = seq.size(0), mp = pt.size(1);
+     const int spec = (batch == 1 && page == 1 && CSL_SPEC) ? mp - 1 : -1;
+     cudaLaunchConfig_t cfg = {};
+     cfg.gridDim = dim3(32 * batch);
+-    cfg.blockDim = dim3(128);
+     cfg.dynamicSmemBytes = 0;
+     cfg.stream = c10::cuda::getCurrentCUDAStream();
+     cudaLaunchAttribute at[1];
+     at[0].id = cudaLaunchAttributeClusterDimension;
+     at[0].val.clusterDim.x = 16; at[0].val.clusterDim.y = 1; at[0].val.clusterDim.z = 1;
+     cfg.attrs = at; cfg.numAttrs = 1;
+-#define CSL_ARGS (const unsigned short*)qkv.data_ptr(), cs.data_ptr<float>(), (unsigned char*)kc.data_ptr(), \
++#define CSL_ARGS cfg, page, (const unsigned short*)qkv.data_ptr(), cs.data_ptr<float>(), (unsigned char*)kc.data_ptr(), \
+     (unsigned char*)vc.data_ptr(), pt.data_ptr<int>(), seq.data_ptr<int>(), loc.data_ptr<long>(), ks.data_ptr<float>(), \
+     vs.data_ptr<float>(), (__nv_bfloat16*)out.data_ptr(), mp, (float)qk_scale, spec
+-    if (page == 1) {
+-        static bool set = false;
+-        if (!set) { cudaFuncSetAttribute(csl::decode<1>, cudaFuncAttributeNonPortableClusterSizeAllowed, 1); set = true; }
+-        cudaLaunchKernelEx(&cfg, csl::decode<1>, CSL_ARGS);
+-    } else {
+-        static bool set = false;
+-        if (!set) { cudaFuncSetAttribute(csl::decode<64>, cudaFuncAttributeNonPortableClusterSizeAllowed, 1); set = true; }
+-        TORCH_CHECK(page == 64, "csl: page 1 or 64");
+-        cudaLaunchKernelEx(&cfg, csl::decode<64>, CSL_ARGS);
+-    }
++    if (kpw == 2) csl_launch<2>(CSL_ARGS);
++    else csl_launch<1>(CSL_ARGS);
++#undef CSL_ARGS
+     C10_CUDA_KERNEL_LAUNCH_CHECK();
+ }
+ '''
+ try:
+     _CSL = _load_inline(
+-        name="muse_csl_s91",
++        name="muse_csl_a2kpw2",
+         cpp_sources="void csl_decode(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
+-                    "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, int64_t, double);",
++                    "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, int64_t, double, int64_t);",
+         cuda_sources=_CSL_SRC, functions=["csl_decode"],
+         extra_cuda_cflags=["-gencode=arch=compute_90a,code=sm_90a", "-O3"], extra_cflags=["-O3"], verbose=False)
+ except Exception as _e:  # noqa: BLE001
+     print("csl build failed, using Triton:", _e)
+     _CSL = None
++CSL_KPW32 = 2  # csl above batch 16: 32-key chunks per warp (2: 64-thread CTAs, one wave at batch 32)
+ CSL_MAX_BATCH = 32  # agent2 s4: B32 on the csl-per-KV-head kernel, H100 paired 15.15 -> 14.24 (-1.02 us, 7/7); 8-CTA clusters +0.48. Before: decode sliding up to this batch on the cluster kernel (H100 paired: B1 4.70 -> 3.84, B16 10.61 -> 9.14 us; B32 15.84 -> 15.94)
+ 
+ # agent2 s3: native verify-sliding attention (tools/a2/nvs.cu): one CTA per (request, key split), a producer warpgroup
+@@ -2460,7 +2486,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
+         out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
+         _CSL.csl_decode(qkv, _cos_sin(cfg["rope_theta"], d, device), data["k_cache"], data["v_cache"], page_table,
+                         data["seq_lens"], data["cache_loc"], data["k_scale"], data["v_scale"], out, cfg["page_size"],
+-                        cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E)
++                        cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E, CSL_KPW32 if batch > 16 else 1)
+         return out
+     if _NVS is not None and cfg["window"] == 2048 and length == 8 and batch >= NVS_MIN_BATCH and hq == 16 \
+             and hkv == 2 and d == 64 and cfg["page_size"] == 1 and cfg["rope_theta"]:

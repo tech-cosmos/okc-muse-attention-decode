@@ -183,3 +183,51 @@ What mattered / dead ends inside nvs:
 2. The merge (_combine_hb, 2.6 us H200 at verify 32) is now ~20% of the shape; all in-grid merges lost before.
 3. Decode 32 sliding (H200 14.0): an nvs-style decode kernel (rows = 8 per KV head pads wgmma M 64 8x: would need
    both KV heads + several requests per CTA, or mma.sync) - unexplored.
+
+## Session 4 (2026-10-25 05:57 - ~06:55 UTC): csl at decode 32 (H200 tie), nvs fused merge (dead), nvs pipeline probes
+
+Start: origin/main 19c85c6 already in agent2. Account at start: checks 13/20 (agent2 3), scored 5/10.
+
+### decode 32 sliding on agent 1's csl-per-KV-head kernel (branch agent2-exp/csl32 80fabbc, CSL_MAX_BATCH 32)
+
+- H100 paired vs Triton: 15.15 -> 14.24 us (-1.02, 7/7); tools/a2/chk.py 12/12, tests 16/16.
+- **H200 check 058b8dcecaca437b: 2.390x [2.354, 2.426], 16/16; decode 32 sliding 13.74 us** vs Triton 13.72-14.09 in the
+  last six checks (mean ~13.92): a TIE. Profile: csl 12.7 us one kernel vs Triton _attn_split 10.8 + _combine_hb 1.5.
+  csl moves ~1.35 TB/s at both B16 (6.2 us / 8.4 MB) and B32; Triton's attention 1.55 TB/s on the H200. Not listed.
+- Variants, all H100 decode 32 (tools/a2/abg.py = paired A/B of a submission global):
+  - 8-CTA clusters x 8 warps (tools/a2/csl_cl8.patch): +0.48 us vs 16-CTA (0/9).
+  - csl at 79 regs fits 6 CTAs/SM = 792 of 1024 CTAs (two waves). __launch_bounds__(128, 8) -> 64 regs + spills:
+    16.19 (+2.0). 2 warps per CTA x two 32-key chunks per warp (tools/a2/csl_kpw2_dead.patch, 135 regs -> 128 cap with
+    small spills, 1056 slots): +2.9 us. Fewer warps hurt more than the second wave: csl is warp-latency-bound.
+
+### nvs fused merge (last-arriving CTA merges; tools/a2/nvs_fuse_dead.patch): DEAD
+
+Per (request, KV head) int32 arrival counter (self-resetting), FP32 partials as before, the merging WG does
+_combine_hb's work (weights, RMS norm, sigmoid gate, BF16) from L2 + its own registers. Correct (chk_nvs 7/7) but
+verify 32 sliding H100: +3.6 us first version, +1.6 us best (split S-1 designated merger that skips its own partial store
+and spins on ld.acquire; all 128 CTAs resident). Warm kernel ablation (tools/a2/prof.py, us): nvs alone 10.76; + publish /
+wait 11.45; + cp.async of the 3 other partials (48 KB) + gates 12.76; + merge math 13.93; + gate/stores 14.80. The tail
+runs on 4 warps per SM (one per scheduler), so each step is latency-bound; _combine_hb spreads the same work over ~15
+warps/SM on every SM and its exposure is only ~2.4 us. Also: unrolled per-split L2 loads serialize (6 trips) and the
+first version spilled (68 B) when all loads were hoisted. 4-CTA clusters for an in-cluster merge can't fit: max 30
+active 4-CTA clusters at 1 CTA/SM (tools/a2/occ.py), nvs needs 32; 2-CTA clusters fit (66) but don't remove the merge.
+- _combine_hb shape after nvs (HB, warps): (2,1) best; (1,1) +1.38, (4,1) +0.62, (4,2) +0.58, (8,2) +1.49, (8,4) +0.70, (2,2) +1.15.
+
+### nvs stamps (shipped kernel; tools/a2/st2.py patches %globaltimer into a diag copy)
+
+H100, us from consumer start: verify 32 (S 4, 8 tiles): Q 1.5, first tile ready 3.6 (max 4.6), loop done 12.0, stored
+12.3; verify 16 (S 8, 4 tiles): first tile 3.6, loop 7.2, stored 7.7. ~1 us per 16-KB tile per SM = ~2.1 TB/s;
+no last-split tail in the shipped kernel (the "+2 us last split" from tools/a2/nvs.py stamp is its old CUDA-core
+new-token path; don't use nvs.py stamps). Little's law: LAG 1 keeps 2 tiles (32 KB) in flight per SM.
+- NV_LAG / NV_NS (tools/a2/lag.py, lagab.py): verify 32 paired LAG 2 vs 1 **-0.18 us (11/11)**, verify 16 +0.11;
+  NS 6 + LAG 2/3 no better. Small; queue for a bundle, not worth a check alone.
+
+### Checks (agent2 today: 4: a27e9a52, 9a841c48, baea7057, 058b8dce)
+
+### Next ideas
+
+1. Batched sliding attention is at ~1.5-2.1 TB/s of random 128-B gathers after a ~3.6 us 3-trip prologue
+   (seq -> page table -> rows); the merges (1.5-2.6 us H200) are the other fixed cost, and every in-grid/fused merge has
+   lost (s1 fuse, s2 cl, s4 nvs fused). Remaining levers are small: nvs LAG 2 (-0.18 verify 32), direct page-table
+   loads in the producer (skip the smem staging + bar), more bytes in flight per SM at the start (prologue).
+2. Untested: verify 16 on nvs with LAG 2 + the first tiles' page-table entries loaded straight into registers.
