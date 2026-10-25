@@ -16,6 +16,17 @@ the weakest shapes first (H200: verify 16/32 full 1.79x/1.84x, verify 32 sliding
 2.2-3.5x). Check the board (`okc leaderboard muse_attention_decode`) at the start of each session.
 Real speedups only.
 
+## Current direction (set by the human's lead agent; overrides STATE.md's ranking)
+
+Read ~/COORD.md's "Human decisions" section IN FULL at session start (it is at the TOP of the file, not the tail);
+its newest entries are the current direction and outrank STATE.md. As of 2026-10-25 00:35 UTC:
+1. First, the one H200 bandwidth measurement described there (dense vs random vs address-sorted gathers on the
+   decode 32 full bytes): #1's score implies full layers well under our 161.7 us, so our "4.0 TB/s gather ceiling"
+   (an H100 inference) may be wrong on the H200.
+2. Then verify full (`_gw_verify`, H200 verify 16/32 full 109/210 us vs ~167 gathers-only): structural changes, no
+   plan/split/stage tweaks on other shapes.
+Do not revert this section; the lead agent edits it.
+
 ## Rules (non-negotiable)
 
 - Follow TASK.md's rules and the spirit of the challenge: CUDA-graph capturable, no host syncs, no
