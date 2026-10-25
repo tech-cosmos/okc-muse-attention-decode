@@ -4121,7 +4121,11 @@ _DIAG = {
                             ("v1p191", {"splits": 191}), ("v1b", {}), ("v1fl2", "floor"), ("v1fl4", "floor4"),
                             ("v1dense", "dense")],
     ("verify", 32, "full"): [("v32a", {}), ("v32b", {}), ("v32fl2", "floor")],
-    ("decode", 32, "full"): [("d32a", {}), ("d32b", {}), ("d32fl2", "floor"), ("d32dense", "dense")],
+    # s116 (hdiag4): decode 32 full plan variants with more bytes in flight / more programs (H100 ties, 245.4 base vs
+    # 245.8-247.0), in case the H200's higher bandwidth wants more in flight; plus the R4 floor.
+    ("decode", 32, "full"): [("d32a", {}), ("d32s3", {"stages": 3}), ("d32p768s3", {"stages": 3, "dprogs": 768}),
+                             ("d32p1536", {"dprogs": 1536}), ("d32b16s4", {"block_n": 16, "stages": 4}), ("d32b", {}),
+                             ("d32fl2", "floor"), ("d32fl4", "floor4"), ("d32dense", "dense")],
 }
 _DIAG_KERNELS = {"_gd_full": lambda: gluon.jit, "_red_fin": lambda: triton.jit, "_attn_split": lambda: triton.jit,
                  "_combine": lambda: triton.jit, "_combine_bal": lambda: triton.jit, "_gw_verify": lambda: gluon.jit,
