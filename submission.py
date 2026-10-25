@@ -66,11 +66,11 @@ class Inputs(TypedDict):
 # partials merge through distributed shared memory (st.async + mbarrier), instead of _attn_split + a merge kernel.
 # Built once at import; the Triton path is the fallback if the build fails.
 from torch.utils.cpp_extension import load_inline as _load_inline
-_CSL_SRC = r'''// Batch-1-style decode sliding attention as ONE kernel: per request one 16-CTA thread-block cluster.
-// CTA rank r covers window keys [128 r, 128 r + 128) for both KV heads (8 warps: head = warp / 4, 32 keys
-// each). QK^T and P@V are mma.sync m16n8k32 E4M3 (P in E4M3 with FA3's max offset 8, V^T built in registers
+_CSL_SRC = r'''// Batch-1-style decode sliding attention as ONE kernel: per (request, KV head) one 16-CTA thread-block cluster
+// (s91: a cluster per KV head halves each SM's gathered bytes; H100 paired decode 1/16 sliding -0.58/-0.14 us).
+// CTA rank r covers window keys [128 r, 128 r + 128) of its KV head (4 warps, 32 keys each). QK^T and P@V are mma.sync m16n8k32 E4M3 (P in E4M3 with FA3's max offset 8, V^T built in registers
 // by byte permutes), FP32 partials pushed by each warp straight into the owning CTA's shared memory
-// (st.shared::cluster), one cluster barrier, then CTA r merges query head r (RMSNorm, sigmoid gate, BF16).
+// (st.shared::cluster), one cluster barrier, then CTA r < 8 merges query head 8 h + r (RMSNorm, sigmoid gate, BF16).
 // Fixed shapes: HQ 16, HKV 2, D 64, window 2048, L 1.
 #include <torch/extension.h>
 #include <c10/cuda/CUDAStream.h>
@@ -118,7 +118,7 @@ __device__ __forceinline__ void sa2(unsigned addr, unsigned mbar, float a, float
 __device__ __forceinline__ float bf(unsigned short x) { return __uint_as_float((unsigned)x << 16); }
 
 template <int PAGE>
-__global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__ qkv, const float* __restrict__ cs,
+__global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__ qkv, const float* __restrict__ cs,
                                               unsigned char* kc, unsigned char* vc, const int* __restrict__ pt,
                                               const int* __restrict__ seqs, const long* __restrict__ loc,
                                               const float* __restrict__ ks, const float* __restrict__ vs,
@@ -131,14 +131,14 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
     __shared__ __align__(8) unsigned long long mbar;
 
     const int tid = threadIdx.x, warp = tid >> 5, lane = tid & 31, g = lane >> 2, c = lane & 3;
-    const int h = warp >> 2, wk = warp & 3;
+    const int h = (blockIdx.x >> 4) & 1, wk = warp;
     unsigned rank;
     asm volatile("mov.u32 %0, %%cluster_ctarank;" : "=r"(rank));
-    const int b = blockIdx.x / 16;
+    const int b = blockIdx.x / 32;
     // The owner's receive barrier counts the 16 partials' bytes (st.async complete_tx). Peers must have started
     // (and initialized it) before anyone pushes: arrive now, wait before the pushes.
     const unsigned mb = (unsigned)__cvta_generic_to_shared(&mbar);
-    if (threadIdx.x == 0) {
+    if (threadIdx.x == 0 && rank < 8) {
         asm volatile("mbarrier.init.shared::cta.b64 [%0], 1;\n\tfence.mbarrier_init.release.cluster;" ::"r"(mb) : "memory");
         asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;" ::"r"(mb), "r"(16 * (16 * 16 + 8)) : "memory");
     }
@@ -150,7 +150,7 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
     const uint4 qa = *(const uint4*)qp, qb = *(const uint4*)(qp + 8);
     const unsigned short* kp = qkv + (long)b * QKV_W + (HQ + h) * D + 2 * lane;
     const unsigned kw = *(const unsigned*)kp, vw = *(const unsigned*)(kp + HKV * D);
-    const unsigned gw = *(const unsigned*)(qkv + (long)b * QKV_W + (HQ + 2 * HKV) * D + rank * D + 2 * lane);
+    const unsigned gw = *(const unsigned*)(qkv + (long)b * QKV_W + (HQ + 2 * HKV) * D + (h * 8 + (rank & 7)) * D + 2 * lane);
     const long nloc = loc[b];
     const float kscale = *ks, vscale = *vs;
     // spec >= 0 (batch 1, page 1): SGLang slices the page table to the batch's longest length, so the window's
@@ -298,7 +298,7 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
     }
     __syncthreads();
     {
-        const int h2 = tid >> 7, row = (tid >> 4) & 7, dc = tid & 15;
+        const int h2 = h, row = (tid >> 4) & 7, dc = tid & 15;
         float mk[4], lk[4], M = -1e30f;
 #pragma unroll
         for (int k = 0; k < 4; ++k) {
@@ -314,14 +314,14 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
             o[0] += w * a.x; o[1] += w * a.y; o[2] += w * a.z; o[3] += w * a.w;
         }
         asm volatile("barrier.cluster.wait.aligned;" ::: "memory");
-        const unsigned owner = h2 * 8 + row;
+        const unsigned owner = row;
         const unsigned rmb = mapa(mb, owner);
         sa4(mapa((unsigned)__cvta_generic_to_shared(&racc[rank][4 * dc]), owner), rmb, o[0], o[1], o[2], o[3]);
         if (dc == 0) sa2(mapa((unsigned)__cvta_generic_to_shared(&rml[rank][0]), owner), rmb, M, L);
     }
 
     // Merge query head `rank` from its 16 partials: one warp, two d per lane, no block barriers.
-    if (warp == 0) {
+    if (warp == 0 && rank < 8) {
         asm volatile("{\n\t.reg .pred p;\n\tW: mbarrier.try_wait.parity.shared::cta.b64 p, [%0], 0;\n\t@!p bra W;\n\t}"
                      ::"r"(mb) : "memory");
         float M = -1e30f;
@@ -343,7 +343,7 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
         float ni = rsqrtf(s2 / D + 1e-5f);
         o0 *= ni / (1.f + __expf(-g0));
         o1 *= ni / (1.f + __expf(-g1));
-        *(__nv_bfloat162*)(out + (long)b * HQ * D + rank * D + 2 * lane) = __floats2bfloat162_rn(o0, o1);
+        *(__nv_bfloat162*)(out + (long)b * HQ * D + (h * 8 + rank) * D + 2 * lane) = __floats2bfloat162_rn(o0, o1);
     }
 }
 }  // namespace csl
@@ -354,8 +354,8 @@ void csl_decode(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Te
     int batch = seq.size(0), mp = pt.size(1);
     const int spec = (batch == 1 && page == 1 && CSL_SPEC) ? mp - 1 : -1;
     cudaLaunchConfig_t cfg = {};
-    cfg.gridDim = dim3(16 * batch);
-    cfg.blockDim = dim3(256);
+    cfg.gridDim = dim3(32 * batch);
+    cfg.blockDim = dim3(128);
     cfg.dynamicSmemBytes = 0;
     cfg.stream = c10::cuda::getCurrentCUDAStream();
     cudaLaunchAttribute at[1];
@@ -380,7 +380,7 @@ void csl_decode(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Te
 '''
 try:
     _CSL = _load_inline(
-        name="muse_csl_s85",
+        name="muse_csl_s91",
         cpp_sources="void csl_decode(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, int64_t, double);",
         cuda_sources=_CSL_SRC, functions=["csl_decode"],
