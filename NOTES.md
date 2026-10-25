@@ -5121,3 +5121,91 @@ beats `v32a` by > 2 us (then verify 16), and the d1/v1 rules from s113/s115.
 
 ### Budget (UTC day 2026-10-25)
 - s116: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 117 (unattended session 50, 2026-10-25 14:28 - ~15:10 UTC): merge-tail exposure on batched full layers (no checks)
+
+Board 14:30Z unchanged: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450, 1481.9 us).
+Account: checks 20/20 (0 left today), scored 8/10. No new COORD "Ready to merge". **0 checks, 0 scored.** main code
+unchanged (5e3d586). Tool: tools/s117/mexp.py (whole call vs the same call with one merge kernel not launched,
+env K=<kernel name>, timing only; bench.run_shape, cold L2).
+
+### Merge exposure on the batched full layers (H100, cold, median of 5)
+| shape | whole | merge not launched | exposure |
+|---|---|---|---|
+| verify 32 full (`_combine_bal`) | 255.18 | 251.38 | 3.8 |
+| verify 16 full (`_combine_bal`) | 135.41 | 131.71 | 3.7 |
+| decode 32 full (`_red_fin`) | 244.06 | 242.80 | 1.3 |
+| decode 16 full (`_red_fin`) | 126.74 | 125.23 | 1.5 |
+| decode 1 full (`_red_fin`) | 13.86 | 12.05 | 1.8 |
+(WARM=1 gives the same numbers: batched full K/V is 300+ MB, so a no-flush replay is still DRAM-cold.)
+Reading: a last-arriver in-grid merge inside `_gw_verify` (gbal) could save at most the 3.7-3.8 us exposure minus its
+own serial tail (counter acq_rel + one program merging ~10 partials x 64 rows, ~1.5-2 us by s95/s94), i.e. ~2 us per
+verify 16/32 full call = ~0.3% overall for a large Gluon warp-specialized build. Decode 16/32 full merges are already
+~1.4 us. Not worth building; STATE's "merge tail on verify full ~0.8%" idea is downgraded to <= 0.3%.
+
+### Score arithmetic (why #1 must be ahead almost everywhere)
+Our load ratios (e64d3450): decode 1 3.47, verify 1 3.12, decode 16 2.55, decode 32 2.34, verify 16 2.05, verify 32
+2.02 (geomean 2.54). Even with verify 16/32 full at our decode-full times (88/168) AND decode 16/32 full at the H200
+dense floor (76/145) we'd reach only ~2.76x; #1's 2.910x needs batch-1 gains as well (e.g. decode 1 at 3.5 / 10 us).
+So the H200 floors that exp/hdiag4 measures tomorrow (batch-1 and batch-32 full: random vs dense gather) decide where
+to dig next: if the H200 batch-1 random gather floor is far below `_gd_full`/`_attn_split`, batch-1 full is the build.
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged from s116
+1. Check main (5e3d586 code); submit if it beats 1481.9 us.
+2. Check exp/hdiag4 @ 8b557ec (diag, never submit).
+
+### Budget (UTC day 2026-10-25)
+- s117: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 118 (unattended session 51, 2026-10-25 14:33 - ~15:00 UTC): decode 1 full timeline stamps; _red_fin 16 warps (-0.3 us H100, on main)
+
+Board 14:33Z unchanged: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450, 1481.9 us).
+Account: checks 20/20 (0 left today), scored 8/10. No new COORD "Ready to merge". **0 checks, 0 scored.**
+**main = ae1161c** (5e3d586 + `_red_fin` 16 warps at batch 1); tests 16/16; H100 bench 2.051 (decode 1 5.09 / 13.82,
+decode 16 9.47 / 125.82, decode 32 13.54 / 243.38, verify 1 6.37 / 17.92, verify 16 12.77 / 135.44, verify 32 16.38 /
+254.91). (A first bench run read 2.02 with every shape slow: another process was on the GPU; rerun clean.)
+Tools: tools/s118/gdstamp.py (patched copy of submission.py: %globaltimer stamps per `_gd_full` program + in
+`_red_fin`, decode 1 full, cold graph replays), ab.py (paired rounds of module switches / plan overrides), chk.py.
+
+### Decode 1 full timeline (H100, cold, us from the first `_gd_full` program's start, mean of 20 replays)
+- 511 one-warp programs (500 with 5 tiles of 32 keys, 11 empty incl. the new-token program); all start by 0.24.
+- **first tile landed: p50 2.56** (page-table DRAM trip + row gather trip, 4 MB requested at once); loop done p50 8.73;
+  program end p10 8.63 / p50 9.19 / max 10.05 (spread ~1.4 us = DRAM queue randomness + per-SM load: SMs with 4
+  programs end 0.26 later than SMs with 3, first tile 2.82 vs 2.56).
+- Steady state: ~16 MB in ~6.2 us = 2.6 TB/s (hfloor's random gather 2.77).
+- `_red_fin` (PDL): launched at 1.0, released 10.59 (0.55 after the last program), replicas loaded 11.26 (0.67 L2 trip),
+  zeroing + list 11.44, end 11.83 (normalize / RMS / sigmoid / store 0.39). So the merge hop is ~1.8 us after the last
+  `_gd_full` program, as s113/s117 said.
+
+### WIN (H100, on main): `_red_fin` with 16 warps at batch 1 (RF_NW1; batched stays 4 = RF_NW)
+Paired decode 1 full (tools/s118/ab.py, cold): 4 -> 16 warps 14.37 -> 14.10 and 14.38 -> 14.03 (15/15 twice), again
+14.14 -> 13.92 (10/11) later. 8 warps -0.14..-0.28, 32 tie, 1-2 warps +0.6..+1.7. Bit-identical output (chk.py: 4 seeds
+incl. the bench's, max |diff| 0; all within the reference bound), tests 16/16 (none exercises batch-1 decode full,
+hence chk.py). Batched decode 16/32 full with 8/16 warps: tie/lose (kept 4). Unverified on the H200: rides on the first
+check of main (decode 1 full; e64d3450 13.57 us). Expected ~-0.2..-0.3 us = ~0.15% overall.
+
+### Dead (H100, paired)
+- FAST `_red_fin` (sigmoid(gate) before the PDL wait, sums zeroed after the output store): tie at 4 warps, +0.15 at 16
+  (the kernel ends when every store is done, so moving the zeroing off the "critical path" buys nothing).
+- Decode 1 full split counts (spec, BN 32, stages 2): 700/900 tie over 21 rounds (an 11-round -0.21 was noise), 834 tie,
+  417 +0.3, 396 +0.7, 1300 +2.4. **Any split count where every split has keys (500, 625) costs +1.4..+2.5 us**: the
+  new-token epilogue then runs after a key loop instead of in an empty program from t = 0. Keep 511.
+- Verify 1 full `_combine` cw 8/16 (paired, 15 rounds): tie (128 programs already in parallel; the warp-count lever is
+  specific to `_red_fin`'s single program). verify 16 full `_combine_bal` cw 2/4, hb 1/4: +1.5..+2.4 (as s103).
+
+### Marginal, NOT on main: exp/ua (plan `ua` = unaligned equal chunks in `_gd_full`, + `sep` new-token program)
+Decode 1 full, H100 paired vs main: 511+sep+ua -0.35 (11/11), -0.08 (9/11), -0.26 (19/21); **505+sep+ua -0.34 (20/21),
+-0.20 (18/21), -0.15 (6/11)**; 500+sep aligned (no empty programs) -0.14 (16/21); 505+sep aligned -0.03. So "fewer empty
+programs" is worth ~0.1-0.2 at most, inside the noise of single runs. **527+sep+ua (528 programs = exactly 4 per SM)
++0.86 every time** and chunks > 160 keys (6 tiles: 495, 480) +0.5..+0.6; fewer programs per SM with deeper stages (395 /
+263 programs, stages 3/4) +0.9..+5.4 (the per-program tile chain dominates). Not H200-worthy on its own; if a diag slot
+is free, `{"splits": 505, "sep": 1, "ua": true}` is the variant to time.
+
+### Next (after 00:00Z 2026-10-26, new sandbox)
+1. Check main **ae1161c** code (= 5e3d586 + `_red_fin` 16 warps): changed shapes vs e64d3450 are verify 16 sliding
+   (NV_HALF, H200 11.63 in 2d0bfdc6) and decode 1 full (expect ~-0.2); submit if it beats 1481.9 us.
+2. Check exp/hdiag4 @ 8b557ec (diag, never submit; its decode 1 full variants use the 4-warp `_red_fin`, fine for
+   reading `_gd_full` kernel durations).
+
+### Budget (UTC day 2026-10-25)
+- s118: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.

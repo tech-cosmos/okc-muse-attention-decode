@@ -144,6 +144,19 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
         asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;" ::"r"(mb), "r"(16 * (16 * 16 + 8)) : "memory");
     }
     asm volatile("barrier.cluster.arrive.relaxed.aligned;" ::: "memory");
+    if (threadIdx.x == 32 && spec < 0) {  // agent2 s17 (batched): L2-prefetch this CTA's share of the request's
+        // plausible page-table span (agentic lengths: window start >= 0.86 width - 2112) while seq_lens is in flight,
+        // so the dependent page-table read hits L2. A hint only (no effect on results). H100 decode 16 -0.13 us.
+        const int rq = 32, pb = blockIdx.x / rq, part = blockIdx.x % rq, maxp = MP;
+        const int plo = max(0, (int)(maxp * 0.86f) - 2112);
+        const int per = ((maxp - plo + rq - 1) / rq + 3) & ~3;
+        const int a = plo + part * per, e = min(a + per, maxp);
+        if (e > a) {
+            const uintptr_t u = reinterpret_cast<uintptr_t>(pt + (long long)pb * maxp + a) & ~uintptr_t(15);
+            const uintptr_t v = (reinterpret_cast<uintptr_t>(pt + (long long)pb * maxp + e) + 15) & ~uintptr_t(15);
+            asm volatile("cp.async.bulk.prefetch.L2.global [%0], %1;" ::"l"(u), "r"((unsigned)(v - u)) : "memory");
+        }
+    }
 
     // Every load that doesn't need the page table goes out first (warps issue in order, and the gathers' addresses
     // wait for the page-table trip): queries, the new token, the gate, scales; then cos/sin (needs seq).
@@ -1999,6 +2012,23 @@ const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ cs,
     extern __shared__ __align__(1024) uint8_t smraw[];
     Smem<NS>& sm = *reinterpret_cast<Smem<NS>*>((reinterpret_cast<uintptr_t>(smraw) + 1023) & ~uintptr_t(1023));
     asm volatile("griddepcontrol.launch_dependents;" ::: "memory");
+    if (threadIdx.x == 32) {  // agent2 s17: L2 prefetch of this CTA's share of the request's plausible page-table span
+        // (as in csl; H100 decode 32 -0.11..-0.24 us; on nvs it lost +0.18 at verify 16/32)
+#if NV_HALF
+        const int rq = 2 * S;
+#else
+        const int rq = S;
+#endif
+        const int pb = blockIdx.x / rq, part = blockIdx.x % rq;
+        const int plo = max(0, (int)(maxp * 0.86f) - 2112);
+        const int per = ((maxp - plo + rq - 1) / rq + 3) & ~3;
+        const int a = plo + part * per, e = min(a + per, maxp);
+        if (e > a) {
+            const uintptr_t u = reinterpret_cast<uintptr_t>(pt + (long long)pb * maxp + a) & ~uintptr_t(15);
+            const uintptr_t v = (reinterpret_cast<uintptr_t>(pt + (long long)pb * maxp + e) + 15) & ~uintptr_t(15);
+            asm volatile("cp.async.bulk.prefetch.L2.global [%0], %1;" ::"l"(u), "r"((unsigned)(v - u)) : "memory");
+        }
+    }
     const int tid = threadIdx.x, wg = tid >> 7;
     if (tid == 0) {
         for (int i = 0; i < NS; ++i) { mb_init(&sm.ready[i], 4); mb_init(&sm.empty[i], 4); }
@@ -4126,10 +4156,16 @@ def _red_args(batch, group, d, sl, device, out):
     return dict(RED=True, red_ptr=red, rcnt_ptr=rcnt, out_ptr=out, NR=4 if batch == 1 else BNR, RCW=rcw)
 
 
+# _red_fin warps: batch 1 (decode 1 full) 16 instead of 4 (fewer loads per thread on the post-wait L2 trip): H100 paired
+# -0.27/-0.34 us (15/15 twice), bit-identical; 8 -0.14..-0.28, 32 tie, 1-2 +0.6..+1.7. Batched decode full: 8/16 tie/lose.
+RF_NW1 = 16
+RF_NW = 4
+
+
 def _red_launch(qkv, pacc, pml, data, out, batch, hq, hkv, group, d, splits, sl, bal):
     red, rcnt, rcw = _red_bufs(batch, group, d, sl, qkv.device)
     _red_fin[(batch,)](qkv, red, rcnt, pacc, pml, data["v_scale"], out, HQ=hq, HKV=hkv, G=group, D=d, M=2 * group,
-                       S=splits, NR=4 if batch == 1 else BNR, SL=0 if batch == 1 else sl, RCW=rcw, BAL=bal, num_warps=4, launch_pdl=True)
+                       S=splits, NR=4 if batch == 1 else BNR, SL=0 if batch == 1 else sl, RCW=rcw, BAL=bal, num_warps=RF_NW1 if batch == 1 else RF_NW, launch_pdl=True)
 
 
 def _decode_gluon(data, cfg, plan):
