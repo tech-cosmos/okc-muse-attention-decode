@@ -50,7 +50,7 @@ Lanes: Claude = Triton kernel (submission.py on main). Codex = hand-written kern
   beb63898 were withdrawn by the human. Board best to beat: 2.263x.
 
 ## Claims (what each agent is doing now; expire after 2 hours)
-agent2 2026-10-25T15:20Z: s18 H100-only: RoPE cos/sin trip on the nds/csl critical path (prefetch), batched-sliding head chain; 0 checks.
+agent2 2026-10-25T15:58Z s20: H100-only: nds S 4 / deeper ring for decode 32 sliding (halve partials); 0 checks.
 
 
 
@@ -440,6 +440,11 @@ agent2 2026-10-25T15:12Z: s16 (0 checks): DEAD nds split pairs in one 512-thread
 
 claude 2026-10-25T15:45Z s121 (0 checks; main code unchanged ae1161c, notes 66859ba): verify 1 full on agent2's nvs (window 0, identity RoPE table; branch exp/nvsf, dispatch off) correct but DEAD: H100 paired cold S 64 18.55 vs main 17.65 us (0/7; S 32/128, NS 6/7, NV_HALF 0 all worse), kernel warm 12.03 vs 12.61 but flushed +1.2. Queue for 00:00Z unchanged: (1) check main ae1161c code, submit if < 1481.9 us; (2) diag exp/hdiag5 @ 840db1a.
 claude 2026-10-25T16:20Z s122 (0 checks; main unchanged ae1161c): tensor vs MUFU pipe-overlap microbench (tools/s122/tm.cu, H100): wgmma and MUFU/FFMA/softmax-mix in different WGs overlap with 10-24% mutual slowdown, NOT serialized -> verify-full consumer gap (~127-145 us vs MUFU 78 / tensor 59 floors) is chain scheduling (as s101), no HW-limit lever. _gw_verify hot loop = 159 SASS instr/tile (112 per-element FP + 47 overhead). Queue for 00:00Z unchanged: (1) check main ae1161c, submit if < 1481.9 us; (2) diag exp/hdiag5 @ 840db1a.
+agent2 2026-10-25T15:40Z s18 (0 checks, agent2 6fea726): H100 decode 32 sliding (nds) probes all dead: constant RoPE position (upper bound of a cos/sin prefetch) -0.13, split-major CTA order +0.35, even/odd split grid halves +0.11; no code change. First agent2 check after 00:00Z 2026-10-26 unchanged: agent2-exp/halfpf 6a9a26a. NOTES-agent2 s18.
+claude 2026-10-25T16:05Z s123 (0 checks; main unchanged ae1161c): pre-reset sanity: tests 16/16, H100 bench 2.053 (s118 2.051); all claude branches pushed. `_red_fin` counter-spin instead of the PDL wait priced dead (fence + poll >= the 0.55 us PDL release; s95). Queue for 00:00Z unchanged: (1) check main ae1161c, submit if < 1481.9 us; (2) diag exp/hdiag5 @ 840db1a.
+agent2 2026-10-25T16:00Z s19 (0 checks): nds K-early barrier (QK waits K only, P@V waits readyv after the V transpose) = H100 decode 32 sliding -0.06/-0.10 (10/11) on agent2, -0.14 (13/15) on halfpf; same in nvs +0.10/+0.19 (dead); separate K/V cp.async groups +0.24 (dead). Pushed agent2 565c536 and check candidate agent2-exp/halfpfkr abc5f38 (= halfpf + kr, tests 16/16): agent2's FIRST check after 00:00Z (replaces halfpf 6a9a26a). NOTES-agent2 s19.
+
+claude 2026-10-25T16:20Z s124 (0 checks; main unchanged ae1161c): probes, both dead: no extra graph nodes (memset/copy) in any scored shape (tools/s124/nodes.py); 16-CTA cluster launches start all CTAs within 0.1 us (32 and 256 CTAs; tools/s124/cstart.py), so vtk's 4->8 token cost isn't launch rate. Queue for 00:00Z unchanged: (1) check main ae1161c, submit if < 1481.9 us; (2) diag exp/hdiag5 @ 840db1a.
 
 ## Ready to merge (agent2 -> agent 1)
 (MERGED by claude s114 into main 5e3d586, tests 16/16; not yet scored: claude's first check after 00:00Z) agent2 2026-10-25T14:15Z: branch agent2-exp/nvhalf commit 7ba35f9 (= origin/main d93a80d + NV_HALF nvs, the exact submission.py of 0ae2b8a that agent 1 checked as 2d0bfdc6; tests 16/16): verify 16 sliding 11.63 us H200 (e64d3450 11.90) WIN, verify 32 sliding 15.43 (15.42) tie; other shapes unchanged code. Touches only _NVS_SRC (NV_HALF) + nvs host grid/S.
