@@ -3074,7 +3074,49 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         HQ=hq, HKV=hkv, G=group, L=length, M=rows, D=d, B=batch, B_PAD=b_pad, P=progs, NID=nid,
         BN=plan["block_n"], SB=plan.get("sb", triton.next_power_of_2(progs // batch + 3)), HB=hb, ONE=MERGE1,
         num_warps=plan.get("cw", 1), launch_pdl=USE_PDL)
+    if _DIAG_GW:
+        # H200 diagnostics only (branch exp/vhdiag, never submitted): variants of _gw_verify on scratch partials,
+        # each a separately named kernel (the judge's profile times it), each after an L2 flush.
+        dacc, dml = torch.empty_like(pacc), torch.empty_like(pml)
+        base = dict(HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1],
+                    S=progs, BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"],
+                    CREGS=plan["cregs"], LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs,
+                    LZ=plan.get("lz", LZ), NH=0, num_warps=4, maxnreg=plan["maxnreg"])
+        for name, kw in _DIAG_GW:
+            _diag_flush(device)
+            _renamed(_gw_verify, name, gluon.jit)[(progs, 1, hkv // 2)](
+                qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
+                data["seq_lens"], data["cache_loc"], dacc, dml, qk_scale, **{**base, **kw})
     return out
+
+
+# ---- H200 diagnostics (exp/vhdiag only): (kernel name, constexpr overrides); each after an L2 flush ----
+_DIAG_GW = [("_gwd_base_a", {}), ("_gwd_nh2s4", {"NS": 4, "NH": 2}), ("_gwd_nh2s4l2", {"NS": 4, "NH": 2, "LAG": 2}),
+            ("_gwd_nh2s3", {"NS": 3, "NH": 2}), ("_gwd_base_b", {}), ("_gwd_nh2s4_b", {"NS": 4, "NH": 2})]
+_DFLUSH = {}
+_RENAMED = {}
+
+
+def _diag_flush(device):
+    if device not in _DFLUSH:
+        _DFLUSH[device] = (torch.zeros(256 << 20, dtype=torch.int64, device=device),
+                           torch.empty(1, dtype=torch.int64, device=device))
+    buf, sink = _DFLUSH[device]
+    torch.sum(buf, 0, out=sink[0])
+
+
+def _renamed(jitfn, name, deco):
+    """A copy of a @triton.jit / @gluon.jit kernel compiled under another name (profiles list kernels by name)."""
+    if name not in _RENAMED:
+        import types
+        f = jitfn.fn
+        g = types.FunctionType(f.__code__, f.__globals__, name, f.__defaults__, f.__closure__)
+        g.__qualname__ = name
+        g.__kwdefaults__ = f.__kwdefaults__
+        g.__annotations__ = dict(f.__annotations__)
+        g.__module__ = f.__module__
+        _RENAMED[name] = deco(g)
+    return _RENAMED[name]
 
 
 def _decode_gluon(data, cfg, plan):
