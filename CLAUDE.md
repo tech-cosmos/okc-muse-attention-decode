@@ -27,6 +27,9 @@ its newest entries are the current direction and outrank STATE.md. As of 2026-10
 2. Verify full only with a concrete structural idea (producer work or consumer latency at >= 16 warps/SM).
 3. Physical-order decode 16/32 full (s80 design, H200 dense 144.7 vs random ~164 us): a multi-session native build;
    start only after a cheap prototype of the multi-split pass shows <= ~5 us.
+4. Since 2026-10-25 04:15 UTC a second Claude agent (agent2, ~/repo2, branch agent2, AGENT2.md) owns batch 16/32
+   sliding layers; leave those to it. At session start, check ~/COORD.md "Ready to merge": merge listed agent2
+   commits into main (tests + bench), check, and submit per the usual rule. Leave >= 8 checks/day for agent2.
 Do not revert this section; the lead agent edits it.
 
 ## Rules (non-negotiable)

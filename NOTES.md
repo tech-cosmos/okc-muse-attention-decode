@@ -3922,3 +3922,50 @@ full consumer latency at >= 16 warps/SM; physical-order full layers). No checks 
 ### Budget (UTC day 2026-10-25)
 
 Checks 9/20, scored 3/10 (unchanged).
+
+## Session 88 (unattended session 21, 2026-10-25 04:08 - ~05:15 UTC): batch-1 full probes on the H100, all dead (no checks)
+
+Board 04:10Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.354x (8aec5993). Brief change at 04:09Z (e9fd547): a
+second agent (agent2, ~/repo2) owns batch 16/32 sliding; leave it >= 8 checks/day; merge its COORD "Ready to merge"
+items (none yet). Tools: tools/s88/ (floor1.py, ngather.py, ovh.py, gd1.py = whole vs attention-only per plan override,
+`SUBDIR=<dir with a modified submission.py>`; submission_hoist_cm.py = the HOIST/CM variants below, env CM=1).
+
+### Measurements (H100, bench.time_graph = judge-like read flush, minus empty graph)
+
+- **Fixed kernel costs**: one tiny kernel 2.3-2.7 us above the empty graph; two 3.8 (second PDL-launched 3.6); three 6.3.
+- **Decode 1 full breakdown**: whole 14.5-14.7, attention only (merge launch dropped) 11.6-11.8, so the merge exposure is
+  ~2.9 us = **~1.0 us accumulator loads** (merge with its acc loads masked off: whole 13.7) + **~1.9 us fixed** (second
+  kernel's dependency, m/l round trip, store). The acc part is per-SM L2 bandwidth (16 CTAs x 128 KB).
+- **Native gather floor for decode 1 full's bytes** (tools/s88/ngather.py: 80000 random 128-B K and V rows through the
+  real page table, 2 rows per 8-lane group, all loads up front): **9.5 us** (dense 9.0); the Triton floor (floor1.py) is
+  10.85 (dense 9.95). So `_gd_full` attention is ~2.1 us above the native floor, the merge ~2.9.
+
+### Dead ends
+
+- `_gd_full` HOIST (all prologue page-table loads before the cp.asyncs, in case in-order issue serialized one page-table
+  trip per stage): tie at stages 2; stages 3/4/6 still +0.8/+1.3/+2.9 us attention. The prologue chain isn't why deeper
+  rings lose.
+- `_combine` launched with Triton `num_ctas` 2/4 (cluster; lets Triton reduce across CTAs): +3.4 us. Same as s70.
+- Verify 1 full: `dual` +4.4..+6.7 us; splits 191/197/255 +1.2/+1.2/+5.6 (attention-only stays ~15.0-15.6 from 127 to 197
+  splits, i.e. 2 -> 3 programs/SM doesn't help); `peel` +1.0 (second loop copy costs registers); **CM** (tail mask
+  behind a warp-uniform branch, as `_gd_full` does; SASS: the 65-instruction mask block is skipped on whole tiles, 16% of
+  the 416-instruction loop) = tie (15.06-15.20 vs 15.07-15.28).
+- ncu, verify 1 full `_attn_split` (cold): 18.2 us, issue 38%, 7.4 warps/SM (occupancy limit 4 blocks: registers 127 and
+  smem 42 KB), 4.93 cycles per issue; stalls per issue: long_scoreboard 1.01, selected 1.00, wait 0.88, barrier 0.74,
+  short_scoreboard 0.36. Loop per warp per 64-key tile: 416 instructions (FMNMX 36, FADD 36, FMUL 34, FFMA 34, MUFU 34,
+  FSEL 32, F2FP unpack 16 = V to FP16, F2FP pack 16 = P, 2 QGMMA + 4 HGMMA). Neither instruction count (CM) nor program
+  count moves it, so the limiter is neither issue nor per-chain latency alone; untested guess: the gathers all land late
+  (stages 8 x 254 programs ~ 16 MB requested up front, the whole 20 MB) and the per-program compute tail runs after them.
+  A test for next time: time with all K/V reads hitting L2 (warm, no flush) to split memory vs compute.
+
+### Next
+
+- Batch-1 full: the 1.9 us fixed merge part only goes away with a fused merge, and every fused form so far lost to the
+  release fence + merge body (s36/s43/s50/s73). The 1.0 us acc part needs > 16 SMs per head's merge, which needs a
+  cross-CTA norm exchange (~1.2 us, s34) or a cluster (Triton +3.4 us; native cmg s74 +0.56). No cheap path known.
+- Verify 1 full: run the warm-L2 split above first; if compute-bound when warm, the 416-instruction loop with its per-
+  tile V unpack + STS is what to attack (e.g. an FP8 P@V wgmma with V K-major from a transposing cp.async layout).
+
+### Budget (UTC day 2026-10-25)
+
+No checks this session. Account: checks 9/20, scored 3/10 (agent2 gets >= 8 of the remaining 11 checks).
