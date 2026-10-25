@@ -46,13 +46,11 @@ merge its COORD "Ready to merge" wins. NOTES s88.
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full`; sliding + small -> Triton
   `_attn_split` + PDL merges.
 
-## Budget (UTC day 2026-10-24; API: `okc problems --json`)
+## Budget (UTC day 2026-10-25; API: `okc problems --json`)
 
 - 2026-10-25 after s92: checks 11/20, scored 5/10 (s92 used none; s91: check 750924a0, submit 08bf9391).
 
-- 2026-10-25: checks 10/20 at s89 start (s89 used none; agent2 gets >= 8 of the rest); earlier: checks 9/20 (s86: 6e8ac91c diag 2.302x, e1620b92 2.359x; scored 8aec5993 2.354x = 3/10 scored) (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
-  2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
-  00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
+- Today's judge runs are listed in ~/COORD.md "Judge runs" and NOTES s85-s91. Agent2 keeps >= 8 checks/day (it has used 1).
 
 ## Current direction
 
