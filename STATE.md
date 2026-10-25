@@ -1,13 +1,20 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~12:40 UTC (session 110 = unattended session 43 of the #1-push brief).
+Updated 2026-10-25 ~13:44 UTC (session 113 = unattended session 46 of the #1-push brief).
 
-**s110: fixed-reference (LZ 10) consumer + FA3 intra-WG pipelining: native microbench 126.9 vs 144.9 unpipelined (-12%;
-vs 162.8 for the s71-class exact consumer), 122 regs. In Gluon _gw_verify: C7512 at 2 CTAs/SM (+111 us), 1 CTA/SM +24:
-dead (exp/lzpipe 890f73f). Ones-column row sums dead (FADDs free once pipelined). 0 checks. NOTES s110.**
+**s113 (0 checks): H100 warm/cold split: decode 1 full is memory-bound (warm 8.2 vs cold 14.0); verify 1 full carries ~4.2 us
+of consumer chain over decode 1 full even warm. FPIPE (hand-pipelined Triton loop) DEAD (+1.0, Triton waits 0 per wgmma).
+Built exp/hdiag3 (main f2b1c52 + diag; replaces hdiag2): the FIRST check after 00:00Z. NOTES s113.**
 
-**s109: csl w8 (8 warps x 16 keys) +0.08/+2.2 and w1 (1 warp x 128 keys, no premerge) +1.74/+0.99 at decode 1/16
-sliding: dead; gw/gbal at verify 1 full with LZ 10: 18.9-22 vs 17.15 us: dead. 0 checks. NOTES s109.**
+**s112: check 2d0bfdc6 (main + agent2 NV_HALF) 2.507x: NV_HALF wins verify 16 sliding 11.63 (vs 11.90), ties verify 32 sliding;
+overall drop is noise on untouched shapes. Checks 20/20 used today. Per-us lever table in NOTES s112. Next: H200 batch-1 gather floor (hdiag2).**
+
+**s111: native pipelined verify-full kernel BUILT (exp/nvf 4eb2b26, v1-v5, all 23/23 correct) and LOSES in every layout
+(best verify 32 full real +24 / all-L2 +31 us vs Gluon): 80 in-flight regs need 112/consumer (C7512 at 104), 112 only fits
+as 1 CTA/SM x 2 programs, leaving too few warps for the FP8->FP16 V widen. Idea 0000000 below is DEAD. 0 checks. NOTES s111.**
+
+**s109-s110 (NOTES s109-s110): csl w8/w1 and gw/gbal at verify 1 full dead; native pipelined FIX consumer microbench -12%
+(126.9 vs 144.9 us) but Gluon pipelining dead (C7512 at 2 CTAs/SM).**
 
 **s104-s108 (NOTES s104-s108): s108 REDO stress of main 240/240 clean + exp/hdiag2 98153b5 built (paired H200 diag,
 never submit; H100 decode 32 full dense floor -11% vs random); s107 FOLD dead; s106 fix 1 verify 1 full + SPEC OOB clamp
@@ -20,6 +27,13 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 ## Board and best run
 
+- **2026-10-25 12:47Z: e64d3450 = main f2b1c52 (agent2 652f126: nds decode 32 sliding 12.20, nvs verify 16 sliding
+  12.06) scored 2.542x, 1481.9 us, rank 8 = ACCOUNT BEST.** Board 13:30Z: #1 2.910x, #7 2.569x.
+  Per-shape H200 (e64d3450, us): decode 1 4.44 / 13.57; decode 16 7.53 / 87.66; decode 32 11.93 / 168.19; verify 1 5.74 /
+  16.18; verify 16 11.90 / 106.19; verify 32 15.42 / 196.60. vs 8725ba7e: **LZ 10 (s105) WINS verify 16/32 full -7.1/-13.3**,
+  fix 1 verify 1 full -0.27, red decode 16/32 full -1.9/-0.7 (full layers on the usual slow node). So main's s103/s105/s106
+  changes are H200-verified; the queued 'check main 05efdde' item is done.
+
 - Board 2026-10-25 09:05Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.460x** (scored
   **8725ba7e**, main cc93187 = 1e4c80e code; previous 08bf9391 2.445x).
 - Per-shape H200 (8725ba7e, us): decode 1 4.55 / 13.71; decode 16 7.70 / 89.55; decode 32 13.83 / 168.92; verify 1
@@ -29,7 +43,7 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 ## Code state
 
-- main = 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
+- main = f2b1c52 (= agent2 652f126 merged, SCORED e64d3450 2.542x) on top of 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
 - Dispatch: verify sliding B=1 -> native `vtk_verify` (s96); verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full` (batch 1: plan red, atomic merge + `_red_fin`); sliding + small -> Triton
   `_attn_split` + PDL merges.
@@ -48,7 +62,7 @@ numbers: NOTES s69.)
 
 ## Ranked ideas
 
-0000000. (s110) NATIVE verify-full kernel with LZ 10 fixed reference + FA3 pipelined consumer at 2 CTAs/SM (consumer
+0000000. (s111: DEAD, built as exp/nvf, NOTES s111) (s110) NATIVE verify-full kernel with LZ 10 fixed reference + FA3 pipelined consumer at 2 CTAs/SM (consumer
    cap 112 regs with a 24-reg producer; microbench needs 122, single P buffer saves ~16). Consumer-only -22% vs the s71
    nverify consumer. Start from tools/s71/nverify.cu (exp/nverify) + tools/s110/cmicro.cu (FIX, PIPE). Multi-session.
 
@@ -83,7 +97,11 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- **FIRST after 00:00Z 2026-10-26: check main 05efdde** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full
+- **s113: use exp/hdiag3 (pushed; main f2b1c52 + diag, obsolete pairs dropped, verify 1 full in-flight variants added) instead of hdiag2.**
+- **s112 FIRST after 00:00Z 2026-10-26: check exp/hdiag2 98153b5 (diag) mainly for the `hfloor` batch-1 full floors on the H200 (decides whether decode/verify 1 full has 3-4 us of headroom).** NV_HALF verify 16 sliding is H200-verified (agent2 to list it in Ready to merge).
+
+- **FIRST after 00:00Z 2026-10-26: main's s103/s105/s106 changes are now inside scored e64d3450 (2.542x); compare its per-shape
+  times (okc status e64d3450daad496e --json, records) with 8725ba7e before re-checking. Old item: check main 05efdde** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full
   + s106 fix 1 on verify 1 full); submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False;
   verify 16/32 full lose -> LZ = 3; verify 1 full lose -> drop `fix=1` from its plan.
 - **SECOND: check exp/hdiag2 98153b5 (DIAG, never submit; replaces exp/hdiag): paired in-run kernels fix 0/1 (verify 1
@@ -93,6 +111,8 @@ numbers: NOTES s69.)
 
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s113: FPIPE (hand-pipelined fixed-reference loop in Triton _attn_split: no wgmma overlap, +8 barriers/tile).
+- s111: native pipelined verify-full (exp/nvf v1-v5): C7512 at 104 regs, 1 CTA/SM x 2 programs starves the V widen.
 - s110: pipelined LZ 10 loop in Gluon (C7512 at 2 CTAs/SM; 1 CTA/SM +24 us), ones-column (n72) row sums (ceiling 0).
 - s109: csl keys per warp 16 (w8) / 128 (w1, no premerge) vs 32; gw / gbal Gluon at verify 1 full even with LZ 10.
 - s107: FOLD (softmax scale/reference subtraction folded into the QK wgmma: extra k-step lengthens the chain).
