@@ -4906,6 +4906,9 @@ Lessons (why the s110 microbench's -22% doesn't transfer):
 - main f2b1c52 = merge of agent2 652f126 (nds decode 32 sliding + nvs verify 16 sliding, S 8); submission.py identical
   to 652f126; `bench.py test` 16/16. `okc submit` -> 22139f79 = DUPLICATE of **e64d3450daad496e (already submitted
   12:47Z, 2.542x, 1481.9 us, rank 8: NEW ACCOUNT BEST)**; check 9249146d of 07d0de5 had 2.527x.
+- e64d3450 per shape (us): d1 4.44/13.57, d16 7.53/87.66, d32 11.93/168.19, v1 5.74/16.18, v16 11.90/106.19, v32
+  15.42/196.60. vs 8725ba7e: LZ 10 (s105) WINS verify 16/32 full -7.1/-13.3 on the H200, fix 1 verify 1 full -0.27, red
+  decode 16/32 full -1.9/-0.7: main's s103/s105/s106 changes are H200-verified (exp/hdiag2 paired diag no longer needed).
 
 ### Budget (UTC day 2026-10-25)
 - s111: 0 checks, 0 scored (the duplicate didn't count). Account: checks 19/20, scored 8/10.

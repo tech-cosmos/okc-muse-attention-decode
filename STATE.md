@@ -22,6 +22,10 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 - **2026-10-25 12:47Z: e64d3450 = main f2b1c52 (agent2 652f126: nds decode 32 sliding 12.20, nvs verify 16 sliding
   12.06) scored 2.542x, 1481.9 us, rank 8 = ACCOUNT BEST.** Board 13:30Z: #1 2.910x, #7 2.569x.
+  Per-shape H200 (e64d3450, us): decode 1 4.44 / 13.57; decode 16 7.53 / 87.66; decode 32 11.93 / 168.19; verify 1 5.74 /
+  16.18; verify 16 11.90 / 106.19; verify 32 15.42 / 196.60. vs 8725ba7e: **LZ 10 (s105) WINS verify 16/32 full -7.1/-13.3**,
+  fix 1 verify 1 full -0.27, red decode 16/32 full -1.9/-0.7 (full layers on the usual slow node). So main's s103/s105/s106
+  changes are H200-verified; the queued 'check main 05efdde' item is done.
 
 - Board 2026-10-25 09:05Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.460x** (scored
   **8725ba7e**, main cc93187 = 1e4c80e code; previous 08bf9391 2.445x).
