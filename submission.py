@@ -4120,7 +4120,9 @@ _DIAG = {
                             ("v1p255", {"splits": 255}), ("v1p255s5", {"splits": 255, "stages": 5}),
                             ("v1p191", {"splits": 191}), ("v1b", {}), ("v1fl2", "floor"), ("v1fl4", "floor4"),
                             ("v1dense", "dense")],
-    ("verify", 32, "full"): [("v32a", {}), ("v32b", {}), ("v32fl2", "floor")],
+    # s116: H100 (bench, gather-bound there) base 192.0, lag 2 192.8, stages 2 193.3; the H200 is consumer-bound.
+    ("verify", 32, "full"): [("v32a", {}), ("v32lag2", {"lag": 2}), ("v32s2", {"stages": 2}), ("v32b", {}),
+                             ("v32fl2", "floor")],
     # s116 (hdiag4): decode 32 full plan variants with more bytes in flight / more programs (H100 ties, 245.4 base vs
     # 245.8-247.0), in case the H200's higher bandwidth wants more in flight; plus the R4 floor.
     ("decode", 32, "full"): [("d32a", {}), ("d32s3", {"stages": 3}), ("d32p768s3", {"stages": 3, "dprogs": 768}),
