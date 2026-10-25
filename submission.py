@@ -863,8 +863,9 @@ template <int NS> struct Smem {
     uint64_t ready[NS], empty[NS];
 #if NV_HALF
     int lim2[8][2];
-    float xo[128 * 36];                        // NV_HALF: consumer 1's o / m / l for the in-CTA merge
-    alignas(128) float xo2[128 * 36];                       // cl: the cluster's rank-1 CTA's merged o / m / l (DSMEM push)
+    alignas(128) float xo[128 * 36];           // NV_HALF: consumer 1's o / m / l for the in-CTA merge
+    alignas(128) float xo2[128 * 36];          // cl: the peer's consumer-0 o / m / l (DSMEM push) at the owner rows
+    alignas(128) float xo3[128 * 36];          // cl: the peer's consumer-1 o / m / l at the owner rows
     uint64_t clbar;                            // cl: rank 1's 128 remote arrivals after that push
 #endif
     alignas(1024) uint8_t knew[BN * 128];      // last split: the 8 new keys as a K tile (rows 0-7; rows 8-63 zero)
@@ -1258,20 +1259,45 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
         mb_wait(&sm.ready[i % NS], (i / NS) & 1);
         if (lane == 0) mb_arrive(&sm.empty[i % NS]);
     }
-    if (h == 1) {
-        float4* xo = reinterpret_cast<float4*>(&sm.xo[tid * 36]);
+    // cl: rank r finishes rows 32 r .. 32 r + 31 (warps 2 r, 2 r + 1 of each consumer). Every consumer's other 2
+    // warps push their unmerged o / m / l straight to the peer (consumer 0 -> xo2, consumer 1 -> xo3); consumer 1's
+    // owner warps hand theirs to consumer 0 through xo. Consumer 0's owner warps merge the 4 parts.
+    uint32_t rank = 0;
+    if (cl) asm volatile("mov.u32 %0, %%cluster_ctarank;" : "=r"(rank));
+    const bool own = (w >> 1) == (int)rank;
+    if (h == 1 || (cl && !own)) {
+        float4* xo = reinterpret_cast<float4*>(h == 1 ? &sm.xo[tid * 36] : &sm.xo2[tid * 36]);
 #pragma unroll
         for (int j = 0; j < 8; ++j) xo[j] = make_float4(o[4 * j], o[4 * j + 1], o[4 * j + 2], o[4 * j + 3]);
         xo[8] = make_float4(m[0], m[1], l[0], l[1]);
-        asm volatile("bar.sync 4, 256;" ::: "memory");
+        if (!cl) {
+            asm volatile("bar.sync 4, 256;" ::: "memory");
+            return;
+        }
+        if (own) {
+            asm volatile("bar.sync 4, 128;" ::: "memory");
+            return;
+        }
+        asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
+        asm volatile("barrier.cluster.wait.acquire.aligned;" ::: "memory");  // the peer's clbar init is visible
+        if (h == 1) asm volatile("bar.sync 6, 64;" ::: "memory");
+        else asm volatile("bar.sync 5, 64;" ::: "memory");
+        if ((tid & 63) == 0) {
+            const uint32_t src = smem_u32(h == 1 ? &sm.xo[tid * 36] : &sm.xo2[tid * 36]);
+            uint32_t dst = smem_u32(h == 1 ? &sm.xo3[tid * 36] : &sm.xo2[tid * 36]), bar = smem_u32(&sm.clbar);
+            asm volatile("mapa.shared::cluster.u32 %0, %0, %1;" : "+r"(dst) : "r"(rank ^ 1));
+            asm volatile("mapa.shared::cluster.u32 %0, %0, %1;" : "+r"(bar) : "r"(rank ^ 1));
+            asm volatile("cp.async.bulk.shared::cluster.shared::cta.mbarrier::complete_tx::bytes [%0], [%1], %2, [%3];"
+                         ::"r"(dst), "r"(src), "n"(64 * 36 * 4), "r"(bar) : "memory");
+            asm volatile("cp.async.bulk.commit_group;\ncp.async.bulk.wait_group.read 0;" ::: "memory");
+        }
+        stamp(pml, 4);
         return;
     }
-    uint32_t rank = 0;
     __nv_bfloat162 gr[2][8];
     float2 gt[2][8];
     if (cl) {
-        asm volatile("mov.u32 %0, %%cluster_ctarank;" : "=r"(rank));
-        if ((w >> 1) == (int)rank) {  // rows this rank finishes: prefetch their gates (2 rows x 16 columns)
+        {  // rows this rank finishes: prefetch their gates (2 rows x 16 columns)
             const int ra = w * 16 + (lane >> 2);
 #pragma unroll
             for (int t = 0; t < 2; ++t) {
@@ -1282,7 +1308,8 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
             }
         }
     }
-    asm volatile("bar.sync 4, 256;" ::: "memory");
+    if (cl) asm volatile("bar.sync 4, 128;" ::: "memory");
+    else asm volatile("bar.sync 4, 256;" ::: "memory");
     if (cl) stamp(pml, 3);
     {
         const float4* xo = reinterpret_cast<const float4*>(&sm.xo[tid * 36]);
@@ -1302,26 +1329,6 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
         // 2-CTA cluster = the 2 splits of (request, H). Rank r finishes rows 32 r .. 32 r + 31 (warps 2 r, 2 r + 1):
         // the other 2 warps stage their merged o / m / l locally and one bulk DSMEM copy (9 KB) puts them into the
         // peer's xo2, completing on the peer's clbar; the owners merge and write the gated, normalized output.
-        if ((w >> 1) != (int)rank) {
-            float4* xl = reinterpret_cast<float4*>(&sm.xo2[tid * 36]);
-#pragma unroll
-            for (int j = 0; j < 8; ++j) xl[j] = make_float4(o[4 * j], o[4 * j + 1], o[4 * j + 2], o[4 * j + 3]);
-            xl[8] = make_float4(m[0], m[1], l[0], l[1]);
-            asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
-            asm volatile("barrier.cluster.wait.acquire.aligned;" ::: "memory");  // the peer's clbar init is visible
-            asm volatile("bar.sync 5, 64;" ::: "memory");
-            if ((tid & 63) == 0) {
-                const uint32_t src = smem_u32(&sm.xo2[tid * 36]);
-                uint32_t dst = src, bar = smem_u32(&sm.clbar);
-                asm volatile("mapa.shared::cluster.u32 %0, %0, %1;" : "+r"(dst) : "r"(rank ^ 1));
-                asm volatile("mapa.shared::cluster.u32 %0, %0, %1;" : "+r"(bar) : "r"(rank ^ 1));
-                asm volatile("cp.async.bulk.shared::cluster.shared::cta.mbarrier::complete_tx::bytes [%0], [%1], %2, [%3];"
-                             ::"r"(dst), "r"(src), "n"(64 * 36 * 4), "r"(bar) : "memory");
-                asm volatile("cp.async.bulk.commit_group;\ncp.async.bulk.wait_group.read 0;" ::: "memory");
-            }
-            stamp(pml, 4);
-            return;
-        }
         // sigmoid(gate) while rank 1 finishes (as _norm_gate_store: o * sigmoid(gate))
 #pragma unroll
         for (int t = 0; t < 2; ++t)
@@ -1334,7 +1341,21 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
         asm volatile("{\n.reg .pred p;\nW: mbarrier.try_wait.parity.acquire.cluster.shared::cta.b64 p, [%0], 0;\n@!p bra W;\n}\n"
                      ::"r"(smem_u32(&sm.clbar)) : "memory");
         stamp(pml, 4);
-        const float4* xo = reinterpret_cast<const float4*>(&sm.xo2[tid * 36]);
+        {
+            const float4* xo = reinterpret_cast<const float4*>(&sm.xo2[tid * 36]);
+            const float4 x = xo[8];
+            const float mn0 = fmaxf(m[0], x.x), mn1 = fmaxf(m[1], x.y);
+            const float a0 = ex2(m[0] - mn0), b0 = ex2(x.x - mn0), a1 = ex2(m[1] - mn1), b1 = ex2(x.y - mn1);
+            m[0] = mn0; m[1] = mn1;
+            l[0] = l[0] * a0 + x.z * b0; l[1] = l[1] * a1 + x.w * b1;
+#pragma unroll
+            for (int j = 0; j < 8; ++j) {
+                const float4 y = xo[j];
+                o[4 * j + 0] = o[4 * j + 0] * a0 + y.x * b0; o[4 * j + 1] = o[4 * j + 1] * a0 + y.y * b0;
+                o[4 * j + 2] = o[4 * j + 2] * a1 + y.z * b1; o[4 * j + 3] = o[4 * j + 3] * a1 + y.w * b1;
+            }
+        }
+        const float4* xo = reinterpret_cast<const float4*>(&sm.xo3[tid * 36]);
         const float4 x = xo[8];
         const float mn0 = fmaxf(m[0], x.x), mn1 = fmaxf(m[1], x.y);
         const float a0 = ex2(m[0] - mn0), b0 = ex2(x.x - mn0), a1 = ex2(m[1] - mn1), b1 = ex2(x.y - mn1);
@@ -1406,7 +1427,7 @@ __global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restr
 #if NV_HALF
         if (cl) {  // 1 arrival (its own, with the expected bytes) + the peer's bulk copy of 9 KB
             mb_init(&sm.clbar, 1);
-            asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;" ::"r"(smem_u32(&sm.clbar)), "n"(64 * 36 * 4) : "memory");
+            asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;" ::"r"(smem_u32(&sm.clbar)), "n"(2 * 64 * 36 * 4) : "memory");
         }
 #endif
         asm volatile("fence.mbarrier_init.release.cluster;" ::: "memory");
@@ -1480,7 +1501,7 @@ void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
 '''
 try:
     _NVS = _load_inline(
-        name="muse_nvs_a2s15w",
+        name="muse_nvs_a2s21d",
         cpp_sources="void nvs(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, int64_t, int64_t, "
                     "int64_t, torch::Tensor, int64_t);",
