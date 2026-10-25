@@ -1,6 +1,11 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~05:15 UTC (session 88 = unattended session 21 of the #1-push brief).
+Updated 2026-10-25 ~05:20 UTC (session 89 = unattended session 22 of the #1-push brief).
+
+**s89: native wgmma verify-1-sliding single kernel (tools/s89/vsw.cu): correct, dead, no checks.** H100 8.0-8.2 vs
+main 7.6 us. Compute is fine (wgmma tile ~1.0 us after the gathers land); the wall is the cluster merge: each CTA
+must send a 16 KB FP32 64-row partial over DSMEM (~1.3 us, ~12 B/ns/SM, matches the s74 microbench), and an L2
+exchange is far worse (13.2). Third native verify-1-sliding kernel to lose (s72, s84, s89). NOTES s89.
 
 **s88: batch-1 full probes, all dead, no checks** (tools/s88). H100: decode 1 full merge exposure 2.9 us = acc loads 1.0
 + fixed 1.9; native gather floor for its bytes 9.5 us vs `_gd_full` attention 11.7. Dead: `_gd_full` hoisted prologue
@@ -8,10 +13,7 @@ Updated 2026-10-25 ~05:15 UTC (session 88 = unattended session 21 of the #1-push
 mask (-16% loop instructions, tie). Since 04:09Z agent2 (~/repo2) owns batch 16/32 sliding and gets >= 8 checks/day;
 merge its COORD "Ready to merge" wins. NOTES s88.
 
-**s87: three H100 probes, all dead, no checks** (branch exp/gdpf): verify 1 full / decode 1 full plan knobs at
-optimum; `_gd_full` page-table L2 prefetch = tie (repeat of s32); K/V-row L2 prefetch ahead of the gbal producer
-(verify full) +10..+40% on the H100 (ncu: over-fetch, and still +8% with evict_last at the baseline's DRAM bytes),
-so ring depth is not the producer's limit on the H100. NOTES s87.
+**s87:** plan knobs, `_gd_full` ptpf, gbal K/V L2 prefetch-ahead: all dead on H100 (NOTES s87).
 
 **s86: SCORED 8aec5993 2.354x = NEW ACCOUNT BEST (main e8a1f73, code 07a06b3).** Bisected s85's verify 1 sliding
 SPEC loss: SPEC alone (no pre 2) also lost on the H200 (diag 6e8ac91c: 9.24 us); the cause is the unexecuted
@@ -19,13 +21,8 @@ out-of-line `noinline` redo copy (2x PTX). Loop form (one body in `while go:`, s
 H200 check e1620b92 2.359x (verify 1 sliding 7.32), scored 8aec5993 2.354x (verify 1 sliding 6.91). `_gd_full` loop
 form loses +1.2 H100 (keeps noinline, which is fine in Gluon); verify 1 full SPEC +0.35 H100 (off). NOTES s86.
 
-**s84-s85 (NOTES has the detail):** s85 SPEC (batch-1 seq from the page-table width) on main; s84 native verify-1-sliding
-cluster kernel lost (H100 9.6 vs 7.7 us), physical-order bucketing pass failed its gate (42+ us).
-
-**s76-s81 (one line each; NOTES has the detail):** s81 LZ 4 FMNMX-free lazy max = H200 tie (f4199324). s80 H200
-bandwidth: decode 32 full bytes dense 144.7 / sorted 148.4 / random ~164 us (`_gd_full` at the random ceiling).
-s79 LZ 3 exact per-warp lazy max (on main, scored 9f8e594b 2.350x = best). s78 lazy-max softmax ceiling -27/-16 us
-at verify 32/16 full. s77 H200 per-kernel diag harness (renamed kernel copies in a check). s76 bench mirrors judge.
+**s76-s85 (NOTES has the detail):** s85 SPEC (batch-1 seq from table width, on main); s84 native vsl lost, bucketing
+gate failed; s80 H200 decode 32 full bytes dense 144.7 / random ~164 us; s79 LZ 3 lazy max (on main); s77 diag harness.
 
 ## Board and best run
 
@@ -54,7 +51,7 @@ at verify 32/16 full. s77 H200 per-kernel diag harness (renamed kernel copies in
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- 2026-10-25: checks 9/20 (s86: 6e8ac91c diag 2.302x, e1620b92 2.359x; scored 8aec5993 2.354x = 3/10 scored) (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
+- 2026-10-25: checks 10/20 at s89 start (s89 used none; agent2 gets >= 8 of the rest); earlier: checks 9/20 (s86: 6e8ac91c diag 2.302x, e1620b92 2.359x; scored 8aec5993 2.354x = 3/10 scored) (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
@@ -104,6 +101,9 @@ numbers: NOTES s69.)
 - Nothing queued: main e8a1f73 = scored 8aec5993. Submit a new main only if its check beats 2.354.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s89: native wgmma verify-1-sliding kernel (vsw: st.async / bulk DSMEM / L2 exchange); cross-CTA merge at verify
+  volume = 16 KB/SM of DSMEM ~1.3 us, which kills any single-kernel verify sliding design.
 
 - s88: `_gd_full` HOIST prologue, `_combine` num_ctas 2/4, verify 1 full dual / splits 191-255 / peel / CM tail mask.
 - s87: plan knobs verify 1 full / decode 1 full (fewer splits, deeper stages), `_gd_full` ptpf, gbal producer K/V
