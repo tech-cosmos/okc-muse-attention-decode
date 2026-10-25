@@ -53,3 +53,28 @@ def bw_lists(page_table, seq_lens):
     gsort = torch.sort(torch.where(valid, page_table, big).flatten()).values.contiguous()
     rsort = torch.sort(torch.where(valid, page_table, big), dim=1).values.flatten()[order].contiguous()
     return rand, gsort, rsort
+
+
+@triton.jit
+def _bw_req(kc, vc, idx, seq, out, B: tl.constexpr, B_PAD: tl.constexpr, BN: tl.constexpr, ST: tl.constexpr,
+            K: tl.constexpr):
+    # Program (k, b): request b's physically sorted rows (idx = per-request sorted lists, concatenated), tiles
+    # k, k + K, ...: all requests sweep the pool together, each tile holds one request's rows.
+    pid = tl.program_id(0)
+    b = pid % B
+    k = pid // B
+    bi = tl.arange(0, B_PAD)
+    sv = tl.load(seq + bi, mask=bi < B, other=0).to(tl.int64)
+    start = tl.sum(tl.where(bi < b, sv, 0), 0)
+    n_b = tl.sum(tl.where(bi == b, sv, 0), 0)
+    c = tl.arange(0, 128)
+    n = tl.arange(0, BN)
+    acc = tl.zeros([BN, 128], tl.float32)
+    ntile = tl.cdiv(n_b, BN)
+    for i in tl.range(0, tl.cdiv(ntile - k, K), num_stages=ST):
+        s = (i * K + k) * BN + n
+        ok = s < n_b
+        row = tl.load(idx + start + s, mask=ok, other=0).to(tl.int64) * 128
+        acc += tl.load(kc + row[:, None] + c[None, :], mask=ok[:, None]).to(tl.float32) \
+            + tl.load(vc + row[:, None] + c[None, :], mask=ok[:, None]).to(tl.float32)
+    tl.store(out + pid * 128 + c, tl.sum(acc, 0))

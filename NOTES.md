@@ -3515,3 +3515,99 @@ already fuses acc * alpha into the dot.
 ### Budget (UTC day 2026-10-25)
 
 Checks 2/20 (c5888ee5 diag, 577c5b9d), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x).
+
+## Session 80 (unattended session 13, 2026-10-25 01:10 - ~02:10 UTC): H200 bandwidth measurement (lead agent's #1)
+
+Board 01:10Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.350x (#21). Branch **exp/bwdiag** (diag only,
+never submit): `_diag_bw` in submission.py runs, after the real decode-32-full computation, renamed copies (each after
+a 2 GB L2 flush; s77 pattern) of `_bw_read` (Triton: K+V 128-B rows, T = sum(seq) computed in-kernel, lists built
+with torch.sort inside the call, their own kernels) and of `_gd_full` with a new ABL=1 (gathers only, no compute).
+Lists: dense = rows 0..T-1 of the pool itself (same byte count); rand = the rows in request order (page-table order);
+rsort = each request's rows sorted; gsort = ALL valid rows sorted by physical address (pool is 93% occupied:
+2.56M of 2.75M rows, so gsort ~ dense with 7% holes). Configs (BN, warps, stages, programs/SM), lockstep = tile
+k*P + pid.
+
+### H200 (us, decode 32 full bytes = 654 MB K+V)
+
+| kernel | check 50c3fc4d | check 025c8861 |
+|---|---|---|
+| real `_gd_full` | 167.2 | 163.3 |
+| `_gd_full` copy (flushed) | 166.0-166.7 | 162.8 |
+| `_gd_full` gathers only (ABL 1) | 164.3 | - |
+| rand list (64,4,4,4 lock / 64,4,3,2 block) | 161.9 / 166.1 | - |
+| rsort lockstep | 159.5 | - |
+| gsort (64,4,3,2 lock / 64,4,4,4 block / 32,2,3,4 lock / 128,4,3,2 lock) | 152.0 / 153.1 | 148.4 / 152.3 |
+| **dense** (128,4,3,2 lock / 32,2,3,4 lock / 64,4,4,4 / 128,4,3,2 block) | (< 152, cut) | **144.7** / 146.4 / 146.9 / 147.2 |
+
+- **The lead agent's hypothesis holds**: the H200 reads this byte count densely at **4.52 TB/s (144.7 us)**, in
+  physical order with holes at 148.4 (4.41), and as random 128-B rows at ~162-166 (4.0). Random is ~11-13% slower
+  than dense. `_gd_full` (163-167) sits AT the random-gather ceiling (its gathers alone 164.3): decode full can only
+  go lower by reading in physical order. NOTES s39's "gather ceiling = DRAM ceiling" was an H100 artifact of the
+  old harness; with this harness the H100 also shows it: dense 210 / gsort 214.5 / rand 233 / gd 238 us (profile)
+  and 223.6 / 227.8 / 247 (event timing, tools/s80/h100.py).
+- #1's implied decode 32 full (~135-145 us) = this dense rate. They almost certainly read K/V in physical order.
+
+### H100: how much request mixing is needed (tools/s80/groups.py, reqsweep.py; event timing, us)
+
+- Rows sorted within NG groups of 32/NG requests, concatenated by group, lockstep tiles: NG 1 (global) 228.4,
+  2: 236.4, 4: 242.6, 8: 244.8, 16: 246.8, 32 (per request): 247.9, random 248.3; dense 223.4. **The win needs all
+  (>= ~16) requests interleaved in the same tiles**; groups of <= 4 requests get nothing.
+- Each program keeps ONE request but all requests sweep the pool in lockstep (program (k, b) reads tiles k, k+K,
+  ... of request b's physically sorted rows): 240.7 (K 8, 64/4/3) vs 250 with unsorted rows: ~45% of the gap with no
+  mixing inside a tile. But it needs a per-call per-request sort (torch.sort of 2.6M keys ~30+ us; a coarse
+  bucketing pass ~5 us on the H200) that costs about what it saves (H200 gap rand->gsort ~14 us, 45% = ~6). Dead
+  unless the bucketing is nearly free.
+
+### The design this points to (not built; priced)
+
+Decode full in physical order: per call, (1) owner[phys] (int8 request id, 2.75 MB, L2-resident): memset + a
+scatter pass over the page table (10 MB sequential read, 2.56M random byte writes), ~3-5 us on the H200 incl. a
+launch, or fused as phase 0 of a persistent kernel with a grid barrier; (2) a persistent kernel, CTA c owns a
+contiguous pool range (~20.8K rows at 132 CTAs), streams 256-row chunks densely (TMA bulk / cp.async, 64 KB K+V),
+reads the chunk's owner bytes, and each of 8 warps owns 4 requests (Q of 4 requests ~64 regs, acc 4 x [16 x 64]
+stacked heads = 128 regs, m/l): per chunk it ballots its requests' rows (~8 per request per chunk, Poisson) and runs
+mma.sync on them with per-lane ldmatrix row addresses (no bucketing copy), N padded to 8 (~46% MMA waste; compute
+~60-100 us vs the 145 us read, must overlap); (3) per-(CTA, request) FP32 partials 132 x 32 x 16 x 66 x 4 B =
+17.8 MB (L2-resident) + a merge (~4-5 us tail, like today's _combine_bal tail). Estimate: 145-150 + 3-5 + ~5 = ~155-160
+vs 168 today at decode 32 full (-8..-13 us x 16 layers = -4..-6% of the decode 32 load), about half that at decode
+16, nothing at decode 1 (one request: its rows are already a 1/1 subset... still random; a single request's sorted
+order needs the sort) and nothing at verify full (consumer-bound). **~+1.5% overall for a large native build.**
+Variant with less partial traffic: 16-CTA clusters, each CTA owning 2 requests, rows forwarded to the owner CTA's
+smem ring via st.async DSMEM (34 GB/s per SM needed, trivial), partials per (cluster, request) only.
+
+### Where the remaining gap to #1 is (arithmetic from 9f8e594b)
+
+Per-load speedups: decode 1/16/32 3.14/2.43/2.29, verify 1/16/32 2.82/1.92/1.88 (geomean 2.37). Decode full at the
+dense rate (+merge) takes decode 32 to ~2.54 and decode 16 to ~2.6: geomean ~2.43. Verify full at ~150/80 us (the
+memory floor; consumer MUFU floor at verify 32 is ~78 us = 328M exp2 / (132 x 16/clk x 1.98 GHz)) takes verify 32/16
+to ~2.45/2.51: geomean ~2.47 alone, ~2.58 with both. So verify-full consumer efficiency remains the largest single
+lever (our consumer-only is 170 us on the H200 vs a ~78 us MUFU floor), then physical-order full layers, then
+sliding.
+
+### Budget (UTC day 2026-10-25)
+
+Checks 4/20 (c5888ee5, 577c5b9d, 50c3fc4d diag, 025c8861 diag), scored 2/10.
+
+### Pricing the inversion (H100, tools/s80/owner.py, owner2.py; CUDA graph, us)
+
+- owner[phys] by a global scatter is DEAD: memset 6.1 (int8) / 8.0 (int32); the scatter of 2.56M request ids
+  **48.4 cold / 46.7 L2-warm** (int8), 68.5 / 46.1 (int32); the same stores in page-table order 11.6. Random
+  sector-partial stores run at ~32 per clock on the H100's L2 regardless of residency: 3x the whole gain.
+- The variant that could work: a multi-split pass (each CTA counting-sorts its page-table slice by physical window
+  in smem and writes contiguous per-window runs via a histogram/prefix or atomics on per-window counters), then the
+  consumer CTA for window w loads its window's entry list (~19K entries, ~78 KB) and builds its owner map IN SMEM,
+  streams the window's K/V densely, and computes as above. Price: 10 MB read + 10 MB coalesced write + smem sort
+  = ~6-8 us + a launch on the H200, so the decode 32 full estimate stays ~155-160 vs 168 (optimistic). Note: an
+  owner MAP assumes unique physical rows (true for the generator's randperm; a radix-cache-shared prefix page would
+  have several owners); the entry-list form handles sharing (a row appears once per owner).
+- Verdict: physical-order full layers are real (H200 -11% read time) but every inversion costs a pass over the page
+  table plus mixed-request compute and 17.8 MB of partials: ~+1-1.5% overall for a large native build. Ranked
+  below the verify-full consumer (bigger: ~+4% at the memory floor), above sliding tweaks.
+
+### Next
+
+1. Verify full consumer (largest lever; NOTES s79 Next 1: FMNMX-free exact lazy max; H200 consumer-only 170 us vs
+   ~78 us MUFU floor; profile what the other ~90 us of consumer issue is with ncu before building).
+2. Physical-order decode full (design above), only after a cheap prototype shows the multi-split pass at <= ~5 us
+   and mixed-request mma.sync compute hiding under a dense 256-row-chunk stream at decode 32 (H100 target: dense
+   210-224 us class).
