@@ -19,12 +19,14 @@ Real speedups only.
 ## Current direction (set by the human's lead agent; overrides STATE.md's ranking)
 
 Read ~/COORD.md's "Human decisions" section IN FULL at session start (it is at the TOP of the file, not the tail);
-its newest entries are the current direction and outrank STATE.md. As of 2026-10-25 00:35 UTC:
-1. First, the one H200 bandwidth measurement described there (dense vs random vs address-sorted gathers on the
-   decode 32 full bytes): #1's score implies full layers well under our 161.7 us, so our "4.0 TB/s gather ceiling"
-   (an H100 inference) may be wrong on the H200.
-2. Then verify full (`_gw_verify`, H200 verify 16/32 full 109/210 us vs ~167 gathers-only): structural changes, no
-   plan/split/stage tweaks on other shapes.
+its newest entries are the current direction and outrank STATE.md. As of 2026-10-25 02:30 UTC:
+1. Batch-1 shapes are OPEN and now first (s82 sensitivity table: decode/verify 1 sliding 1.3-1.6 %/us; decode/verify
+   1 full 0.4-0.55 %/us, with ~3 us of serialized merge each). Native single-kernel designs (csl-style clusters,
+   wgmma where rows allow, merges overlapped or fused) for verify 1 sliding, decode 1 full and verify 1 full. Read
+   the dead-ends index first (fused last-program merges, cluster merges) and attack what made them lose.
+2. Verify full only with a concrete structural idea (producer work or consumer latency at >= 16 warps/SM).
+3. Physical-order decode 16/32 full (s80 design, H200 dense 144.7 vs random ~164 us): a multi-session native build;
+   start only after a cheap prototype of the multi-split pass shows <= ~5 us.
 Do not revert this section; the lead agent edits it.
 
 ## Rules (non-negotiable)
