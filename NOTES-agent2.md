@@ -264,3 +264,42 @@ chain 0 merges and stores the partial (same _combine_hb layout). New tokens only
 3. The batched sliding shapes now sit at ~1.8 us fixed harness overhead + ~10.8 (B32) / ~6.5-9.4 (B16) us of gather +
    1.5-2.6 us merge. Every merge-removal path is closed (fused last-CTA, cluster, flag spin). The remaining structural
    lever would be cutting a DRAM trip from the prologue (seq -> page table), which the inputs don't allow for batch > 1.
+
+## Session 6 (2026-10-25 07:03 - ~07:50 UTC): nvs cost decomposition; poly exp2 and distributed fused merge (DEAD)
+
+Start: merged origin/main 75081b1 (agent 1 s94/exp red, batch-1/full only) into agent2 (0ccaeb0). Account checks
+16/20 used at start (agent2 4): the 4 left are agent 1's (AGENT2.md: leave >= 4), so 0 checks this session.
+New tool tools/a2/vab.py: paired A/B of string-replacement variants of submission.py (`name|old=>new|...`), any shapes.
+
+### Where verify 32 sliding's 16.6 us (H100 wall, nvs S 4) goes (vab.py ablations, 5-9 paired rounds, all n/n)
+- ex2 -> identity (no MUFU): -0.16..-0.31 us (verify 16 on nvs: -0.37). So FMA-polynomial exp2 offload (FA4 style;
+  degree-5 minimax on [-0.5, 0.5] has max rel err 2.2e-7, = ex2.approx) can win <= ~0.1 us: **not built, dead**.
+- consumer compute removed (consumers only wait ready / arrive empty): -1.02. V transpose removed: -0.46.
+  Both removed (gathers + Q + new tokens + stores + combine): 15.07-15.42. Deeper rings on that gather-only kernel
+  (NS/LAG/PFD 6/3/4, 8/5/6, 8/6/7) all 15.2-15.3: in-flight depth is not the limit. (PFD must be > LAG, else the
+  page-table ring is read before its cp.async lands -> illegal address.)
+- _combine_hb removed: **-2.78 us** (nvs alone 13.81). Gather-only without combine 12.42 vs the bare gather floor
+  ~10.1 (NOTES.md s85, decode 32 bytes).
+- So: combine/kernel boundary 2.8, nvs gather structure + prologue ~2.3 above the floor, compute ~1.0, transpose 0.5.
+
+### Distributed in-kernel merge (tools/a2/nvs_dmerge_dead.patch, stamps tools/a2/dmstamp.py): DEAD, +1.7 us
+Each of a request's S = 4 CTAs owns rows [16 k, 16 k + 16) per KV head = exactly warp k's wgmma fragment rows: owners
+keep them in registers, the rest is stored as FP32 partials; WG bar.sync, owner warp: __threadfence + atomicAdd ticket
+(counter stays a multiple of S, no reset), spin on ld.acquire until the next multiple, ldcg the other 3 splits' rows,
+merge, RMS-norm, sigmoid gate, BF16 store. Correct (chk_nvs 7/7, fused at batch 32/33; off when S x B > SMs).
+- First build: v[7][8] with runtime S -> +6.5 us (verify 32 23.9 vs 17.3); S fixed at 4 -> **+1.7 (18.6 vs 16.9)**;
+  nanosleep backoff in the spin: no change (not contention). 160 regs, no spills.
+- Stamps (us from start; globaltimer ~0.26 us steps): loop done med 12.0 / max 13.1; spin done 15.6 (= +2.5 after
+  the slowest CTA: write acks + fence + atomic + poll); other splits' rows loaded 17.4 (+1.5 for 3 x 4 KB L2 reads per
+  warp); stored 18.4. The kernel boundary + _combine_hb does the same job in 2.8 us wall. With s4 (designated
+  merger) and s2 (clusters) this closes in-kernel merges for nvs: cross-CTA L2 handoff inside a kernel is slower than
+  the kernel boundary on the H100.
+- Loop-end spread (~1 us between median and max CTA) is the same for every split (new-token split 3 is not the
+  tail): it's random-gather latency variance, nothing to rebalance statically.
+
+### Next ideas (all small; none worth a check alone)
+1. nvs LAG 2 at verify 32 (-0.18 H100, s4) in a bundle check.
+2. Cut the nvs gather structure's ~2.3 us over the bare-gather floor: the floor issues every row at once from 2048
+   blocks; nvs issues 2 tiles per SM at a time and deeper rings don't help, so the difference is probably the prologue
+   (seq -> page-table stage via cp.async + bar -> rows) and the per-tile wait/commit structure; try direct
+   page-table loads into producer registers for the first NV_PFD tiles (skips cp.async wait + bar.sync + lds).
