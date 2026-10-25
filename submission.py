@@ -117,6 +117,19 @@ __device__ __forceinline__ void sa2(unsigned addr, unsigned mbar, float a, float
                  ::"r"(addr), "f"(a), "f"(b), "r"(mbar) : "memory");
 }
 __device__ __forceinline__ float bf(unsigned short x) { return __uint_as_float((unsigned)x << 16); }
+// agent2 s22: K/V half-row (64-B, one KV head) gathers ask L2 for the whole 128-B line (.L2::128B), so the other KV
+// head's half (read by another CTA, often microseconds later) hits L2 instead of costing a second DRAM access
+// (bare gather, decode 16 / 32 sliding: 64-B halves 7.87 / 13.6 us -> 6.69 / 11.25; full 128-B rows 6.66 / 10.1).
+__device__ __forceinline__ uint4 ldq(const void* p) {
+    uint4 r;
+    asm volatile("ld.global.nc.L2::128B.v4.u32 {%0,%1,%2,%3}, [%4];" : "=r"(r.x), "=r"(r.y), "=r"(r.z), "=r"(r.w) : "l"(p));
+    return r;
+}
+__device__ __forceinline__ uint2 ldd(const void* p) {
+    uint2 r;
+    asm volatile("ld.global.nc.L2::128B.v2.u32 {%0,%1}, [%2];" : "=r"(r.x), "=r"(r.y) : "l"(p));
+    return r;
+}
 
 template <int PAGE>
 __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__ qkv, const float* __restrict__ cs,
@@ -197,8 +210,8 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
         int t = min(max(base + w0 + k, 0), tmax);                                                              \
         vslot[i] = PAGE == 1 ? (long)max(ptr[t], 0) : (long)max(ptr[t / PAGE], 0) * PAGE + t % PAGE;           \
     }                                                                                                          \
-    _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[j] = *(const uint4*)(kc + kslot[j] * (HKV * D) + h * D + 16 * c); \
-    _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[i] = *(const uint2*)(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
+    _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[j] = ldq(kc + kslot[j] * (HKV * D) + h * D + 16 * c); \
+    _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[i] = ldd(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
     CSL_LOADS
     if (spec >= 0) {
         const int real = seqs[b];
@@ -432,6 +445,19 @@ __device__ __forceinline__ void sa2(unsigned addr, unsigned mbar, float a, float
                  ::"r"(addr), "f"(a), "f"(b), "r"(mbar) : "memory");
 }
 __device__ __forceinline__ float bf(unsigned short x) { return __uint_as_float((unsigned)x << 16); }
+// agent2 s22: K/V half-row (64-B, one KV head) gathers ask L2 for the whole 128-B line (.L2::128B), so the other KV
+// head's half (read by another CTA, often microseconds later) hits L2 instead of costing a second DRAM access
+// (bare gather, decode 16 / 32 sliding: 64-B halves 7.87 / 13.6 us -> 6.69 / 11.25; full 128-B rows 6.66 / 10.1).
+__device__ __forceinline__ uint4 ldq(const void* p) {
+    uint4 r;
+    asm volatile("ld.global.nc.L2::128B.v4.u32 {%0,%1,%2,%3}, [%4];" : "=r"(r.x), "=r"(r.y), "=r"(r.z), "=r"(r.w) : "l"(p));
+    return r;
+}
+__device__ __forceinline__ uint2 ldd(const void* p) {
+    uint2 r;
+    asm volatile("ld.global.nc.L2::128B.v2.u32 {%0,%1}, [%2];" : "=r"(r.x), "=r"(r.y) : "l"(p));
+    return r;
+}
 
 template <int PAGE>
 __global__ void __launch_bounds__(128) verify(const unsigned short* __restrict__ qkv, const float* __restrict__ cs,
@@ -511,8 +537,8 @@ __global__ void __launch_bounds__(128) verify(const unsigned short* __restrict__
         int t = min(max(base + w0 + k, 0), tmax);                                                              \
         vslot[i] = PAGE == 1 ? (long)max(ptr[t], 0) : (long)max(ptr[t / PAGE], 0) * PAGE + t % PAGE;           \
     }                                                                                                          \
-    _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[j] = *(const uint4*)(kc + kslot[j] * (HKV * D) + h * D + 16 * c); \
-    _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[i] = *(const uint2*)(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
+    _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[j] = ldq(kc + kslot[j] * (HKV * D) + h * D + 16 * c); \
+    _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[i] = ldd(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
     CSL_LOADS
     if (spec >= 0) {
         const int real = seqs[b];
@@ -845,7 +871,8 @@ __device__ __forceinline__ void mb_wait(uint64_t* b, uint32_t par) {
                  ::"r"(smem_u32(b)), "r"(par) : "memory");
 }
 __device__ __forceinline__ void cp16(uint32_t dst, const void* src) {
-    asm volatile("cp.async.cg.shared.global [%0], [%1], 16;" ::"r"(dst), "l"(src) : "memory");
+    // .L2::128B (agent2 s22): fetch whole 128-B lines (half-row gathers in NV_HALF; H100 verify 32 -0.43)
+    asm volatile("cp.async.cg.shared.global.L2::128B [%0], [%1], 16;" ::"r"(dst), "l"(src) : "memory");
 }
 __device__ __forceinline__ void cp16ca(uint32_t dst, const void* src) {
     asm volatile("cp.async.ca.shared.global [%0], [%1], 16;" ::"r"(dst), "l"(src) : "memory");
@@ -1608,7 +1635,8 @@ __device__ __forceinline__ void mb_wait(uint64_t* b, uint32_t par) {
                  ::"r"(smem_u32(b)), "r"(par) : "memory");
 }
 __device__ __forceinline__ void cp16(uint32_t dst, const void* src) {
-    asm volatile("cp.async.cg.shared.global [%0], [%1], 16;" ::"r"(dst), "l"(src) : "memory");
+    // .L2::128B (agent2 s22): fetch whole 128-B lines (half-row gathers in NV_HALF; H100 verify 32 -0.43)
+    asm volatile("cp.async.cg.shared.global.L2::128B [%0], [%1], 16;" ::"r"(dst), "l"(src) : "memory");
 }
 __device__ __forceinline__ void cp16ca(uint32_t dst, const void* src) {
     asm volatile("cp.async.ca.shared.global [%0], [%1], 16;" ::"r"(dst), "l"(src) : "memory");
