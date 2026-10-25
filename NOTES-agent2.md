@@ -777,3 +777,24 @@ Check candidate: **agent2-exp/halfpfkr abc5f38** = halfpf 6a9a26a + kr (merge of
 - First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpfkr abc5f38** (replaces halfpf 6a9a26a: same code +
   nds kr). Per shape vs the H200: verify 32 sliding (cl) vs ~15.4, decode 16 sliding (pf) vs 8.13, decode 32 sliding
   (pf + kr) vs 12.20. List only the winners.
+
+## Session 20 (2026-10-25 15:53 - ~16:10 UTC): nds split-count / ring-depth probes, all dead (0 checks)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main a237bfd
+(agent 1 s123 notes) into agent2 (dffa73c); submission.py unchanged by it.
+
+Idea: fewer nds splits halve the FP32 partials (1 MB -> 0.5 MB at S 4) that _combine_hb reads after its PDL wait
+(s11: the post-wait partial read is ~1.2 us of the ~1.75 us merge exposure). H100 paired (tools/a2/vab.py, 9 rounds),
+decode 32 sliding:
+| variant | diff vs nds S 8 NS 3 (2 CTAs/SM) |
+|---|---|
+| S 4 NS 6 (128 CTAs, 1/SM, 8 tiles each) | +0.05 (3/9): tie |
+| S 4 NS 8 | +0.32 (0/9) |
+| S 6 NS 3 (192 CTAs; combine S_PAD 8) | -0.08 (5/9): noise |
+| S 6 NS 4 / S 5 NS 4 | +3.49 / +4.38 (0/9): NS 4 drops nds to 1 CTA/SM (as s12) |
+So the cheaper merge is exactly paid back by the longer per-CTA chain (one consumer WG per SM at S 4): split count is
+not a lever for decode 32 (S 4 had also tied in s10). No code change.
+
+### Next (unchanged)
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpfkr abc5f38** (verify 32 sliding cl vs ~15.4 H200,
+  decode 16 sliding pf vs 8.13, decode 32 sliding pf + kr vs 12.20). List only the winners in COORD Ready to merge.

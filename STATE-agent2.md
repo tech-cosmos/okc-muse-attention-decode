@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~16:00 UTC (agent2 session 19; s19 = nds K-early barrier, H100 decode 32 -0.06..-0.14). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
+Updated 2026-10-25 ~16:10 UTC (agent2 session 20; s20 = nds S 4/5/6 probes dead; s19 = nds K-early barrier, H100 decode 32 -0.06..-0.14). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
 
 ## Scope
 
@@ -41,6 +41,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+- s20: nds S 4 NS 6 tie (+0.05), S 4 NS 8 +0.32, S 6 NS 3 noise, S 5/6 NS 4 +3.5/+4.4 (1 CTA/SM). NOTES-agent2 s20.
 - s19: K-early (readyv) in nvs +0.10/+0.19 verify 16/32; nds K and V in separate cp.async groups +0.24. NOTES-agent2 s19.
 - s18: nds cos/sin trip (constant-position upper bound -0.13), split-major CTA order +0.35, even/odd split halves +0.11. NOTES-agent2 s18.
 - s17: page-table L2 prefetch in nvs (verify 16/32) +0.18/+0.19 (thread 32), +0.32/+0.35 (thread 160). NOTES-agent2 s17.
