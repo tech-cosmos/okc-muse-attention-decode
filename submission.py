@@ -1978,6 +1978,7 @@ USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 los
 BRED = True
 BNR = 1
 USE_GD1 = True  # decode full at batch * hkv == 2 on _gd_full too (511 splits, 8-warp one-pass merge); unchecked on H200
+NT_AFTER = True  # gbal: _new_tokens launched after _gw_verify (it blocked 2nd gw CTAs on its SMs; s125)
 USE_GBAL = True  # verify full from 16 KV head pairs: balanced splits over the whole batch (_gw_bal); unchecked on H200
 # Split partials' accumulator dtype (plan key pdt). FP32 only: SGLang's FA3 keeps its split partials in
 # FP32, and the rules forbid computing at lower precision than SGLang where they don't say otherwise.
@@ -3305,7 +3306,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
 def _new_tokens(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
                 HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, MG: tl.constexpr,
                 L_PAD: tl.constexpr, D: tl.constexpr, S: tl.constexpr, DOT: tl.constexpr, NID: tl.constexpr = 0,
-                NBASE: tl.constexpr = 0):
+                NBASE: tl.constexpr = 0, WAIT: tl.constexpr = False):
     """For _gw_verify: one program per (request, KV head) stores the block's new keys and values as FP8
     and attends them causally, into partial slot S (of S + 1)."""
     b = tl.program_id(0)
@@ -3328,6 +3329,10 @@ def _new_tokens(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, seq_ptr, loc_ptr, pacc_
     if NID:
         # Balanced splits (gbal): partials [HKV, NID, MG, D], this request's new tokens at id NBASE + b.
         _finish(NBASE + b, 0, j, m_i, l_i, acc, hp0, 0, rr, rr < MG, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, NID)
+        if WAIT:
+            # (NT_AFTER: launched after _gw_verify, which it doesn't read; end only after it, so the merge that
+            # waits on this grid sees both.)
+            gdc_wait()
     else:
         _finish(S, b, j, m_i, l_i, acc, hp0, 0, rr, rr < MG, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S + 1)
 
@@ -3990,10 +3995,12 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
     b_pad = plan.get("bpad", max(32, triton.next_power_of_2(batch)))
     pacc = torch.empty((hkv, nid, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((hkv, nid, rows, 2), dtype=torch.float32, device=device)
-    _new_tokens[(batch, hkv)](
-        qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], data["seq_lens"], data["cache_loc"],
-        pacc, pml, qk_scale, HQ=hq, HKV=hkv, G=group, L=length, MG=rows, L_PAD=max(16, triton.next_power_of_2(length)),
-        D=d, S=1, DOT=DOT_DTYPE, NID=nid, NBASE=progs + batch, num_warps=4)
+    nta = plan.get("nta", NT_AFTER)
+    if not nta:
+        _new_tokens[(batch, hkv)](
+            qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], data["seq_lens"], data["cache_loc"],
+            pacc, pml, qk_scale, HQ=hq, HKV=hkv, G=group, L=length, MG=rows, L_PAD=max(16, triton.next_power_of_2(length)),
+            D=d, S=1, DOT=DOT_DTYPE, NID=nid, NBASE=progs + batch, num_warps=4)
     _gw_verify[(progs, 1, hkv // 2)](
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
         data["cache_loc"], pacc, pml, qk_scale,
@@ -4001,6 +4008,12 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
         LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, LZ=plan.get("lz", LZ), num_warps=4, maxnreg=plan["maxnreg"],
         launch_pdl=True)
+    if nta:
+        _new_tokens[(batch, hkv)](
+            qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], data["seq_lens"], data["cache_loc"],
+            pacc, pml, qk_scale, HQ=hq, HKV=hkv, G=group, L=length, MG=rows, L_PAD=max(16, triton.next_power_of_2(length)),
+            D=d, S=1, DOT=DOT_DTYPE, NID=nid, NBASE=progs + batch, num_warps=4,
+            WAIT=True, launch_pdl=True)
     hb = plan.get("hb", 2)
     _combine_bal[(batch * length, hq // hb)](
         qkv, data["seq_lens"], pacc, pml, data["v_scale"], out,
