@@ -1,6 +1,13 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~07:55 UTC (session 96 = unattended session 29 of the #1-push brief).
+Updated 2026-10-25 ~08:50 UTC (session 98 = unattended session 31 of the #1-push brief).
+
+**s98: vtk probes dead on the H100 (coalesced page table + shfl: tie; empty-body vtk grid = 2.2-2.4 us launch floor at any
+cluster size, so vtk = ~2.3 floor + ~4.1 work). main unchanged 1e4c80e, no checks. NOTES s98.**
+
+**s97: H100 probes only, all dead, main unchanged (1e4c80e): s71 nverify at verify 1 full is gather-bound (slope 0.111 vs
+Triton 0.112 us/1k keys; consumers-only 0.085, gathers-only 0.094; ~6 us fixed in every design) -> native verify 1 full
+closed; vtk2a (2 tokens per cluster) base is slower than vtk even with no new-token work (6.88 vs 6.45). NOTES s97.**
 
 **s96: vtk = verify 1 sliding as csl clusters per (request, TOKEN, KV head) (256 CTAs; each cluster = csl's decode
 layout, new tokens at window keys 2047 - j + n in CTA 15's last warp, branch-free, no IEEE divides). H100 verify 1
@@ -87,6 +94,9 @@ numbers: NOTES s69.)
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
 
+- s98: vtk coalesced page table + shfl (tie), cluster size vs launch floor (none).
+- s97: nverify at verify 1 full (gather-bound, ~1 us H200 ceiling), vtk2a re-ablated (base 6.88 > vtk 6.45), vtk disjoint
+  windows (7.4: shared lines help).
 - s96: vtk2a (2 tokens per cluster, 8.1+), vtkp 8-CTA x 8-warp clusters (7.1 vs 6.5), reciprocal divides in decode csl (tie).
 
 - s95: in-grid arrival counter + last-arriver tail (acq_rel arrivals ~1.3 us, tail waits on the L2 atomic queue);
