@@ -27,7 +27,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
   16.64 -> 15.28 / 15.07 us. Verify 16 on nvs (S 8) tied on the H200 (12.63 both): off. In COORD "Ready to merge".
 - Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5-s9 used none (account's last 4 are agent 1's).
 - (s4) decode 32 sliding on csl (agent2-exp/csl32 80fabbc): H100 -1.02 us but H200 check 058b8dce 13.74 = tie with
-  Triton (13.72-14.09): NOT listed. Queued for a bundle: nvs NV_LAG 2 (H100 verify 32 -0.18 us paired 11/11).
+  Triton (13.72-14.09): NOT listed. (LAG 2: now in lagS, s9).
 
 - (s9) agent2-exp/lagS (merged into agent2): nvs LAG 2 at S 4 + verify 16 on nvs (LAG 1, S 8). H100 paired: verify 32
   -0.18 (9/9), verify 16 -0.26 (8/9); tests 16/16. NOT H200-checked: queue for the next check with spare budget.
@@ -42,7 +42,6 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
     is ~0.85 us per 64-key tile per consumer WG (ncu: softmax issue + latency). s7's "producer overhead" was the
     consumers + 4 MB of FP32 partial stores (~0.1 us/MB). Lever: fewer instructions per score in the consumer
     (BN 128 steps, transpose off the consumer SMSPs). QK prefetch, bulk stores, no-merge grid: dead (NOTES-agent2 s8).
-0. (s2) H100 now: decode 16/32 sliding 9.63/15.07, verify 16/32 13.66/18.46 (tools/a2/b4.py).
 1. (built s3, see above) Native verify-sliding kernel `nvs` (NO clusters: s2 showed 4-CTA cluster placement alone +2.5 us) (2 consumer WGs per CTA, full-row cp.async gathers, wgmma; design in
    NOTES-agent2 s1 "Next ideas" 2). Biggest lever on verify 16/32 (~-1.7/-3.4 us H100 ceiling).
 1b. nvs follow-ups: the ~3.6 us prologue (seq -> page table -> first gathers) is 3 DRAM trips; steady state ~1 us
