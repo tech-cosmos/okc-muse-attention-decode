@@ -572,3 +572,35 @@ better than the H100 predicts, by ~0.5 us at batch 32.
   H200. Ideas with some value: (1) verify: CTA per (request, KV head, half window) with 2 consumer WGs merged in smem
   (halves partial bytes 4 -> 2 MB at verify 32; est. -0.5 us); (2) decode 16 csl is DRAM/latency-bound (all-L2 6.2 vs
   8.8 real, NOTES.md s75), no lever found.
+
+## Session 13 (2026-10-25 12:27 - ~13:05 UTC): nvs NV_HALF = H100 WIN at verify 16 and 32 (H200 unchecked)
+
+Start: origin/main 069ee90 already in agent2 (652f126 listed in COORD "Ready to merge"). Account 19/20 checks used
+today (the last is agent 1's): **0 checks** this session.
+
+### nvs NV_HALF (branch agent2-exp/half 0ae2b8a; submission.py `#define NV_HALF 1` in _NVS_SRC, NVS_HALF on the host)
+CTA = (request, KV head H, split) instead of (request, split); consumer WG c takes half c of the split's keys for
+head H (same 8 / 4 tiles per WG at verify 32 / 16 as before, same 128 CTAs), and WG 1 hands o / m / l to WG 0
+through 18 KB of smem (bar.sync 4, 256) for the merge, so the FP32 partials and _combine_hb's S halve (verify 32
+S 4 -> 2, verify 16 S 8 -> 4; 4 MB -> 2 MB). The producer's smem layout is unchanged: 64-B slot c of each staged
+row holds key lo_c + 64 i + r of head H (half-row gathers: 2 x 64-B cp16 groups per key), so the consumer and the V
+transpose are the 2-head code with "head" = half. Page-table ring stages both halves' 64 entries per tile; a WG with
+fewer tiles than half 0 waits ready / arrives empty for the rest. New tokens: WG 1 of split S-1. 160 regs, no
+spills (tools/a2/ptx.py: ptxas -v of _NVS_SRC). chk_nvs 7/7, tests 16/16, H100 bench 2.048 (s12 2.038).
+| H100 paired vs 652f126 (tools/a2/vab.py, `name@file` variants added) | verify 16 sliding | verify 32 sliding |
+|---|---|---|
+| NV_HALF, NS 4 LAG 1 (12 rounds) | -0.54 (12/12) | +0.26..+0.35 (0/12) |
+| NV_HALF + NS 5 LAG 2 (shipped on the branch, 9 rounds) | **-0.48 (9/9)** | **-0.27 (9/9)** |
+On the half base at verify 32: NS 6 LAG 2 -0.62, NS 5 LAG 2 -0.77, NS 6 +0.11, NS 3 +0.19, NS 6 LAG 3 / NS 7 LAG 3
+PFD 5 +0.05; at verify 16 all of these within noise except NS 7 (+0.5). After NS 5 LAG 2: PFD 3/6 noise, LAG 3 PFD 5
++0.82 (verify 32); _combine_hb HB 1 +0.13/+0.18, HB 4 +0.98/+0.40: HB 2 stays.
+Caveat: LAG 2 on the OLD nvs was H100 -0.18 but H200 +0.2 at verify 32 (check 9249146d), so the H200 may differ.
+Harness gotcha: `sed s/NV_HALF 1/NV_HALF 0/` also flips the host's `NVS_HALF = '#define NV_HALF 1' in _NVS_SRC`
+string -> old kernel on the half grid (64 CTAs, +4.3 us): edit only the #define line.
+
+### Next
+- First agent2 check after 00:00Z: agent2-exp/half 0ae2b8a (verify 16 + verify 32 sliding). Keep per shape: if verify
+  32 loses on the H200, try NV_HALF at verify 16 only (needs NV_HALF as a template parameter so both grids ship) or
+  half with LAG 1.
+- The same half split for nds (decode 32 sliding: 2 consumer WGs per CTA taking interleaved tiles, 1 CTA/SM, partials
+  1 -> 0.5 MB, combine S 8 -> 4) is a bigger rewrite; expected <= ~0.3 us at 0.23 %/us. Not started.
