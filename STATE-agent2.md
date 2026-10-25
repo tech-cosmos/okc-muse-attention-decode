@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~10:30 UTC (agent2 session 9).
+Updated 2026-10-25 ~11:25 UTC (agent2 session 10).
 
 ## Scope
 
@@ -12,7 +12,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 | shape | H200 us | H100 us | per-us value | path |
 |---|---|---|---|---|
 | decode 16 sliding | 8.19 | 9.60 | 0.42 %/us | native csl (16-CTA cluster/request) |
-| decode 32 sliding | 13.97 | 15.17 | 0.23 | Triton _attn_split (512 progs) + _combine_hb |
+| decode 32 sliding | 13.97 | 15.17 | 0.23 | Triton _attn_split (512 progs) + _combine_hb (agent2: nds 13.94 H100) |
 | verify 16 sliding | 12.75 | 14.27 | 0.31 | Triton (256 progs, 4 x 64-key tiles) + _combine_hb |
 | verify 32 sliding | 17.72 | 18.96 | 0.18 | Triton (256 progs, 8 x 64-key tiles) + _combine_hb |
 
@@ -32,7 +32,14 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 - (s9) agent2-exp/lagS (merged into agent2): nvs LAG 2 at S 4 + verify 16 on nvs (LAG 1, S 8). H100 paired: verify 32
   -0.18 (9/9), verify 16 -0.26 (8/9); tests 16/16. NOT H200-checked: queue for the next check with spare budget.
 
+- (s10) agent2-exp/nds 7521672 (merged into agent2): native decode-sliding kernel nds for decode sliding batch >= 32
+  (nvs producer + ONE consumer WG for both KV heads in one m64, S 8, 2 CTAs/SM). H100 paired decode 32 sliding
+  15.10 -> 13.94 (-1.17, 9/9); tests 16/16. NOT H200-checked: FIRST in the next check (bundle with lagS).
+
 ## Ranked ideas
+
+00000. (s10) nds's combine is ~2 us of its 14 (kernel 12.0, floor ~10.2): price a non-cluster last-CTA merge (nds
+    partials are 32 KB/request). In-cluster DSMEM merges are dead (s10: +1.3..+5.6 us).
 
 0000. (s9) nvs consumer trims are exhausted: BN 128 steps (+1.1..+1.3 us, chain 20 % slower per key, same instruction
     count) and lazy rescale with offset 8 (+0.1..+0.3) both dead. Next real lever: decode 32 native kernel with both KV
@@ -50,6 +57,9 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 2. Decode 32 sliding: smem-staged csl-style 8-CTA clusters (risky; s73 csl8 lost).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+
+- s10: nds in-cluster merge (CL 4 pull 16.5 / push 15.5 vs 14.2 us; CL 8 ~20; cluster launch alone +0.9), nds LAG 2
+  (NS 3 deadlock, NS 4 tie), NS 6, combine HB/warps, nds for decode 16 (10.4-11.0 vs csl 9.3). NOTES-agent2 s10.
 
 - s9: nvs BN2 (128-key consumer steps, tools/a2/nvs_bn2_dead.patch; NS 4 deadlocks, needs NS >= 6 and CREGS >= 208)
   +1.1/+1.0 us verify 32/16 kernel; lazy o-rescale (offset 8, T 0.75 or exact T 0) +0.1..+0.3. NOTES-agent2 s9.

@@ -450,3 +450,44 @@ vs -0.38 for nvs16 at LAG 1. So the kernel is now templated on LAG: LAG 2 at S <
 (verify 16), and NVS_MIN_BATCH 16. Tests 16/16, chk_nvs 7/7. H100 paired vs agent2 (9 rounds): verify 16 -0.26
 (8/9), verify 32 -0.18 (9/9). H200 risk: verify 16 on nvs tied Triton in baea7057 (12.63 both). Check it in a bundle
 when the account has checks to spare; keep each half only for the shape where it wins.
+
+## Session 10 (2026-10-25 10:33 - ~11:25 UTC): native decode-sliding kernel nds = H100 WIN on decode 32 (-1.17 us)
+
+Start: merged origin/main a2d846b (agent 1 s102-s106, batch-1/full only) into agent2 (03281cf). Account 18/20 checks
+used, 2 left = agent 1's (AGENT2.md: leave >= 4) -> **0 checks** this session.
+
+### nds (tools/a2/nds.cu, harness tools/a2/nds.py; branch agent2-exp/nds 7521672, merged into agent2)
+s9 Next 2, built: nvs's producer warpgroup unchanged (both heads' 128-B K/V rows by cp.async, V^T transpose) + ONE
+consumer warpgroup for both KV heads: m64 rows 0-7 = head 0's 8 query heads (Q in d 0-63 of a 128-B SW128 row, d
+64-127 zero), rows 8-15 = head 1's (d 64-127), rows 16-63 zero. QK = 4 x m64n64k32 over the whole K row, PV =
+m64n128 over both heads' V^T (the two per-head SW64 V^T tiles are contiguous = one 128-row B operand); row r keeps its
+head's 64 output columns. Only warp 0 runs mask/softmax/rescale (warps 1-3 only join the wgmmas with P = 0). The
+step's new token (both heads, warp 0 lanes) is RMS-normed/RoPE'd/E4M3'd, written to the cache and attended as an
+early 1-key tile on the last split (as nvs). Partials [B, 2, S, 8, 64] FP32 -> _combine_hb (HB 2, 1 warp).
+Correct first build (nds.py check: 8 cases x S 4/8, errors equal to the Triton path's; kernel_fn 6 more cases).
+H100 (nds.py time, k = kernel only):
+| config | decode 32 total | kernel |
+|---|---|---|
+| main (Triton _attn_split 512 progs + combine) | 15.0-15.3 | - |
+| NS 4, 1 CTA/SM, S 4 / S 8 | 14.3 / 17.2 | 12.4 / 15.0 |
+| NS 3, MINB 2 (2 CTAs/SM, 128 launch regs), S 4 / S 8 | 14.2-15.2 / 14.5-14.8 | 12.9 / 11.9 |
+| NS 3, __maxnreg__ 96 (PREGS 40 / CREGS 152), S 4 / S 8 | 14.1-14.2 / 14.0-14.2 | 12.8 / 12.0 |
+At MINB 2 the CTAs fill the register file, so the PDL combine can't become resident early (+0.8 us combine at S 8);
+__maxnreg__ 96 fixes that (ptxas needs >= 94 for the n128 wgmma). LAG 2: deadlocks at NS 3 (producer needs the slot
+the consumer holds), no gain at NS 4; NS 6 no gain. Combine shape (HB 1/2/4/8, 1-2 warps): noise.
+**Paired vab (submission, 9 rounds): decode 32 sliding 15.10 -> 13.94 us (-1.17, 9/9)**; S 4 instead of 8 +0.21
+(1/7). Tests 16/16. Decode 16 on nds: 10.4-11.0 (S 8/16) vs csl 9.3: off (NDS_MIN_BATCH 32).
+H200 risk: csl32 (s4) won -1.0 on the H100 and tied on the H200; nds is a different structure (gathers from 256
+CTAs on 132 SMs like nvs, which held its H100 win on the H200). Needs a check.
+
+### In-cluster merge for nds (tools/a2/nds_cl_dead.cu, NDS_CL): DEAD
+One S-CTA cluster per request, partials in smem, merge + RMS-norm + gate in-kernel (no combine launch). Correct.
+CL 4 (2 CTAs/SM): pull merge (ld.shared::cluster) 16.5 us; push merge (st.shared::cluster to the row's owner, one
+barrier) 15.5; vs 14.2 non-cluster + combine. Ablation (pull): cluster launch alone +0.9 us over the same kernel
+unclustered, 2 cluster barriers +0.9, remote-load merge +1.7. CL 8: 19.8-21.5 (placement). Clusters stay dead (s2).
+
+### Next ideas
+1. The combine is now ~2 us of nds's 14 (kernel 12.0 vs gather floor ~10.2): a merge that doesn't wait for a
+   separate launch, without clusters: e.g. per-request ticket + last-CTA merge (dead for nvs at 64 rows/head, but
+   nds partials are 8x smaller: 32 KB per request at S 8). Price on the H100 against the 2 us.
+2. nds kernel itself: 12.0 vs 10.2 floor: try PFD / staging tweaks as on nvs (small).
