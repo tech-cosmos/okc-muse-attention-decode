@@ -3045,7 +3045,7 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
         # Fixed reference: the row maxima of the first FIX tiles' scores (QK^T only) + FDELTA binades; every tile
         # then exponentiates against it (no row max / alpha / rescale in the loop).
         mref = tl.full([M_PAD], -1.0e30, tl.float32)
-        for fs in tl.range(lo, tl.minimum(lo + FIX * BLOCK_N, hi), BLOCK_N, num_stages=1):
+        for fs in tl.range(lo, tl.minimum(lo + (FIX % 100) * BLOCK_N, hi), BLOCK_N, num_stages=1):
             ft = fs + n
             fld = tl.minimum(ft, hi - 1)
             frow = (tl.maximum(tl.load(pt_row + fld // PAGE), 0).to(tl.int64) * PAGE + fld % PAGE) * ROW_W + hp0 * D
@@ -3063,7 +3063,31 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
         full_end = lo + tl.maximum(hi - lo, 0) // BLOCK_N * BLOCK_N
     else:
         full_end = lo
-    for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
+    FPIPE: tl.constexpr = FIX >= 100 and not DUAL
+    if FPIPE:
+        # s113 FPIPE (FIX + 100): the fixed-reference loop software-pipelined by hand: tile i's QK^T is issued before
+        # tile i-1's P@V, so the P@V can run under tile i's exponentials (P/V of the previous tile are carried).
+        pp = tl.zeros([M_PAD, BLOCK_N], DOT)
+        vp = tl.zeros([BLOCK_N, D], DOT)
+        for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
+            t = start + n
+            page = tl.load(pt_row + t // PAGE)
+            if SEQ_IN:
+                page = tl.maximum(page, 0)
+            row = (page.to(tl.int64) * PAGE + t % PAGE) * ROW_W + hp0 * D
+            k = tl.load(kc_ptr + row[:, None] + c[None, :])
+            v = tl.load(vc_ptr + row[:, None] + c[None, :])
+            s = tl.dot(q, tl.trans(k if QK8 else k.to(DOT)))
+            if WIN > 0:
+                s = tl.where(t[None, :] > pos[:, None] - WIN, s, float("-inf"))
+            acc = tl.dot(pp, vp, acc)
+            p = tl.exp2(tl.fma(s, scale, -m_i[:, None]))
+            l_i = l_i + tl.sum(p, 1)
+            pp = p.to(DOT)
+            vp = v.to(DOT)
+        acc = tl.dot(pp, vp, acc)
+    else:
+      for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
                               False, PAGE, ROW_W, D, WIN, QK8, DOT, FIXED=FXD, CL=SEQ_IN)
         if DUAL:
