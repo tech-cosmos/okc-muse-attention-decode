@@ -949,6 +949,8 @@ def _num_sms(device):
 # half of each row), stages its V half as FP16, frees the slot (`empty`), and does the online softmax
 # and P@V. The extra split S holds the block's new tokens (normalized, stored as FP8, attended causally).
 if HAVE_GLUON:
+    import os as _os
+    _FX = gl.constexpr(int(_os.environ.get('FX', '0')))
     @gluon.jit
     def _gw_producer(pt_row, kbase, vbase, k_ring, v_ring, ready, empty, lo, hi, ntiles,
                      PAGE: gl.constexpr, ROW_W: gl.constexpr, BN: gl.constexpr, C: gl.constexpr,
@@ -1021,6 +1023,40 @@ if HAVE_GLUON:
         o = o * gl.rsqrt(gl.sum(o * o, 1) / D + 1e-5)[:, None]
         o = o / (1.0 + gl.exp2(gate * -1.4426950408889634))
         gl.store(out_ptr + tok[:, None] * (HQ * D) + col, o.to(gl.bfloat16), mask=ok[:, None])
+
+    @gluon.jit
+    def _gw_merge2(pacc_ptr, pml_ptr, out_ptr, vs, qkv_ptr, b, h, split, HQ: gl.constexpr, HKV: gl.constexpr,
+                   G: gl.constexpr, L: gl.constexpr, S: gl.constexpr, M: gl.constexpr, D: gl.constexpr,
+                   RS: gl.constexpr):
+        """One-pass _gw_merge: per row, all S + 1 partials loaded at once ([SP_PAD, D] over 4 warps)."""
+        SP: gl.constexpr = S + 1
+        SP_PAD: gl.constexpr = triton.next_power_of_2(SP)
+        ML: gl.constexpr = gl.BlockedLayout([1, 4], [2, 16], [4, 1], [1, 0])
+        sp = gl.arange(0, SP_PAD, layout=gl.SliceLayout(1, ML))
+        c = gl.arange(0, D, layout=gl.SliceLayout(0, ML))
+        QKV_W: gl.constexpr = (2 * HQ + 2 * HKV) * D
+        for k in gl.static_range(RS):
+            r2 = split * RS + k
+            if r2 < 2 * M:
+                hh = h + r2 // M
+                r = r2 % M
+                tok = b * L + r // G
+                col = (hh * G + r % G) * D + c
+                gate = gl.load(qkv_ptr + tok * QKV_W + (HQ + 2 * HKV) * D + col).to(gl.float32)
+                base = (b * HKV + hh) * SP * M + r
+                at = base + sp * M
+                okk = sp < SP
+                mm = gl.load(pml_ptr + at * 2, mask=okk, other=-1.0e30, cache_modifier=".cg")
+                ll = gl.load(pml_ptr + at * 2 + 1, mask=okk, other=0.0, cache_modifier=".cg")
+                a = gl.load(pacc_ptr + at[:, None] * D + c[None, :], mask=okk[:, None], other=0.0,
+                            cache_modifier=".cg")
+                m_max = gl.max(mm, 0)
+                w = gl.exp2(mm - m_max)
+                denom = gl.sum(w * ll, 0)
+                o = gl.sum(w[:, None] * a, 0) / denom * vs
+                o = o * gl.rsqrt(gl.sum(o * o, 0) / D + 1e-5)
+                o = o / (1.0 + gl.exp2(gate * -1.4426950408889634))
+                gl.store(out_ptr + tok * (HQ * D) + col, o.to(gl.bfloat16))
 
     @gluon.jit
     def _gw_consumer(q, k_ring, v_ring, vh, ready, empty, lo, hi, ntiles, scale, pacc_ptr, pml_ptr, b, hh,
@@ -1724,14 +1760,16 @@ if HAVE_GLUON:
             old = gl.atomic_add(cnt, 1, sem="acq_rel", scope="gpu")
             if (old & 0xFFFF) == S - 1:
                 gl.atomic_add(cnt, 0x10000 - S, sem="relaxed", scope="gpu")
-            else:
+            elif _FX != 1:
                 while ((gl.load(cnt, volatile=True) ^ old) >> 16) == 0:
                     pass
             gl.inline_asm_elementwise("fence.acq_rel.gpu;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
         # This grid was launched alongside _new_tokens (which needs nothing from it); finish (or merge) only
         # after it, so the merge sees slot S too.
         gl.inline_asm_elementwise("griddepcontrol.wait;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
-        if FUSE:
+        if FUSE and _FX == 3:
+            _gw_merge2(pacc_ptr, pml_ptr, out_ptr, vs, qkv_ptr, b, h, split, HQ, HKV, G, L, S, M, D, RS)
+        elif FUSE and _FX != 2:
             _gw_merge(pacc_ptr, pml_ptr, out_ptr, vs, b, hh, r, c, ok, tok, col, gate, HQ, HKV, S, M, D, R_PAD)
 
 
