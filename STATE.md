@@ -1,6 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~14:20 UTC (session 114 = unattended session 47 of the #1-push brief).
+Updated 2026-10-25 ~14:10 UTC (session 114 = unattended session 47 of the #1-push brief).
 
 **s114 (0 checks): physical-order decode full CLOSED on both routes: atomic-free global inversion (in-place slice sort
 + smem owner map) best 18.1 us H100 at decode 32 (p1 10.1 + map 8.0; gate <= 5); windowed L2 sweep (per-program

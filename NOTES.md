@@ -4988,7 +4988,7 @@ waiting). This is the s112 "first after 00:00Z" diag (use hdiag3 instead of hdia
 ### Budget (UTC day 2026-10-25)
 - s113: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
 
-## Session 114 (unattended session 47, 2026-10-25 13:45 - ~14:20 UTC): physical-order decode full gate, both routes DEAD (no checks)
+## Session 114 (unattended session 47, 2026-10-25 13:45 - ~14:10 UTC): physical-order decode full gate, both routes DEAD (no checks)
 
 Board 13:50Z: #1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). Account: checks 20/20 (0
 left today), scored 8/10. No new "Ready to merge". **0 checks, 0 scored.** main code unchanged (f2b1c52). Direction item
