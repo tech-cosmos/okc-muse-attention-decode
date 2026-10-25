@@ -4945,3 +4945,144 @@ merge". Account at start: checks 19/20, scored 8/10 (Claude's 6 submits for the 
 
 ### Budget (UTC day 2026-10-25)
 - s112: 1 check (2d0bfdc6), 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 113 (unattended session 46, 2026-10-25 13:32 - ~13:44 UTC): batch-1 full warm/cold split, exp/hdiag3, FPIPE dead (no checks)
+
+Board 13:32Z: #1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). Account: checks 20/20 (0 left
+today), scored 8/10. No new "Ready to merge". **0 checks, 0 scored.** main code unchanged (f2b1c52). H100 bench at start
+2.063 (decode 1 4.99 / 14.02, verify 1 6.24 / 17.26). Tools: tools/s113/ (on exp/fpipe and exp/hdiag3): d1f.py (s101
+decomposition, env WARM=1 = no flush at all), d1warm.py (plan variants cold vs "warm"; its warm column subtracts a cold
+empty replay, so only compare within a column), cmp.py (outputs under two plan overrides, 2 seeds).
+
+### Batch-1 full, H100 cold vs fully warm (tools/s113/d1f.py, us; whole / first kernel only / merge only)
+- decode 1 full: cold 14.0 / 12.2 / 3.3; **warm 8.2 / 6.3 / 1.8**. Warm first kernel ~4.4 us after the ~1.9 launch =
+  ~L2-bandwidth time for 20 MB: decode 1 full is memory-system-bound in both regimes. Deeper stages / more splits are
+  worse even warm (d1warm: base best; stages 3/4 +0.6/+1.1, splits 1023 +0.4, 255 +3.3).
+- verify 1 full: cold 17.3 / 14.9 / 5.0; **warm 13.7 / 10.5 / 2.2**, i.e. ~4.2 us over decode 1 full on the same bytes
+  even from L2 = the consumer chain (s90's read). CUPTI cold: _attn_split 13.98 vs hfloor (pure gather) 9.25.
+- s110 cmicro (consumer-only, smem-resident) at verify-1 size (127 CTAs x 10 tiles, FIX): 0.50 us/tile unpipelined,
+  0.41 pipelined vs Triton's ~0.9 us/tile (with gathers). On the H100 the gathers (~0.76 us/tile-equivalent) are as slow
+  as Triton's chain, so a pipelined consumer can't show there; only the H200 (gathers ~1.4x faster) could pay, ~1 us.
+
+### FPIPE (exp/fpipe, plan fix 101): DEAD
+Fixed-reference loop software-pipelined by hand in _attn_body (QK^T of tile i issued before P@V of tile i-1; P/V of the
+previous tile carried as FP16 registers). Bit-identical output (cmp.py: 0.0 diff, 2 seeds). H100 verify 1 full +1.0 us
+cold / +0.55 warm (stages 6 / 4: worse). SASS: Triton still `WARPGROUP.DEPBAR.LE gsb0, 0x0` right after each wgmma (no
+overlap) and adds 8 BAR.SYNCs per tile for the carried operands. Triton can't express FA3 intra-WG pipelining; it needs
+Gluon/native (and s109's gw at verify 1 full only reached 13.54 vs 13.98 kernel + a 4.2 us _new_tokens kernel).
+
+### exp/hdiag3 (pushed; DIAG ONLY, never submit) = main f2b1c52 + exp/hdiag2's machinery (clean merge)
+Dropped the H200-verified pairs (LZ 3/10, red/nored, fix 0/1). Kept decode 1 full plan variants + floors; added verify 1
+full variants with more bytes in flight / shorter chains (`v1s10`, `v1s12`, `v1p255`, `v1p255s5`, `v1p191`, `v1gw`) +
+`v1fl2/v1fl4/v1dense` floors; verify/decode 32 full floors. Tests 16/16. H100 dry run (CUPTI, cold): v1a 13.98, s10
+14.43, s12 14.98, p255 14.88, p191 14.43, gw 13.54 (+ new_tokens 4.19); hfloor 9.25 / dense 8.67; d1a 11.62, s3 11.87,
+s4 12.51, p1023 12.03. Read `<variant>_attn_split` / `_gd_full` / `hfloor` durations; merges are PDL (durations include
+waiting). This is the s112 "first after 00:00Z" diag (use hdiag3 instead of hdiag2).
+
+### Next
+- After 00:00Z 2026-10-26: check exp/hdiag3. If the H200 hfloor at batch 1 full is <= ~7 us while `_gd_full` / 
+  `_attn_split` stay ~8 / ~13, batch-1 full has real headroom (decode 1 full -> native/Gluon with more in flight; verify 1
+  full -> a pipelined Gluon/native consumer). If any v1/d1 plan variant beats v1a/d1a on the H200 by > 0.3 us, port it.
+- Agent2's NV_HALF (verify 16 sliding -0.27 H200, s112) is the only known pending per-shape win: merge when listed.
+
+### Budget (UTC day 2026-10-25)
+- s113: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 114 (unattended session 47, 2026-10-25 13:45 - ~14:10 UTC): physical-order decode full gate, both routes DEAD (no checks)
+
+Board 13:50Z: #1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). Account: checks 20/20 (0
+left today), scored 8/10. No new "Ready to merge". **0 checks, 0 scored.** main code unchanged (f2b1c52). Direction item
+3 (physical-order decode 16/32 full; H200 dense 144.7 vs random ~162-166 us, s80) needs a cheap inversion first. Tools:
+tools/s114/ (p1.cu + p1.py/p1v.py/p1w.py: owner pass versions; sweep.cu + sweep.py/pfonly.py/pfline.py: windowed sweep).
+
+### Route 1: atomic-free global inversion (multi-split pass): fails the <= ~5 us gate (H100, CUDA graph, cold L2)
+Design (fixes s84's contended global atomics): CTA = (slice of ENT page-table positions, request b) counting-sorts its
+entries by physical window (132 windows) in smem and writes them back IN PLACE of its own slice as u16 window offsets
++ a per-slice offsets row (u16 [NSL][133]); no global atomics, all stores coalesced. Consumer CTA w then builds its
+window's owner map in smem from the 672-1344 runs. All versions correct (map == torch inverse).
+- decode 32 (2.59M entries): page-table read alone 6.3 us. p1 v1 13.5, v2 (int4 loads) 12.8, **v3 (coalesced scalar
+  loads + umulhi magic division) 10.1 us** (v2's int4 path fell back to uncoalesced scalars: MP = 86001 is odd).
+- map build (132 CTAs): per-warp-per-slice 9-35 us (issue-bound: ~48 warp-instr per (slice, window) pair), per-lane
+  12-17 (L1-tag-bound: 32 lines per warp load), **per-lane 16-B vector loads 8.0-10 us**. p1 + map: 18.1 us (decode 16:
+  12.2). ncu: both issue/L1 bound, not DRAM. Even with a fused persistent kernel whose K/V ring (~190 KB/SM, ~5 us of
+  streaming) hides part of it, ~8+ us stays exposed: decode 32 full ~145 + 8 + merge ~4 + compute waste >= ~157 vs 166
+  today = <= ~+1.5% overall for a multi-session native build (s80's estimate), with the compute side (mixed-request
+  mma.sync, ~2x padding at 256-row chunks) still unproven. Not worth starting.
+
+### Route 2 (new): windowed L2 sweep, no global inversion: DEAD
+Idea: each program buckets only ITS OWN page-table entries by physical window (local sort), all programs sweep windows
+in lockstep, and each warp bulk-prefetches its 1/P share of window r + D into L2 (dense DRAM reads; gathers then hit L2).
+Gathers-only ceiling, decode 32 full bytes (662 MB), lists pre-bucketed outside the timed call (diag):
+- dense same bytes 217 us; random (page-table order) 246 (P 4224 warps) / 278 (P 2112).
+- window-sorted, no prefetch: 238.6 (NWIN 16/32) / 241.7 (64) / 250.7 (128) vs 246.2: only ~26% of the random->dense gap.
+- **with L2 prefetch (bulk `cp.async.bulk.prefetch.L2` or per-line `prefetch.global.L2`, D 1-3, NWIN 16-128): 325-455 us**,
+  much worse. Prefetch-only "reads" 705 MB in 68 us (impossible: the kernel ends before the hints are served or they
+  are dropped); with gathers the hinted lines are fetched AND missed again (~2x DRAM traffic). L2 staging by prefetch
+  hints does not work on Hopper (cf. s87 pfd).
+- Window order alone on the H200: s80's analog (per-request sorted rows, lockstep) was 159.5 vs 161.9 random (-1.5%);
+  minus an in-kernel per-program sort prologue (Gluon has no smem scatter; a global-scratch sort costs ~p1 = 10 us).
+  Dead.
+- Random-order gathers vs depth (tools/s114/inflight.py, register loads, 16/32/64 rows in flight per warp): 8 warps/SM
+  416/390/379, 16: 280/270/266, 32: 247/244/242 us (dense 217). `_gd_full` (~8 one-warp programs/SM, cp.async 2 stages
+  x 32 rows) already sits at the 32-warp ceiling (~238 H100): no in-flight lever left in decode full.
+
+### Conclusion
+Physical-order decode full is closed unless someone finds an inversion that costs ~the page-table read (5 us H200)
+AND hides under the K/V stream. Full-layer headroom left: verify full consumer (structural only), batch-1 full (hdiag3
+tomorrow decides whether there are 3-4 us).
+
+### Merged agent2 7ba35f9 (NV_HALF nvs) into main = 5e3d586
+Listed in Ready to merge at 14:15Z; same submission.py as check 2d0bfdc6 (H200 verify 16 sliding 11.63 vs 11.90 WIN,
+verify 32 sliding tie). Tests 16/16; H100 bench 2.045 (shared GPU; s113 start 2.063, untouched shapes noisy). Not
+submitted: its check was 2.507x < board 2.542x and no checks left today.
+
+### Next
+- FIRST after 00:00Z 2026-10-26: check main 5e3d586 (NV_HALF + e64d3450's code); submit if it beats 1481.9 us.
+  Then exp/hdiag3 (s113 diag; rebase onto main not needed: it only adds diag kernels).
+- Batch-1 per-us table (s107/s112) still points at decode/verify 1 sliding (1.5-1.8 %/us) as the best levers.
+
+### Budget (UTC day 2026-10-25)
+- s114: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 115 (unattended session 48, 2026-10-25 14:10 - ~14:30 UTC): judge profile is warm; verify 1 full knobs warm; push-all (no checks)
+
+Board 14:15Z: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). Account: checks
+20/20 (0 left today), scored 8/10. No new "Ready to merge" (NV_HALF already merged in s114). **0 checks, 0 scored.**
+main code unchanged (5e3d586). Lead 14:10Z: the sandbox is deleted ~17:45Z; push all branches each session. Tools:
+tools/s115/ (profwarm.py = s101 prof.py without the flush; d1warm.py / cmp.py copied from s113).
+
+### The judge's per-kernel profile is (most likely) NOT L2-flushed: don't read its gap to the scored time as overhead
+Every judge profile has decode 1 full kernels summing to ~9.5-10.4 us vs scored 13.2-14.5 (gap ~3.6-3.9 us, in all 25
+saved profiles, red or _combine), while verify 1 full's gap is ~1.7, csl's 0.75, vtk's 1.06. H100 CUPTI, us:
+| kernel | H100 warm (no flush) | H100 cold (flush) | H200 judge profile |
+|---|---|---|---|
+| _gd_full (decode 1 full) | 8.10 | 11.23 | 8.2 |
+| _attn_split (verify 1 full) | 12.35 | 13.5-14.0 | 12.7 |
+| csl (decode 1 sliding) | 3.30 | 3.94 | 3.7 |
+The H200 profile matches the H100 WARM numbers (same clocks/L2) and the H100 warm->cold penalties (decode 1 full ~3.2,
+verify 1 full ~1.4, csl ~0.6) match the H200 profile->scored gaps (3.6, 1.7, 0.75). So the judge profile times kernels
+with warm L2 (whole 20 MB K/V resident); the scored run is cold. Nothing hidden in the decode 1 full graph. exp/hdiag3
+settles it: its `d1a` variant (= main's plan, after an explicit flush) vs main's own `_gd_full` in the same profile.
+
+### Verify 1 full plan knobs, cold vs warm (H100, tools/s115/d1warm.py, 5 rounds; warm column relative only)
+base (127 splits, block_n 64, stages 8) cold 17.63 / warm 16.62; warps 8 23.82 / 23.34; block_n 128 stages 6 18.64 /
+16.78; block_n 32 stages 12 20.06 / 19.25; splits 63 stages 8 20.61 / 19.63; hpp 2 27.14 / 25.25; splits 255 21.55 /
+20.42. Base wins in both regimes (warm = the consumer-chain regime the H200 is closer to), so none of these goes into
+the H200 diag. All outputs correct (cmp.py, rel <= 0.0013 vs base).
+
+### Decode 1 sliding re-read
+csl H100 cold 3.94 us CUPTI; s93's stamps (page table 1.0, K landed 2.07, ~1.2 us serial tail) still hold; every layout
+variant tried in s72-s109 ties or loses. No new lever found.
+
+### Housekeeping
+- Pushed exp/lzasm and exp/redv (were local-only). Committed the judge profiles (profiles/, 166 files, 4.9 MB) and
+  tools/s78 so they survive the sandbox deletion; snapshot of ~/COORD.md in notes/COORD-snapshot.md.
+
+### Next (after 00:00Z 2026-10-26, new sandbox)
+1. Check main (5e3d586 code = e64d3450 + agent2 NV_HALF): verify 16 sliding is the only changed shape (H200 11.63 vs
+   11.90 in 2d0bfdc6); submit if it beats 1481.9 us.
+2. Check exp/hdiag3 (diag, never submit): H200 cold kernel times per variant for decode 1 / verify 1 full and the gather
+   floors (hfloor, dense) for batch 1 and 32; port any plan variant beating `d1a` / `v1a` by > 0.3 us.
+
+### Budget (UTC day 2026-10-25)
+- s115: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.

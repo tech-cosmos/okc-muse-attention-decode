@@ -541,3 +541,104 @@ S 8 1 CTA/SM: NS 4 kernel 8.62-8.94 (NS 3 was 9.8-10.7; NS 5 9.0-9.2) but + comb
   -1.2 us kernel at decode 16 vs NS 3: if a merge-free variant (one CTA per request, S 1, full window per CTA) could
   reach ~9 us... s7 says no-split gathers cap at ~8.3 us for B16 on H100: price nds at S 1 with NS 8 at decode 16
   (16 CTAs only: likely latency-bound, 32 tiles each).
+
+## Session 12 (2026-10-25 11:56 - ~12:50 UTC): nds + nvs-verify-16 WIN on the H200 (check 9249146d); listed
+
+Start: merged origin/main 069ee90 (agent 1 s109-s110) into agent2 (07d0de5); tests 16/16; H100 bench 2.038.
+Account 18/20 checks; human 08:10Z + agent 1 s101 left the last 2 to agent2 -> used 1, left 1 for agent 1.
+
+### Check 9249146d54844322 (agent2 07d0de5 = main 069ee90 + nds + nvs verify 16 + nvs LAG 2 at S 4): 2.527x
+[2.489, 2.565], 1490.3 us, 16/16 (the account's best check; it also carries main's own unchecked changes).
+| shape | H200 us | main's recent range | verdict |
+|---|---|---|---|
+| decode 32 sliding (nds) | **12.20** | 13.72-14.09 | WIN -1.7 (H100 said -1.17) |
+| verify 16 sliding (nvs S 8) | **12.06** | 12.49-12.75 | WIN -0.4..-0.7 (baea7057 had nvs16 at 12.63 = tie: noise or LAG/stage changes since) |
+| verify 32 sliding (nvs LAG 2) | 15.41 | 15.07-15.28 | tie/loss -> LAG 2 reverted (652f126) |
+| decode 16 sliding (csl, unchanged) | 8.13 | 7.63-8.41 | - |
+652f126 (LAG 1 at every S again; verify 32 = main's checked code): tests 16/16; listed in COORD "Ready to merge".
+Lesson: nds (cp.async ring, 2 CTAs/SM, 256 CTAs) gained MORE on the H200 than on the H100, while csl32 (register
+gathers, one-shot) lost its H100 win there: on the H200, ring designs with more bytes in flight per SM do relatively
+better than the H100 predicts, by ~0.5 us at batch 32.
+
+### Dead (H100, tools/a2/vab.py paired, 7 rounds)
+- nds at decode 16 (CSL off): S 8 12.19, S 16 11.81, S 8 NS 4 12.19 vs csl 9.71 (+2.1..+2.5, 0/7). Even with a
+  ~1.5 us H200 shift this loses.
+- nds decode 32 NS 4 (smem -> 1 CTA/SM) +3.36; S 16 (512 CTAs) +3.12; NS 2 deadlocks (LAG 1 needs >= 3 slots;
+  hung the GPU until killed).
+- vab.py now renames any muse_nvs_* build name (was hard-coded to a2s9).
+
+### Next
+- Tomorrow's checks (agent2 <= 8): nothing queued yet. The batch 16/32 sliding shapes now sit at 8.1/12.2/12.1/15.4 us
+  H200. Ideas with some value: (1) verify: CTA per (request, KV head, half window) with 2 consumer WGs merged in smem
+  (halves partial bytes 4 -> 2 MB at verify 32; est. -0.5 us); (2) decode 16 csl is DRAM/latency-bound (all-L2 6.2 vs
+  8.8 real, NOTES.md s75), no lever found.
+
+## Session 13 (2026-10-25 12:27 - ~13:05 UTC): nvs NV_HALF = H100 WIN at verify 16 and 32 (H200 unchecked)
+
+Start: origin/main 069ee90 already in agent2 (652f126 listed in COORD "Ready to merge"). Account 19/20 checks used
+today (the last is agent 1's): **0 checks** this session.
+
+### nvs NV_HALF (branch agent2-exp/half 0ae2b8a; submission.py `#define NV_HALF 1` in _NVS_SRC, NVS_HALF on the host)
+CTA = (request, KV head H, split) instead of (request, split); consumer WG c takes half c of the split's keys for
+head H (same 8 / 4 tiles per WG at verify 32 / 16 as before, same 128 CTAs), and WG 1 hands o / m / l to WG 0
+through 18 KB of smem (bar.sync 4, 256) for the merge, so the FP32 partials and _combine_hb's S halve (verify 32
+S 4 -> 2, verify 16 S 8 -> 4; 4 MB -> 2 MB). The producer's smem layout is unchanged: 64-B slot c of each staged
+row holds key lo_c + 64 i + r of head H (half-row gathers: 2 x 64-B cp16 groups per key), so the consumer and the V
+transpose are the 2-head code with "head" = half. Page-table ring stages both halves' 64 entries per tile; a WG with
+fewer tiles than half 0 waits ready / arrives empty for the rest. New tokens: WG 1 of split S-1. 160 regs, no
+spills (tools/a2/ptx.py: ptxas -v of _NVS_SRC). chk_nvs 7/7, tests 16/16, H100 bench 2.048 (s12 2.038).
+| H100 paired vs 652f126 (tools/a2/vab.py, `name@file` variants added) | verify 16 sliding | verify 32 sliding |
+|---|---|---|
+| NV_HALF, NS 4 LAG 1 (12 rounds) | -0.54 (12/12) | +0.26..+0.35 (0/12) |
+| NV_HALF + NS 5 LAG 2 (shipped on the branch, 9 rounds) | **-0.48 (9/9)** | **-0.27 (9/9)** |
+On the half base at verify 32: NS 6 LAG 2 -0.62, NS 5 LAG 2 -0.77, NS 6 +0.11, NS 3 +0.19, NS 6 LAG 3 / NS 7 LAG 3
+PFD 5 +0.05; at verify 16 all of these within noise except NS 7 (+0.5). After NS 5 LAG 2: PFD 3/6 noise, LAG 3 PFD 5
++0.82 (verify 32); _combine_hb HB 1 +0.13/+0.18, HB 4 +0.98/+0.40: HB 2 stays.
+Caveat: LAG 2 on the OLD nvs was H100 -0.18 but H200 +0.2 at verify 32 (check 9249146d), so the H200 may differ.
+Harness gotcha: `sed s/NV_HALF 1/NV_HALF 0/` also flips the host's `NVS_HALF = '#define NV_HALF 1' in _NVS_SRC`
+string -> old kernel on the half grid (64 CTAs, +4.3 us): edit only the #define line.
+
+### Next
+- First agent2 check after 00:00Z: agent2-exp/half 0ae2b8a (verify 16 + verify 32 sliding). Keep per shape: if verify
+  32 loses on the H200, try NV_HALF at verify 16 only (needs NV_HALF as a template parameter so both grids ship) or
+  half with LAG 1.
+- The same half split for nds (decode 32 sliding: 2 consumer WGs per CTA taking interleaved tiles, 1 CTA/SM, partials
+  1 -> 0.5 MB, combine S 8 -> 4) is a bigger rewrite; expected <= ~0.3 us at 0.23 %/us. Not started.
+
+## Session 14 (2026-10-25 13:02 - ~14:10 UTC): nvs cl (2-CTA cluster DSMEM merge at verify 32) = H100 WIN
+
+Start: no new origin/main; account 19/20 checks (last one agent 1's): **0 checks**. Work on agent2-exp/half (merged
+agent2 in, b3aa1dc), new commit **52b41bd**.
+
+### nvs cl (NVS_CL_BATCH 32: NV_HALF at S 2 launched as 2-CTA clusters; no partials, no _combine_hb)
+With NV_HALF, verify 32 has S 2: the 2 split-CTAs of each (request, KV head) form one cluster (cudaLaunchKernelEx +
+cluster dim 2; 64 clusters fit, max 66). After the in-CTA half merge, rank r owns rows 32 r .. 32 r + 31 (warps 2 r,
+2 r + 1); the other 2 warps stage their merged o / m / l in local smem (xo2), fence.proxy.async, bar 64, and one
+thread issues a 9 KB `cp.async.bulk.shared::cluster.shared::cta.mbarrier::complete_tx` into the peer's xo2 (peer's
+clbar: init 1 + its own arrive.expect_tx 9216 at kernel start; a barrier.cluster after init, ~0.1 us). Owners prefetch
+their gates (raw bf16, before the half-merge bar), compute sigmoid while waiting, merge, o / l * v_scale, RMS-norm
+(shfl over 4 lanes), * sigmoid(gate), BF16 store. chk_nvs 7/7, tests 16/16, bench 2.063 (s13 2.048).
+| H100 paired, verify 32 sliding (cl vs NV_HALF + _combine_hb) | diff |
+|---|---|
+| final (bulk, symmetric) 3 runs | -0.86 (9/9), -0.29 (11/11), -0.56 (9/9) |
+| verify 16 at S 2 cl (64 CTAs) | +1.86 (0/7): verify 16 keeps S 4 + combine |
+| NS 4 LAG 1 / NS 5 LAG 1 / NS 6 LAG 2 on cl | +0.88 / +1.12 / -0.10 (5/7, noise; keep NS 5 LAG 2) |
+How it got there (per-CTA %globaltimer stamps, tools/a2/clstamp.py with `#define NV_STAMP 1`; 32-ns resolution):
+- first version (rank 1 pushes all 64 rows with st.shared::cluster + 128 per-thread arrive.release.cluster, rank 0
+  does the whole epilogue) +1.22..+1.34 us. Cluster launch alone (combine kept): tie (16.29 vs 16.32).
+- IEEE divisions (`vsv / l`, `y / (1 + exp)`) in the 128-thread epilogue cost ~1.4 us (latency-bound at 1 warp per
+  scheduler): __fdividef (= Triton's div.full in _combine_hb) fixed it.
+- the release-arrive push took ~1.6 us after rank 1's merge; one bulk copy cut it; the symmetric split halves the
+  copy and the epilogue: -> win. Per-warp st.shared::cluster + 1 release arrive per warp: +0.46 vs bulk (dead).
+- converting the gates to float before the half-merge bar.sync stalled the senders on DRAM latency (~0.8 us); load raw
+  bf16 and convert after the push.
+- remaining chain (cold, one run): rank merge -> peer wakes ~0.7-1.1 us (DSMEM delivery under load), epilogue
+  ~0.4 us.
+Caveat: NV_HALF itself is H200-unchecked (s13), and the H100 doesn't always predict the H200 for verify 32.
+
+### Next
+- First agent2 check after 00:00Z: agent2-exp/half **52b41bd** (verify 16 = NV_HALF S 4 + combine, verify 32 = cl).
+  If verify 32 loses on the H200 vs 652f126's 15.07-15.41, fall back to NVS_CL_BATCH 9999 (NV_HALF + combine) or the
+  old nvs (needs NV_HALF as a template parameter so verify 16 can keep it).
+- The same cl exchange could replace _combine_hb wherever S == 2 fits one wave: nds (decode 32, S 8, 2 CTAs/SM) would
+  need 8-CTA clusters (placement bad, s10/s12); a half/quarter nds with S 2 is a rewrite (consumers per CTA).
