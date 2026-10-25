@@ -5330,3 +5330,30 @@ also fit "MUFU and tensor don't overlap". If that were a hardware limit, only FP
 
 ### Budget (UTC day 2026-10-25)
 - s122: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 123 (unattended session 56, 2026-10-25 15:30 - ~16:05 UTC): pre-reset sanity bench; spin-merge priced dead (no checks)
+
+Board 15:35Z unchanged: #1 pjmullin3 2.910x (1294.4 us), ours 2.542x rank 8 (e64d3450, 1481.9 us). Account: checks
+20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new (agent2's halfpf 6a9a26a is agent2's own first
+check after 00:00Z). All local branches verified pushed to origin (sandbox deleted ~17:45Z). **0 checks, 0 scored. main
+code unchanged (ae1161c).**
+
+### Sanity of main before the reset (H100)
+`tools/bench.py test` 16/16 PASS; `bench` geomean **2.053** (s118: 2.051): decode 1 5.06 / 13.73, decode 16 9.54 /
+125.47, decode 32 13.62 / 244.00, verify 1 6.35 / 17.84, verify 16 12.99 / 135.20, verify 32 16.38 / 255.12 (sliding /
+full). So the queued check of main ae1161c is the right first check after 00:00Z.
+
+### Priced on paper, not built: `_red_fin` spinning on a release counter instead of `griddepcontrol.wait` (decode 1 full)
+s118's stamps: PDL release 0.55 us after the last `_gd_full` program ends, then 0.67 L2 trip + 0.4 finish. A counter
+needs per-program `fence.acq_rel.gpu` after the relaxed red atomics (waits for their L2 acks, ~0.5-0.7 cold) + the
+release add + the spinner's acquire poll (~0.3-0.6) >= the 0.55 it replaces; s95 measured acq_rel arrivals at ~1.3 us
+for the in-grid variant. Expected tie/loss; don't build. Also re-ruled-out this session (already in the index): pool-
+order reads at batch 1 (would rely on the generator's pool layout = reward-hacky), verify-full lockstep consumers (= FA3
+ping-pong, s101), page-table L2 prefetch at batch 1 (csl/_gd_full already SPEC the table at batch 1).
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged from s120
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag5 @ 840db1a (diag, never submit); its H200 batch-1/32 gather floors decide the next build.
+
+### Budget (UTC day 2026-10-25)
+- s123: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.

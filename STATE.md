@@ -1,6 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~16:20 UTC (session 122 = unattended session 55). **s122 (0 checks): tensor vs MUFU pipe-overlap
+Updated 2026-10-25 ~16:05 UTC (session 123 = unattended session 56). **s123 (0 checks): pre-reset sanity of main ae1161c: tests 16/16, H100 bench 2.053; `_red_fin` counter-spin merge priced dead (NOTES s123).** **s122 (0 checks): tensor vs MUFU pipe-overlap
 microbench (tools/s122/tm.cu): wgmma and MUFU/FFMA from different WGs overlap (10-24% mutual slowdown), so the
 verify-full consumer gap is chain scheduling, not a HW pipe limit; NOTES s122. s121 (0 checks): verify 1 full on agent2's nvs
 (exp/nvsf) DEAD: H100 cold +0.9 us (warm -0.6). s120: exp/hdiag5 @ 840db1a replaces hdiag4 as queued check 2.**
