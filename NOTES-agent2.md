@@ -303,3 +303,51 @@ merge, RMS-norm, sigmoid gate, BF16 store. Correct (chk_nvs 7/7, fused at batch 
    blocks; nvs issues 2 tiles per SM at a time and deeper rings don't help, so the difference is probably the prologue
    (seq -> page-table stage via cp.async + bar -> rows) and the per-tile wait/commit structure; try direct
    page-table loads into producer registers for the first NV_PFD tiles (skips cp.async wait + bar.sync + lds).
+
+## Session 7 (2026-10-25 07:44 - ~09:20 UTC): no-split kernels priced (capped); nvs producer is the real overhead
+
+Start: merged origin/main b34de45 (agent 1 s95-s96: decode 1 full atomic merge, vtk verify 1 sliding) into agent2.
+Account checks 16/20 used at start: the last 4 are agent 1's (AGENT2.md), so 0 checks this session.
+
+### Gather throughput by CTA count (tools/a2/nm.py; H100, graph-timed, seq -> page table -> 128-B K and V rows)
+| layout | decode 16 | decode 32 |
+|---|---|---|
+| 1 CTA per request (B CTAs), registers, R 8, 1024 thr | 8.2-8.3 | 11.5-11.7 |
+| 1 CTA per KV head (64-B halves), 2B CTAs | 9.1 | 12.1 |
+| 2 CTAs per KV head reading the same halves (L2 reuse), 4B CTAs | 8.8 | 12.9-13.1 |
+| 4 splits x B CTAs (= nvs's grid), registers, R 8, 512 thr | **6.7** | **10.2** |
+| 2 splits x B, R 8, 512 thr | 7.3 | 10.4 |
+| cp.async HS1, 512 thr x depth 4 (pt staged in smem) | 8.75 | 12.1 |
+| cp.async HS1, 128 thr x depth 12 / 6 | 11.8 / 11.7 | 13.5 / 13.2 |
+So a no-split (no-merge) kernel at batch 32 can't gather faster than ~11.7 us H100 (~1.6 above the all-SM floor),
+and cp.async needs many issuing threads (per-thread outstanding cp.async is the limit, not ring depth).
+
+### dnm (tools/a2/dnm.cu, tools/a2/dnm.py): no-split decode sliding, 1 CTA per request: DEAD as built
+8 warps each own 256 window keys and stream 32-key stages (both heads' 128-B K/V rows, 8 KB) through private
+cp.async rings, csl's mma.sync E4M3 math + online softmax, in-CTA merge. Correct first try (8 cases incl. page 64,
+kv_scale, short ctx). H100: decode 32/16 sliding **18.6/17.4 us** vs main 15.2/9.4. Ablations: compute alone ~15 us,
+gather alone 14.1/11.0. SASS: FP8 `mma.sync` on sm_90 is emulated (F2FP e4m3->f16 converts + 2 HMMA each), ~700
+instructions per 32-key stage (both heads) -> ~6.6 us of pure issue per SMSP for a 2048-key CTA; with 2 warps per
+SMSP the dependent chains stretch that to ~15. (First build with a fully unrolled stage loop + slot[] in registers:
+255 regs + stack, 30-71 us.) A no-split decode kernel would need wgmma (native FP8) and a 512-thread gather; best
+case ~12.5 us H100 at B32 (-2.7, ~0.6 % overall), likely less on the H200 (per-SM latency, not bandwidth): parked.
+
+### nvs at S 1 (tools/a2/nvs1.py: nvs itself with one CTA per request, kernel only, no combine)
+verify 16/32: ~29.5-30 us at S 1 (NS 4..8, LAG 1..5 all equal) vs 11.8/13.9-14.2 at S 4. Ablations at S 1 / S 4
+(verify 32): no softmax 24.8 / 12.6, no wgmma 25.2 / 13.5, no V transpose 27.8 / 13.7, no consumer compute 21.5 / 12.6.
+=> **nvs's gather-only time at S 4 is 12.6 (B32) / 9.5 (B16) vs 10.2 / 6.7 for a register gather on the same grid**:
+the 128-thread cp.async producer costs ~2.4-2.8 us. This (not the consumers) is the lever for verify 16/32.
+
+### nvs with 2 producer warpgroups (NV_PW 2, 512 threads; tools/a2/nvs_pw2_tie.patch): TIE, not kept
+Correct (chk_nvs 7/7). H100 paired 9 rounds: verify 32 PW 1 vs PW 2 +0.10 (PW 2 = 16.53); verify 16 on nvs (S 8):
+PW 2 13.23 vs PW 1 13.26 (both -0.5 vs Triton's 13.81 on the H100, but the H200 tied there in s3). So halving each
+producer thread's cp.async count doesn't close nvs's ~2.4 us gather gap: the cause is elsewhere.
+
+### Next ideas
+1. Find nvs's 2.4-2.8 us producer overhead by ablation on the gather-only (nocomp) kernel at S 4: (a) the prologue
+   (seq -> page-table cp.async stage -> cp_wait<0> + bar.sync -> rows) vs nm's direct ldg chain; (b) the per-tile
+   cp_wait<LAG> + bar.sync 1 + transpose + fence.proxy.async + arrive; (c) cp.async.mbarrier.arrive.noinc completion
+   instead of cp_wait + named barrier; (d) register-staged gathers (ldg -> st.shared) like nm, which hit the floor.
+   Worth up to ~2.4 us on verify 32 (0.18 %/us) and ~2.8 on verify 16 if nvs then beats Triton there (0.31 %/us).
+2. No-split kernels: parked (gather capped at ~11.7 us B32 on 32 SMs; needs a wgmma build for ~0.6 % at best).
+3. Same producer lesson may apply to Triton decode 32 (_attn_split 10.8 H200): compare its gather to nm S4 10.2.

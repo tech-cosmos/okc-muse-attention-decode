@@ -1,0 +1,120 @@
+diff --git a/submission.py b/submission.py
+index efbb727..e197029 100644
+--- a/submission.py
++++ b/submission.py
+@@ -749,6 +749,7 @@ _NVS_SRC = r'''// agent2 nvs: native verify-SLIDING attention (L 8, G 8, D 64, H
+ #define NV_PREGS 40
+ #define NV_CREGS 160
+ #define NV_MINB 1
++#define NV_PW 2
+ #include <torch/extension.h>
+ #include <c10/cuda/CUDAStream.h>
+ #include <cuda_bf16.h>
+@@ -862,7 +863,7 @@ __device__ __forceinline__ void cp4ca(uint32_t dst, const void* src) {
+ template <int NS>
+ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict__ kc, const uint8_t* __restrict__ vc,
+                                          const int* __restrict__ pt, Range rg, int maxp) {
+-    const int tid = threadIdx.x;  // 0..127
++    const int tid = threadIdx.x;  // 0 .. 128 NV_PW - 1
+     const int total = rg.n;
+     const int* ptr = pt + (long long)rg.b * maxp;
+     // Warp 0 stages each tile's page-table entries NV_PFD tiles ahead in sm.ptr (2 x 4-byte cp.async per lane: the
+@@ -877,7 +878,7 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
+         for (int j = 0; j < min(NV_PFD, total); ++j) stage(j);
+     cp_commit();
+     cp_wait<0>();
+-    asm volatile("bar.sync 1, 128;" ::: "memory");
++    asm volatile("bar.sync 1, %0;" ::"n"(128 * NV_PW) : "memory");
+     const int grow = tid >> 3;
+     const uint32_t kdst = smem_u32(&sm.k[0][0]) + grow * 128, vdst = smem_u32(&sm.vs[0][0]) + grow * 128;
+     const int lane = tid & 31;
+@@ -885,31 +886,31 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
+         if (i < total) {
+             const int s = i % NS;
+             const int lim = sm.lim[i & 7];
+-            int cr[4];
++            int cr[4 / NV_PW];
+ #pragma unroll
+-            for (int j = 0; j < 4; ++j) cr[j] = sm.ptr[i & 7][min(grow + 16 * j, lim)];
++            for (int j = 0; j < 4 / NV_PW; ++j) cr[j] = sm.ptr[i & 7][min(grow + 16 * NV_PW * j, lim)];
+             if (tid < 32 && i + NV_PFD < total) stage(i + NV_PFD);
+             mb_wait(&sm.empty[s], ((i / NS) & 1) ^ 1);
+             const int ch = tid & 7;
+ #pragma unroll
+-            for (int j = 0; j < 4; ++j) {
+-                const int r = grow + 16 * j;
++            for (int j = 0; j < 4 / NV_PW; ++j) {
++                const int r = grow + 16 * NV_PW * j;
+                 const long long off = (long long)cr[j] * 128 + ch * 16;
+-                cp16(kdst + s * (BN * 128) + 16 * j * 128 + ((ch ^ (r & 7)) << 4), kc + off);
+-                cp16(vdst + s * (BN * 128) + 16 * j * 128 + ((ch ^ vsw(r)) << 4), vc + off);
++                cp16(kdst + s * (BN * 128) + 16 * NV_PW * j * 128 + ((ch ^ (r & 7)) << 4), kc + off);
++                cp16(vdst + s * (BN * 128) + 16 * NV_PW * j * 128 + ((ch ^ vsw(r)) << 4), vc + off);
+             }
+         }
+         cp_commit();
+         if (i >= NV_LAG) {
+             const int s = (i - NV_LAG) % NS;
+             cp_wait<NV_LAG>();
+-            asm volatile("bar.sync 1, 128;" ::: "memory");
++            asm volatile("bar.sync 1, %0;" ::"n"(128 * NV_PW) : "memory");
+             {
+                 const uint32_t vsb = smem_u32(&sm.vs[s][0]), vtb = smem_u32(&sm.vt[s][0][0]);
+                 const int wq = tid >> 5, mi = lane >> 3, ri = lane & 7;
+ #pragma unroll
+-                for (int q = 0; q < 4; ++q) {
+-                    const int u = wq * 4 + q, gg = u & 3, hc = u >> 2;
++                for (int q = 0; q < 4 / NV_PW; ++q) {
++                    const int u = wq * (4 / NV_PW) + q, gg = u & 3, hc = u >> 2;
+                     const int r = 16 * gg + (mi & 1) * 8 + ri, cc = 2 * hc + (mi >> 1);
+                     uint32_t R0, R1, R2, R3;
+                     asm volatile("ldmatrix.sync.aligned.m8n8.x4.trans.shared.b16 {%0,%1,%2,%3}, [%4];"
+@@ -1173,7 +1174,7 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
+ }
+ 
+ template <int NS>
+-__global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ cs,
++__global__ void __launch_bounds__(128 * (NV_PW + 2), NV_MINB) nvs(const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ cs,
+                                               uint8_t* __restrict__ kc, uint8_t* __restrict__ vc,
+                                               const float* __restrict__ ks, const float* __restrict__ vsc,
+                                               const long long* __restrict__ loc, const int* __restrict__ pt,
+@@ -1185,18 +1186,18 @@ __global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restr
+     asm volatile("griddepcontrol.launch_dependents;" ::: "memory");
+     const int tid = threadIdx.x, wg = tid >> 7;
+     if (tid == 0) {
+-        for (int i = 0; i < NS; ++i) { mb_init(&sm.ready[i], 4); mb_init(&sm.empty[i], 8); }
++        for (int i = 0; i < NS; ++i) { mb_init(&sm.ready[i], 4 * NV_PW); mb_init(&sm.empty[i], 8); }
+         asm volatile("fence.mbarrier_init.release.cluster;" ::: "memory");
+     }
+     __syncthreads();
+     const int split = blockIdx.x % S;
+     const Range rg = rng(seq, blockIdx.x / S, split, ch, win);
+-    if (wg == 0) {
++    if (wg < NV_PW) {
+         asm volatile("setmaxnreg.dec.sync.aligned.u32 %0;\n" ::"n"(NV_PREGS));
+         producer<NS>(sm, kc, vc, pt, rg, maxp);
+     } else {
+         asm volatile("setmaxnreg.inc.sync.aligned.u32 %0;\n" ::"n"(NV_CREGS));
+-        consumer<NS>(sm, wg - 1, qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0], vsc[0]);
++        consumer<NS>(sm, wg - NV_PW, qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0], vsc[0]);
+     }
+ }
+ }  // namespace nv
+@@ -1209,7 +1210,7 @@ void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
+     static bool once = false;
+     if (!once) { cudaFuncSetAttribute(f, cudaFuncAttributeMaxDynamicSharedMemorySize, smem); once = true; }
+     const int B = (int)seq.size(0);
+-    f<<<dim3((unsigned)(S * B)), 384, smem, c10::cuda::getCurrentCUDAStream()>>>(
++    f<<<dim3((unsigned)(S * B)), 128 * (NV_PW + 2), smem, c10::cuda::getCurrentCUDAStream()>>>(
+         (const __nv_bfloat16*)qkv.data_ptr(), (const float*)cs.data_ptr(), (uint8_t*)kc.data_ptr(),
+         (uint8_t*)vc.data_ptr(), (const float*)ks.data_ptr(), (const float*)vsc.data_ptr(),
+         (const long long*)loc.data_ptr(), (const int*)pt.data_ptr(),
+@@ -1219,7 +1220,7 @@ void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
+ '''
+ try:
+     _NVS = _load_inline(
+-        name="muse_nvs_a2s3",
++        name="muse_nvs_a2s7",
+         cpp_sources="void nvs(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
+                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, int64_t, int64_t, "
+                     "int64_t);",

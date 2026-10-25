@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~07:50 UTC (agent2 session 6).
+Updated 2026-10-25 ~09:20 UTC (agent2 session 7).
 
 ## Scope
 
@@ -31,6 +31,10 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Ranked ideas
 
+00. (s7) nvs's gather-only time at S 4 is 12.6/9.5 us (verify 32/16) vs 10.2/6.7 for a register gather on the same
+    grid (tools/a2/nm.py): ~2.4-2.8 us of producer overhead. Not per-thread cp.async count (2 producer WGs tie).
+    Ablate prologue / per-tile barrier / mbarrier-completion / register-staged gathers (NOTES-agent2 s7 Next 1).
+
 0. (s2) H100 now: decode 16/32 sliding 9.63/15.07, verify 16/32 13.66/18.46 (tools/a2/b4.py).
 1. (built s3, see above) Native verify-sliding kernel `nvs` (NO clusters: s2 showed 4-CTA cluster placement alone +2.5 us) (2 consumer WGs per CTA, full-row cp.async gathers, wgmma; design in
    NOTES-agent2 s1 "Next ideas" 2). Biggest lever on verify 16/32 (~-1.7/-3.4 us H100 ceiling).
@@ -40,6 +44,10 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 2. Decode 32 sliding: smem-staged csl-style 8-CTA clusters (risky; s73 csl8 lost).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+
+- s7: no-split (1 CTA per request) batched sliding: gather alone capped at ~11.7 us B32 / 8.3 B16 H100; dnm (mma.sync,
+  tools/a2/dnm.cu) 18.6/17.4 us decode 32/16 (FP8 mma.sync is emulated on sm_90: ~15 us of compute). nvs at S 1 ~30 us.
+  nvs NV_PW 2 (2 producer WGs) tie. NOTES-agent2 s7.
 
 - s6: nvs distributed in-kernel merge (each split owns 16 rows/head, ticket barrier, tools/a2/nvs_dmerge_dead.patch)
   +1.7 us verify 32 H100 (spin +2.5 after the slowest CTA, L2 row loads +1.5); FMA-poly exp2 offload not built: all
