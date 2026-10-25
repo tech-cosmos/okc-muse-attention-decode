@@ -4679,3 +4679,118 @@ tests reach 32-36 (K=1). So s79's LZ 6 verdict (rows grow > 16 binades) was righ
 
 ### Budget (UTC day 2026-10-25)
 - s105: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 106 (unattended session 39, 2026-10-25 10:13 - ~10:45 UTC): verify 1 full fixed reference (on main); SPEC OOB fix
+
+Board 10:13Z unchanged (#1 pjmullin3 2.910x, ours 2.460x 8725ba7e). Account: checks 18/20 (2 left = agent2's), scored 7/10.
+No new "Ready to merge". **0 checks, 0 scored.** main = **05efdde** (d6cb195 + exp/tfix + exp/specfix). Tools: tools/s106
+(pair.py: paired plan overrides on one scored shape, env WARM=1 / L2=1; pairf.py: paired submission files; prof.py:
+per-kernel profiler times; abl3.py: abl2 without agentic spread at batch 1; adv1.py: forced-overflow inputs at verify 1
+full; spec.py: batch-1 inputs with seq_lens < table width).
+
+### Verify 1 full: fixed-reference softmax in Triton `_attn_split` (plan `fix 1`, on main)
+- FIX n: before the key loop, QK^T of the split's first n tiles (scores only) gives the row reference max + FDELTA (14)
+  binades; every tile then runs P = exp2(s * scale - m) with no row max / alpha / acc rescale (the s105 LZ 10 idea in
+  Triton). Rows whose acc/l end non-finite store m = +inf; `_combine` (REDO constexpr) then re-merges that row,
+  recomputing each flagged split's keys exactly (FP32 P, BK 8; cold path). Only with tsep, no rope/window/dual/balance.
+- H100 paired verify 1 full (whole call): **cold -0.29 us (10/11)**, warm-L2 -0.27 (7/7); fix 1 + pre 0: warm -0.77
+  but cold +0.05 (kept pre 2). fix 2 +0.58; with splits 191/63, block_n 128/32, warps 8: all worse.
+- Adversarial (tools/s106/adv1.py, late keys aligned with the query, A 0.5-3): passes with REDO, NaN/Inf without it;
+  errors equal to fix 0's. Tests 16/16. Precision argument as s105 (max P 2^-14 in FP16, step 2^-11 of the max).
+- Not useful elsewhere: verify 16 sliding fix 1 +0.59 us (few tiles; the prepass is pure latency).
+- H200 unverified: rides on tomorrow's first check of main (independent shape). If verify 1 full is worse: fix 0.
+
+### SPEC out-of-bounds reads at batch 1 (FIXED on main, exp/specfix)
+- SPEC (seq from the page-table width) gathers speculatively from positions < width - L. When seq_lens is shorter
+  (never on the scored shapes or the 16 tests: batch 1 there is spread "fixed"), those page-table entries are -1, so
+  _gd_full / csl / vtk read row -1 (before k_cache): compute-sanitizer on main: 609 / 4098 / 31778 invalid reads, and a
+  fresh-process crash in _gd_full (decode 1 full, spread "agentic"). Fix: clamp speculative entries to >= 0 (csl/vtk
+  macro `max(ptr[t], 0)`, _gd_full `if SEQ_IN: pg = max(pg, 0)`, _attn_split `_tile(CL=SEQ_IN)` and the PRE/PREQ/FIX
+  prefetch rows). After: 0 sanitizer errors on all four batch-1 cases. H100 paired cost +0.02..+0.05 us (noise).
+- (tools/s54/abl2.py uses spread agentic at batch 1 too, so it crashed on decode 1 full; tools/s106/abl3.py doesn't.)
+
+### Measured and dead (H100)
+- Verify 32 full LZ 10 row sum (timing-only removal of the l8 FADDs): all-L2 -4.5 us, real -0.2. The ones-column-in-V
+  form needs MMA N = 72 (Gluon shapes are powers of two; N 128 doubles P@V) and P@ones already lost natively (s69).
+- Verify 32 full plan knobs under LZ 10 (all-L2): stages 2/4 +42/+44 us, lag 2 +50, cregs 104/pregs 24 +20, maxnreg 72
+  +174. The s105 plan stays.
+- Fixed reference in `_gd_full` (timing-only upper bound, constant reference): decode 1 full -0.13 us real, decode 16/32
+  full all-L2 -0.64/-1.38 but real +0.40/+0.08: gather-bound, dead.
+- csl/vtk: P goes to the MMA as E4M3 (needs the row max for its 2^8 range), so no absolute-reference variant there.
+- Profile (H100, cold): verify 32/16 full `_new_tokens` 5.2/5.8 us runs under PDL (overlapped), not serial.
+
+### Next
+- FIRST check after 00:00Z 2026-10-26: main (05efdde): red decode 16/32 full + LZ 10 verify 16/32 full + fix 1 verify 1
+  full + SPEC clamp. Submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False; verify 16/32 full
+  lose -> LZ = 3; verify 1 full lose -> fix 0.
+
+### Budget (UTC day 2026-10-25)
+- s106: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 107 (unattended session 40, 2026-10-25 10:36 - ~11:10 UTC): FOLD (FFMA-free verify-full scores) = dead (no checks)
+
+Board 10:37Z unchanged (#1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.460x 8725ba7e). Account: checks 18/20 (2 left =
+agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.** main unchanged (05efdde code). Branch **exp/fold**
+(pushed, not merged).
+
+Per-us sensitivity, recomputed from 8725ba7e (overall % per us = per-load % / 6): decode 1 sliding 1.79, verify 1 sliding
+1.48, decode 1 full 0.62, verify 1 full 0.52, decode 16 sliding 0.43 / full 0.15, verify 16 sliding 0.32 / full 0.11,
+decode 32 sliding 0.23 / full 0.08, verify 32 sliding 0.19 / full 0.065.
+
+### FOLD in `_gw_consumer_bal` (LZ 10 loop): s*scale - m done by the tensor core
+- Q quantized as fp8(rmsnorm(x) * scale) (scale = qk_scale * k_scale ~= 0.987 on scored data, so same E4M3 range use;
+  only when config kv_scale == 1); after the LZ_PK exact tiles the reference m is rounded to m_hi + m_lo (both E4M3,
+  clamped to +-448; acc/l8 rescaled once to the rounded m) and subtracted by one extra wgmma k-step per tile:
+  [-m_hi, -m_lo, 0...] (smem [64, 32] per consumer) x a constant ones tile ([BN, 32], cols 0-1 = 1). Loop is then
+  P = exp2(S) with no FFMA. Correct (verify 32 full rel err 2.94e-2 vs 2.88e-2; 6 seeds x 2 shapes pass).
+- H100 paired (tools/s106/abl3.py, 9 rounds): **all-L2 verify 32/16 full -2.56 / -0.93 us (9/9), real +0.61 / +0.70
+  (0/9)**. H200 emulation (tools/emu.py 40): verify 16 full 146.34 vs 146.03-146.42, verify 32 275.0 vs 274.1-274.7 =
+  tie/loss. Smem 113.2 KB vs 106.8 KB per CTA (still 2 CTAs/SM).
+- **Unexplained hazard:** in 2 of 4 tools/emu.py processes with fold (filters 'verify' and 'verify 16', i.e. after the
+  sliding shape ran in the same process) verify 16/32 full took ~18 ms = the _combine_bal REDO cold path (some row's
+  partial m = +inf); not reproducible standalone (92-SM plan with/without spinner, 8 graph replays, 0 inf rows).
+  Never seen with the base kernel. Not chased further since the upside is a tie.
+- Verdict: dead. The extra wgmma lengthens the QK -> softmax -> P@V chain (ring slots free later) by about what the 32
+  FFMA/thread/tile save; consistent with s69's P@ones loss. Don't retry MMA-side folding of softmax ops on Hopper.
+
+### Next (unchanged from s106)
+- FIRST check after 00:00Z 2026-10-26: main (05efdde code): red decode 16/32 full + LZ 10 verify 16/32 full + fix 1
+  verify 1 full + SPEC clamp. Submit if it beats 1531.2 us. Per-shape fallbacks as in STATE.md.
+
+### Budget (UTC day 2026-10-25)
+- s107: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 108 (unattended session 41, 2026-10-25 10:52 - ~11:45 UTC): REDO stress (clean) + exp/hdiag2 paired diag (no checks)
+
+Board 10:53Z unchanged (#1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.460x 8725ba7e). Account: checks 18/20 (2 left =
+agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.** main unchanged (05efdde code).
+
+### REDO stress of main's fixed-reference paths (tools/s108/stress.py)
+- 40 seeds (0-39) x the six scored verify shapes in judge order in one process (sliding before full, so any state
+  left by the sliding kernels is exercised): **240/240 correct, no REDO** (a REDO would show ~17 ms; the max sync-timed
+  call was 330 us, seed 26's slow row = my concurrent test run). Covers LZ 10 (verify 16/32 full) and fix 1 (verify 1
+  full). s107's FOLD REDO storm does not reproduce on main's kernel. Seed 1000 over all 12 shapes: all correct.
+- So tomorrow's submit of main carries no observed REDO risk beyond s105's tail estimate.
+
+### exp/hdiag2 98153b5 (pushed; DIAG ONLY, never submit) = exp/hdiag rebased on main 05efdde
+Same harness as s102's exp/hdiag (variants re-run after the real call, each after an L2 flush, kernels renamed), now with
+**in-run paired variants for main's unverified changes**, so the judge's node bimodality (s102) drops out:
+verify 1 full `v1a`/`v1b` (fix 1) vs `v1fix0`/`v1fix0b`, `v1gw` (s94 non-bal Gluon plan); verify 16/32 full `v16a/b`,
+`v32a/b` (LZ 10) vs `v16lz3(b)`, `v32lz3(b)`; decode 16/32 full `d16a/b`, `d32a/b` (red) vs `d16nored(b)`, `d32nored(b)`
+(the pre-s103 plan via BRED = False); plus s102's decode 1 full plan variants and the `hfloor` gather floors (decode 1/32,
+verify 1/32 full). Read the attention kernels' durations (`<v>_gd_full`, `<v>_attn_split`, `<v>_gw_verify`); merge
+kernels are PDL-launched, so their durations include waiting: compare whole-call effects via the main check instead.
+Tests 16/16. H100 dry run (tools/s108/hd2_h100.log, CUPTI medians of 20, flushed, us):
+- verify 1 full `_attn_split`: fix 1 14.08/14.05 vs fix 0 14.49/14.30; gw `_gw_verify` 13.60 (+ `_new_tokens` 4.3).
+- verify 16 full `_gw_verify`: LZ 10 129.3/129.4 vs LZ 3 130.3/129.8; verify 32: 249.2/248.5 vs 249.1/249.2 (H100 DRAM-bound).
+- decode 16/32 full `_gd_full` red vs nored: tie (122.8-124.2; 241.3-241.8); the win is in the merge (red_fin vs combine).
+- **decode 32 full floors: random 234.2, dense (each request's rows contiguous) 209.3 = -11% on the H100** (s39's
+  232 vs 236 was a different dense kernel). Physical order still needs the inversion (s84: 42+ us), but the dense
+  premium is bigger than the notes assumed; the H200 number from this diag decides whether s80's design is worth more.
+
+### Next
+- After 00:00Z 2026-10-26: (1) check main 05efdde, submit if it beats 1531.2 us; (2) check exp/hdiag2 (replaces
+  exp/hdiag in the queue) and drop any of main's per-shape changes whose paired kernel loses on the H200.
+
+### Budget (UTC day 2026-10-25)
+- s108: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.

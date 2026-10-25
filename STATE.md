@@ -1,11 +1,20 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~10:20 UTC (session 105 = unattended session 38 of the #1-push brief).
+Updated 2026-10-25 ~11:45 UTC (session 108 = unattended session 41 of the #1-push brief).
 
-**s105: main d6cb195 = LZ 10 fixed-reference softmax in _gw_verify (4 exact tiles/segment with +14 binades headroom,
-then no max/alpha/rescale/vote; non-finite rows -> m=inf -> _combine_bal REDO, exact). H100 paired vs LZ 3: verify 32
-full all-L2 -13.5 us (real -0.6), verify 16 -6.8 (real -0.2). H200 UNVERIFIED (c2-class ceiling was -26/-16). Risk:
-REDO ~17 ms if a scored row grows > 30 binades (max seen 23.2). NOTES s105.**
+**s108: REDO stress of main (40 seeds x 6 verify shapes, judge order): 240/240 correct, no REDO. Built exp/hdiag2 98153b5
+(diag, never submit): exp/hdiag on current main + in-run paired variants of main's unverified changes. H100: decode 32
+full dense floor 209 vs random 234 us (-11%). 0 checks. NOTES s108.**
+
+**s107: FOLD (Q prescaled + reference subtracted by an extra QK wgmma k-step, no FFMA in the verify-full loop) = dead:
+H100 all-L2 -2.56/-0.93 us but real +0.6/+0.7, H200 emu tie; rare unexplained REDO storm under emu. exp/fold. 0 checks. NOTES s107.**
+
+**s106: main 05efdde = d6cb195 + verify 1 full fixed-reference softmax in Triton (plan fix 1, exact _combine REDO; H100
+paired cold -0.29 us, warm -0.27) + SPEC OOB fix (batch-1 speculative gathers read row -1 when seq_lens < width - L;
+never on scored inputs; clamp, cost ~0). Dead: fixed ref in _gd_full (gather-bound), verify-full knob resweep. NOTES s106.**
+
+**s105: LZ 10 fixed-reference softmax in _gw_verify (verify 16/32 full; H100 all-L2 -13.5/-6.8 us, H200 UNVERIFIED;
+REDO ~17 ms if a row grows > 30 binades, max seen 23.2). NOTES s105.**
 
 **s104: LZ 4 gap = in-loop branches (s105 confirmed). s103: red on batched decode full (H100 -1.58/-1.09 us, on main, H200
 unverified). s102: submitted 8725ba7e 2.460x = account best; full layers bimodal across judge nodes. NOTES s102-s104.**
@@ -25,7 +34,7 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 ## Code state
 
-- main = d6cb195 (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full; both unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
+- main = 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
 - Dispatch: verify sliding B=1 -> native `vtk_verify` (s96); verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full` (batch 1: plan red, atomic merge + `_red_fin`); sliding + small -> Triton
   `_attn_split` + PDL merges.
@@ -44,17 +53,10 @@ numbers: NOTES s69.)
 
 ## Ranked ideas
 
-0000000. (s105 DONE: LZ 10 on main, it was the in-loop branches) Locate LZ 4's 12 us over the no-max ceiling c2 (H100 all-L2; c2-class was -26/-16 us on the H200 at
-   verify 32/16 full = ~+3% overall): truly peeled first tile, vote-only asm. tools/s104/mk.py, NOTES s104.
-
 000000. (s80; s84: GATE FAILED, bucketing pass 42+ us H100, see NOTES s84) Physical-order decode full (NOTES s80 design): prototype first the multi-split pass (<= ~5 us?) and
    mixed-request mma.sync compute under a dense 256-row stream. ~+1-1.5% overall. Below the verify-full consumer.
 
-00000. (s79) LZ 3 follow-up: sum-based check (no FMNMX), power-of-two per-warp fallback, inf-only redo launch
-   (NOTES s79 Next 1). Then the producer half.
-
-0000. (s78) Exact lazy max in the verify-full consumer at ~no cost: -27/-16 us H200 ceiling (verify 32/16 full) =
-   ~+3% overall. Branches exp/lazymax (Gluon SPEC variants), exp/lazydiag (diag harness), exp/nvlazy (native). NOTES s78.
+0000. (s78/s79/s105) Lazy/fixed max in the verify-full consumer: DONE as LZ 10 (s105, on main, H200 unverified).
 
 000. (s84: native verify-1-sliding cluster kernel built and lost, NOTES s84) (s75) Verify sliding is consumer-chain-bound, not DRAM-bound (H100 all-L2 attention verify 32/16 sliding 13.4/9.1 vs
    real 16.5/11.2 us; Triton ~1.8 64-key tiles/us/SM vs Gluon gw 2.9 on verify full). gw_verify itself loses at
@@ -82,15 +84,20 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- **FIRST after 00:00Z 2026-10-26: check main d6cb195** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full);
-  submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False; verify 16/32 full lose -> LZ = 3.
-- **SECOND: check exp/hdiag 63dd0fd (DIAG, never submit): read `<variant>_gd_full` /
-  `_attn_split` / `hfloor` durations from the profile; port per-shape plan winners to main, then check main.**
+- **FIRST after 00:00Z 2026-10-26: check main 05efdde** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full
+  + s106 fix 1 on verify 1 full); submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False;
+  verify 16/32 full lose -> LZ = 3; verify 1 full lose -> drop `fix=1` from its plan.
+- **SECOND: check exp/hdiag2 98153b5 (DIAG, never submit; replaces exp/hdiag): paired in-run kernels fix 0/1 (verify 1
+  full), LZ 3/10 (verify 16/32 full), red/nored (decode 16/32 full), gw at verify 1 full, decode 1 full plans, gather
+  floors (random vs dense). Revert per shape what loses; port winners; then check main.**
   (main 1e4c80e was scored in s102: 8725ba7e 2.460x; don't resubmit it unchanged.)
 
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s107: FOLD (softmax scale/reference subtraction folded into the QK wgmma: extra k-step lengthens the chain).
+- s106: fixed reference in _gd_full (decode full gather-bound), at verify 16 sliding (+0.59), verify-full plan knobs under
+  LZ 10, ones-column row sums (Gluon needs power-of-two N).
 - s105: any in-loop vote/branch in the verify-full softmax (lz9 +1.9 even with no fallbacks taken); zero-headroom fixed
   reference (REDO storm); 8 exact tiles (-3.4 us vs 1).
 - s104: BF16 P/V for verify full (producer fp8->bf16 convert +17.6 us all-L2 even as asm), removing the LZ_ACC asm (+2).
