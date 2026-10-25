@@ -5295,3 +5295,38 @@ scored regime is cold (s115), so expect a loss there too. Dead; not put in the d
 
 ### Budget (UTC day 2026-10-25)
 - s121: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 122 (unattended session 55, 2026-10-25 15:20 - ~16:20 UTC): tensor/MUFU pipe-overlap microbench (no checks)
+
+Board 15:20Z unchanged: #1 pjmullin3 2.910x (1294.4 us), ours 2.542x rank 8 (e64d3450, 1481.9 us). Account: checks
+20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new. **0 checks, 0 scored. main code unchanged
+(ae1161c).** Tools: tools/s122/ (sass.py = run one verify-full shape in a fresh Triton cache dir to dump its cubins;
+census.py = SASS opcode census of an address range; tm.cu = tensor vs MUFU/FFMA pipe-overlap microbench, build with
+`nvcc -O3 -gencode arch=compute_90a,code=sm_90a`, run under `flock /tmp/okc-gpu.lock`).
+
+### Hypothesis tested: are wgmma and MUFU serialized in hardware?
+Load-time arithmetic first: verify 16/32 full = 76/82% of their loads; even at decode-full times they'd give ~2.65x
+total, so #1 must be ahead elsewhere too. Why the verify-full consumer sits at ~127-145 us (H100 microbench) when its
+floors are MUFU 78 + tensor 59 us (QK E4M3 64 clk + P@V F16 128 clk per 64x64 WG-tile per SM; MUFU 256 clk): the
+measured time is about the *sum* of the two, and FA3's published d64/d128 efficiencies (~50% / ~70-75% of tensor peak)
+also fit "MUFU and tensor don't overlap". If that were a hardware limit, only FP8 P@V (tensor -20 us) or fewer exps would help.
+- `_gw_verify` hot loop SASS (main, verify 32 full, unmasked fixed-reference path, per thread per tile): 159 instr =
+  32 FFMA + 32 MUFU + 32 FADD + 16 F2FP + 47 overhead (10 UIADD3, 7 UMOV, 4 WARPGROUP, 3 ULEA, 3 USHF, 2 SYNCS,
+  2 USGXT, 1 BAR, branches). Already lean: no FMNMX/FMUL left after LZ 10.
+- tools/s122/tm.cu (1 CTA/SM, WG0 = wgmma loop, WG1 = ALU loop, clock64 per WG, H100):
+  | WG1 \ WG0 | alone | + SS f16 wgmma | + QK e4m3 + P@V RS f16 |
+  |---|---|---|---|
+  | MUFU ex2 (15.7/clk/SM alone) | 521K clk | 595K (+14%); tensor +0% | 642K (+23%); tensor +1% |
+  | FFMA (100/clk/SM alone) | 81K | 96-121K; tensor +11-13% | 110K; tensor +7% |
+  | softmax mix (FFMA+EX2+FADD+F2FP/2) | 664K | 755K (+14%); tensor +10% | 824K (+24%); tensor +4% |
+  **The pipes overlap: about 10-24% mutual slowdown, not serialization. Hypothesis dead.** So the consumer's gap to
+  ~max(MUFU, tensor) is a scheduling/latency effect of 4 serial QK -> softmax -> P@V chains per SM (when two WGs are
+  in softmax at once they share MUFU while the tensor core idles). That is s101's conclusion again (ping-pong, dual-head
+  ILP, 6 WGs/SM all dead). FP8 P@V stays bounded by s22/s71 (tie on the H200).
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged from s120
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag5 @ 840db1a (diag, never submit).
+
+### Budget (UTC day 2026-10-25)
+- s122: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.

@@ -1,9 +1,9 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~15:45 UTC (session 121 = unattended session 54). **s121 (0 checks): verify 1 full on agent2's nvs
-(exp/nvsf) DEAD: H100 cold +0.9 us (warm -0.6). s120 (0 checks): cluster placement probes (csl batch 1
-already 1 CTA/SM on 32 SMs; vtk's 256 CTAs on only 116 SMs, max 3/SM, no live fix); built exp/hdiag5 @ 840db1a = hdiag4 +
-main + exp/ua d1ua505/d1ua511 variants: it replaces hdiag4 as queued check 2. NOTES s120.**
+Updated 2026-10-25 ~16:20 UTC (session 122 = unattended session 55). **s122 (0 checks): tensor vs MUFU pipe-overlap
+microbench (tools/s122/tm.cu): wgmma and MUFU/FFMA from different WGs overlap (10-24% mutual slowdown), so the
+verify-full consumer gap is chain scheduling, not a HW pipe limit; NOTES s122. s121 (0 checks): verify 1 full on agent2's nvs
+(exp/nvsf) DEAD: H100 cold +0.9 us (warm -0.6). s120: exp/hdiag5 @ 840db1a replaces hdiag4 as queued check 2.**
 
 **Earlier (0 checks each): s119 H100 refs for hdiag4's batch-1 variants (all lose); s118 `_red_fin` 16 warps at batch 1
 (main ae1161c, H100 -0.3 us); s114 physical-order decode full CLOSED; s115 judge profile is warm; s116-s117 merges <= 0.3%.**
@@ -74,6 +74,7 @@ numbers: NOTES s69.)
 3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s122: "MUFU and tensor serialize in HW" (they overlap; tools/s122/tm.cu).
 - s121: nvs (native verify-sliding, NV_HALF/0, S 32-128, NS 5-7) at verify 1 full: cold +0.9..+6 us (exp/nvsf).
 - s120: forcing 1 CTA/SM for csl (already 1/SM at batch 1), vtk placement (116 SMs, max 3/SM; fixes = dead layouts).
 - s119: decode 1 full stages 3/4, BN 64 s2, BN 16 s4, splits 255/1023 and verify 1 full stages 10/12 (H100; H200 via
