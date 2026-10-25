@@ -28,8 +28,6 @@ exchange is far worse (13.2). Third native verify-1-sliding kernel to lose (s72,
 mask (-16% loop instructions, tie). Since 04:09Z agent2 (~/repo2) owns batch 16/32 sliding and gets >= 8 checks/day;
 merge its COORD "Ready to merge" wins. NOTES s88.
 
-**s76-s87:** see NOTES (s86 SPEC loop form, s85 SPEC, s84 native vsl lost, s80 H200 dense/random bytes, s79 LZ 3).
-
 ## Board and best run
 
 - Board 2026-10-25 05:45Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.445x** (scored
