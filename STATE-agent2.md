@@ -41,20 +41,9 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 00000. (s10) nds's combine is ~2 us of its 14 (kernel 12.0, floor ~10.2): price a non-cluster last-CTA merge (nds
     partials are 32 KB/request). In-cluster DSMEM merges are dead (s10: +1.3..+5.6 us).
 
-0000. (s9) nvs consumer trims are exhausted: BN 128 steps (+1.1..+1.3 us, chain 20 % slower per key, same instruction
-    count) and lazy rescale with offset 8 (+0.1..+0.3) both dead. Next real lever: decode 32 native kernel with both KV
-    heads in one m64 (NOTES-agent2 s9 Next 2), priced by prototype first.
+0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
+1. nvs follow-ups (small): direct page-table loads into producer registers; uniform descriptors hoisted.
 
-000. (s8) nvs is CONSUMER-bound: with no gathers at all it takes 12.2 us at S 4 vs 13.8 (verify 32 H100); the chain
-    is ~0.85 us per 64-key tile per consumer WG (ncu: softmax issue + latency). s7's "producer overhead" was the
-    consumers + 4 MB of FP32 partial stores (~0.1 us/MB). Lever: fewer instructions per score in the consumer
-    (BN 128 steps, transpose off the consumer SMSPs). QK prefetch, bulk stores, no-merge grid: dead (NOTES-agent2 s8).
-1. (built s3, see above) Native verify-sliding kernel `nvs` (NO clusters: s2 showed 4-CTA cluster placement alone +2.5 us) (2 consumer WGs per CTA, full-row cp.async gathers, wgmma; design in
-   NOTES-agent2 s1 "Next ideas" 2). Biggest lever on verify 16/32 (~-1.7/-3.4 us H100 ceiling).
-1b. nvs follow-ups: the ~3.6 us prologue (seq -> page table -> first gathers) is 3 DRAM trips; steady state ~1 us
-   per 16-KB tile per SM. s4: fused merges dead, _combine_hb shape already best, LAG 2 -0.18 (verify 32). Small levers
-   only: direct page-table loads into producer registers, LAG 2.
-2. Decode 32 sliding: smem-staged csl-style 8-CTA clusters (risky; s73 csl8 lost).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
 
