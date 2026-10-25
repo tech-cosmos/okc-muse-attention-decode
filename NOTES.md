@@ -4205,3 +4205,62 @@ the geomean most: e.g. verify 1 at 4/9 us sliding/full would be 4.97x (+10% geom
 
 ### Budget (UTC day 2026-10-25)
 - s94: 0 checks, 0 scored. Account unchanged: checks 15/20 (5 left = agent2's), scored 6/10.
+
+## Session 95 (unattended session 28, 2026-10-25 06:41 - ~07:30 UTC): decode 1 full merge by FP32 atomics at a fixed reference max (WIN on H100)
+
+Board 06:41Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391). No COORD "Ready to merge" items.
+Account at start: checks 15/20 (agent2 4 of its 8 used, so 1 left for Claude), scored 6/10 (Claude's 6 used).
+
+### Idea: no global max needed if every split uses the SAME reference max
+FA-style split merges need the global row max, hence a second kernel (or a grid sync) that reads all S partials. But
+with a fixed, program-independent reference R (here R = 0 in the log2-scaled score units), every split can add
+`acc * exp2(m - R)` and `l * exp2(m - R)` into shared FP32 sums with atomics, and only a tiny finish (sum / l, RMSNorm,
+gate) remains. FP32 precision is scale-invariant, so this is exact (same rounding class as FA3's merge) as long as no
+split's max m is outside a safe range: m <= 100 (no overflow: acc <= l * 448, l <= keys * 2^m) and m >= -60 (a split
+whose terms would sink below FP32's normal range could matter only if it held the global max; then its exact partial
+is needed). Out-of-range splits store their normal FP32 partial and append their slot id to a list; the finish merges
+those exactly (online max-merge against the sums at m = 0). Scored data: scores are within about +-63 (q, k
+RMS-normed, qk_scale_factor 5.47, sm_scale 1/8, log2e), so the list is empty; tests with k_scale x40 exercise the
+list (hundreds of entries) and match main bit-for-bit in BF16. Values only steer which exact path a split takes
+(like LZ's inf redo), every key is still attended, partials stay FP32.
+
+### Measurements (H100, paired, us; tools/s95/red.py c|t, SH=<scored index>, Q=<q_len>)
+- First form, in-grid (exp/red first commit): adds + acq_rel arrival counter + last-arriver tail in _gd_full: 18.5-19.0
+  vs main 14.6 = dead. Breakdown (RED_DBG variants): adds only 12.8; + relaxed counter 13.3; + acq_rel counter 14.1;
+  + the tail 18.1+: the last arriver's reads queue behind the L2 atomic backlog (~2.5 us at v2 atomics, 262K ops),
+  and 511 acq_rel arrivals on one word cost ~1.3 us. NR 1 replica 22.8 (same-line contention), NR 8/16 worse in the
+  one-warp tail (more loads). Same wall as every in-grid merge before (s34/s36/s43/s50/s94).
+- **Final form (main 75081b1): adds in _gd_full (v4 atomics via a [1,4] blocked layout, 4 replicas by split % 4, l
+  in the mma slice layout, deduped), then the usual PDL grid boundary and ONE 4-warp `_red_fin` program that reads
+  16 KB (4 x [16, 64] + l) instead of 16 programs x 512 slots x 256 B.** decode 1 full 14.55 -> 13.85 (8/8 pairs over
+  two runs; bench 14.40 -> 13.66, geomean 2.004 -> 2.013). NR 2: 14.9, NR 8: 14.5, NR 16: 15.4; _red_fin 1 warp +1.0,
+  8 warps tie. Splits 767 tie, 383 +0.5, 255 +1.7: 511 stays.
+- Bug found on the way: in a multi-warp Triton finish, replicated words (l, the list count) are loaded by every
+  thread but zeroed by one: needs tl.debug_barrier() between the loads and the resets (else random wrong rows).
+- **Verify 1 full** (branch exp/redv: `_finish` atomics, `_red_fin_v` per (KV head, token), lists per finish
+  program): correct, H100 TIE (17.7-18.2 both): 2 x the atomic volume (127 x 2 heads x 128 threads x 8 v4 = 260K ops)
+  eats the merge saving. Fewer splits with red: 95 -> 20.6, 63 -> 22.5; 131 tie.
+- Batched full merge tails (H100, whole vs _combine_bal dropped): decode 16 full 0.2 us, decode 32 2.8, verify 16 3.8,
+  verify 32 4.1; each has >= 2x decode 1's atomic volume, so not ported (expect ties like verify 1).
+
+### H200 check
+- **check 257c10beab894aa1** (main 75081b1): 2.425x [2.389, 2.461], 16/16. **decode 1 full 13.53 us** (13582a1b 14.14,
+  08bf9391 14.17: -0.6 us, as on the H100); profile `_gd_full` 8.0 + `_red_fin` 1.7 (was 7.2 + `_combine` 3.1). The
+  overall number is a slow node: the untouched full layers all came in slow (decode 16/32 full 89.93 / 167.81 vs 86.72 /
+  161.72, verify 16/32 full 116.35 / 212.78 vs 112.78 / 207.54). Other shapes: decode 1 sliding 4.16, decode 16/32 sliding
+  7.68 / 13.82, verify 1 6.87 / 17.00, verify 16/32 sliding 12.21 / 15.35.
+- No submit (Claude's 6 for 2026-10-25 are used). **Queued: score main 75081b1 after 00:00Z** (check first if budget allows:
+  noise on the full layers is ~5% per run).
+
+### Also dead this session
+- `red.global` (inline asm, no return) instead of `atom` for the adds: tie.
+
+### Next
+- The fixed-reference trick only pays where the atomic volume is small next to the merge it replaces (decode 1 full:
+  131K v4 ops vs 2.9 us). Remaining decode 1 full exposure ~2.1 us over attention (adds ~1.1, second kernel ~1).
+- Ideas not tried: combine the reference trick with fewer, fatter partials where the atomic count would be lower
+  (e.g. verify 1 full at 2 rows per thread would still be 260K ops: no); a cluster-level DSMEM pre-sum before the atomics
+  (native only).
+
+### Budget (UTC day 2026-10-25)
+- s95: 1 check (257c10be), 0 scored. Account after: checks 16/20 (the 4 left are agent2's), scored 6/10.
