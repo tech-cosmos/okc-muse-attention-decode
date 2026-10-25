@@ -3,7 +3,7 @@ import sys, os, importlib.util, torch
 sys.path.insert(0, "."); sys.path.insert(0, "tools")
 import reference
 def load(lz, name):
-    os.environ["LZ"] = str(lz)
+    os.environ["LZ"] = str(lz)  # (needs LZ read from the env: edit the LZ line to test)
     sp = importlib.util.spec_from_file_location(name, sys.argv[1] if len(sys.argv) > 1 else "submission.py")
     m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m); return m
 A, B = load(0, "a"), load(int(os.environ.get("LZB", "1")), "b")

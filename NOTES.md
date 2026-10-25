@@ -3458,3 +3458,28 @@ per-warp value (any tensor -> scalar is a cross-warp reduce); `continue` is unsu
 Checks: 1 (c5888ee5, diagnostic). Scored: main submit (see Judge runs / below).
 Scored run of main (human-approved, kernel c9b3242 = csl decode sliding): **8774bdfc614f4fb9 2.312x** (board best stays
 2.343x). Account 2026-10-25 after this session: checks 1/20, scored 1/10.
+
+## Session 79 (unattended session 12, 2026-10-25 00:30 - ~01:40 UTC): exact per-warp lazy max via inline asm
+
+Board 00:30Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.343x (#23). Branch exp/lzasm.
+
+### Idea: make s78's lazy max exact without Gluon's WG-wide reduce
+
+Gluon can't branch per warp, but an `inline_asm_elementwise` with pack=32 sees all 32 S elements of a thread (S_L
+slot j = row r + 8*((j>>1)&1) of the quad's two rows, tools/s79/order.py; same pattern for O_L with pack=64) and can
+branch on a warp vote inside the asm (all of a row's elements live in one quad, so a per-warp exact fallback is legal).
+- LZ 1 (check on P's partial sums, recompute from S in the fallback): S must stay live through the asm -> 20 spills,
+  verify 32 full real +47 us. Dead.
+- LZ 2: per-thread row maxima of S (FMNMX, no shuffles); vote.all(max*scale - m <= 15 on both rows) -> P against the
+  stale maxima (P <= 2^15, FP16-safe, no lost range), else the usual update for the warp's rows (quad shuffles).
+  m_new comes back as an elementwise output reduced with a pick-first combine (no SHFL emitted: DCE'd). No spills.
+- LZ 3 = LZ 2 + acc *= alpha in a pack-64 asm skipped when the warp's alphas are all 1 (vote.any).
+  First tile: m = -1e30 -> check fails -> exact update. NaN -> setp fails -> exact path. Exact always.
+- H100 all-L2 (tools/s54/abl2.py, 7 paired rounds): verify 32 full 198.4 -> 194.8 (LZ2) -> **189.2 (LZ3)**,
+  verify 16 108.5 -> 104.9; real (DRAM-bound on H100) -0.8 / -0.9. A depth-4 tree max instead of the serial
+  chain: +0.8 (worse: issue-bound, not latency). A/B rel diff vs LZ 0 4-7e-4 (stale-offset FP16 rounding; ref err
+  3e-2), equal on ks=64 inputs that force fallbacks (tools/s79/cmp.py). H100 bench geomean 1.948 (main 1.939).
+- LZ 6 (peel the first tile, then no per-warp fallback, sticky flag -> exact redo): rows grow by > 16 binades past
+  the first tile's max on the test distributions (NaN from FP16 overflow without the fallback), so a redo would be
+  hot. Dead. The remaining LZ3 cost vs the no-max ceiling (170.6 all-L2) is mostly the 32 FMNMX per tile; sm_90 has no
+  3-input max (ptxas rejects `max.s32 d, a, b, c`), packed bf16/f16 max needs as many converts.

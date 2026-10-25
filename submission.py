@@ -389,7 +389,7 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
-LZ = int(__import__('os').environ.get('LZ', '3'))
+LZ = 3  # _gw_verify softmax: 3 = exact per-warp lazy max (session 79), 0 = per-tile row max + rescale
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
