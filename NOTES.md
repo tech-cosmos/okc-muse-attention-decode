@@ -4104,3 +4104,36 @@ H100 paired (tools/s91/cslvar.py VAR=cpk, 11 rounds): **decode 1 sliding 5.89 ->
 
 ### Budget (UTC day 2026-10-25)
 - s91: 1 check (750924a0), 1 scored (08bf9391). Account after: checks 11/20, scored 5/10.
+
+## Session 92 (unattended session 25, 2026-10-25 05:31 - ~06:15 UTC): native pipelined decode-1-full kernel = dead (H100), no checks
+
+Board 05:35Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391). COORD "Ready to merge": nothing new.
+Account at start: checks 11/20 (agent2 1 of them), scored 5/10. **No checks used** (nothing beat main on the H100).
+Branch exp/nfull, tools/s92/nfl.cu + nfl.py (`NW=8 DEP=2 NCTA=128 python tools/s92/nfl.py check|time|parts`, env CTX for
+parts, NFL_SRC for a patched source; the committed source defaults NFL_CPA=1 = the slow cp.async ring, so time the register
+path with `sed 's/#define NFL_CPA 1/#define NFL_CPA 0/'` into NFL_SRC).
+
+### What was built
+csl's per-warp mma.sync tile turned into a pipelined loop for batch-1 decode FULL: NCTA CTAs x NW warps, warp = (KV head
+w & 1, pair w >> 1), 32-key chunks interleaved over pairs, DEP chunks of K/V in flight, page entries 2 DEP chunks ahead
+(one coalesced load per chunk, spread by shuffles), keys partitioned over the table width (no wait for seq_lens), new
+token patched in by the owning warp, online softmax FP32, P in E4M3 (FA3 max offset 8), in-CTA smem merge -> 128 FP32
+partial slots per (head, row) in _combine's layout, then submission's `_combine` (PDL). Correct on 5 cases (ctx 10 / 3000
+edges / 4097 / 80000 / 100000 kv_scale 1/64), errors identical to the reference's own FP8 error.
+
+### Measured (H100, bench.time_graph cold, minus the empty graph; main decode 1 full = 14.6-14.7 us)
+- First build (FP8 mma.sync, register pipelining, `break` in the unrolled loop): 17-28 us. SASS had 81 ENDCOLLECTIVE /
+  86 WARPSYNC (shuffles on the non-converged path because of the early exit) and 730 IMADs (64-bit addressing).
+  Padding the chunk count to a multiple of DEP + 32-bit offsets: 16.3-16.7.
+- FP16 m16n8k16 on exact E4M3 values (Q/P rounded to E4M3 first, so numerics are unchanged: sm_90 emulates E4M3
+  mma.sync with F2FP + 2 HMMA): NW 8 DEP 2 **15.74** (kernel alone 13.07). Best variants all plateau at 15.65-15.9:
+  NW 8 DEP 1 15.65, NW 16 DEP 1 15.86, NCTA 132/96 15.66/15.71, NW 4 NCTA 256 16.16, NW 16 NCTA 64 17.9.
+- cp.async per-lane smem ring instead of registers (hypothesis: register-pipelined loads share the warp's few
+  scoreboards): 33-49 us, warm == cold, i.e. issue-bound on 12 small cp.asyncs per thread per chunk. Dead.
+- Kernel alone vs ctx (NW 8 DEP 2, cold): 1k 5.38, 10k 6.11, 40k 9.01, 80k 12.83 us = ~2.9 us fixed chain + 0.095
+  us/1k keys (20 MB at ~2.7 TB/s, the H100 random-gather ceiling). So the loop is at the gather rate; the kernel loses
+  ~1.1 us to `_gd_full` (11.7 attention-only), and the 128-slot merge still exposes ~2.9 us (same as 512 slots: the
+  acc-load share didn't show up as a saving).
+- Conclusion: a native batch-1 full kernel with a separate merge can't beat Gluon `_gd_full` + `_combine`; the only
+  remaining lever on decode 1 full is removing the second kernel (~2.9 us), and every fused merge so far lost (s36, s43,
+  s50, s73). Not worth a check.
