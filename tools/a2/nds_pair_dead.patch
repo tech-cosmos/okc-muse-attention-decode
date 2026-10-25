@@ -1,0 +1,152 @@
+diff --git a/submission.py b/submission.py
+index 9f1ec28..2433555 100644
+--- a/submission.py
++++ b/submission.py
+@@ -1481,6 +1481,7 @@ NVS_MIN_BATCH = 16  # verify sliding from this batch on nvs (verify 32: H100 pai
+ # verify 16 with 8 splits: H100 paired -0.38 us in s9 (6/7), but the H200 tied 12.63 vs 12.63 in check baea7057)
+ 
+ _NDS_SRC = r'''#define NV_NS 3
++#define ND_PAIR 1
+ #define NV_MAXR 96
+ #define NV_PREGS 40
+ #define NV_CREGS 152
+@@ -1590,6 +1591,11 @@ template <int NS> struct Smem {
+     uint64_t ready[NS], empty[NS];
+     alignas(1024) uint8_t knew[BN * 128];      // last split: the 8 new keys as a K tile (rows 0-7; rows 8-63 zero)
+     alignas(1024) uint8_t vtnew[2][HD * BN];   // and their V^T (key slots 0-7 of group 0; the rest zero)
++#if ND_PAIR
++    alignas(128) float xs[32 * 20];            // ND_PAIR: the peer's KV head rows (o 16 / m / l per lane) to send
++    alignas(128) float xr[32 * 20];            // and the peer's rows of this CTA's KV head (bulk copy lands here)
++    uint64_t clbar;
++#endif
+ };
+ // Staging swizzle: SW128 (r & 7) for the ldmatrix transpose (8 consecutive rows per phase), else conflict-free for
+ // the 4-row register transpose.
+@@ -1965,6 +1971,54 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
+     l[0] += __shfl_xor_sync(0xffffffff, l[0], 1); l[0] += __shfl_xor_sync(0xffffffff, l[0], 2);
+     l[1] += __shfl_xor_sync(0xffffffff, l[1], 1); l[1] += __shfl_xor_sync(0xffffffff, l[1], 2);
+     const int ra = lane >> 2;
++#if ND_PAIR
++    // 2-CTA cluster = splits 2p, 2p + 1 of request b. Rank r keeps KV head r: one 2.5 KB bulk copy sends head r ^ 1's
++    // rows (o / m / l) to the peer, then it merges the peer's head-r rows and writes the partial at split p (S / 2).
++    uint32_t rank;
++    asm volatile("mov.u32 %0, %%cluster_ctarank;" : "=r"(rank));
++    auto fin = [&](auto KH) {
++        constexpr int kh = decltype(KH)::value, sh = 1 - kh;
++        auto ix = [](int hh, int j) { return hh ? 32 + 4 * j + 2 : 4 * j; };
++        float4* xs = reinterpret_cast<float4*>(&sm.xs[lane * 20]);
++#pragma unroll
++        for (int j = 0; j < 4; ++j)
++            xs[j] = make_float4(o[ix(sh, 2 * j)], o[ix(sh, 2 * j) + 1], o[ix(sh, 2 * j + 1)], o[ix(sh, 2 * j + 1) + 1]);
++        xs[4] = make_float4(m[sh], l[sh], 0.f, 0.f);
++        asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
++        __syncwarp();
++        if (lane == 0) {
++            const uint32_t src = smem_u32(&sm.xs[0]);
++            uint32_t dst = smem_u32(&sm.xr[0]), bar = smem_u32(&sm.clbar);
++            asm volatile("mapa.shared::cluster.u32 %0, %0, %1;" : "+r"(dst) : "r"(rank ^ 1));
++            asm volatile("mapa.shared::cluster.u32 %0, %0, %1;" : "+r"(bar) : "r"(rank ^ 1));
++            asm volatile("cp.async.bulk.shared::cluster.shared::cta.mbarrier::complete_tx::bytes [%0], [%1], %2, [%3];"
++                         ::"r"(dst), "r"(src), "n"(32 * 20 * 4), "r"(bar) : "memory");
++            asm volatile("cp.async.bulk.commit_group;\ncp.async.bulk.wait_group.read 0;" ::: "memory");
++        }
++        asm volatile("{\n.reg .pred p;\nW: mbarrier.try_wait.parity.acquire.cluster.shared::cta.b64 p, [%0], 0;\n@!p bra W;\n}\n"
++                     ::"r"(smem_u32(&sm.clbar)) : "memory");
++        const float4* xr = reinterpret_cast<const float4*>(&sm.xr[lane * 20]);
++        const float4 x = xr[4];
++        const float mn = fmaxf(m[kh], x.x), a = ex2(m[kh] - mn), c = ex2(x.x - mn);
++        const float ln = l[kh] * a + x.y * c;
++        const int S2 = S >> 1;
++        const long long part = (((long long)b * 2 + kh) * S2 + (split >> 1)) * 8;
++        float* pa = pacc + (part + ra) * HD;
++#pragma unroll
++        for (int j = 0; j < 4; ++j) {
++            const float4 y = xr[j];
++            const int c0 = (2 * j) * 8 + (lane & 3) * 2, c1 = c0 + 8;
++            *reinterpret_cast<float2*>(pa + c0) = make_float2(o[ix(kh, 2 * j)] * a + y.x * c, o[ix(kh, 2 * j) + 1] * a + y.y * c);
++            *reinterpret_cast<float2*>(pa + c1) = make_float2(o[ix(kh, 2 * j + 1)] * a + y.z * c, o[ix(kh, 2 * j + 1) + 1] * a + y.w * c);
++        }
++        if ((lane & 3) == 0) {
++            const float off = NV_LAZY ? 0.f : 8.f;
++            *reinterpret_cast<float2*>(pml + (part + ra) * 2) = make_float2(mn - off, ln);
++        }
++    };
++    if (rank) fin(std::integral_constant<int, 1>{}); else fin(std::integral_constant<int, 0>{});
++    return;
++#endif
+     const long long part0 = (((long long)b * 2 + 0) * S + split) * 8, part1 = (((long long)b * 2 + 1) * S + split) * 8;
+     float* pa0 = pacc + (part0 + ra) * HD;
+     float* pa1 = pacc + (part1 + ra) * HD;
+@@ -2000,9 +2054,17 @@ const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ cs,
+     const int tid = threadIdx.x, wg = tid >> 7;
+     if (tid == 0) {
+         for (int i = 0; i < NS; ++i) { mb_init(&sm.ready[i], 4); mb_init(&sm.empty[i], 4); }
++#if ND_PAIR
++        mb_init(&sm.clbar, 1);
++        asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;" ::"r"(smem_u32(&sm.clbar)), "n"(32 * 20 * 4) : "memory");
++#endif
+         asm volatile("fence.mbarrier_init.release.cluster;" ::: "memory");
+     }
++#if ND_PAIR
++    asm volatile("barrier.cluster.arrive.release.aligned;\nbarrier.cluster.wait.acquire.aligned;" ::: "memory");
++#else
+     __syncthreads();
++#endif
+     const int split = blockIdx.x % S;
+     const Range rg = rng(seq, blockIdx.x / S, split, ch, win);
+     if (wg == 0) {
+@@ -2024,7 +2086,14 @@ void nds(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
+     static bool once = false;
+     if (!once) { cudaFuncSetAttribute(f, cudaFuncAttributeMaxDynamicSharedMemorySize, smem); once = true; }
+     const int B = (int)seq.size(0);
+-    f<<<dim3((unsigned)(S * B)), 256, smem, c10::cuda::getCurrentCUDAStream()>>>(
++    cudaLaunchConfig_t cfg = {};
++    cfg.gridDim = dim3((unsigned)(S * B)); cfg.blockDim = dim3(256); cfg.dynamicSmemBytes = smem;
++    cfg.stream = c10::cuda::getCurrentCUDAStream();
++    cudaLaunchAttribute at[1];
++    at[0].id = cudaLaunchAttributeClusterDimension;  // ND_PAIR: split pairs as 2-CTA clusters
++    at[0].val.clusterDim.x = ND_PAIR ? 2 : 1; at[0].val.clusterDim.y = 1; at[0].val.clusterDim.z = 1;
++    cfg.attrs = at; cfg.numAttrs = 1;
++    cudaLaunchKernelEx(&cfg, f,
+         (const __nv_bfloat16*)qkv.data_ptr(), (const float*)cs.data_ptr(), (uint8_t*)kc.data_ptr(),
+         (uint8_t*)vc.data_ptr(), (const float*)ks.data_ptr(), (const float*)vsc.data_ptr(),
+         (const long long*)loc.data_ptr(), (const int*)pt.data_ptr(),
+@@ -2034,7 +2103,7 @@ void nds(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
+ '''
+ try:
+     _NDS = _load_inline(
+-        name="muse_nds_a2s10",
++        name="muse_nds_a2s15p",
+         cpp_sources="void nds(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
+                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, "
+                     "int64_t, int64_t, int64_t);",
+@@ -2045,6 +2114,7 @@ except Exception as _e:  # noqa: BLE001
+     _NDS = None
+ # Decode sliding from this batch on nds (agent2 s10: nvs's producer + ONE consumer warpgroup for both KV heads, 8
+ # splits, 2 CTAs/SM at 96 launch registers): H100 decode 32 sliding 15.2 -> ~14.1 us. Batch 16 stays on csl.
++NDS_PAIR = '#define ND_PAIR 1' in _NDS_SRC
+ NDS_MIN_BATCH = 32
+ 
+ 
+@@ -3915,17 +3985,18 @@ def _decode_nds(data, cfg):
+     batch, hq, hkv, d = cfg["batch"], cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
+     qkv, device = data["qkv"], data["qkv"].device
+     S = 8  # 256 CTAs at batch 32, 2 per SM
++    S2 = S // 2 if NDS_PAIR else S  # ND_PAIR: the split pairs merged their partials in-cluster
+     chunk = triton.cdiv(triton.cdiv(cfg["window"], S), 64) * 64
+     rows = hq // hkv
+-    pacc = torch.empty((batch, hkv, S, rows, d), dtype=torch.float32, device=device)
+-    pml = torch.empty((batch, hkv, S, rows, 2), dtype=torch.float32, device=device)
++    pacc = torch.empty((batch, hkv, S2, rows, d), dtype=torch.float32, device=device)
++    pml = torch.empty((batch, hkv, S2, rows, 2), dtype=torch.float32, device=device)
+     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
+     _NDS.nds(qkv, _cos_sin(cfg["rope_theta"], d, device), data["k_cache"], data["v_cache"], data["k_scale"],
+              data["v_scale"], data["cache_loc"], data["page_table"], data["seq_lens"], pacc, pml, out,
+              cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E, S, chunk, cfg["window"])
+     _combine_hb[(batch, hq // 2)](
+         qkv, pacc, pml, data["v_scale"], out,
+-        HQ=hq, HKV=hkv, G=rows, L=1, M=rows, D=d, S=S, S_PAD=S, SB=S, HB=2,
++        HQ=hq, HKV=hkv, G=rows, L=1, M=rows, D=d, S=S2, S_PAD=S2, SB=S2, HB=2,
+         ONE=MERGE1, PDL=USE_PDL, num_warps=1, launch_pdl=USE_PDL)
+     return out
+ 

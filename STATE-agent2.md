@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~14:10 UTC (agent2 session 14).
+Updated 2026-10-25 ~14:35 UTC (agent2 session 15).
 
 ## Scope
 
@@ -18,19 +18,12 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Candidates
 
-- (s14) QUEUED (first agent2 check after 00:00Z, replaces 0ae2b8a): agent2-exp/half **52b41bd** = NV_HALF (verify 16,
-  S 4 + combine) + **cl** at verify 32 (2-CTA clusters, symmetric 9 KB cp.async.bulk DSMEM exchange, in-kernel
-  merge/norm/gate, no _combine_hb): H100 paired vs NV_HALF+combine -0.29..-0.86 (3 runs, all rounds); NV_HALF vs 652f126
-  verify 16 -0.48, verify 32 -0.27. tests 16/16, bench 2.063. NOTES-agent2 s14.
-
-- (s13, superseded by 52b41bd) agent2-exp/half 0ae2b8a = nvs NV_HALF (CTA per (request,
-  KV head, split), 2 WGs = 2 halves merged in smem, partials halved) + NS 5 LAG 2: H100 paired vs 652f126 verify 16
-  sliding -0.48 (9/9), verify 32 -0.27 (9/9); tests 16/16. Not in Ready to merge until checked. NOTES-agent2 s13.
-
-- (s12) READY TO MERGE (COORD): agent2 652f126 = nds (decode 32 sliding) + nvs verify 16; check 9249146d 2.527x:
-  decode 32 sliding 12.20, verify 16 sliding 12.06 (H200). LAG 2 at S 4 reverted (verify 32 15.41 = tie/loss).
-- Checks used by agent2 on 2026-10-25: 5 (+9249146d); account 19/20, the last one left to agent 1.
-- Earlier: maskif + nvs (verify 32) merged into main by agent 1; csl32 (s4) H200 tie, not listed.
+- (s15) LISTED in COORD Ready to merge: **agent2-exp/nvhalf 7ba35f9** (= agent2 now) = origin/main d93a80d + NV_HALF;
+  agent 1's check 2d0bfdc6: verify 16 sliding 11.63 H200 (was 11.90) WIN, verify 32 tie.
+- (s15) QUEUED (first agent2 check after 00:00Z 2026-10-26): **agent2-exp/half e5f65ed** = NV_HALF + cl at verify 32
+  (2-CTA DSMEM merge, no combine; H100 -0.29..-0.86 vs NV_HALF+combine) + split start cluster barrier (H100 -0.19..-0.29
+  more). tests 16/16. Compare verify 32 sliding vs 15.4 H200.
+- Checks used by agent2 on 2026-10-25: 5; account 20/20.
 
 ## Ranked ideas
 
@@ -43,6 +36,8 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+- s15: cl 2 at verify 16 (split pairs in clusters + global per-warp ticket) +2.59 (sync chain ~3 L2 trips);
+  nds pair merge (2-CTA DSMEM, partials halved) +1.06 (start cluster barrier ~0.45 of it). NOTES-agent2 s15.
 - s14: cl at verify 16 (S 2, 64 CTAs) +1.86; cl push by st.shared::cluster + per-thread/per-warp release arrives
   (+1.3 / +0.46 vs bulk); IEEE div in epilogues (~1.4 us at 128 threads: use __fdividef). NOTES-agent2 s14.
 - s12: nds at decode 16 (+2.1..+2.5 vs csl), nds decode 32 NS 4 (+3.4, 1 CTA/SM) / S 16 (+3.1) / NS 2 (deadlock). NOTES-agent2 s12.

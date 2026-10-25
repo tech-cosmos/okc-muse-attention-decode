@@ -642,3 +642,37 @@ Caveat: NV_HALF itself is H200-unchecked (s13), and the H100 doesn't always pred
   old nvs (needs NV_HALF as a template parameter so verify 16 can keep it).
 - The same cl exchange could replace _combine_hb wherever S == 2 fits one wave: nds (decode 32, S 8, 2 CTAs/SM) would
   need 8-CTA clusters (placement bad, s10/s12); a half/quarter nds with S 2 is a rewrite (consumers per CTA).
+
+## Session 15 (2026-10-25 14:01 - ~14:35 UTC): NV_HALF listed; nvs cl split start barrier -0.2..-0.3 (H100); 2 merge ideas dead
+
+Start: account checks 20/20 used today (0 left), so **0 checks**. Merged origin/main d93a80d (agent 1 s111-s113) into
+agent2 (3aaa979) and into agent2-exp/half (92118bc). Agent 1's check **2d0bfdc6** (main + 0ae2b8a's NV_HALF, s112) gave
+H200 verify 16 sliding **11.63** (e64d3450 11.90: WIN) and verify 32 15.43 (15.42: tie). Listed in COORD "Ready to
+merge": **agent2-exp/nvhalf 7ba35f9** = origin/main d93a80d + exactly 0ae2b8a's submission.py (tests 16/16); agent2
+now = 7ba35f9.
+
+### WIN (H100, unchecked): nvs cl start barrier split (agent2-exp/half e5f65ed)
+cl's kernel-start `barrier.cluster.arrive` + `wait` (makes the peer's clbar init visible before the DSMEM bulk copy)
+-> arrive.release at start, `barrier.cluster.wait.acquire` only in the 2 sending warps right before their copy
+(csl already does this). Paired vs 52b41bd-equivalent: verify 32 sliding **-0.29 (7/9), -0.19 (10/11)**; chk_nvs 7/7,
+tests 16/16. Found via the nds pair probe below (nds's start cluster barrier alone cost ~0.45 us).
+
+### DEAD (H100 paired, tools/a2/vab.py)
+- **cl 2 at verify 16** (NV_HALF S 4 as 2-CTA clusters = split pairs, cl exchange in-pair, then a per-warp global
+  ticket: each owner warp __stcg's its pair-merged rows, fence + atom.add.acq_rel.gpu; the later pair's warp merges
+  the other's rows from L2 and finishes; no _combine_hb; tools/a2/nvs_cl4t_dead.patch): **+2.59 (0/9)** vs S 4 +
+  combine. Ablation: cluster launch only (combine kept) tie (+0.03); no fences +1.8; no wait at all (pair 1 always
+  finishes, racy) still +2.5: the store -> fence -> atomic -> fence -> load chain (~3 serialized L2 trips) costs more
+  than the PDL combine it replaces. Same lesson as agent 1's s28 sfuse / s34 flag merges: no global cross-CTA sync.
+- **nds pair merge** (decode 32 sliding: split pairs as 2-CTA clusters, symmetric: rank r keeps KV head r, one 2.5 KB
+  bulk copy sends the other head's rows to the peer, partials + _combine_hb at S 4 instead of 8;
+  tools/a2/nds_pair_dead.patch, correct on 5 decode cases): **+1.06 (0/9), +1.09 (0/7)**; without the start
+  barrier.cluster (racy) still +0.45. Cluster-2 launch of nds alone (cudaLaunchKernelEx): +0.08 (noise). Halving the
+  combine's partials saves less than the DSMEM round trip costs; with a split barrier it would still be ~+0.5.
+
+### Next
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/half e5f65ed** (verify 16 = NV_HALF S 4 + combine, already
+  H200-won; verify 32 = cl + split barrier). If verify 32 wins vs 15.4, list it; else list only NV_HALF (already listed).
+- Merge structure summary for batched sliding (H100): PDL combine ~2 us; in-cluster DSMEM exchange ~1 us chain (only
+  wins when it removes the combine launch entirely: cl at S 2); global ticket/flag chains ~2.5 us. S 2 cl fits only
+  verify 32 (128 CTAs, 1/SM); 4-CTA clusters cap at 30 (< 32 needed at verify 16).
