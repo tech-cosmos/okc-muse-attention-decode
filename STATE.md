@@ -1,17 +1,16 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~09:55 UTC (session 102 = unattended session 35 of the #1-push brief).
+Updated 2026-10-25 ~10:00 UTC (session 103 = unattended session 36 of the #1-push brief).
+
+**s103: main bf12587 = plan red (in-grid FP32 atomic merge, 1 replica/request) on decode 16/32 full + dbal at decode 16:
+H100 paired decode 16 full -1.58 us (20/20), decode 32 full -1.09 (10/10), decode 1 full tie. H200 UNVERIFIED. Red on verify
+full = dead (consumer spills, +30/+49 us). NOTES s103.**
 
 **s102: SUBMITTED main (lead agent 08:58Z): 8725ba7e 2.460x (1531.2 us) = NEW ACCOUNT BEST. Full layers bimodal across
 judge nodes (decode 32 full 161.7 in 2 runs, 167.5-170.3 in ~20). Built exp/hdiag 63dd0fd: one H200 check times plan
 variants + a native gather floor for decode 1/16/32 full and verify 1 full (H100 dry run in NOTES s102). NOTES s102.**
 
-**s101: verify-full H200 overlap loss is NOT ring depth: diag check 6d7905ae (exp/vhdiag) of a decoupled FP16 V ring
-(exp/vhring, plan nh 2 / NS 4: 2 tiles in flight per CTA instead of 1) = tie/loss (verify 16 full 105.8-106.9 base vs
-107.8-108.1; verify 32 203.6-204.0 vs 204.3-205.6). Microbench dead: inter-WG ping-pong, dual-head ILP. Decode 1 full
-splits 511-1023 flat (not occupancy). main unchanged 1e4c80e. NOTES s101.**
-
-**Earlier (details in NOTES s91-s100): s100 vtk H200 win (verify 1 sliding 6.8 -> 5.6), launch floor ~2 us/kernel;
+**Earlier (details in NOTES s91-s101): s101 decoupled V ring in gbal = H200 tie/loss; s100 vtk H200 win (verify 1 sliding 6.8 -> 5.6), launch floor ~2 us/kernel;
 s99 physical-row order dead; s98/s97 vtk / nverify probes dead; s96 vtk built; s95 red (fixed-reference-max atomic
 merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
@@ -26,14 +25,14 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 ## Code state
 
-- main = cc93187 (submission.py = 1e4c80e = 4e63331 + s95 red + s96 vtk), SCORED 8725ba7e 2.460x = account best.
+- main = bf12587 (1e4c80e + s103 batched red/dbal for decode 16/32 full; unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
 - Dispatch: verify sliding B=1 -> native `vtk_verify` (s96); verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full` (batch 1: plan red, atomic merge + `_red_fin`); sliding + small -> Triton
   `_attn_split` + PDL merges.
 
 ## Budget (UTC day 2026-10-25; API: `okc problems --json`)
 
-- 2026-10-25 after s102: checks 18/20 (2 left = agent2's), scored 7/10 (8725ba7e from the lead agent's reserve).
+- 2026-10-25 after s103: checks 18/20 (2 left = agent2's), scored 7/10 (8725ba7e from the lead agent's reserve). s103: 0/0.
 
 
 - Today's judge runs are listed in ~/COORD.md "Judge runs" and NOTES s85-s91. Agent2 keeps >= 8 checks/day (it has used 1).
@@ -81,7 +80,9 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- **FIRST after 00:00Z 2026-10-26: check exp/hdiag 63dd0fd (DIAG, never submit): read `<variant>_gd_full` /
+- **FIRST after 00:00Z 2026-10-26: check main bf12587** (s103 red on decode 16/32 full); submit if it beats 1531.2 us.
+  If decode 16/32 full lose on the H200 (compare within the node's level), set BRED = False.
+- **SECOND: check exp/hdiag 63dd0fd (DIAG, never submit): read `<variant>_gd_full` /
   `_attn_split` / `hfloor` durations from the profile; port per-shape plan winners to main, then check main.**
   (main 1e4c80e was scored in s102: 8725ba7e 2.460x; don't resubmit it unchanged.)
 
@@ -89,6 +90,8 @@ numbers: NOTES s69.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s103: red on verify full (consumer spills at cregs 96-104), decode 1 red NR != 4, pre-summing atomics (atomics cost ~0),
+  _combine_bal hb/cw.
 - s101: decoupled V ring / more gathers in flight in gbal (H200 diag tie/loss), FA3 ping-pong, dual-head ILP (microbench), decode 1 full splits.
 - s99: per-program physical order in _gd_full (pre-pass >= copy floor; aligned-sort ceiling only -3.3%).
 - s98: vtk coalesced page table + shfl (tie), cluster size vs launch floor (none).

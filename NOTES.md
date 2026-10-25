@@ -4544,3 +4544,47 @@ and whether any plan variant wins there; port winners to main per shape, then ch
 ### Budget (UTC day 2026-10-25)
 - s102: 0 checks, 1 scored (8725ba7e). Account: checks 18/20 (2 left = agent2's), scored 7/10. Claude's submits today
   are used (this one came from the lead agent's reserve).
+
+## Session 103 (unattended session 36, 2026-10-25 09:19 - ~10:00 UTC): plan red on batched decode full (H100 win, on main)
+
+Board 09:20Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 abhishekgahlot2 2.710x; ours 2.460x (8725ba7e). Account:
+checks 18/20 (the 2 left are agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored this session.**
+Tools: tools/s103/tail.py (whole call vs first kernel with merge kernels no-op'd = merge tail), tools/s103/cmp.py
+(outputs of several submission files vs the first; use with a forced-fallback copy to test red's exact path).
+
+### Merge tails on the full layers (H100, tail.py)
+Whole minus attention-kernel-alone: verify 16 full 3.2-3.65 us, verify 32 full 3.5-4.1, decode 16 full 3.6-3.9, decode
+32 full 3.0-3.25. Weighted, that is ~0.4 % overall per us summed over the four shapes.
+
+### Decode 1 full red internals (dead ends)
+- Atomics vs plain stores in `_gd_red_add` (timing only): -0.06 us. The atomic burst is not the cost; s102's "pre-sum
+  4 warps in smem before the atomics" idea is dead.
+- Replicas NR (paired vs 4): 1 +3.73, 2 +0.99, 6 -0.02, 8 +0.11, 16 +0.98. 4 stays.
+
+### WIN (H100): plan red on batched decode full (main d4e6c17 + bf12587)
+`_gd_full`'s RED path now works per request: request b's sums at b * NR * M * (D + 1), its out-of-range list at b * RCW
+(RCW = slots + 2; listed entries are partial slots, BAL: ids), `_red_fin` grid (batch,) (BAL/SL/RCW constexprs; batch 1
+compiles as before: RCW 0). Batched buffers are per batch size (`_red_buf(..., tag)`, `_counters(..., "r<B>")`) so a
+larger shape never reallocates a buffer an earlier graph captured. Replicas BNR = 1 for batched (paired vs NR 4:
+decode 16/32 full NR 1 -0.94/-1.18, 2 -0.02/-0.70, 4 +0.75/-0.65 vs _combine, 8 +3.4/+1.1: unlike batch 1's 511-way
+contention, fewer distinct lines win at 32-64 adds per address). With red replacing `_combine_bal`, **dbal now wins at
+decode 16 too** (-1.54 us, 10/10, vs equal splits + red; dprogs 768 -0.63 at 16 but +3.5 at 32; 512/1536 lose).
+- Final, paired vs previous main (1e4c80e code): **decode 16 full -1.58 us (20/20), decode 32 full -1.09 (10/10)**
+  (earlier run -1.32, 12/12); decode 1 full tie (+0.12, = the A/A order bias +0.09 of tools/s55/abalt.py).
+- Remaining tail with red: 1.5-2.5 us (`_red_fin` after the PDL wait). Outputs vs old main rel L2 <= 1.5e-4 (BF16
+  rounding; atomic order varies); forced-fallback copy (every partial listed) <= 6e-5. Tests 16/16.
+- Expected H200: ~-1..-1.5 us on decode 16/32 full = ~+0.25 % overall (unverified: check main first tomorrow).
+
+### Dead: plan red on verify 16/32 full (gbal `_gw_verify`)
+Consumers atomically add each segment's [64, 64] partial into (request, KV head) sums + `_red_fin_v` (exact merge with
+the new-token slot and listed partials). Correct (rel L2 <= 2.3e-5, fallback too) but **+30/+49 us** (verify 16/32 full):
+the consumer partition (cregs 96) spills (~100 STL/LDL). Variants: atomics from the wgmma layout (no convert) +9; branch-free
+(always store + zero-weight add) +11.5; cregs 104 +7.5 (32 spills), 112 +143; plain stores instead of atomics still +6.3.
+So any extra epilogue in the verify consumer costs more than the ~3.5 us tail. (Code not kept; s81's lesson again.)
+- `_combine_bal` hb/cw sweep at verify 16/32 full (hb 1/4/8, cw 2/4): ties within 0.7 us. Already tuned.
+
+### Next
+- **First check after 00:00Z 2026-10-26: main bf12587** (= 8725ba7e's code + red on decode 16/32 full + dbal at 16).
+  Compare decode 16/32 full within the same node level (judge full layers are bimodal, s102); submit if the score beats
+  1531.2 us (2.460x). Then exp/hdiag (diag only; based on the old main, fine for its plan/floor questions).
+- Decode 16 dprogs 768 (-0.63 H100) only if the H200 shows red/dbal winning there.
