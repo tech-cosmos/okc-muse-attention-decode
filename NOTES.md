@@ -5193,6 +5193,14 @@ check of main (decode 1 full; e64d3450 13.57 us). Expected ~-0.2..-0.3 us = ~0.1
 - Verify 1 full `_combine` cw 8/16 (paired, 15 rounds): tie (128 programs already in parallel; the warp-count lever is
   specific to `_red_fin`'s single program). verify 16 full `_combine_bal` cw 2/4, hb 1/4: +1.5..+2.4 (as s103).
 
+### Marginal, NOT on main: exp/ua (plan `ua` = unaligned equal chunks in `_gd_full`, + `sep` new-token program)
+Decode 1 full, H100 paired vs main: 511+sep+ua -0.35 (11/11), -0.08 (9/11), -0.26 (19/21); **505+sep+ua -0.34 (20/21),
+-0.20 (18/21), -0.15 (6/11)**; 500+sep aligned (no empty programs) -0.14 (16/21); 505+sep aligned -0.03. So "fewer empty
+programs" is worth ~0.1-0.2 at most, inside the noise of single runs. **527+sep+ua (528 programs = exactly 4 per SM)
++0.86 every time** and chunks > 160 keys (6 tiles: 495, 480) +0.5..+0.6; fewer programs per SM with deeper stages (395 /
+263 programs, stages 3/4) +0.9..+5.4 (the per-program tile chain dominates). Not H200-worthy on its own; if a diag slot
+is free, `{"splits": 505, "sep": 1, "ua": true}` is the variant to time.
+
 ### Next (after 00:00Z 2026-10-26, new sandbox)
 1. Check main **ae1161c** code (= 5e3d586 + `_red_fin` 16 warps): changed shapes vs e64d3450 are verify 16 sliding
    (NV_HALF, H200 11.63 in 2d0bfdc6) and decode 1 full (expect ~-0.2); submit if it beats 1481.9 us.
