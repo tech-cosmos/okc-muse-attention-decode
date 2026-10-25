@@ -1349,6 +1349,8 @@ except Exception as _e:  # noqa: BLE001
     print("nvs build failed, using Triton:", _e)
     _NVS = None
 NVS_HALF = '#define NV_HALF 1' in _NVS_SRC
+NVS_FULL1 = False  # s121 prototype: verify 1 full on nvs
+NVS_F1_S = 64
 NVS_MIN_BATCH = 16  # verify sliding from this batch on nvs (verify 32: H100 paired -1.66 us, H200 16.64 -> 15.28/15.07;
 # verify 16 with 8 splits: H100 paired -0.38 us in s9 (6/7), but the H200 tied 12.63 vs 12.63 in check baea7057)
 
@@ -1952,6 +1954,9 @@ print(f"env: torch {torch.__version__}, triton {triton.__version__}", flush=True
 def _cos_sin(theta, d, device):
     """[2^21, d] float32 cos | sin, built as SGLang's RotaryEmbedding (and the reference) do."""
     cache = _ROPE.get(theta)
+    if cache is None and not theta:  # s121: no RoPE (full layers) as the identity rotation, for native kernels
+        cache = _ROPE[theta] = torch.cat((torch.ones(ROPE_POSITIONS, d // 2, device=device),
+                                          torch.zeros(ROPE_POSITIONS, d // 2, device=device)), dim=-1).contiguous()
     if cache is None:
         inv_freq = 1.0 / (theta ** (torch.arange(0, d, 2, dtype=torch.float, device=device) / d))
         ang = torch.arange(ROPE_POSITIONS, dtype=torch.float, device=device)[:, None] * inv_freq
@@ -3756,7 +3761,11 @@ def _verify_nvs(data, cfg):
     """Verify sliding (L 8, G 8, D 64, HKV 2, page 1) on the native nvs kernel + _combine_hb."""
     batch, length, hq, hkv, d = cfg["batch"], cfg["q_len"], cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
     qkv, device = data["qkv"], data["qkv"].device
-    if NVS_HALF:  # CTA (request, KV head, split), 2 halves per split merged in the CTA
+    span = cfg["window"] or data["page_table"].shape[1]  # s121: full layers (window 0) at batch 1
+    if not cfg["window"]:
+        S = NVS_F1_S
+        chunk = triton.cdiv(triton.cdiv(span, S), 128) * 128
+    elif NVS_HALF:  # CTA (request, KV head, split), 2 halves per split merged in the CTA
         S = 2 if batch >= 32 else 4
         chunk = triton.cdiv(triton.cdiv(cfg["window"], S), 128) * 128
     else:
@@ -3821,6 +3830,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         return out
     if _NVS is not None and cfg["window"] == 2048 and length == 8 and batch >= NVS_MIN_BATCH and hq == 16 \
             and hkv == 2 and d == 64 and cfg["page_size"] == 1 and cfg["rope_theta"]:
+        return _verify_nvs(data, cfg)
+    if NVS_FULL1 and _NVS is not None and NVS_HALF and not cfg["window"] and length == 8 and batch == 1 and hq == 16 \
+            and hkv == 2 and d == 64 and cfg["page_size"] == 1:
         return _verify_nvs(data, cfg)
     if _NDS is not None and cfg["window"] == 2048 and length == 1 and batch >= NDS_MIN_BATCH and hq == 16 \
             and hkv == 2 and d == 64 and cfg["page_size"] == 1 and cfg["rope_theta"]:
