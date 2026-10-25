@@ -1,0 +1,196 @@
+diff --git a/tools/a2/nds.cu b/tools/a2/nds.cu
+index 67f1a89..16336c5 100644
+--- a/tools/a2/nds.cu
++++ b/tools/a2/nds.cu
+@@ -31,6 +31,12 @@ constexpr int BN = 64, HD = 64, MR = 64;
+ #ifndef NV_TR
+ #define NV_TR 1
+ #endif
++#ifndef NC4
++#define NC4 0
++#endif
++#ifndef NC_PDL
++#define NC_PDL 1
++#endif
+ #ifndef NV_LAZY
+ #define NV_LAZY 0
+ #endif
+@@ -527,6 +533,142 @@ const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ cs,
+         dconsumer<NS>(sm, qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0], vsc[0], out);
+     }
+ }
++// NDS_NC: native combine (= _combine_hb) for nds's partials, PDL-launched (diagnostic). NC_MODE 0 full, 1 wait only,
++// 2 wait + loads + trivial store.
++#ifndef NC_T
++#define NC_T 128
++#endif
++#ifndef NC_MODE
++#define NC_MODE 0
++#endif
++__global__ void __launch_bounds__(NC_T) ndsc(const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ pacc,
++                                            const float* __restrict__ pml, const float* __restrict__ vsc,
++                                            __nv_bfloat16* __restrict__ out, int S, int qkv_w) {
++    const int b = blockIdx.x / (128 / NC_T), tid = threadIdx.x + (blockIdx.x % (128 / NC_T)) * NC_T;
++    const int r = tid >> 3, d0 = (tid & 7) * 8, h = r >> 3, qh = r & 7;
++    const uint4 graw = *reinterpret_cast<const uint4*>(qkv + (long long)b * qkv_w + (16 + 4) * HD + r * HD + d0);
++    const float vsv = vsc[0];
++    float sg[8];
++    {
++        const __nv_bfloat162* g2 = reinterpret_cast<const __nv_bfloat162*>(&graw);
++#pragma unroll
++        for (int k = 0; k < 4; ++k) {
++            const float2 g = __bfloat1622float2(g2[k]);
++            sg[2 * k] = __frcp_rn(1.f + ex2(-1.4426950408889634f * g.x));
++            sg[2 * k + 1] = __frcp_rn(1.f + ex2(-1.4426950408889634f * g.y));
++        }
++    }
++    asm volatile("griddepcontrol.wait;" ::: "memory");
++    if (NC_MODE == 1) {
++        if (sg[0] == 12345.f) out[0] = __float2bfloat16(sg[1]);
++        return;
++    }
++    float4 a0[8], a1[8];
++    float2 ml[8];
++    const long long base = (((long long)b * 2 + h) * S) * 8 + qh;
++#pragma unroll
++    for (int sp = 0; sp < 8; ++sp) {
++        if (sp < S) {
++            const long long row = base + sp * 8;
++            ml[sp] = *reinterpret_cast<const float2*>(pml + row * 2);
++            if (NC_MODE != 3) {
++            a0[sp] = *reinterpret_cast<const float4*>(pacc + row * HD + d0);
++            a1[sp] = *reinterpret_cast<const float4*>(pacc + row * HD + d0 + 4);
++            } else { a0[sp] = make_float4(0, 0, 0, 0); a1[sp] = a0[sp]; }
++        }
++    }
++    if (NC_MODE == 2 || NC_MODE == 3) {
++        float t = 0.f;
++#pragma unroll
++        for (int sp = 0; sp < 8; ++sp) if (sp < S) t += ml[sp].x + a0[sp].x + a1[sp].y;
++        if (t == 12345.f) out[0] = __float2bfloat16(sg[1]);
++        return;
++    }
++    float mx = -1e30f;
++#pragma unroll
++    for (int sp = 0; sp < 8; ++sp) if (sp < S) mx = fmaxf(mx, ml[sp].x);
++    float den = 0.f, acc[8];
++#pragma unroll
++    for (int k = 0; k < 8; ++k) acc[k] = 0.f;
++#pragma unroll
++    for (int sp = 0; sp < 8; ++sp) {
++        if (sp < S) {
++            const float wt = ex2(ml[sp].x - mx);
++            den += wt * ml[sp].y;
++            acc[0] += wt * a0[sp].x; acc[1] += wt * a0[sp].y; acc[2] += wt * a0[sp].z; acc[3] += wt * a0[sp].w;
++            acc[4] += wt * a1[sp].x; acc[5] += wt * a1[sp].y; acc[6] += wt * a1[sp].z; acc[7] += wt * a1[sp].w;
++        }
++    }
++    const float sc = vsv * __frcp_rn(den);
++    float ss = 0.f;
++#pragma unroll
++    for (int k = 0; k < 8; ++k) { acc[k] *= sc; ss += acc[k] * acc[k]; }
++    ss += __shfl_xor_sync(0xffffffff, ss, 1);
++    ss += __shfl_xor_sync(0xffffffff, ss, 2);
++    ss += __shfl_xor_sync(0xffffffff, ss, 4);
++    const float rs = rsqrtf(ss * (1.f / HD) + 1e-5f);
++    uint32_t ov[4];
++#pragma unroll
++    for (int k = 0; k < 4; ++k) {
++        __nv_bfloat162 o2 = __floats2bfloat162_rn(acc[2 * k] * rs * sg[2 * k], acc[2 * k + 1] * rs * sg[2 * k + 1]);
++        ov[k] = *reinterpret_cast<uint32_t*>(&o2);
++    }
++    *reinterpret_cast<uint4*>(out + (long long)b * 16 * HD + r * HD + d0) = make_uint4(ov[0], ov[1], ov[2], ov[3]);
++}
++// 4 d per thread: 256 threads per request.
++__global__ void __launch_bounds__(NC_T) ndsc4(const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ pacc,
++                                             const float* __restrict__ pml, const float* __restrict__ vsc,
++                                             __nv_bfloat16* __restrict__ out, int S, int qkv_w) {
++    const int b = blockIdx.x / (256 / NC_T), tid = threadIdx.x + (blockIdx.x % (256 / NC_T)) * NC_T;
++    const int r = tid >> 4, d0 = (tid & 15) * 4, h = r >> 3, qh = r & 7;
++    const uint2 graw = *reinterpret_cast<const uint2*>(qkv + (long long)b * qkv_w + (16 + 4) * HD + r * HD + d0);
++    const float vsv = vsc[0];
++    float sg[4];
++    {
++        const __nv_bfloat162* g2 = reinterpret_cast<const __nv_bfloat162*>(&graw);
++#pragma unroll
++        for (int k = 0; k < 2; ++k) {
++            const float2 g = __bfloat1622float2(g2[k]);
++            sg[2 * k] = __frcp_rn(1.f + ex2(-1.4426950408889634f * g.x));
++            sg[2 * k + 1] = __frcp_rn(1.f + ex2(-1.4426950408889634f * g.y));
++        }
++    }
++    asm volatile("griddepcontrol.wait;" ::: "memory");
++    float4 a0[8];
++    float2 ml[8];
++    const long long base = (((long long)b * 2 + h) * S) * 8 + qh;
++#pragma unroll
++    for (int sp = 0; sp < 8; ++sp) {
++        if (sp < S) {
++            const long long row = base + sp * 8;
++            ml[sp] = *reinterpret_cast<const float2*>(pml + row * 2);
++            a0[sp] = *reinterpret_cast<const float4*>(pacc + row * HD + d0);
++        }
++    }
++    float mx = -1e30f;
++#pragma unroll
++    for (int sp = 0; sp < 8; ++sp) if (sp < S) mx = fmaxf(mx, ml[sp].x);
++    float den = 0.f, acc[4] = {0.f, 0.f, 0.f, 0.f};
++#pragma unroll
++    for (int sp = 0; sp < 8; ++sp) {
++        if (sp < S) {
++            const float wt = ex2(ml[sp].x - mx);
++            den += wt * ml[sp].y;
++            acc[0] += wt * a0[sp].x; acc[1] += wt * a0[sp].y; acc[2] += wt * a0[sp].z; acc[3] += wt * a0[sp].w;
++        }
++    }
++    const float sc = vsv * __frcp_rn(den);
++    float ss = 0.f;
++#pragma unroll
++    for (int k = 0; k < 4; ++k) { acc[k] *= sc; ss += acc[k] * acc[k]; }
++#pragma unroll
++    for (int o = 1; o < 16; o <<= 1) ss += __shfl_xor_sync(0xffffffff, ss, o);
++    const float rs = rsqrtf(ss * (1.f / HD) + 1e-5f);
++    __nv_bfloat162 o0 = __floats2bfloat162_rn(acc[0] * rs * sg[0], acc[1] * rs * sg[1]);
++    __nv_bfloat162 o1 = __floats2bfloat162_rn(acc[2] * rs * sg[2], acc[3] * rs * sg[3]);
++    *reinterpret_cast<uint2*>(out + (long long)b * 16 * HD + r * HD + d0) =
++        make_uint2(*reinterpret_cast<uint32_t*>(&o0), *reinterpret_cast<uint32_t*>(&o1));
++}
+ }  // namespace nv
+ 
+ void nds(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc, torch::Tensor ks, torch::Tensor vsc,
+@@ -544,4 +686,22 @@ void nds(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
+         (const long long*)loc.data_ptr(), (const int*)pt.data_ptr(),
+         (const int*)seq.data_ptr(), (float*)pacc.data_ptr(), (float*)pml.data_ptr(), (float)qk_scale, (int)S, (int)ch,
+         (int)pt.size(1), (int)qkv.size(-1), (int)win, (__nv_bfloat16*)out.data_ptr());
++#ifdef NDS_NC
++    cudaLaunchConfig_t cfg = {};
++#ifdef NC4
++    cfg.gridDim = dim3((unsigned)(B * (256 / NC_T)));
++#else
++    cfg.gridDim = dim3((unsigned)(B * (128 / NC_T)));
++#endif
++    cfg.blockDim = dim3(NC_T);
++    cfg.stream = c10::cuda::getCurrentCUDAStream();
++    cudaLaunchAttribute at[1];
++    at[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
++    at[0].val.programmaticStreamSerializationAllowed = NC_PDL;
++    cfg.attrs = at;
++    cfg.numAttrs = 1;
++    cudaLaunchKernelEx(&cfg, NC4 + 0 ? nv::ndsc4 : nv::ndsc, (const __nv_bfloat16*)qkv.data_ptr(), (const float*)pacc.data_ptr(),
++                       (const float*)pml.data_ptr(), (const float*)vsc.data_ptr(), (__nv_bfloat16*)out.data_ptr(),
++                       (int)S, (int)qkv.size(-1));
++#endif
+ }
+diff --git a/tools/a2/nds.py b/tools/a2/nds.py
+index dea87b0..7ffb7a6 100644
+--- a/tools/a2/nds.py
++++ b/tools/a2/nds.py
+@@ -9,7 +9,7 @@ src = open("/home/daytona/repo2/tools/a2/nds.cu").read()
+ mod = load_inline(name=f"a2nds_{abs(hash(src + str(defs))) % 10**10}",
+     cpp_sources="void nds(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, int64_t, int64_t, int64_t);",
+     cuda_sources=src, functions=["nds"], extra_cuda_cflags=["-gencode=arch=compute_90a,code=sm_90a", "-O3"] + defs)
+-CL = any("NDS_CL" in x and not x.endswith("=0") for x in defs)
++CL = any(("NDS_CL" in x or "NDS_NC" in x) and not x.endswith("=0") for x in defs)
+ HB = int(os.environ.get('NDS_HB', '2')); CW = int(os.environ.get('NDS_CW', '1'))
+ SS = [int(x) for x in os.environ.get("NDS_S", "4").split(",")]
+ 
