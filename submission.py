@@ -12,6 +12,7 @@
 
 from typing import TypedDict
 
+import os
 import torch
 import triton
 import triton.language as tl
@@ -903,6 +904,8 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
+RED_DBG = tl.constexpr(int(os.environ.get('RED_DBG', 0)))
+RED_NR = int(os.environ.get('RED_NR', 4))
 LZ = 3  # _gw_verify softmax: 3 = exact per-warp lazy max (session 79), 0 = per-tile row max + rescale
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
@@ -931,6 +934,14 @@ def _counters(n, device, tag=""):
     buf = _COUNTERS.get((device, tag))
     if buf is None or buf.numel() < n:
         buf = _COUNTERS[(device, tag)] = torch.zeros(max(n, 4096), dtype=torch.int32, device=device)
+    return buf
+
+
+def _red_buf(n, device):
+    """Zeroed FP32 sums for plan red's in-grid merge; each call leaves them zeroed again."""
+    buf = _COUNTERS.get((device, "red"))
+    if buf is None or buf.numel() < n:
+        buf = _COUNTERS[(device, "red")] = torch.zeros(n, dtype=torch.float32, device=device)
     return buf
 
 
@@ -1374,7 +1385,8 @@ if HAVE_GLUON:
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
                  SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True,
                  BAL: gl.constexpr = False, B: gl.constexpr = 1, B_PAD: gl.constexpr = 32, NP: gl.constexpr = 1,
-                 NID: gl.constexpr = 1):
+                 NID: gl.constexpr = 1, RED: gl.constexpr = False, red_ptr=None, rcnt_ptr=None, out_ptr=None,
+                 NR: gl.constexpr = 4, epi=True):
         h = gl.program_id(2) * 2
         if BAL:
             # Length-proportional splits (plan dbal, full layers): the NP programs of a KV head pair go to the
@@ -1555,6 +1567,14 @@ if HAVE_GLUON:
         # SEP: an extra program (split S) only handles the new token; it stores no key partial.
         keyp = split < nsp
         own = own & keyp
+        if RED:
+            # The merge in this grid (plan red, batch 1, one KV head pair): every program adds its partial into
+            # FP32 sums relative to the fixed reference max 0 (exact while its max m is in [-60, 100]: no
+            # overflow, nothing it contributes falls below FP32's normal range); out-of-range programs store
+            # their partial instead and the last program merges those exactly.
+            bad = (l_i > 0.0) & ((m_i > 100.0) | (m_i < -60.0))
+            flg = gl.max(bad.to(gl.int32), 0) > 0
+            keyp = keyp & flg
         if TPV:
             dd = gl.arange(0, D, layout=gl.SliceLayout(1, MMA))
             gg = gl.arange(0, G, layout=gl.SliceLayout(0, MMA))
@@ -1596,6 +1616,93 @@ if HAVE_GLUON:
                      mask=q_ok)
             gl.store(pml_ptr + pn * 2, sn)
             gl.store(pml_ptr + pn * 2 + 1, gl.full([M], 1.0, gl.float32, gl.SliceLayout(1, BL)))
+            if RED:
+                if epi:
+                    nbad = gl.max(((sn > 100.0) | (sn < -60.0)).to(gl.int32), 0) > 0
+                    if nbad:
+                        gl.store(rcnt_ptr + 2 + gl.atomic_add(rcnt_ptr + 1, 1, sem="relaxed", scope="gpu"), S)
+                    else:
+                        fn = gl.exp2(sn)
+                        nrep = (split + 1) % NR
+                        gl.atomic_add(red_ptr + ((nrep * M + r) * D)[:, None] + (c_g % D)[None, :],
+                                      vq.to(gl.float32) * fn[:, None], mask=q_ok, sem="relaxed", scope="gpu")
+                        gl.atomic_add(red_ptr + NR * M * D + nrep * M + r, fn, mask=r >= 0, sem="relaxed",
+                                      scope="gpu")
+        if RED:
+            if epi:
+                _gd_red_tail(acc, m_i, l_i, flg, split, b, h, qkv_ptr, vs_ptr, pacc_ptr, pml_ptr, red_ptr, rcnt_ptr,
+                             out_ptr, HQ, HKV, G, D, M, S, NR, S + SEP)
+
+    @gluon.jit
+    def _gd_red_tail(acc, m_i, l_i, flg, split, b, h, qkv_ptr, vs_ptr, pacc_ptr, pml_ptr, red_ptr, rcnt_ptr, out_ptr,
+                     HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, M: gl.constexpr,
+                     S: gl.constexpr, NR: gl.constexpr, TOTAL: gl.constexpr):
+        """plan red: add this program's partial (acc [M, D], m, l in the mma layout) to the sums at reference 0,
+        or list it (flg); the last program to arrive finishes: sums + listed partials, RMSNorm, gate, store, and
+        leaves the sums and counters zeroed for the next call."""
+        MMA: gl.constexpr = gl.NVMMADistributedLayout(version=[2, 0], warps_per_cta=[1, 1], instr_shape=[16, 8])
+        ML: gl.constexpr = gl.BlockedLayout([1, 4], [2, 16], [1, 1], [1, 0])
+        QKV_W: gl.constexpr = (2 * HQ + 2 * HKV) * D
+        ro = gl.arange(0, M, layout=gl.SliceLayout(1, MMA))
+        cd = gl.arange(0, D, layout=gl.SliceLayout(0, MMA))
+        rep = split % NR
+        DBG: gl.constexpr = RED_DBG.value
+        if DBG == 1:
+            pass
+        elif flg:
+            gl.store(rcnt_ptr + 2 + gl.atomic_add(rcnt_ptr + 1, 1, sem="relaxed", scope="gpu"), split)
+        else:
+            f = gl.where(l_i > 0.0, gl.exp2(m_i), 0.0)
+            av = gl.convert_layout(acc * f[:, None], ML)
+            r4 = gl.arange(0, M, layout=gl.SliceLayout(1, ML))
+            c4 = gl.arange(0, D, layout=gl.SliceLayout(0, ML))
+            gl.atomic_add(red_ptr + ((rep * M + r4) * D)[:, None] + c4[None, :], av, sem="relaxed", scope="gpu")
+            gl.atomic_add(red_ptr + NR * M * D + rep * M + ro, l_i * f, sem="relaxed", scope="gpu")
+        rr = gl.arange(0, M, layout=gl.SliceLayout(1, ML))
+        cc = gl.arange(0, D, layout=gl.SliceLayout(0, ML))
+        col = ((h * G + rr) * D)[:, None] + cc[None, :]
+        gate = gl.load(qkv_ptr + b * QKV_W + (HQ + 2 * HKV) * D + col).to(gl.float32)
+        vs = gl.load(vs_ptr)
+        gl.barrier()
+        if DBG == 2:
+            old = 0
+        elif DBG == 3 or DBG == 5:
+            old = gl.atomic_add(rcnt_ptr, 1, sem="relaxed", scope="gpu")
+        else:
+            old = gl.atomic_add(rcnt_ptr, 1, sem="acq_rel", scope="gpu")
+        if DBG >= 3 and DBG <= 4:
+            if old == TOTAL - 1:
+                gl.atomic_xchg(rcnt_ptr, 0, sem="relaxed", scope="gpu")
+        elif old == TOTAL - 1:
+            gl.inline_asm_elementwise("fence.acq_rel.gpu;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
+            a_t = gl.zeros([M, D], gl.float32, layout=ML)
+            l_t = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, ML))
+            for k in gl.static_range(NR):
+                a_t += gl.load(red_ptr + ((k * M + rr) * D)[:, None] + cc[None, :], cache_modifier=".cg")
+                l_t += gl.load(red_ptr + NR * M * D + k * M + rr, cache_modifier=".cg")
+            nf = gl.load(rcnt_ptr + 1, cache_modifier=".cg")
+            for k in gl.static_range(NR):
+                gl.store(red_ptr + ((k * M + rr) * D)[:, None] + cc[None, :], gl.zeros([M, D], gl.float32, ML))
+                gl.store(red_ptr + NR * M * D + k * M + rr, gl.zeros([M], gl.float32, gl.SliceLayout(1, ML)))
+            m_t = gl.where(l_t > 0.0, 0.0, -1.0e30)
+            for i in range(nf):
+                s = gl.load(rcnt_ptr + 2 + i, volatile=True)
+                prow = ((b * HKV + h + rr // G) * (S + 1) + s) * G + rr % G
+                mp = gl.load(pml_ptr + prow * 2, volatile=True)
+                lp = gl.load(pml_ptr + prow * 2 + 1, volatile=True)
+                ap = gl.load(pacc_ptr + (prow * D)[:, None] + cc[None, :], volatile=True).to(gl.float32)
+                mp = gl.where(lp > 0.0, mp, -1.0e30)
+                mn = gl.maximum(m_t, mp)
+                a1 = gl.exp2(m_t - mn)
+                a2 = gl.where(lp > 0.0, gl.exp2(mp - mn), 0.0)
+                l_t = l_t * a1 + lp * a2
+                a_t = a_t * a1[:, None] + ap * a2[:, None]
+                m_t = mn
+            gl.store(rcnt_ptr + 1, 0)
+            gl.atomic_xchg(rcnt_ptr, 0, sem="relaxed", scope="gpu")
+            o = a_t / l_t[:, None] * vs
+            o = o * gl.rsqrt(gl.sum(o * o, 1) / D + 1e-5)[:, None]
+            gl.store(out_ptr + b * HQ * D + col, (o * (1.0 / (1.0 + gl.exp(-gate)))).to(gl.bfloat16))
 
     # The rare redo path of _gd_full's SPEC, out of line.
     _gd_full_redo = gluon.jit(noinline=True)(_gd_full_body.fn)
@@ -1607,16 +1714,17 @@ if HAVE_GLUON:
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
                  SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True,
                  BAL: gl.constexpr = False, B: gl.constexpr = 1, B_PAD: gl.constexpr = 32, NP: gl.constexpr = 1,
-                 NID: gl.constexpr = 1, SPEC: gl.constexpr = 0):
+                 NID: gl.constexpr = 1, SPEC: gl.constexpr = 0, RED: gl.constexpr = False, red_ptr=None,
+                 rcnt_ptr=None, out_ptr=None, NR: gl.constexpr = 4):
         # SPEC > 0 (batch 1, page 1): seq = table width - 1 known from the shape (SGLang slices the page table to the
         # batch's longest length); start on it, redo with the real length if it differs (as in _attn_split).
         if SPEC > 0:
             real = gl.load(seq_ptr + gl.program_id(1))
-            _gd_full_body(SPEC, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
+            _gd_full_body(SPEC, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, real == SPEC)
             if real != SPEC:
-                _gd_full_redo(real, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
+                _gd_full_redo(real, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, True)
         else:
-            _gd_full_body(0, False, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
+            _gd_full_body(0, False, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, True)
 
     @gluon.jit
     def _gw_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
@@ -2644,6 +2752,7 @@ def _decode_gluon(data, cfg, plan):
     pml = torch.empty((batch, hkv, s, group, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
     sep = plan.get("sep", False)
+    red = plan.get("red", False) and batch == 1 and hkv == 2
     _gd_full[(splits + sep, batch, hkv // 2)](
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
         data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
@@ -2652,7 +2761,11 @@ def _decode_gluon(data, cfg, plan):
         BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
         ROPE=bool(cfg["rope_theta"]), SEP=sep, Q16=plan.get("q16", True),
         KST=plan.get("kst", True),
-        SPEC=page_table.shape[1] - 1 if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 else 0, num_warps=1)
+        SPEC=page_table.shape[1] - 1 if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 else 0,
+        **(dict(RED=True, red_ptr=_red_buf(RED_NR * 2 * group * (d + 1), device), rcnt_ptr=_counters(s + 3, device, "r"),
+                out_ptr=out, NR=RED_NR) if red else {}), num_warps=1)
+    if red:
+        return out
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch, hq // hb)](
