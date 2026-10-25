@@ -1,6 +1,6 @@
 """Paired A/B of submission.py variants on the batched sliding shapes (H100, bench.run_shape).
   python tools/a2/vab.py ROUNDS "verify 32,verify 16" 'name|old=>new|old=>new' ...
-Variant 0 is the unmodified submission (with NVS_MIN_BATCH 16 if 'nvs16' is given as a variant name prefix)."""
+A variant spec "name@/path/sub.py|..." starts from that file instead. Variant 0 is the unmodified submission (with NVS_MIN_BATCH 16 if 'nvs16' is given as a variant name prefix)."""
 import sys, os, statistics, importlib, hashlib
 sys.path.insert(0, "/home/daytona/repo2/tools"); sys.path.insert(0, "/tmp/a2v")
 import bench
@@ -9,6 +9,7 @@ base = open(os.environ.get("VAB_BASE", "/home/daytona/repo2/submission.py")).rea
 mods = []
 for spec in ["base"] + sys.argv[3:]:
     parts = spec.split("|"); name = parts[0]; src = base
+    if "@" in name: name, path = name.split("@"); src = open(path).read()  # name@file: a whole submission file
     for p in parts[1:]:
         old, new = p.split("=>")
         assert old in src, f"{name}: {old!r} not found"

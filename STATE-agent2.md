@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~12:15 UTC (agent2 session 11).
+Updated 2026-10-25 ~14:10 UTC (agent2 session 14).
 
 ## Scope
 
@@ -12,66 +12,62 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 | shape | H200 us | H100 us | per-us value | path |
 |---|---|---|---|---|
 | decode 16 sliding | 8.19 | 9.60 | 0.42 %/us | native csl (16-CTA cluster/request) |
-| decode 32 sliding | 13.97 | 15.17 | 0.23 | Triton _attn_split (512 progs) + _combine_hb (agent2: nds 13.94 H100) |
-| verify 16 sliding | 12.75 | 14.27 | 0.31 | Triton (256 progs, 4 x 64-key tiles) + _combine_hb |
+| decode 32 sliding | 13.97 (nds: **12.20**) | 15.17 (nds 13.7) | 0.23 | Triton; agent2 652f126: nds + _combine_hb |
+| verify 16 sliding | 12.75 (nvs: **12.06**) | 14.27 (nvs 13.5) | 0.31 | Triton; agent2 652f126: nvs S 8 + _combine_hb |
 | verify 32 sliding | 17.72 | 18.96 | 0.18 | Triton (256 progs, 8 x 64-key tiles) + _combine_hb |
 
 ## Candidates
 
-- MERGED into main by agent 1: maskif 6c6a87a (H200 a27e9a52: verify 32/16 sliding 16.64/12.49) and nvs e2513ab
-  (verify sliding batch >= 32 native; H200 9a841c48 / baea7057: verify 32 sliding 15.28 / 15.07).
-- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5-s11 used none (account's last 4 are agent 1's).
-- (s4) decode 32 sliding on csl (agent2-exp/csl32 80fabbc): H100 -1.02 us but H200 check 058b8dce 13.74 = tie with
-  Triton (13.72-14.09): NOT listed. (LAG 2: now in lagS, s9).
-- (s9) agent2-exp/lagS (merged into agent2): nvs LAG 2 at S 4 + verify 16 on nvs (LAG 1, S 8). H100 paired: verify 32
-  -0.18 (9/9), verify 16 -0.26 (8/9); tests 16/16. NOT H200-checked: queue for the next check with spare budget.
-- (s10) agent2-exp/nds 7521672 (merged into agent2): native decode-sliding kernel nds for decode sliding batch >= 32
-  (nvs producer + ONE consumer WG for both KV heads in one m64, S 8, 2 CTAs/SM). H100 paired decode 32 sliding
-  15.10 -> 13.94 (-1.17, 9/9); tests 16/16. NOT H200-checked: FIRST in the next check (bundle with lagS).
+- (s14) QUEUED (first agent2 check after 00:00Z, replaces 0ae2b8a): agent2-exp/half **52b41bd** = NV_HALF (verify 16,
+  S 4 + combine) + **cl** at verify 32 (2-CTA clusters, symmetric 9 KB cp.async.bulk DSMEM exchange, in-kernel
+  merge/norm/gate, no _combine_hb): H100 paired vs NV_HALF+combine -0.29..-0.86 (3 runs, all rounds); NV_HALF vs 652f126
+  verify 16 -0.48, verify 32 -0.27. tests 16/16, bench 2.063. NOTES-agent2 s14.
+
+- (s13, superseded by 52b41bd) agent2-exp/half 0ae2b8a = nvs NV_HALF (CTA per (request,
+  KV head, split), 2 WGs = 2 halves merged in smem, partials halved) + NS 5 LAG 2: H100 paired vs 652f126 verify 16
+  sliding -0.48 (9/9), verify 32 -0.27 (9/9); tests 16/16. Not in Ready to merge until checked. NOTES-agent2 s13.
+
+- (s12) READY TO MERGE (COORD): agent2 652f126 = nds (decode 32 sliding) + nvs verify 16; check 9249146d 2.527x:
+  decode 32 sliding 12.20, verify 16 sliding 12.06 (H200). LAG 2 at S 4 reverted (verify 32 15.41 = tie/loss).
+- Checks used by agent2 on 2026-10-25: 5 (+9249146d); account 19/20, the last one left to agent 1.
+- Earlier: maskif + nvs (verify 32) merged into main by agent 1; csl32 (s4) H200 tie, not listed.
 
 ## Ranked ideas
 
-00000. FIRST check after 00:00Z: nds + lagS bundle (agent2 = both merged; tests 16/16 at 2763525).
+000000. (s14) DSMEM bulk exchange removes the merge launch where S 2 fits (verify 32 done); look for more S-2 places.
+00000. (s13) built as NV_HALF (above). Next: same half split for nds (decode 32), est. <= 0.3 us.
 0000. (s11) merges are the wall (~2 us on the H100 for every split design: PDL release ~0.5 + post-wait partial
     reads ~1.2; last-CTA tails the same). Only csl-style small-CTA clusters hide it (decode 16). New structural ideas
     needed; nds NS 4 at decode 16 = kernel 8.6-8.9 (-1.2 vs NS 3) if a cheap merge ever appears.
 
 0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
-1. nvs follow-ups (small): direct page-table loads into producer registers; uniform descriptors hoisted.
-
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
-
+- s14: cl at verify 16 (S 2, 64 CTAs) +1.86; cl push by st.shared::cluster + per-thread/per-warp release arrives
+  (+1.3 / +0.46 vs bulk); IEEE div in epilogues (~1.4 us at 128 threads: use __fdividef). NOTES-agent2 s14.
+- s12: nds at decode 16 (+2.1..+2.5 vs csl), nds decode 32 NS 4 (+3.4, 1 CTA/SM) / S 16 (+3.1) / NS 2 (deadlock). NOTES-agent2 s12.
 - s11: nds fused last-CTA merge (tools/a2/nds_fm_dead.patch; best 14.05-14.19 vs 13.9 with fast math + acq_rel ticket
   + gate L2 prefetch), native PDL combine (nds_ncombine_tie.patch: tie at 4 d/thread), nds at decode 16 (NS 4 10.8 total;
   CL 8/16 15.3-16.7), vtk at verify 16 (42 us). NOTES-agent2 s11.
-
 - s10: nds in-cluster merge (CL 4 pull 16.5 / push 15.5 vs 14.2 us; CL 8 ~20; cluster launch alone +0.9), nds LAG 2
   (NS 3 deadlock, NS 4 tie), NS 6, combine HB/warps, nds for decode 16 (10.4-11.0 vs csl 9.3). NOTES-agent2 s10.
-
 - s9: nvs BN2 (128-key consumer steps, tools/a2/nvs_bn2_dead.patch; NS 4 deadlocks, needs NS >= 6 and CREGS >= 208)
   +1.1/+1.0 us verify 32/16 kernel; lazy o-rescale (offset 8, T 0.75 or exact T 0) +0.1..+0.3. NOTES-agent2 s9.
-
 - s8: nvs QK(i+1) prefetch before softmax(i) +0.54 us verify 32; partial bulk stores (cp.async.bulk 4 KB/warp) +0.38;
   store cache hints noise; ptall (whole page-table slice by ldg) +0.3/+0.7; cp.async.bulk 128-B row gathers slower
   than cp16; no-merge (request, KV head) verify grid consumer-bound before building. tools/a2/nvs_bst_qkpf_dead.patch.
-
 - s7: no-split (1 CTA per request) batched sliding: gather alone capped at ~11.7 us B32 / 8.3 B16 H100; dnm (mma.sync,
   tools/a2/dnm.cu) 18.6/17.4 us decode 32/16 (FP8 mma.sync is emulated on sm_90: ~15 us of compute). nvs at S 1 ~30 us.
   nvs NV_PW 2 (2 producer WGs) tie. NOTES-agent2 s7.
-
 - s6: nvs distributed in-kernel merge (each split owns 16 rows/head, ticket barrier, tools/a2/nvs_dmerge_dead.patch)
   +1.7 us verify 32 H100 (spin +2.5 after the slowest CTA, L2 row loads +1.5); FMA-poly exp2 offload not built: all
   MUFU exp removed is only -0.2..-0.3 us. H100 verify 32 decomposition: combine 2.8, compute 1.0, V transpose 0.5,
   gather structure ~2.3 above the bare-gather floor (NOTES-agent2 s6). Tool: tools/a2/vab.py (paired variant A/B).
-
 - s5: nvs 2 softmax chains per KV head (4 consumer WGs, tools/a2/nvs_c2_dead.patch): verify 16/32 +1.5/+1.7 us H100
   (0/9); nvs is gather-trip-bound, not consumer-bound. Flag-spin merges closed by agent 1 (NOTES.md s34, exp/spin).
-
 - s4: nvs fused last-CTA merge +1.6..+3.6 us (tail latency-bound on 4 warps/SM); 4-CTA clusters for nvs don't fit one
   wave (30 max); _combine_hb HB/warps other than (2,1); csl 8-CTA clusters (+0.48), csl 64-reg cap (+2.0), csl 2 warps
   x 2 chunks (+2.9). NOTES-agent2 s4.
-
 - s1: verify sliding fuse / dual / hpp 2 / stages 4 / splits 8; decode 32 fuse, block_n 16/64, warps 1/4,
   splits 4/16, hpp 2 (plateau); preq for decode 32 and verify 32.
 - s2: in-grid merge via S-CTA clusters + barrier.cluster (`cl`, agent2-exp/clmerge): verify 32/16, decode 32
