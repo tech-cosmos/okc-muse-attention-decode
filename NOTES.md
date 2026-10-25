@@ -4902,5 +4902,10 @@ Lessons (why the s110 microbench's -22% doesn't transfer):
   (QK -> wait -> softmax -> PV -> wait: <= 48 regs in flight, no C7512 at 104) = Gluon's loop natively (s71's tie
   risk; only worth it with a new producer trick).
 
+### Merge of agent2 652f126 (lead agent 12:35Z: merge and submit that exact code)
+- main f2b1c52 = merge of agent2 652f126 (nds decode 32 sliding + nvs verify 16 sliding, S 8); submission.py identical
+  to 652f126; `bench.py test` 16/16. `okc submit` -> 22139f79 = DUPLICATE of **e64d3450daad496e (already submitted
+  12:47Z, 2.542x, 1481.9 us, rank 8: NEW ACCOUNT BEST)**; check 9249146d of 07d0de5 had 2.527x.
+
 ### Budget (UTC day 2026-10-25)
-- s111: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+- s111: 0 checks, 0 scored (the duplicate didn't count). Account: checks 19/20, scored 8/10.

@@ -20,6 +20,9 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 ## Board and best run
 
+- **2026-10-25 12:47Z: e64d3450 = main f2b1c52 (agent2 652f126: nds decode 32 sliding 12.20, nvs verify 16 sliding
+  12.06) scored 2.542x, 1481.9 us, rank 8 = ACCOUNT BEST.** Board 13:30Z: #1 2.910x, #7 2.569x.
+
 - Board 2026-10-25 09:05Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.460x** (scored
   **8725ba7e**, main cc93187 = 1e4c80e code; previous 08bf9391 2.445x).
 - Per-shape H200 (8725ba7e, us): decode 1 4.55 / 13.71; decode 16 7.70 / 89.55; decode 32 13.83 / 168.92; verify 1
@@ -29,7 +32,7 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 ## Code state
 
-- main = 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
+- main = f2b1c52 (= agent2 652f126 merged, SCORED e64d3450 2.542x) on top of 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
 - Dispatch: verify sliding B=1 -> native `vtk_verify` (s96); verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full` (batch 1: plan red, atomic merge + `_red_fin`); sliding + small -> Triton
   `_attn_split` + PDL merges.
@@ -83,7 +86,8 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- **FIRST after 00:00Z 2026-10-26: check main 05efdde** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full
+- **FIRST after 00:00Z 2026-10-26: main's s103/s105/s106 changes are now inside scored e64d3450 (2.542x); compare its per-shape
+  times (okc status e64d3450daad496e --json, records) with 8725ba7e before re-checking. Old item: check main 05efdde** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full
   + s106 fix 1 on verify 1 full); submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False;
   verify 16/32 full lose -> LZ = 3; verify 1 full lose -> drop `fix=1` from its plan.
 - **SECOND: check exp/hdiag2 98153b5 (DIAG, never submit; replaces exp/hdiag): paired in-run kernels fix 0/1 (verify 1
