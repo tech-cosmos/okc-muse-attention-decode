@@ -351,3 +351,54 @@ producer thread's cp.async count doesn't close nvs's ~2.4 us gather gap: the cau
    Worth up to ~2.4 us on verify 32 (0.18 %/us) and ~2.8 on verify 16 if nvs then beats Triton there (0.31 %/us).
 2. No-split kernels: parked (gather capped at ~11.7 us B32 on 32 SMs; needs a wgmma build for ~0.6 % at best).
 3. Same producer lesson may apply to Triton decode 32 (_attn_split 10.8 H200): compare its gather to nm S4 10.2.
+
+## Session 8 (2026-10-25 08:10 - ~09:10 UTC): nvs is consumer-bound, not producer-bound; partial stores priced
+
+Start: merged origin/main 989f43b (agent 1 s97-s98, batch-1 only) into agent2 (6da7cb9). Account: 16/20 checks used,
+4 left; human (COORD 08:10Z): agent 1 spends 1 on main, agent2 keeps <= 2. **0 checks used** this session.
+Tools: tools/a2/nmb.py (gather mechanisms on nvs's S x B grid), tools/a2/nvs2.py (kernel-only nvs ablations,
+stacked string variants, `NVS_S=1,4` env), tools/a2/nh.py (no-merge (request, KV head) grid gather), nvs_one.py (ncu).
+
+### s7's "producer overhead" is not the producer (H100, kernel-only, no combine)
+- nmb.py on the S4 / S8 grid: nvs-style cp16 with 128 threads, 2 tiles in flight = 10.46 (verify 32) / 7.63
+  (verify 16 S8): the register floor (10.2). Deeper rings, 512 threads, cp.async.mbarrier.arrive.noinc: same.
+  cp.async.bulk 128-B rows (1 per thread, complete_tx): worse (11.5 / 8.1; 64 issuing threads 18.4). +256 idle
+  threads, +88 KB smem: no change.
+- nvs2.py stacked (verify 16 S8 / verify 32 S4): base 10.08 / 13.95; no consumer compute 9.50 / 13.02; + no V
+  transpose 9.25 / 12.51; + no Q prologue 8.83 / 12.14; + no consumer waits 8.72 / 12.37; producer only (consumers
+  return) **7.38-7.60 / 11.23** = about the floor. The leftover in the stripped kernel was the partial stores:
+  stripped without stores 7.49 / 10.86.
+- Partial stores (4 MB FP32 at both shapes): full kernel without them 9.41 / 13.12 (-0.7 / -0.8 kernel-only). With
+  _combine_hb in the timing it shows as 0 (vab 'nostore' +0.02) because the combine then reads stale partials from
+  DRAM instead of L2. nmb.py with a coalesced 32 KB/CTA float4 store: +0.35-0.5 at the CTA's end, +1.0 when issued
+  at the start (overlapping the gathers): **~0.1 us per MB of partials, set by the bytes, not the store pattern**.
+  Dead: bulk stores (warp's 16 rows staged in its free V^T slot, one 4-KB cp.async.bulk per warp): verify 32 +0.38
+  (9/9); __stcg / __stcs / __stwt: noise (-0.08..+0.05). FP32 partials stay (rules).
+- **nvs is consumer-bound**: nvs with NO gathers (cp16 disabled, everything else kept) = 29.1 us at S 1 (32 tiles per
+  consumer WG) and 12.2 at S 4 vs 13.8 with gathers (verify 32). So the consumer chain is ~0.85-0.9 us per 64-key
+  tile per warpgroup and gathers add only ~1.6 us at S 4. ncu (S 1, no gathers): stalls wait 23 %, selected 18 %,
+  not_selected 12 %, long_sb 9 %, short_sb 9 %, mio 7 %, barrier 7 %; by opcode MUFU.EX2 18 %, FMNMX 8 %, PRMT 7 %
+  (producer transpose), FADD 6 %: half issue-bound, half latency in the softmax.
+
+### Dead before building: no-merge verify sliding (1 CTA per (request, KV head), whole window, in-CTA epilogue)
+nh.py: its gather is fine (HS2, 256 cp.async threads, 8 x 8-KB ring: 11.94 verify 32 / 10.82 verify 16 vs nvs's
+16.6 / 13.3 totals), but each SM would hold 32 tiles per head on 64 (B32) or 32 (B16) SMs = 2x today's consumer
+tiles per SM at ~0.85 us per tile per chain: consumer-bound above today's time unless the per-tile chain gets ~2x
+faster (3+ consumer WGs don't fit the register file at 160 regs).
+
+### QK(i + 1) prefetch before softmax(i) (FA3 intra-warpgroup overlap; tools/a2/nvs_bst_qkpf_dead.patch NV_QKPF): DEAD
+Second score array, CREGS 192 (128 x 40 + 256 x 192 regs fit), throwaway QK on the last step (a conditional issue
+made ptxas serialize every wgmma, C7515). Correct (chk_nvs 7/7, same errors). H100 paired 9 rounds: verify 32 +0.54
+(9/9), verify 16 (Triton) noise; NS 5 doesn't recover it. Gather-free S 1: 31.5 vs 29.4 us, so the chain itself
+got slower (the QK latency was not what each step waited on). CREGS 192 alone: neutral.
+
+### Side numbers
+- verify 16 on nvs (NVS_MIN_BATCH 16, S 8) vs Triton: H100 paired -0.46 (9/9) this session (s3: -0.14; the H200
+  tied at 12.63 in check baea7057). Bundle-only candidate, not worth a check alone.
+
+### Next ideas
+1. The lever on verify 16/32 sliding is the nvs consumer's per-tile chain (~0.85 us per 64-key tile per WG): cut
+   instructions per score without lowering precision: e.g. BN 128 consumer steps (one max/shuffle/alpha/rescale per
+   128 keys instead of 64; m64n128 QK); move the V transpose off the SMSPs the consumers use (PRMT 7 %); FMNMX3
+   (3-input max, sm_90 has FMNMX only 2-input: check SASS); packed f16x2 for the row sums is NOT allowed (precision).
+2. Fewer partial bytes is worth ~0.1 us/MB, but FP32 is mandatory and the split count is set by gather parallelism.

@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~09:20 UTC (agent2 session 7).
+Updated 2026-10-25 ~09:10 UTC (agent2 session 8).
 
 ## Scope
 
@@ -25,13 +25,17 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 - agent2-exp/nvs fd7fa2e (s3): native verify-sliding kernel `nvs` (tools/a2/nvs_clean.cu embedded as _NVS_SRC) for
   verify sliding batch >= 32: H100 paired verify 32 -1.66 us (9/9), tests 16/16, chk_nvs 5/5. H200 checks 9a841c48 / baea7057: verify 32 sliding
   16.64 -> 15.28 / 15.07 us. Verify 16 on nvs (S 8) tied on the H200 (12.63 both): off. In COORD "Ready to merge".
-- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5, s6 used none (account's last 4 are agent 1's).
+- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5-s8 used none (account's last 4 are agent 1's).
 - (s4) decode 32 sliding on csl (agent2-exp/csl32 80fabbc): H100 -1.02 us but H200 check 058b8dce 13.74 = tie with
   Triton (13.72-14.09): NOT listed. Queued for a bundle: nvs NV_LAG 2 (H100 verify 32 -0.18 us paired 11/11).
 
 ## Ranked ideas
 
-00. (s7) nvs's gather-only time at S 4 is 12.6/9.5 us (verify 32/16) vs 10.2/6.7 for a register gather on the same
+000. (s8) nvs is CONSUMER-bound: with no gathers at all it takes 12.2 us at S 4 vs 13.8 (verify 32 H100); the chain
+    is ~0.85 us per 64-key tile per consumer WG (ncu: softmax issue + latency). s7's "producer overhead" was the
+    consumers + 4 MB of FP32 partial stores (~0.1 us/MB). Lever: fewer instructions per score in the consumer
+    (BN 128 steps, transpose off the consumer SMSPs). QK prefetch, bulk stores, no-merge grid: dead (NOTES-agent2 s8).
+00. (s7, superseded by s8) nvs's gather-only time at S 4 is 12.6/9.5 us (verify 32/16) vs 10.2/6.7 for a register gather on the same
     grid (tools/a2/nm.py): ~2.4-2.8 us of producer overhead. Not per-thread cp.async count (2 producer WGs tie).
     Ablate prologue / per-tile barrier / mbarrier-completion / register-staged gathers (NOTES-agent2 s7 Next 1).
 
@@ -44,6 +48,10 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 2. Decode 32 sliding: smem-staged csl-style 8-CTA clusters (risky; s73 csl8 lost).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+
+- s8: nvs QK(i+1) prefetch before softmax(i) +0.54 us verify 32; partial bulk stores (cp.async.bulk 4 KB/warp) +0.38;
+  store cache hints noise; ptall (whole page-table slice by ldg) +0.3/+0.7; cp.async.bulk 128-B row gathers slower
+  than cp16; no-merge (request, KV head) verify grid consumer-bound before building. tools/a2/nvs_bst_qkpf_dead.patch.
 
 - s7: no-split (1 CTA per request) batched sliding: gather alone capped at ~11.7 us B32 / 8.3 B16 H100; dnm (mma.sync,
   tools/a2/dnm.cu) 18.6/17.4 us decode 32/16 (FP8 mma.sync is emulated on sm_90: ~15 us of compute). nvs at S 1 ~30 us.
