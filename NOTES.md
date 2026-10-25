@@ -4629,3 +4629,53 @@ lop3 + exponent fix folded into P's bias as 2^56 and acc's as 2^-56) might be ~2
 
 ### Budget (UTC day 2026-10-25)
 - s104: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 105 (unattended session 38, 2026-10-25 09:55 - ~10:20 UTC): LZ 10 fixed-reference softmax for verify full (on main)
+
+Board 09:56Z unchanged (#1 pjmullin3 2.910x, ours 2.460x 8725ba7e). Account: checks 18/20 (2 left = agent2's), scored 7/10.
+No new "Ready to merge". **0 checks, 0 scored.** main = **d6cb195** (bf12587 + LZ 10), branch exp/lz10. Tools: tools/s105.
+
+### Locating LZ 4's 12 us (H100 all-L2 verify 32 full, paired vs LZ 4; mk.py builds from exp/lz4)
+| variant | all-L2 | real |
+|---|---|---|
+| pl: properly peeled tile 0 (exact), loop with non-peel asm only | +1.04 | -0.74 |
+| pl_nv: pl without vote/fallback in the softmax asm (timing only) | -3.68 | -0.54 |
+| c2: no-max ceiling | -12.0 | -0.94 |
+| lz9: pl with +14 binades headroom after tile 0 (fallback never taken) | +1.87 | -0.14 |
+So the in-loop branch structure (vote + fallback, and the acc asm's vote) costs ~12 us, not the data: even with no
+fallbacks taken (lz9) it does not move. Only a branch-free loop reaches c2.
+
+### Growth measurement (tools/s105/growth.py; NB the reference multiplies q by QK_SCALE_FACTOR 5.473: my first run
+forgot it and wrongly showed 4-6 binades)
+Max over all rows/segment starts of (max over the next 160 tiles - max over the first K tiles), binades of P:
+scored coherent shapes K=1: 19.8-25.8 (7 seeds at B32 L8: 23.8-25.8); K=4: 19.3-23.2; K=8: 17.8-22.0. Normal-dist
+tests reach 32-36 (K=1). So s79's LZ 6 verdict (rows grow > 16 binades) was right for zero headroom.
+
+### LZ 10 (main d6cb195)
+- Per segment: the first LZ_PK = 4 tiles run the exact update against row max + LZ_DELTA = 14 binades; later tiles
+  P = exp2(s * scale - m) against that fixed m (c2's loop: no row max, alpha, acc rescale, vote). Overflow (FP16 P >
+  65504) needs growth > 30 binades past the first 4 tiles' max: max seen on scored data 23.2. Rows whose acc ends
+  non-finite (x - x != 0) store m = +inf; _combine_bal REDO (ported from exp/lz4) recomputes those rows exactly.
+- Precision: the max P is ~2^-14 (FP16 subnormal range): step 2^(14-25) = 2^-11 of the row max, vs E4M3 P (FA3's FP8
+  path = SGLang) whose error near the max is 2^-4 relative and 2^-10 absolute in its subnormals: >= 2x finer everywhere.
+  Tests: errors equal to main's to 4 digits on tests 5/7/8, +0.01-0.3% relative on 13/15 (coherent dp). (δ 12 would
+  halve that, at 2 binades less margin.)
+- REDO cost if it ever fires: ~17 ms (77 flagged rows, serial BK 8 loop over the whole request). Correct but would wreck
+  that load's time; scored-data probability estimated ~1e-4 per run (Gaussian tail beyond the 7-seed maximum). If the
+  judge ever shows a verify full time in the ms, this is why: lower LZ_DELTA risk, raise LZ_PK, or LZ = 3.
+- Variants: lz7 (K 1, no headroom) = REDO storm (17 ms); lz8 (K 1, δ 14) all-L2 -11.0/-5.6 vs LZ 4 (risky margin
+  4 binades); lz10 K 8 -7.7/-2.3; **K 4 -9.7/-4.1** vs LZ 4.
+- **H100 paired vs old main (LZ 3), 7/7: verify 32 full all-L2 189.26 -> 175.73 (-13.46), real -0.62; verify 16
+  full all-L2 104.67 -> 97.71 (-6.83), real -0.19.** Tests 16/16, tools/s105/adv.py (late keys aligned with the
+  queries, forced overflow + REDO) passes with errors equal to exact LZ 4. Bench geomean 2.037 (H100 DRAM-bound).
+- H200 expectation: s78's c2-class ceiling was -26/-16 us on the verify 32/16 full kernel (H200 is consumer-bound).
+
+### Next
+- FIRST check after 00:00Z 2026-10-26: main d6cb195 (red decode 16/32 full + LZ 10 verify 16/32 full; independent
+  shapes, keep each per shape). Submit if it beats 1531.2 us. If verify full loses: LZ = 3.
+- Same trick for other consumer-bound loops: agent2's nvs (verify 16/32 sliding: ~0.85 us/tile chain, softmax issue)
+  and vtk / _attn_split at verify 1 sliding/full. Sliding windows are shorter, so growth should be smaller.
+- Make REDO parallel (per flagged segment, wide tiles) so a rare trigger costs ~a kernel, not 17 ms.
+
+### Budget (UTC day 2026-10-25)
+- s105: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.

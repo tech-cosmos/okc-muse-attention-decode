@@ -1,18 +1,14 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~11:05 UTC (session 104 = unattended session 37 of the #1-push brief).
+Updated 2026-10-25 ~10:20 UTC (session 105 = unattended session 38 of the #1-push brief).
 
-**s104 (H100 only, no checks): exact lazy max LZ 4 is still 12.2 us (all-L2, verify 32 full) above the no-max
-ceiling c2 on the same base; not the acc rescale asm (removing it +2). BF16 P/V to skip the overflow check dies on the
-producer's fp8->bf16 convert (+17.6..+97). Next: a properly peeled LZ 4 + vote-only asm to locate the 12 us. NOTES s104.**
+**s105: main d6cb195 = LZ 10 fixed-reference softmax in _gw_verify (4 exact tiles/segment with +14 binades headroom,
+then no max/alpha/rescale/vote; non-finite rows -> m=inf -> _combine_bal REDO, exact). H100 paired vs LZ 3: verify 32
+full all-L2 -13.5 us (real -0.6), verify 16 -6.8 (real -0.2). H200 UNVERIFIED (c2-class ceiling was -26/-16). Risk:
+REDO ~17 ms if a scored row grows > 30 binades (max seen 23.2). NOTES s105.**
 
-**s103: main bf12587 = plan red (in-grid FP32 atomic merge, 1 replica/request) on decode 16/32 full + dbal at decode 16:
-H100 paired decode 16 full -1.58 us (20/20), decode 32 full -1.09 (10/10), decode 1 full tie. H200 UNVERIFIED. Red on verify
-full = dead (consumer spills, +30/+49 us). NOTES s103.**
-
-**s102: SUBMITTED main (lead agent 08:58Z): 8725ba7e 2.460x (1531.2 us) = NEW ACCOUNT BEST. Full layers bimodal across
-judge nodes (decode 32 full 161.7 in 2 runs, 167.5-170.3 in ~20). Built exp/hdiag 63dd0fd: one H200 check times plan
-variants + a native gather floor for decode 1/16/32 full and verify 1 full (H100 dry run in NOTES s102). NOTES s102.**
+**s104: LZ 4 gap = in-loop branches (s105 confirmed). s103: red on batched decode full (H100 -1.58/-1.09 us, on main, H200
+unverified). s102: submitted 8725ba7e 2.460x = account best; full layers bimodal across judge nodes. NOTES s102-s104.**
 
 **Earlier (details in NOTES s91-s101): s101 decoupled V ring in gbal = H200 tie/loss; s100 vtk H200 win (verify 1 sliding 6.8 -> 5.6), launch floor ~2 us/kernel;
 s99 physical-row order dead; s98/s97 vtk / nverify probes dead; s96 vtk built; s95 red (fixed-reference-max atomic
@@ -29,7 +25,7 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 ## Code state
 
-- main = bf12587 (1e4c80e + s103 batched red/dbal for decode 16/32 full; unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
+- main = d6cb195 (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full; both unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
 - Dispatch: verify sliding B=1 -> native `vtk_verify` (s96); verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full` (batch 1: plan red, atomic merge + `_red_fin`); sliding + small -> Triton
   `_attn_split` + PDL merges.
@@ -49,7 +45,7 @@ numbers: NOTES s69.)
 
 ## Ranked ideas
 
-0000000. (s104) Locate LZ 4's 12 us over the no-max ceiling c2 (H100 all-L2; c2-class was -26/-16 us on the H200 at
+0000000. (s105 DONE: LZ 10 on main, it was the in-loop branches) Locate LZ 4's 12 us over the no-max ceiling c2 (H100 all-L2; c2-class was -26/-16 us on the H200 at
    verify 32/16 full = ~+3% overall): truly peeled first tile, vote-only asm. tools/s104/mk.py, NOTES s104.
 
 000000. (s80; s84: GATE FAILED, bucketing pass 42+ us H100, see NOTES s84) Physical-order decode full (NOTES s80 design): prototype first the multi-split pass (<= ~5 us?) and
@@ -87,8 +83,8 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- **FIRST after 00:00Z 2026-10-26: check main bf12587** (s103 red on decode 16/32 full); submit if it beats 1531.2 us.
-  If decode 16/32 full lose on the H200 (compare within the node's level), set BRED = False.
+- **FIRST after 00:00Z 2026-10-26: check main d6cb195** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full);
+  submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False; verify 16/32 full lose -> LZ = 3.
 - **SECOND: check exp/hdiag 63dd0fd (DIAG, never submit): read `<variant>_gd_full` /
   `_attn_split` / `hfloor` durations from the profile; port per-shape plan winners to main, then check main.**
   (main 1e4c80e was scored in s102: 8725ba7e 2.460x; don't resubmit it unchanged.)
@@ -97,6 +93,8 @@ numbers: NOTES s69.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s105: any in-loop vote/branch in the verify-full softmax (lz9 +1.9 even with no fallbacks taken); zero-headroom fixed
+  reference (REDO storm); 8 exact tiles (-3.4 us vs 1).
 - s104: BF16 P/V for verify full (producer fp8->bf16 convert +17.6 us all-L2 even as asm), removing the LZ_ACC asm (+2).
 - s103: red on verify full (consumer spills at cregs 96-104), decode 1 red NR != 4, pre-summing atomics (atomics cost ~0),
   _combine_bal hb/cw.
