@@ -1,6 +1,11 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~02:10 UTC (session 80 = unattended session 13 of the #1-push brief).
+Updated 2026-10-25 ~02:25 UTC (session 81 = unattended session 14 of the #1-push brief).
+
+**s81: LZ 4 (FMNMX-free exact lazy max in `_gw_verify`, branch exp/lz4) = H200 TIE.** Sum-checked lazy max + power-of-two
+warp fallback + inf -> m=+inf -> exact recompute in `_combine_bal` (REDO). H100 all-L2 verify 32/16 full -4.0/-3.1 us, but
+H200 check f4199324 2.349x: verify 16/32 full 113.67/209.61 vs LZ 3's 114.09/210.06. Consumer-only trims no longer move
+the H200 verify-32 time (contention-bound); next lever must cut producer work or gathers. NOTES s81.
 
 **s80: H200 bandwidth measured (lead agent's #1; branch exp/bwdiag, diag checks 50c3fc4d + 025c8861).** Decode 32 full
 bytes (654 MB): **dense 144.7 us (4.52 TB/s)**, all rows sorted by physical address 148.4, random 128-B rows ~162-166,
@@ -66,7 +71,7 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- 2026-10-25: checks 4/20 (c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
+- 2026-10-25: checks 5/20 (c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
@@ -127,6 +132,7 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
 
+- s81: LZ 4 (exp/lz4; H200 tie), consumer-side redo (spills / noinline unsupported in WS partitions), tree sums.
 - s79: LZ 1 (keep S live for the fallback: spills), LZ 6 (no per-warp fallback: rows grow > 16 binades after tile
   0), tree max (+0.8), 3-input max (not on sm_90), Triton _tile lazy max (exp/lztri, +0.1..+0.5 us).
 

@@ -3611,3 +3611,43 @@ Checks 4/20 (c5888ee5, 577c5b9d, 50c3fc4d diag, 025c8861 diag), scored 2/10.
 2. Physical-order decode full (design above), only after a cheap prototype shows the multi-split pass at <= ~5 us
    and mixed-request mma.sync compute hiding under a dense 256-row-chunk stream at decode 32 (H100 target: dense
    210-224 us class).
+
+## Session 81 (unattended session 14, 2026-10-25 01:39 - ~02:25 UTC): LZ 4 = FMNMX-free exact lazy max (tie on H200)
+
+Board 01:40Z unchanged: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.350x (#22). Branch **exp/lz4** (ba4a8f5 +
+BK 8 fix; pushed). Followed s79 Next 1 (lead direction: verify full).
+
+### LZ 4 (in _gw_verify consumer, `_lz_asm4`)
+
+- Hot tiles: P = ex2(s*scale - m_stale), per-thread row partial sums (serial chain), vote.all(both sums <= 2^15) ->
+  keep m. Else per row: quad-max S of the partial sums; if S > 2^15 and finite, m += k with S*2^-k in [2^14, 2^15)
+  and P, sums *= 2^-k exactly (bit-built power of two); if S = inf, m = +inf (sticky: later P = 0). First tile of
+  each segment peeled (exact row-max update, `_lz_asm4(peel=True)`). l kept PER THREAD (pick-first reduce of the
+  asm's sum output: no shuffles) and quad-summed once per segment (where(col<8 & even) + gl.sum).
+- inf recovery: the partial stores m = +inf; `_combine_bal` REDO (constexpr, only verify-bal LZ 4) sees
+  max(m_max) == inf and recomputes the rows over all cached keys exactly in Triton (FP32 P), then adds the new-token
+  partial. Verified by forcing it always (ref err same) and with k_scale x64 inputs (every segment overflows: no NaN,
+  ref err 0.2561 = LZ 3's 0.2563; those synthetic inputs fail the ref bound for LZ 0/3 too).
+- Dead ends on the way: (a) recovery inside the consumer (mma_v2 recompute): convert_layout scratch +8 KB smem, and
+  even scratch-free 16-key mma_v2 code makes ptxas spill 700+ B in the hot loop: +50..+100 us all-L2. (b)
+  `@gluon.jit(noinline=True)` is rejected in warp_specialize partitions ("missing ws_num_warps"). (c) Tree sums
+  (depth 4) instead of the serial chain: +4.8 us all-L2 (issue-bound, as s79's tree max). (d) REDO with BK 32
+  ([2,32,64] fp32 temporaries at 1 warp): +0.9 us real on the merge tail; BK 8 removes it.
+- H100 (tools/s54/abl2.py, 9 paired rounds vs LZ 3): all-L2 verify 32/16 full **-4.0/-3.1 us**, real -0.02/-0.11
+  (tie: DRAM-bound). H100 bench geomean 1.944 (main 1.939-1.948). Tests 16/16.
+- SASS hot path per tile per thread now: 32 FFMA + 32 MUFU + 32 FADD + 16 F2FP + vote; the FSEL masking is behind
+  a branch; one BAR.SYNC 0x80 per tile before the empty arrive (Gluon's single-thread arrive lowering).
+
+### H200 check f4199324daf64021 (exp/lz4): 2.349x [2.313, 2.394], 16/16 = TIE
+
+Per shape (us): decode 1/16/32 sliding 5.43/8.15/13.45, full 14.73/89.28/168.73; verify 1/16/32 sliding
+7.19/12.56/17.44, full 16.80/**113.67/209.61** (LZ 3 check 577c5b9d: 114.09/210.06). `_gw_verify` kernel 106.3/203.3
+(LZ 3: 108.9/202.4). So removing the FMNMX (~-2% consumer issue) doesn't reach the H200 verify-32 time: the combined
+kernel there is set by producer/consumer contention (s77: consumer-only ~171, gathers-only ~167, combined ~203), not
+the consumer alone. Not merged (tie). Lesson: further consumer-only trims are worth ~0 on the H200 at verify 32; the
+next verify-full lever must cut the producer's issue/smem traffic or the contention (e.g. FP8 V^T without the FP16
+convert, or moving the V convert off the SM's issue slots), or the gathers (physical order, s80).
+
+### Budget (UTC day 2026-10-25)
+
+Checks 5/20 (+ f4199324), scored 2/10.
