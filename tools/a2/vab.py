@@ -14,7 +14,7 @@ for spec in ["base"] + sys.argv[3:]:
         assert old in src, f"{name}: {old!r} not found"
         src = src.replace(old, new)
     h = hashlib.md5(src.encode()).hexdigest()[:8]
-    src = src.replace('name="muse_nvs_a2s3"', f'name="muse_nvs_v{h}"').replace('name="muse_csl', f'name="muse_csl{h}')
+    src = src.replace('name="muse_nvs_a2s9"', f'name="muse_nvs_v{h}"').replace('name="muse_csl', f'name="muse_csl{h}').replace('name="muse_nds', f'name="muse_nds{h}')
     mn = f"v_{h}"; open(f"/tmp/a2v/{mn}.py", "w").write(src)
     mods.append((name, importlib.import_module(mn)))
 for l, c in bench.SCORED:
