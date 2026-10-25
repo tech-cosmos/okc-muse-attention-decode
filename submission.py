@@ -904,8 +904,6 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
-RED_DBG = tl.constexpr(int(os.environ.get('RED_DBG', 0)))
-RED_NR = int(os.environ.get('RED_NR', 4))
 LZ = 3  # _gw_verify softmax: 3 = exact per-warp lazy max (session 79), 0 = per-tile row max + rescale
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
@@ -1630,79 +1628,27 @@ if HAVE_GLUON:
                                       scope="gpu")
         if RED:
             if epi:
-                _gd_red_tail(acc, m_i, l_i, flg, split, b, h, qkv_ptr, vs_ptr, pacc_ptr, pml_ptr, red_ptr, rcnt_ptr,
-                             out_ptr, HQ, HKV, G, D, M, S, NR, S + SEP)
+                _gd_red_add(acc, m_i, l_i, flg, split, red_ptr, rcnt_ptr, M, D, NR)
 
     @gluon.jit
-    def _gd_red_tail(acc, m_i, l_i, flg, split, b, h, qkv_ptr, vs_ptr, pacc_ptr, pml_ptr, red_ptr, rcnt_ptr, out_ptr,
-                     HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, M: gl.constexpr,
-                     S: gl.constexpr, NR: gl.constexpr, TOTAL: gl.constexpr):
-        """plan red: add this program's partial (acc [M, D], m, l in the mma layout) to the sums at reference 0,
-        or list it (flg); the last program to arrive finishes: sums + listed partials, RMSNorm, gate, store, and
-        leaves the sums and counters zeroed for the next call."""
+    def _gd_red_add(acc, m_i, l_i, flg, split, red_ptr, rcnt_ptr, M: gl.constexpr, D: gl.constexpr,
+                    NR: gl.constexpr):
+        """plan red: add this program's partial (acc [M, D], m, l in the mma layout) into replica split % NR of the
+        sums at reference max 0, or, if its max is out of range (flg), list it (its partial is stored) for _red_fin."""
         MMA: gl.constexpr = gl.NVMMADistributedLayout(version=[2, 0], warps_per_cta=[1, 1], instr_shape=[16, 8])
         ML: gl.constexpr = gl.BlockedLayout([1, 4], [2, 16], [1, 1], [1, 0])
-        QKV_W: gl.constexpr = (2 * HQ + 2 * HKV) * D
         ro = gl.arange(0, M, layout=gl.SliceLayout(1, MMA))
-        cd = gl.arange(0, D, layout=gl.SliceLayout(0, MMA))
         rep = split % NR
-        DBG: gl.constexpr = RED_DBG.value
-        if DBG == 1:
-            pass
-        elif flg:
+        if flg:
             gl.store(rcnt_ptr + 2 + gl.atomic_add(rcnt_ptr + 1, 1, sem="relaxed", scope="gpu"), split)
         else:
             f = gl.where(l_i > 0.0, gl.exp2(m_i), 0.0)
+            # 4 consecutive floats per thread: v4 atomics, half the L2 atomic operations of the mma layout's pairs.
             av = gl.convert_layout(acc * f[:, None], ML)
             r4 = gl.arange(0, M, layout=gl.SliceLayout(1, ML))
             c4 = gl.arange(0, D, layout=gl.SliceLayout(0, ML))
             gl.atomic_add(red_ptr + ((rep * M + r4) * D)[:, None] + c4[None, :], av, sem="relaxed", scope="gpu")
             gl.atomic_add(red_ptr + NR * M * D + rep * M + ro, l_i * f, sem="relaxed", scope="gpu")
-        rr = gl.arange(0, M, layout=gl.SliceLayout(1, ML))
-        cc = gl.arange(0, D, layout=gl.SliceLayout(0, ML))
-        col = ((h * G + rr) * D)[:, None] + cc[None, :]
-        gate = gl.load(qkv_ptr + b * QKV_W + (HQ + 2 * HKV) * D + col).to(gl.float32)
-        vs = gl.load(vs_ptr)
-        gl.barrier()
-        if DBG == 2:
-            old = 0
-        elif DBG == 3 or DBG == 5:
-            old = gl.atomic_add(rcnt_ptr, 1, sem="relaxed", scope="gpu")
-        else:
-            old = gl.atomic_add(rcnt_ptr, 1, sem="acq_rel", scope="gpu")
-        if DBG >= 3 and DBG <= 4:
-            if old == TOTAL - 1:
-                gl.atomic_xchg(rcnt_ptr, 0, sem="relaxed", scope="gpu")
-        elif old == TOTAL - 1:
-            gl.inline_asm_elementwise("fence.acq_rel.gpu;", "=r", [], dtype=gl.int32, is_pure=False, pack=1)
-            a_t = gl.zeros([M, D], gl.float32, layout=ML)
-            l_t = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, ML))
-            for k in gl.static_range(NR):
-                a_t += gl.load(red_ptr + ((k * M + rr) * D)[:, None] + cc[None, :], cache_modifier=".cg")
-                l_t += gl.load(red_ptr + NR * M * D + k * M + rr, cache_modifier=".cg")
-            nf = gl.load(rcnt_ptr + 1, cache_modifier=".cg")
-            for k in gl.static_range(NR):
-                gl.store(red_ptr + ((k * M + rr) * D)[:, None] + cc[None, :], gl.zeros([M, D], gl.float32, ML))
-                gl.store(red_ptr + NR * M * D + k * M + rr, gl.zeros([M], gl.float32, gl.SliceLayout(1, ML)))
-            m_t = gl.where(l_t > 0.0, 0.0, -1.0e30)
-            for i in range(nf):
-                s = gl.load(rcnt_ptr + 2 + i, volatile=True)
-                prow = ((b * HKV + h + rr // G) * (S + 1) + s) * G + rr % G
-                mp = gl.load(pml_ptr + prow * 2, volatile=True)
-                lp = gl.load(pml_ptr + prow * 2 + 1, volatile=True)
-                ap = gl.load(pacc_ptr + (prow * D)[:, None] + cc[None, :], volatile=True).to(gl.float32)
-                mp = gl.where(lp > 0.0, mp, -1.0e30)
-                mn = gl.maximum(m_t, mp)
-                a1 = gl.exp2(m_t - mn)
-                a2 = gl.where(lp > 0.0, gl.exp2(mp - mn), 0.0)
-                l_t = l_t * a1 + lp * a2
-                a_t = a_t * a1[:, None] + ap * a2[:, None]
-                m_t = mn
-            gl.store(rcnt_ptr + 1, 0)
-            gl.atomic_xchg(rcnt_ptr, 0, sem="relaxed", scope="gpu")
-            o = a_t / l_t[:, None] * vs
-            o = o * gl.rsqrt(gl.sum(o * o, 1) / D + 1e-5)[:, None]
-            gl.store(out_ptr + b * HQ * D + col, (o * (1.0 / (1.0 + gl.exp(-gate)))).to(gl.bfloat16))
 
     # The rare redo path of _gd_full's SPEC, out of line.
     _gd_full_redo = gluon.jit(noinline=True)(_gd_full_body.fn)
@@ -2466,8 +2412,11 @@ def _plan(cfg, max_pages, device):
         # Batch-1 decode full on the Gluon one-warp kernel: 511 key splits + the new token's slot (512 BF16
         # partials, about 4 per SM), merged in one pass by 8-warp programs. H100 17.5 -> 15.7 us (attention
         # alone 15.3 -> 12.4, near the 11.5 us gather floor; the 512-way merge costs 3.2 us vs 2.2).
+        # red (s95): the merge as FP32 atomic adds at reference max 0 into 4 replicas inside _gd_full, then one
+        # 4-warp _red_fin program (reads 16 KB instead of 512 x 2 KB slots): H100 paired 14.55 -> 13.85 us (8/8).
         return dict(gdec=True, splits=511, block_n=32, stages=2, pdt="f32", csb=512, cw=8,
-                    spec=True)  # seq from the table width (see _gd_full): H100 paired -0.59 us (13/13)
+                    spec=True,  # seq from the table width (see _gd_full): H100 paired -0.59 us (13/13)
+                    red=True)
     if heads <= (2 if length == 1 else 4):
         # (Session 18's hpp 2 / block_n 64 for decode 1 full won on the H100, 18.0 -> 17.4 us, but lost on the
         # H200: check f3e099c1 decode 1 full 15.2 -> 17.6 us.)
@@ -2532,6 +2481,48 @@ def _plan(cfg, max_pages, device):
     per = 4 if pairs >= 6 or fill[4] > fill[3] else 3
     return dict(splits=max(4, per * sms // pairs), block_n=32, warps=4, stages=5, hpp=1, fuse=False,
                 qk8=True, peel=True, dual=True, balance=True, maxnreg=128 if per == 4 else None, pdt="f32")
+
+
+@triton.jit
+def _red_fin(qkv_ptr, red_ptr, rcnt_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, HQ: tl.constexpr, HKV: tl.constexpr,
+             G: tl.constexpr, D: tl.constexpr, M: tl.constexpr, S: tl.constexpr, NR: tl.constexpr):
+    """plan red's merge (batch 1, one KV head pair, M = 2 G rows = query heads): the NR replicas of the sums at
+    reference max 0, merged exactly with any listed out-of-range partials (slot ids in rcnt[2:]); then RMSNorm and
+    sigmoid(gate). Leaves the sums and the list count zeroed for the next call."""
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    r = tl.arange(0, M)
+    d = tl.arange(0, D)
+    col = r[:, None] * D + d[None, :]
+    gate = tl.load(qkv_ptr + (HQ + 2 * HKV) * D + col).to(tl.float32)
+    vs = tl.load(vs_ptr)
+    gdc_wait()
+    a = tl.zeros([M, D], tl.float32)
+    l = tl.zeros([M], tl.float32)
+    for k in tl.static_range(NR):
+        a += tl.load(red_ptr + k * M * D + col)
+        l += tl.load(red_ptr + NR * M * D + k * M + r)
+    nf = tl.load(rcnt_ptr + 1)
+    tl.debug_barrier()  # every thread's copies loaded before one of them zeroes the replicated l and count words
+    for k in tl.static_range(NR):
+        tl.store(red_ptr + k * M * D + col, tl.zeros([M, D], tl.float32))
+        tl.store(red_ptr + NR * M * D + k * M + r, tl.zeros([M], tl.float32))
+    tl.store(rcnt_ptr + 1, 0)
+    m = tl.where(l > 0.0, 0.0, -1.0e30)
+    for i in range(nf):
+        s = tl.load(rcnt_ptr + 2 + i)
+        prow = ((r // G) * (S + 1) + s) * G + r % G
+        lp = tl.load(pml_ptr + prow * 2 + 1)
+        mp = tl.where(lp > 0.0, tl.load(pml_ptr + prow * 2), -1.0e30)
+        ap = tl.load(pacc_ptr + prow[:, None] * D + d[None, :]).to(tl.float32)
+        mn = tl.maximum(m, mp)
+        a1 = tl.exp2(m - mn)
+        a2 = tl.where(lp > 0.0, tl.exp2(mp - mn), 0.0)
+        l = l * a1 + lp * a2
+        a = a * a1[:, None] + ap * a2[:, None]
+        m = mn
+    o = a / l[:, None] * vs
+    o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
+    tl.store(out_ptr + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
 
 
 def _verify_nvs(data, cfg):
@@ -2762,9 +2753,12 @@ def _decode_gluon(data, cfg, plan):
         ROPE=bool(cfg["rope_theta"]), SEP=sep, Q16=plan.get("q16", True),
         KST=plan.get("kst", True),
         SPEC=page_table.shape[1] - 1 if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 else 0,
-        **(dict(RED=True, red_ptr=_red_buf(RED_NR * 2 * group * (d + 1), device), rcnt_ptr=_counters(s + 3, device, "r"),
-                out_ptr=out, NR=RED_NR) if red else {}), num_warps=1)
+        **(dict(RED=True, red_ptr=_red_buf(4 * 2 * group * (d + 1), device), rcnt_ptr=_counters(s + 3, device, "r"),
+                out_ptr=out, NR=4) if red else {}), num_warps=1)
     if red:
+        _red_fin[(1,)](qkv, _red_buf(1, device), _counters(1, device, "r"), pacc, pml, data["v_scale"], out,
+                       HQ=hq, HKV=hkv, G=group, D=d, M=2 * group, S=splits, NR=4, num_warps=4,
+                       launch_pdl=True)
         return out
     hb = plan.get("hb", 1)
     if hb > 1:

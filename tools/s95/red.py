@@ -17,7 +17,7 @@ if "c" in mode:
             if ks is not None:  # push scores out of [-60, 100] (fallback path) or squash them
                 data["k_scale"] = data["k_scale"] * ks
             outs = []
-            for extra in ({}, {"red": True}):
+            for extra in ({"red": False}, {"red": True}):
                 setp(extra)
                 for _ in range(3):  # replays must stay consistent (sums/counters re-zeroed)
                     d2 = {k: (v.clone() if torch.is_tensor(v) else v) for k, v in data.items()}
@@ -32,4 +32,4 @@ if "c" in mode:
 if "t" in mode:
     load, c = bench.SCORED[1]
     for _ in range(int(os.environ.get("R", 5))):
-        print("main %.2f red %.2f" % (bench.run_shape(load, c, None), bench.run_shape(load, c, {"red": True})), flush=True)
+        print("main %.2f red %.2f" % (bench.run_shape(load, c, {"red": False}), bench.run_shape(load, c, {"red": True})), flush=True)
