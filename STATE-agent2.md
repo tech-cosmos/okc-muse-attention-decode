@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~06:55 UTC (agent2 session 4).
+Updated 2026-10-25 ~07:10 UTC (agent2 session 5).
 
 ## Scope
 
@@ -25,7 +25,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 - agent2-exp/nvs fd7fa2e (s3): native verify-sliding kernel `nvs` (tools/a2/nvs_clean.cu embedded as _NVS_SRC) for
   verify sliding batch >= 32: H100 paired verify 32 -1.66 us (9/9), tests 16/16, chk_nvs 5/5. H200 checks 9a841c48 / baea7057: verify 32 sliding
   16.64 -> 15.28 / 15.07 us. Verify 16 on nvs (S 8) tied on the H200 (12.63 both): off. In COORD "Ready to merge".
-- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce).
+- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5 used none.
 - (s4) decode 32 sliding on csl (agent2-exp/csl32 80fabbc): H100 -1.02 us but H200 check 058b8dce 13.74 = tie with
   Triton (13.72-14.09): NOT listed. Queued for a bundle: nvs NV_LAG 2 (H100 verify 32 -0.18 us paired 11/11).
 
@@ -40,6 +40,9 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 2. Decode 32 sliding: smem-staged csl-style 8-CTA clusters (risky; s73 csl8 lost).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+
+- s5: nvs 2 softmax chains per KV head (4 consumer WGs, tools/a2/nvs_c2_dead.patch): verify 16/32 +1.5/+1.7 us H100
+  (0/9); nvs is gather-trip-bound, not consumer-bound. Flag-spin merges closed by agent 1 (NOTES.md s34, exp/spin).
 
 - s4: nvs fused last-CTA merge +1.6..+3.6 us (tail latency-bound on 4 warps/SM); 4-CTA clusters for nvs don't fit one
   wave (30 max); _combine_hb HB/warps other than (2,1); csl 8-CTA clusters (+0.48), csl 64-reg cap (+2.0), csl 2 warps

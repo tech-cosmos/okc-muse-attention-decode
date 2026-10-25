@@ -231,3 +231,36 @@ new-token path; don't use nvs.py stamps). Little's law: LAG 1 keeps 2 tiles (32 
    lost (s1 fuse, s2 cl, s4 nvs fused). Remaining levers are small: nvs LAG 2 (-0.18 verify 32), direct page-table
    loads in the producer (skip the smem staging + bar), more bytes in flight per SM at the start (prologue).
 2. Untested: verify 16 on nvs with LAG 2 + the first tiles' page-table entries loaded straight into registers.
+
+## Session 5 (2026-10-25 06:34 - ~07:10 UTC): nvs with 2 softmax chains per KV head (DEAD)
+
+Start: merged origin/main f2f0ee5 (agent 1 s93: nvs merged on main 4e63331, check 13582a1b 2.465x) into agent2 (cdfc982);
+tests 16/16, H100 bench decode 16/32 sliding 9.41/15.02, verify 16/32 sliding 13.76/16.43. Account at start: checks 15/20
+(agent2 4), scored 6/10. Only 1 check was within agent2's share (leave >= 4 for agent 1): not used (nothing worth it).
+
+### nvs NV_C2 2 (tools/a2/nvs_c2_dead.patch, A/B tools/a2/c2ab.py)
+Idea: s3/s4 ablations (producer-only 12.1, consumer-only with stale smem 13.5, both 14.0 us H100 verify 32) looked like
+a consumer<->producer chain at ~1 us per tile, so double the consumers: 5 WGs (producer + 4 consumers), consumer WG
+(h, c) takes KV head h's tiles c, c + 2, ...; chain 1 hands o / m / l to chain 0 through smem (named barrier per head),
+chain 0 merges and stores the partial (same _combine_hb layout). New tokens only on chain 0. Correct (chk_nvs 7/7).
+- Gotcha: with 640 threads ptxas sets the kernel's register count to the launch bound (96), so setmaxnreg.inc 112 with
+  dec 40 needs more than the CTA's pool and **hangs**; 104 fits (5120 + 512 x 104 <= 640 x 96). 96 regs, 4 B spill.
+- H100 paired (9 rounds): verify 16 sliding 13.23 -> 14.80 (+1.54, 0/9), verify 32 16.64 -> 18.24 (+1.66, 0/9).
+  With NS 6 + LAG 2 (7 rounds): +1.68 / +1.20, 0/7 each.
+- So nvs is NOT consumer-chain-bound: twice the consumer parallelism makes it slower (more warps share the SM's issue
+  slots and the producer WG; plus a second Q prologue per head and the in-CTA merge). With LAG 2/3 and NS 6 also flat
+  (s4), the ~1 us per tile is the gather trip itself; verify 32 nvs (10.8 us H200) and decode 32 Triton (10.8 us H200)
+  move the same 16.8 MB in the same time, so ~10.8 us is the H200 cost of the 3-trip (seq -> page table -> rows)
+  random-row gather at this size, whichever kernel does it.
+
+### Checked as closed before building (NOTES.md)
+- Merge kernel that spins on per-request flags instead of griddepcontrol.wait: NOTES.md s34 (flagmerge) and exp/spin
+  (s52-ish, line ~1984): release + poll loses to the PDL grid wait (+0.9..+1.7 us). Don't retry.
+
+### Next ideas (small; none worth a check alone)
+1. nvs NV_LAG 2 at verify 32 (-0.18 us H100) if a bundle check goes out.
+2. A decode-32 nvs (L 1, rows padded to M 64): expected ~= Triton's 10.8 us (same bytes, same trip structure), merge
+   4 vs 8 splits maybe -0.3 us. Low value (0.23 %/us).
+3. The batched sliding shapes now sit at ~1.8 us fixed harness overhead + ~10.8 (B32) / ~6.5-9.4 (B16) us of gather +
+   1.5-2.6 us merge. Every merge-removal path is closed (fused last-CTA, cluster, flag spin). The remaining structural
+   lever would be cutting a DRAM trip from the prologue (seq -> page table), which the inputs don't allow for batch > 1.
