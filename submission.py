@@ -1583,6 +1583,7 @@ if HAVE_GLUON:
 
     LZ_PK = gl.constexpr(4)  # LZ 10: exact tiles per segment
     LZ_DELTA = gl.constexpr(14.0)  # LZ 10: FP16 headroom (binades)
+    LZ_PIPE = gl.constexpr(False)  # s110: pipelined fixed-reference loop (dead in Gluon: C7512 at 2 CTAs/SM)
     LZ_ACC = gl.constexpr(_lz_acc_asm())
     LZ_ACC_CON = gl.constexpr(",".join(["=f"] * 64 + ["f"] * 128))
     LZ_ASM = gl.constexpr(_lz_asm())
@@ -1706,7 +1707,42 @@ if HAVE_GLUON:
                     a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
                     acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
                     mbarrier.arrive(empty.index(s))
-                for i in range(LZ_PK, ntiles):
+                if LZ_PIPE:
+                    # FA3 intra-warpgroup order (s110): QK(i) and P@V(i - 1) issued together, wait(1) for QK(i), so
+                    # softmax(i) overlaps P@V(i - 1). The fixed reference leaves acc untouched between wgmmas, and
+                    # nothing stays in flight across the back-edge (C7514, s21).
+                    if ntiles > LZ_PK:
+                        s = (it + LZ_PK) % NS
+                        mbarrier.wait(ready.index(s), ((it + LZ_PK) // NS) & 1)
+                        s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                              gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                        sc = warpgroup_mma_wait(0, deps=[s_tok])
+                        if lo + (LZ_PK + 1) * BN > hi:
+                            sc = gl.where((lo + LZ_PK * BN + n_s < hi)[None, :], sc, float("-inf"))
+                        p = gl.exp2(gl.fma(sc, scale, -m_i[:, None]))
+                        l8 = l8 + gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                        p16 = gl.convert_layout(p.to(gl.float16), P_L)
+                        for i in range(LZ_PK + 1, ntiles):
+                            s = (it + i) % NS
+                            sp = (it + i - 1) % NS
+                            mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
+                            s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
+                                                  gl.zeros([M, BN], gl.float32, S_L), use_acc=False, is_async=True)
+                            a_tok = warpgroup_mma(p16, vh.index(sp), acc, is_async=True)
+                            sc = warpgroup_mma_wait(1, deps=[s_tok])
+                            if lo + (i + 1) * BN > hi:
+                                sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
+                            p = gl.exp2(gl.fma(sc, scale, -m_i[:, None]))
+                            l8 = l8 + gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                            acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
+                            mbarrier.arrive(empty.index(sp))
+                            p16 = gl.convert_layout(p.to(gl.float16), P_L)
+                        s = (it + ntiles - 1) % NS
+                        a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
+                        acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
+                        mbarrier.arrive(empty.index(s))
+                else:
+                  for i in range(LZ_PK, ntiles):
                     s = (it + i) % NS
                     mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
                     s_tok = warpgroup_mma(q_s, k_ring.index(s).slice(HEAD * D, D, 1).permute((1, 0)),
@@ -3234,7 +3270,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
     device = qkv.device
     page_table = data["page_table"]
     # Programs per KV head pair: as many as fill the slots (2 per SM), or the plan's splits per request.
-    progs = 2 * _num_sms(device) // (hkv // 2) if plan.get("fill", True) else plan["splits"] * batch
+    progs = plan.get("cps", 2) * _num_sms(device) // (hkv // 2) if plan.get("fill", True) else plan["splits"] * batch
     nid = progs + 2 * batch
     b_pad = plan.get("bpad", max(32, triton.next_power_of_2(batch)))
     pacc = torch.empty((hkv, nid, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
