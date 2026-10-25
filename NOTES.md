@@ -5330,3 +5330,56 @@ also fit "MUFU and tensor don't overlap". If that were a hardware limit, only FP
 
 ### Budget (UTC day 2026-10-25)
 - s122: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 123 (unattended session 56, 2026-10-25 15:30 - ~16:05 UTC): pre-reset sanity bench; spin-merge priced dead (no checks)
+
+Board 15:35Z unchanged: #1 pjmullin3 2.910x (1294.4 us), ours 2.542x rank 8 (e64d3450, 1481.9 us). Account: checks
+20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new (agent2's halfpf 6a9a26a is agent2's own first
+check after 00:00Z). All local branches verified pushed to origin (sandbox deleted ~17:45Z). **0 checks, 0 scored. main
+code unchanged (ae1161c).**
+
+### Sanity of main before the reset (H100)
+`tools/bench.py test` 16/16 PASS; `bench` geomean **2.053** (s118: 2.051): decode 1 5.06 / 13.73, decode 16 9.54 /
+125.47, decode 32 13.62 / 244.00, verify 1 6.35 / 17.84, verify 16 12.99 / 135.20, verify 32 16.38 / 255.12 (sliding /
+full). So the queued check of main ae1161c is the right first check after 00:00Z.
+
+### Priced on paper, not built: `_red_fin` spinning on a release counter instead of `griddepcontrol.wait` (decode 1 full)
+s118's stamps: PDL release 0.55 us after the last `_gd_full` program ends, then 0.67 L2 trip + 0.4 finish. A counter
+needs per-program `fence.acq_rel.gpu` after the relaxed red atomics (waits for their L2 acks, ~0.5-0.7 cold) + the
+release add + the spinner's acquire poll (~0.3-0.6) >= the 0.55 it replaces; s95 measured acq_rel arrivals at ~1.3 us
+for the in-grid variant. Expected tie/loss; don't build. Also re-ruled-out this session (already in the index): pool-
+order reads at batch 1 (would rely on the generator's pool layout = reward-hacky), verify-full lockstep consumers (= FA3
+ping-pong, s101), page-table L2 prefetch at batch 1 (csl/_gd_full already SPEC the table at batch 1).
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged from s120
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag5 @ 840db1a (diag, never submit); its H200 batch-1/32 gather floors decide the next build.
+
+### Budget (UTC day 2026-10-25)
+- s123: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 124 (unattended session 57, 2026-10-25 15:51 - ~16:20 UTC): graph-node and cluster-launch probes (both dead; no checks)
+
+Board 15:52Z unchanged: #1 pjmullin3 2.910x (1294.4 us), ours 2.542x rank 8 (e64d3450, 1481.9 us). Account: checks
+20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new. **0 checks, 0 scored. main code unchanged
+(ae1161c).** exp/hdiag5 @ 840db1a re-read: its d1/v1/d32 floors (hfloor R2/R4 with all loads in flight + dense) already
+answer the open H200 batch-1/batch-32 gather question, so no new diag variants were added.
+
+### Probes (H100)
+- **Graph contents per scored shape** (tools/s124/nodes.py, torch profiler on eager kernel_fn): only the expected kernels,
+  no memset/memcpy/extra nodes in any shape (decode 1 sliding = csl only; decode 1 full = `_gd_full` + `_red_fin`; verify
+  1 full = `_attn_split` + `_combine`; verify 16/32 full = `_new_tokens` + `_gw_verify` + `_combine_bal`; batched sliding =
+  nds/nvs + `_combine_hb`). No fixed cost hiding in host-side torch ops. Dead.
+- **CTA start spread of 16-CTA cluster launches** (tools/s124/cstart.py, %globaltimer at CTA entry): 32 CTAs (csl) and
+  256 CTAs (vtk, 116 SMs) both start within <= 96 ns (p50 32 ns); 8-CTA clusters / no clusters the same. So cluster
+  launch rate is NOT behind vtk's unexplained 4 -> 8 token cost (+0.5 us, s97); the remaining suspect is the 3-CTAs-per-SM
+  placement (s120), with no live fix. Dead.
+- Arithmetic (e64d3450 per-shape H200 times): verify 16/32 full at decode-full speed would give 2.626x; all full layers
+  -10% 2.697x; every sliding shape -1 us 2.627x. #1's 2.910x needs gains of that size in several places at once.
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag5 @ 840db1a (diag, never submit); its H200 batch-1/32 gather floors decide the next build.
+
+### Budget (UTC day 2026-10-25)
+- s124: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.

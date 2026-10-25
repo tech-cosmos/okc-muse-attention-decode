@@ -1,6 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~16:20 UTC (session 122 = unattended session 55). **s122 (0 checks): tensor vs MUFU pipe-overlap
+Updated 2026-10-25 ~16:20 UTC (session 124 = unattended session 57). **s124 (0 checks): no extra graph nodes in any shape; 16-CTA cluster CTAs all start within 0.1 us (vtk launch rate not the issue); NOTES s124.** **s123 (0 checks): pre-reset sanity of main ae1161c: tests 16/16, H100 bench 2.053; `_red_fin` counter-spin merge priced dead (NOTES s123).** **s122 (0 checks): tensor vs MUFU pipe-overlap
 microbench (tools/s122/tm.cu): wgmma and MUFU/FFMA from different WGs overlap (10-24% mutual slowdown), so the
 verify-full consumer gap is chain scheduling, not a HW pipe limit; NOTES s122. s121 (0 checks): verify 1 full on agent2's nvs
 (exp/nvsf) DEAD: H100 cold +0.9 us (warm -0.6). s120: exp/hdiag5 @ 840db1a replaces hdiag4 as queued check 2.**
@@ -74,6 +74,7 @@ numbers: NOTES s69.)
 3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s124: extra graph nodes (none in any shape), cluster launch-rate spread (<= 0.1 us, tools/s124).
 - s122: "MUFU and tensor serialize in HW" (they overlap; tools/s122/tm.cu).
 - s121: nvs (native verify-sliding, NV_HALF/0, S 32-128, NS 5-7) at verify 1 full: cold +0.9..+6 us (exp/nvsf).
 - s120: forcing 1 CTA/SM for csl (already 1/SM at batch 1), vtk placement (116 SMs, max 3/SM; fixes = dead layouts).

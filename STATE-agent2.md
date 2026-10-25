@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~15:40 UTC (agent2 session 18; s18 = 3 dead H100 probes, no code change). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
+Updated 2026-10-25 ~16:50 UTC (agent2 session 21; s21 = nvs cl direct pushes, H100 verify 32 -0.13..-0.30; s20 = nds S probes dead). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
 
 ## Scope
 
@@ -18,16 +18,19 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Candidates
 
-- (s17) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/halfpf 6a9a26a** = half e5f65ed (verify 32 cl, below) +
+- (s21) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/cldir d5e1482** (or its tip) = halfpfkr abc5f38 + nvs cl direct
+  pushes (verify 32 sliding: H100 paired -0.30 (11/11), -0.13 (11/11) vs halfpfkr). tests 16/16. Compare per shape as below.
+- (s19) superseded by cldir: agent2-exp/halfpfkr abc5f38 = halfpf 6a9a26a (below) + nds K-early
+  barrier (agent2 565c536: H100 decode 32 -0.14 (13/15) on halfpf). tests 16/16. Same per-shape comparison as below.
+- (s17) superseded by halfpfkr: agent2-exp/halfpf 6a9a26a = half e5f65ed (verify 32 cl, below) +
   pf 946a445 (page-table L2 prefetch in csl/nds: H100 decode 16 -0.11..-0.13, decode 32 -0.06..-0.24). tests 16/16.
   Compare verify 32 sliding vs 15.4, decode 16 vs 8.13, decode 32 vs 12.20 H200; list only winners.
 
 - (s15) LISTED in COORD Ready to merge: **agent2-exp/nvhalf 7ba35f9** (= agent2 now) = origin/main d93a80d + NV_HALF;
   agent 1's check 2d0bfdc6: verify 16 sliding 11.63 H200 (was 11.90) WIN, verify 32 tie.
-- (s15) QUEUED (first agent2 check after 00:00Z 2026-10-26): **agent2-exp/half e5f65ed** (merged with main as d7dd5a4, same submission.py) = NV_HALF + cl at verify 32
-  (2-CTA DSMEM merge, no combine; H100 -0.29..-0.86 vs NV_HALF+combine) + split start cluster barrier (H100 -0.19..-0.29
-  more). tests 16/16. Compare verify 32 sliding vs 15.4 H200.
-- Checks used by agent2 on 2026-10-25: 5; account 20/20 (s16: 0).
+- (s15) inside halfpf: agent2-exp/half e5f65ed = NV_HALF + cl at verify 32 (2-CTA DSMEM merge, no combine; H100
+  -0.29..-0.86 vs NV_HALF+combine) + split start cluster barrier (H100 -0.19..-0.29 more). tests 16/16.
+- Checks used by agent2 on 2026-10-25: 5; account 20/20 (s16-s19: 0).
 
 ## Ranked ideas
 
@@ -40,6 +43,8 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+- s20: nds S 4 NS 6 tie (+0.05), S 4 NS 8 +0.32, S 6 NS 3 noise, S 5/6 NS 4 +3.5/+4.4 (1 CTA/SM). NOTES-agent2 s20.
+- s19: K-early (readyv) in nvs +0.10/+0.19 verify 16/32; nds K and V in separate cp.async groups +0.24. NOTES-agent2 s19.
 - s18: nds cos/sin trip (constant-position upper bound -0.13), split-major CTA order +0.35, even/odd split halves +0.11. NOTES-agent2 s18.
 - s17: page-table L2 prefetch in nvs (verify 16/32) +0.18/+0.19 (thread 32), +0.32/+0.35 (thread 160). NOTES-agent2 s17.
 - s16: nds split pairs packed in one 512-thread CTA + smem merge (agent2-exp/ndp): +0.74 decode 32 (packaging +0.96,

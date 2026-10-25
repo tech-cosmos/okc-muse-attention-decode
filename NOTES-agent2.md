@@ -751,3 +751,75 @@ critical path (the producer chain seq -> page table -> rows is). No change shipp
 
 ### Next (unchanged)
 - First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpf 6a9a26a** (verify 32 cl; decode 16/32 pf).
+
+## Session 19 (2026-10-25 15:33 - ~16:00 UTC): nds K-early barrier = small H100 win at decode 32 (0 checks)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main 4c00ee9
+(agent 1 s121/s122 tools/notes) into agent2 (0a8d56c); submission.py unchanged by it.
+
+### K-early barrier in nds (decode 32 sliding), agent2 565c536
+The producer arrives `ready[s]` right after its `cp.async.wait_group` (+ fence.proxy.async), BEFORE the bar.sync and
+the V transpose, then arrives a new `readyv[s]` after the transpose. The consumer waits `ready` before QK(i) (as
+before) and `readyv[sp]` between issuing QK(i) and PV(i-1) (and in the last-tile PV): the V transpose leaves the
+gather -> QK chain. No barrier between softmax and P@V (agent 1's s46 lesson in NOTES.md: that costs more there).
+Results bit-identical in kind (same math), tests 16/16, chk.py 12/12.
+| H100 paired (tools/a2/vab.py) | diff |
+|---|---|
+| nds kr vs agent2 (decode 32), 11 rounds x2 | **-0.06 (10/11), -0.10 (10/11)** |
+| nds kr vs halfpf 6a9a26a (decode 32), 15 rounds | **-0.14 (13/15)** |
+| same in nvs (verify 16 / 32, NV_HALF base) | +0.10 (3/11) / +0.19 (2/11): not applied (nvs is gather-throughput-bound) |
+| nds kr + K and V in separate cp.async groups (wait K first) | +0.24 (1/11): dead |
+Gotcha: adding `readyv` to nvs's Smem moved `xo` off 16-B alignment ("misaligned address" from its float4 stores):
+any Smem field added before xo needs `alignas(16) float xo[...]`.
+Check candidate: **agent2-exp/halfpfkr abc5f38** = halfpf 6a9a26a + kr (merge of agent2 565c536); tests 16/16.
+
+### Next
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpfkr abc5f38** (replaces halfpf 6a9a26a: same code +
+  nds kr). Per shape vs the H200: verify 32 sliding (cl) vs ~15.4, decode 16 sliding (pf) vs 8.13, decode 32 sliding
+  (pf + kr) vs 12.20. List only the winners.
+
+## Session 20 (2026-10-25 15:53 - ~16:10 UTC): nds split-count / ring-depth probes, all dead (0 checks)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main a237bfd
+(agent 1 s123 notes) into agent2 (dffa73c); submission.py unchanged by it.
+
+Idea: fewer nds splits halve the FP32 partials (1 MB -> 0.5 MB at S 4) that _combine_hb reads after its PDL wait
+(s11: the post-wait partial read is ~1.2 us of the ~1.75 us merge exposure). H100 paired (tools/a2/vab.py, 9 rounds),
+decode 32 sliding:
+| variant | diff vs nds S 8 NS 3 (2 CTAs/SM) |
+|---|---|
+| S 4 NS 6 (128 CTAs, 1/SM, 8 tiles each) | +0.05 (3/9): tie |
+| S 4 NS 8 | +0.32 (0/9) |
+| S 6 NS 3 (192 CTAs; combine S_PAD 8) | -0.08 (5/9): noise |
+| S 6 NS 4 / S 5 NS 4 | +3.49 / +4.38 (0/9): NS 4 drops nds to 1 CTA/SM (as s12) |
+So the cheaper merge is exactly paid back by the longer per-CTA chain (one consumer WG per SM at S 4): split count is
+not a lever for decode 32 (S 4 had also tied in s10). No code change.
+
+### Next (unchanged)
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpfkr abc5f38** (verify 32 sliding cl vs ~15.4 H200,
+  decode 16 sliding pf vs 8.13, decode 32 sliding pf + kr vs 12.20). List only the winners in COORD Ready to merge.
+
+## Session 21 (2026-10-25 16:03 - ~16:50 UTC): nvs cl direct pushes = small H100 win at verify 32 (0 checks)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main 2af93cd
+(agent 1 s124 tools) into agent2; submission.py unchanged by it. halfpfkr abc5f38 already contains main's submission.py.
+
+### cl direct pushes (verify 32 sliding), agent2-exp/cldir d5e1482 (on halfpfkr abc5f38)
+s14's chain was: consumer 1 writes xo -> bar 4 (256) -> consumer 0 merges the halves -> its non-owner warps stage
+and bulk-copy 9 KB to the peer -> the peer's owners merge -> epilogue. New: in cl, EVERY consumer's non-owner warps
+(the rows the peer finishes) stage their unmerged o / m / l locally and bulk-copy them to the peer at once (consumer 0
+-> peer xo2, consumer 1 -> peer xo3, named bars 5 / 6 of 64; clbar expect_tx 2 x 9216). Consumer 1's owner warps hand
+their rows to consumer 0's owners via xo (bar 4, 128). Consumer 0's owners merge 4 parts (local half, xo2, xo3) and
+write the output. The push no longer waits on the in-CTA merge, and each half pushes as soon as it is done.
+Smem +18 KB (xo3; still 1 CTA/SM). Same FP32 math, just a different merge order.
+| H100 paired (tools/a2/vab.py, VAB_BASE = halfpfkr), verify 32 sliding | diff |
+|---|---|
+| run 1, 11 rounds | **-0.30 (11/11)** (15.70 -> 15.33) |
+| run 2, 11 rounds | **-0.13 (11/11)** (15.84 -> 15.71) |
+chk_nvs 7/7, tests 16/16. Verify 16 does not use cl (S 4 + combine), so it is unaffected.
+
+### Next
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/cldir d5e1482+** (= halfpfkr abc5f38 + cl direct pushes).
+  Per shape vs the H200: verify 32 sliding (cl) vs ~15.4, decode 16 sliding (pf) vs 8.13, decode 32 sliding (pf + kr)
+  vs 12.20. List only the winners in COORD Ready to merge (if verify 32 loses, fall back to NVS_CL_BATCH 9999).
+- Same "push before merge" idea elsewhere: wherever a merge chain stacks an in-CTA merge before a cross-CTA hand-off.
