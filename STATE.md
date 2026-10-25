@@ -1,29 +1,20 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~13:44 UTC (session 113 = unattended session 46 of the #1-push brief).
+Updated 2026-10-25 ~14:20 UTC (session 114 = unattended session 47 of the #1-push brief).
+
+**s114 (0 checks): physical-order decode full CLOSED on both routes: atomic-free global inversion (in-place slice sort
++ smem owner map) best 18.1 us H100 at decode 32 (p1 10.1 + map 8.0; gate <= 5); windowed L2 sweep (per-program
+window buckets + L2 prefetch-ahead) 325-455 vs random 246 (prefetch hints double DRAM traffic), window order alone
+-3% H100. NOTES s114.**
 
 **s113 (0 checks): H100 warm/cold split: decode 1 full is memory-bound (warm 8.2 vs cold 14.0); verify 1 full carries ~4.2 us
 of consumer chain over decode 1 full even warm. FPIPE (hand-pipelined Triton loop) DEAD (+1.0, Triton waits 0 per wgmma).
 Built exp/hdiag3 (main f2b1c52 + diag; replaces hdiag2): the FIRST check after 00:00Z. NOTES s113.**
 
-**s112: check 2d0bfdc6 (main + agent2 NV_HALF) 2.507x: NV_HALF wins verify 16 sliding 11.63 (vs 11.90), ties verify 32 sliding;
-overall drop is noise on untouched shapes. Checks 20/20 used today. Per-us lever table in NOTES s112. Next: H200 batch-1 gather floor (hdiag2).**
-
-**s111: native pipelined verify-full kernel BUILT (exp/nvf 4eb2b26, v1-v5, all 23/23 correct) and LOSES in every layout
-(best verify 32 full real +24 / all-L2 +31 us vs Gluon): 80 in-flight regs need 112/consumer (C7512 at 104), 112 only fits
-as 1 CTA/SM x 2 programs, leaving too few warps for the FP8->FP16 V widen. Idea 0000000 below is DEAD. 0 checks. NOTES s111.**
-
-**s109-s110 (NOTES s109-s110): csl w8/w1 and gw/gbal at verify 1 full dead; native pipelined FIX consumer microbench -12%
-(126.9 vs 144.9 us) but Gluon pipelining dead (C7512 at 2 CTAs/SM).**
-
-**s104-s108 (NOTES s104-s108): s108 REDO stress of main 240/240 clean + exp/hdiag2 98153b5 built (paired H200 diag,
-never submit; H100 decode 32 full dense floor -11% vs random); s107 FOLD dead; s106 fix 1 verify 1 full + SPEC OOB clamp
-(on main); s105 LZ 10 verify 16/32 full (on main, H200 unverified); s104 LZ 4 gap = in-loop branches; s103 red on batched
-decode full (on main, H200 unverified); s102 submitted 8725ba7e 2.460x = account best.**
-
-**Earlier (details in NOTES s91-s101): s101 decoupled V ring in gbal = H200 tie/loss; s100 vtk H200 win (verify 1 sliding 6.8 -> 5.6), launch floor ~2 us/kernel;
-s99 physical-row order dead; s98/s97 vtk / nverify probes dead; s96 vtk built; s95 red (fixed-reference-max atomic
-merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
+**Earlier (NOTES s91-s112): s112 NV_HALF H200 win verify 16 sliding (agent2); s111 native pipelined verify full dead
+(exp/nvf); s110 Gluon pipelining dead (C7512); s109 csl w8/w1, gw at verify 1 full dead; s108 REDO stress clean; s107 FOLD
+dead; s103/s105/s106 red / LZ 10 / fix 1 on main (H200-verified in e64d3450); s100 vtk verify 1 sliding win, launch floor
+~2 us/kernel; s95 red decode 1 full; s91 csl.**
 
 ## Board and best run
 
@@ -34,10 +25,7 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
   fix 1 verify 1 full -0.27, red decode 16/32 full -1.9/-0.7 (full layers on the usual slow node). So main's s103/s105/s106
   changes are H200-verified; the queued 'check main 05efdde' item is done.
 
-- Board 2026-10-25 09:05Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.460x** (scored
-  **8725ba7e**, main cc93187 = 1e4c80e code; previous 08bf9391 2.445x).
-- Per-shape H200 (8725ba7e, us): decode 1 4.55 / 13.71; decode 16 7.70 / 89.55; decode 32 13.83 / 168.92; verify 1
-  5.53 / 16.45; verify 16 12.43 / 113.28; verify 32 15.21 / 209.94 (slow-node full layers). Need ~+18% for #1.
+- Previous: 8725ba7e 2.460x (main 1e4c80e); per-shape in NOTES s102.
 - H200 profile (7f45c5c6): verify 16/32 full `_gw_verify` 109.2 / 209.8 us + `_combine_bal` tail; decode 32 full
   `_gd_full` 162.5 (4.0 TB/s, near the gather floor). Verify full is consumer-compute-bound on the H200.
 
@@ -50,9 +38,7 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 ## Budget (UTC day 2026-10-25; API: `okc problems --json`)
 
-- 2026-10-25 after s103: checks 18/20 (2 left = agent2's), scored 7/10 (8725ba7e from the lead agent's reserve). s103: 0/0.
-
-- Today's judge runs are listed in ~/COORD.md "Judge runs" and NOTES s85-s91. Agent2 keeps >= 8 checks/day (it has used 1).
+- Account at s114: checks 20/20 used (0 left), scored 8/10. Judge runs: ~/COORD.md "Judge runs". Agent2 keeps >= 8 checks/day.
 
 ## Current direction
 
@@ -62,14 +48,11 @@ numbers: NOTES s69.)
 
 ## Ranked ideas
 
-0000000. (s111: DEAD, built as exp/nvf, NOTES s111) (s110) NATIVE verify-full kernel with LZ 10 fixed reference + FA3 pipelined consumer at 2 CTAs/SM (consumer
-   cap 112 regs with a 24-reg producer; microbench needs 122, single P buffer saves ~16). Consumer-only -22% vs the s71
-   nverify consumer. Start from tools/s71/nverify.cu (exp/nverify) + tools/s110/cmicro.cu (FIX, PIPE). Multi-session.
+0000000. (s111: DEAD) native pipelined verify-full kernel (exp/nvf, NOTES s110-s111).
 
-000000. (s80; s84: GATE FAILED, bucketing pass 42+ us H100, see NOTES s84) Physical-order decode full (NOTES s80 design): prototype first the multi-split pass (<= ~5 us?) and
-   mixed-request mma.sync compute under a dense 256-row stream. ~+1-1.5% overall. Below the verify-full consumer.
+000000. (s114: CLOSED) physical-order decode full: inversion >= 18 us H100 (s84, s114), windowed L2 sweep dead (s114).
 
-0000. (s78/s79/s105) Lazy/fixed max in the verify-full consumer: DONE as LZ 10 (s105, on main, H200 unverified).
+0000. Lazy/fixed max in the verify-full consumer: DONE as LZ 10 (s105, on main, H200-verified).
 
 000. (s84: native verify-1-sliding cluster kernel built and lost, NOTES s84) (s75) Verify sliding is consumer-chain-bound, not DRAM-bound (H100 all-L2 attention verify 32/16 sliding 13.4/9.1 vs
    real 16.5/11.2 us; Triton ~1.8 64-key tiles/us/SM vs Gluon gw 2.9 on verify full). gw_verify itself loses at
@@ -100,17 +83,11 @@ numbers: NOTES s69.)
 - **s113: use exp/hdiag3 (pushed; main f2b1c52 + diag, obsolete pairs dropped, verify 1 full in-flight variants added) instead of hdiag2.**
 - **s112 FIRST after 00:00Z 2026-10-26: check exp/hdiag2 98153b5 (diag) mainly for the `hfloor` batch-1 full floors on the H200 (decides whether decode/verify 1 full has 3-4 us of headroom).** NV_HALF verify 16 sliding is H200-verified (agent2 to list it in Ready to merge).
 
-- **FIRST after 00:00Z 2026-10-26: main's s103/s105/s106 changes are now inside scored e64d3450 (2.542x); compare its per-shape
-  times (okc status e64d3450daad496e --json, records) with 8725ba7e before re-checking. Old item: check main 05efdde** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full
-  + s106 fix 1 on verify 1 full); submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False;
-  verify 16/32 full lose -> LZ = 3; verify 1 full lose -> drop `fix=1` from its plan.
-- **SECOND: check exp/hdiag2 98153b5 (DIAG, never submit; replaces exp/hdiag): paired in-run kernels fix 0/1 (verify 1
-  full), LZ 3/10 (verify 16/32 full), red/nored (decode 16/32 full), gw at verify 1 full, decode 1 full plans, gather
-  floors (random vs dense). Revert per shape what loses; port winners; then check main.**
-  (main 1e4c80e was scored in s102: 8725ba7e 2.460x; don't resubmit it unchanged.)
-
+- main's s103/s105/s106 changes are H200-verified inside e64d3450 (done).
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s114: physical-order decode full: atomic-free multi-split inversion (18 us H100), windowed L2 sweep with prefetch hints
+  (2x DRAM traffic), window-sorted order alone (-3% H100, ~-1.5% H200).
 - s113: FPIPE (hand-pipelined fixed-reference loop in Triton _attn_split: no wgmma overlap, +8 barriers/tile).
 - s111: native pipelined verify-full (exp/nvf v1-v5): C7512 at 104 regs, 1 CTA/SM x 2 programs starves the V widen.
 - s110: pipelined LZ 10 loop in Gluon (C7512 at 2 CTAs/SM; 1 CTA/SM +24 us), ones-column (n72) row sums (ceiling 0).
