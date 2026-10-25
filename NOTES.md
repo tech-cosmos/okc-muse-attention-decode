@@ -5446,3 +5446,26 @@ fails once) and passes k to both consumers through a small smem ring with its ow
 the request's NCB chunk ids (mask empty ones by the same clip formula). Costs: one query reload per chunk on the consumer
 chain (prefetch it in the producer if it shows), ~NCB more partials per request in the merge (keep SB one pass), chunk
 granularity CH x ~1.7 us. Start with CH 2, NCB 8-16.
+
+## Session 126 (unattended session 59, 2026-10-25 16:35 - ~17:05 UTC): graph-replay kernel timelines per shape (no checks)
+
+Board 16:35Z unchanged: #1 pjmullin3 2.910x (1294.4 us), ours 2.542x rank 9 (e64d3450, 1481.9 us). Account: checks
+20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new. **0 checks, 0 scored; main code unchanged (410dcb6).**
+Short session (sandbox deletion ~17:45Z). Looked for other NT_AFTER-style launch-order/residency gaps.
+
+Tool: tools/s126/gtl.py = torch-profiler kernel timeline of ONE cold CUDA-graph replay per scored shape (L2 flushed by a
+256 MB zero before each replay; 5 replays). (tools/s126/ktl.py = the same eager: useless for PDL kernels, CPU launch gaps.)
+H100, main 410dcb6, typical replay (kernel @ start + duration, us; tail = merge end - main kernel end):
+- decode 1 sliding csl 3.9-4.2 (single kernel); verify 1 sliding vtk 5.1-5.3 (single kernel).
+- decode 1 full: _gd_full 12.5, _red_fin @1.0 ends 14.2: tail 1.6.  decode 16 / 32 full: _gd_full 130.8 / 249.5, tail ~1.7-1.8.
+- decode 16 sliding csl 9.4-10.0 (single); decode 32 sliding nds 12.2-12.4 + _combine_hb tail 1.9 (first replay 13.6).
+- verify 1 full: _attn_split 15.3, _combine @0.7 ends 18.1: **tail 2.8** (largest batch-1 tail; s94/s95/s115/s118 priced
+  its alternatives: in-grid merge, atomics, splits 63/255, cw 8/16 all dead).
+- verify 16 / 32 sliding: nvs 10.0 / 15.0 + _combine_hb tail ~2.0 / ~2.1 (agent2's lane; their nvs cl removes it at v32).
+- verify 16 / 32 full: _gw_verify 134.8 / 254.5; _new_tokens (NT_AFTER) starts @123.5 / 237.5 (first gw exits), ends
+  ~0.5 us after gw; _combine_bal ends 139.5 / 259.8: **tail 4.7 / 5.2** (s117 measured 3.7-3.8 exposure pre-NT_AFTER).
+Every multi-kernel shape has its merge as a PDL dependent launched ~0.6-1.8 us into the main kernel (resident early, as
+intended); no idle gaps between kernels; no shape has a pre-kernel left that could block residency (the NT_AFTER case was
+the only one). Conclusion: no further launch-order lever; the remaining per-shape tails are the known merge exposures.
+
+Next (unchanged): STATE "Queued for checks" item 1 first after 00:00Z 2026-10-26 (check main 410dcb6 code).

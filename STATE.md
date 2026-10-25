@@ -1,12 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~16:15 UTC (session 125 = unattended session 58). **s125 (0 checks): NT_AFTER on main 410dcb6 = `_new_tokens` launched after `_gw_verify` (gbal): H100 verify 16/32 full -2.43/-1.87 us (11/11); gbal end spread measured (slowest program 6-12 us after the median); dynamic tail built (exp/dtail) and loses as is.** **s124 (0 checks): no extra graph nodes in any shape; 16-CTA cluster CTAs all start within 0.1 us (vtk launch rate not the issue); NOTES s124.** **s123 (0 checks): pre-reset sanity of main ae1161c: tests 16/16, H100 bench 2.053; `_red_fin` counter-spin merge priced dead (NOTES s123).** **s122 (0 checks): tensor vs MUFU pipe-overlap
-microbench (tools/s122/tm.cu): wgmma and MUFU/FFMA from different WGs overlap (10-24% mutual slowdown), so the
-verify-full consumer gap is chain scheduling, not a HW pipe limit; NOTES s122. s121 (0 checks): verify 1 full on agent2's nvs
-(exp/nvsf) DEAD: H100 cold +0.9 us (warm -0.6). s120: exp/hdiag5 @ 840db1a replaces hdiag4 as queued check 2.**
-
-**Earlier (0 checks each): s119 H100 refs for hdiag4's batch-1 variants (all lose); s118 `_red_fin` 16 warps at batch 1
-(main ae1161c, H100 -0.3 us); s114 physical-order decode full CLOSED; s115 judge profile is warm; s116-s117 merges <= 0.3%.**
+Updated 2026-10-25 ~17:05 UTC (session 126 = unattended session 59). **s126 (0 checks): cold graph-replay kernel timelines per shape (tools/s126/gtl.py): no launch-order gaps left; merge tails H100 v1 full 2.8, d1/d16/d32 full 1.6-1.8, v16/v32 full 4.7/5.2 us (NOTES s126); main code unchanged.** **s125 (0 checks): NT_AFTER on main 410dcb6 = `_new_tokens` launched after `_gw_verify` (gbal): H100 verify 16/32 full -2.43/-1.87 us (11/11); gbal end spread measured (slowest program 6-12 us after the median); dynamic tail built (exp/dtail) and loses as is.** s119-s124: probes only, all dead (dead-ends index).
 
 ## Board and best run
 
@@ -76,6 +70,7 @@ numbers: NOTES s69.)
 3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s126: further NT_AFTER-style launch-order fixes (none left: every merge is an early PDL dependent, no pre-kernels; tools/s126/gtl.py).
 - s125: dynamic tail as built (exp/dtail, +5..+18 us), static gbal range weights by program id (exp/wramp: +1.5..+24 us; the tail is per-replay random).
 - s124: extra graph nodes (none in any shape), cluster launch-rate spread (<= 0.1 us, tools/s124).
 - s122: "MUFU and tensor serialize in HW" (they overlap; tools/s122/tm.cu).
@@ -140,8 +135,6 @@ numbers: NOTES s69.)
   verify-volume cluster merge microbench (tools/s74/vmerge.cu).
 - s73: csl8 (8-CTA clusters, 2 chunks/warp, cp.async chunk B) decode 32 sliding 16.8 vs 15.9 us; csl at batch 32
   with launch_bounds 4 (spills, 18.3); native decode-1 full cfl with a last-arriver cross-cluster merge 19 vs 15.8.
-- Cluster DSMEM merges: from Triton dead (s70), but native with st.async + mbarrier complete_tx WORKS (s72). Pitfalls:
-  release cluster barriers (~0.5 us), and loads placed after page-table-dependent ones (in-order issue).
 
 - Native CUDA verify full with FP8 P@V (s71, exp/nverify): H200 tie with Gluon. Lessons: page-table entries off the
   per-tile DRAM chain (smem ring), 8 lanes per 128-B row, NS >= LAG + 2.
