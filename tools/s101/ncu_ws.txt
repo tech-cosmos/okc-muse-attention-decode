@@ -1,0 +1,72 @@
+==PROF== Connected to process 171389 (/home/daytona/.local/share/uv/python/cpython-3.12.12-linux-x86_64-gnu/bin/python3.12)
+env: torch 2.14.1+cu130, triton 3.8.0
+==PROF== Profiling "_gw_verify": 0%....50%....100% - 19 passes
+==PROF== Disconnected from process 171389
+[171389] python3.12@127.0.0.1
+  _gw_verify (264, 1, 1)x(384, 1, 1), Context 1, Stream 7, Device 0, CC 9.0
+    Section: Compute Workload Analysis
+    -------------------- ----------- ------------
+    Metric Name          Metric Unit Metric Value
+    -------------------- ----------- ------------
+    Executed Ipc Active   inst/cycle         2.07
+    Executed Ipc Elapsed  inst/cycle         2.01
+    Issue Slots Busy               %        50.32
+    Issued Ipc Active     inst/cycle         2.08
+    SM Busy                        %        50.32
+    -------------------- ----------- ------------
+
+    INF   Shared is the highest-utilized pipeline (32.4%) based on elapsed cycles in the workload, taking into account  
+          the rates of its different instructions. It is the logical sum of several other pipelines which can't         
+          achieve full utilization on their own. It executes 64-bit floating point and tensor operations. It's          
+          dominated by its Tensor (FP) sub-pipeline. It is well-utilized, but should not be a bottleneck.               
+
+    Section: Scheduler Statistics
+    ---------------------------- ----------- ------------
+    Metric Name                  Metric Unit Metric Value
+    ---------------------------- ----------- ------------
+    One or More Eligible                   %        52.10
+    Issued Warp Per Scheduler                        0.52
+    No Eligible                            %        47.90
+    Active Warps Per Scheduler          warp         5.72
+    Eligible Warps Per Scheduler        warp         1.14
+    ---------------------------- ----------- ------------
+
+    OPT   Est. Local Speedup: 47.9%                                                                                     
+          Every scheduler is capable of issuing one instruction per cycle, but for this workload each scheduler only    
+          issues an instruction every 1.9 cycles. This might leave hardware resources underutilized and may lead to     
+          less optimal performance. Out of the maximum of 16 warps per scheduler, this workload allocates an average    
+          of 5.72 active warps per scheduler, but only an average of 1.14 warps were eligible per cycle. Eligible       
+          warps are the subset of active warps that are ready to issue their next instruction. Every cycle with no      
+          eligible warp results in no instruction being issued and the issue slot remains unused. To increase the       
+          number of eligible warps, avoid possible load imbalances due to highly different execution durations per      
+          warp. Reducing stalls indicated on the Warp State Statistics and Source Counters sections can help, too.      
+
+    Section: Warp State Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Warp Cycles Per Issued Instruction             cycle        10.99
+    Warp Cycles Per Executed Instruction           cycle        10.99
+    Avg. Active Threads Per Warp                                32.00
+    Avg. Not Predicated Off Threads Per Warp                    31.17
+    ---------------------------------------- ----------- ------------
+
+    WRN   The optional metric smsp__pcsamp_sample_count could not be found. Collecting it as an additional metric could 
+          enable the rule to provide more guidance.                                                                     
+
+    Section: Instruction Statistics
+    ---------------------------------------- ----------- ------------
+    Metric Name                              Metric Unit Metric Value
+    ---------------------------------------- ----------- ------------
+    Avg. Executed Instructions Per Scheduler        inst   182,670.24
+    Executed Instructions                           inst   96,449,885
+    Avg. Issued Instructions Per Scheduler          inst   182,684.45
+    Issued Instructions                             inst   96,457,388
+    ---------------------------------------- ----------- ------------
+
+    OPT   Est. Speedup: 3.612%                                                                                          
+          This kernel executes 12335488 fused and 11268970 non-fused FP32 instructions. By converting pairs of          
+          non-fused instructions to their fused                                                                         
+          (https://docs.nvidia.com/cuda/floating-point/#cuda-and-floating-point), higher-throughput equivalent, the     
+          achieved FP32 performance could be increased by up to 24% (relative to its current performance).              
+
