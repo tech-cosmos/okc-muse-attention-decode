@@ -1,6 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~14:35 UTC (session 113 = unattended session 46 of the #1-push brief).
+Updated 2026-10-25 ~13:44 UTC (session 113 = unattended session 46 of the #1-push brief).
 
 **s113 (0 checks): H100 warm/cold split: decode 1 full is memory-bound (warm 8.2 vs cold 14.0); verify 1 full carries ~4.2 us
 of consumer chain over decode 1 full even warm. FPIPE (hand-pipelined Triton loop) DEAD (+1.0, Triton waits 0 per wgmma).

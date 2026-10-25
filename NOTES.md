@@ -4946,7 +4946,7 @@ merge". Account at start: checks 19/20, scored 8/10 (Claude's 6 submits for the 
 ### Budget (UTC day 2026-10-25)
 - s112: 1 check (2d0bfdc6), 0 scored. Account: checks 20/20, scored 8/10.
 
-## Session 113 (unattended session 46, 2026-10-25 13:32 - ~14:35 UTC): batch-1 full warm/cold split, exp/hdiag3, FPIPE dead (no checks)
+## Session 113 (unattended session 46, 2026-10-25 13:32 - ~13:44 UTC): batch-1 full warm/cold split, exp/hdiag3, FPIPE dead (no checks)
 
 Board 13:32Z: #1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). Account: checks 20/20 (0 left
 today), scored 8/10. No new "Ready to merge". **0 checks, 0 scored.** main code unchanged (f2b1c52). H100 bench at start
@@ -4964,7 +4964,7 @@ empty replay, so only compare within a column), cmp.py (outputs under two plan o
   0.41 pipelined vs Triton's ~0.9 us/tile (with gathers). On the H100 the gathers (~0.76 us/tile-equivalent) are as slow
   as Triton's chain, so a pipelined consumer can't show there; only the H200 (gathers ~1.4x faster) could pay, ~1 us.
 
-### FPIPE (exp/fpipe ff8a1f0-ish, plan fix 101): DEAD
+### FPIPE (exp/fpipe, plan fix 101): DEAD
 Fixed-reference loop software-pipelined by hand in _attn_body (QK^T of tile i issued before P@V of tile i-1; P/V of the
 previous tile carried as FP16 registers). Bit-identical output (cmp.py: 0.0 diff, 2 seeds). H100 verify 1 full +1.0 us
 cold / +0.55 warm (stages 6 / 4: worse). SASS: Triton still `WARPGROUP.DEPBAR.LE gsb0, 0x0` right after each wgmma (no
