@@ -1,6 +1,7 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~15:15 UTC (session 120 = unattended session 53). **s120 (0 checks): cluster placement probes (csl batch 1
+Updated 2026-10-25 ~15:45 UTC (session 121 = unattended session 54). **s121 (0 checks): verify 1 full on agent2's nvs
+(exp/nvsf) DEAD: H100 cold +0.9 us (warm -0.6). s120 (0 checks): cluster placement probes (csl batch 1
 already 1 CTA/SM on 32 SMs; vtk's 256 CTAs on only 116 SMs, max 3/SM, no live fix); built exp/hdiag5 @ 840db1a = hdiag4 +
 main + exp/ua d1ua505/d1ua511 variants: it replaces hdiag4 as queued check 2. NOTES s120.**
 
@@ -73,6 +74,7 @@ numbers: NOTES s69.)
 3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s121: nvs (native verify-sliding, NV_HALF/0, S 32-128, NS 5-7) at verify 1 full: cold +0.9..+6 us (exp/nvsf).
 - s120: forcing 1 CTA/SM for csl (already 1/SM at batch 1), vtk placement (116 SMs, max 3/SM; fixes = dead layouts).
 - s119: decode 1 full stages 3/4, BN 64 s2, BN 16 s4, splits 255/1023 and verify 1 full stages 10/12 (H100; H200 via
   hdiag4), `_gd_full` work stealing (on paper: late grab = 3 trips > 0.86 us spread), csl owner-merge sig/tree (tie again).

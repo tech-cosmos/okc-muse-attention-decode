@@ -5272,3 +5272,26 @@ Reading rule unchanged: port d1ua* only if its `_gd_full` beats `d1a_gd_full` by
 
 ### Budget (UTC day 2026-10-25)
 - s120: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 121 (unattended session 54, 2026-10-25 15:05 - ~15:45 UTC): verify 1 full on agent2's nvs (dead; no checks)
+
+Board 15:05Z unchanged: #1 pjmullin3 2.910x (1294.4 us), ours 2.542x rank 8 (e64d3450, 1481.9 us). Account: checks
+20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new. **0 checks, 0 scored. main code unchanged
+(ae1161c).** Branch exp/nvsf (pushed): prototype dispatch `NVS_FULL1` (off) + identity RoPE table for `rope_theta` 0
+(full layers have no RoPE; `_cos_sin(0)` would be inf/nan). Tools: tools/s121/ (chk.py correctness, var.py nvs
+#define variants paired cold vs main, prof.py torch-profiler kernel times warm / FLUSH=1).
+
+### nvs (agent2's native verify-sliding kernel, NV_HALF) at verify 1 full, window 0
+Never tried before (nverify s71/s74/s97 was the older kernel). Correct: S 32/64/128, 3 seeds, rel err 0.023-0.034 (main
+0.023-0.034; FP8 P as on verify sliding). H100 paired cold (bench.run_shape, 7 rounds, all 0/7):
+main 17.63-17.70; S 64 18.53-18.56 (NS 6 18.53, NS 7 18.99, NS 7 + PFD 6 18.94); S 32 23.6-23.9; S 128 39.6 (2 waves);
+NV_HALF 0 S 64 24.1, S 128 47.9. Kernel alone (torch profiler): warm nvs 12.03 vs `_attn_split` 12.61 (-0.6), but
+flushed 17.8 vs 16.6 (+1.2): nvs's 128 one-per-SM CTAs ramp slower from DRAM than 254 `_attn_split` programs. The H200
+scored regime is cold (s115), so expect a loss there too. Dead; not put in the diag (H100 cold loses every round).
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged from s120
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag5 @ 840db1a (diag, never submit).
+
+### Budget (UTC day 2026-10-25)
+- s121: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
