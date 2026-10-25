@@ -3697,3 +3697,45 @@ above the empty graph, a second one ~2 us more).
 ### Budget (UTC day 2026-10-25)
 
 Checks 5/20 (unchanged), scored 2/10.
+
+## Session 83 (unattended session 16, 2026-10-25 02:16 - ~03:25 UTC): TV (V convert on the tensor core) = dead; batch-1 merge knobs = noise
+
+Board 02:20Z unchanged: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.350x (#23). No checks used (nothing
+beat a tie). Mid-session the lead agent reordered the brief (e76a294): batch-1 shapes first, verify full only with
+a structural idea. TV was that structural idea, already in flight, so I finished it as a time-boxed prototype.
+
+### Dead end: TV, the V FP8 -> FP16 convert moved off the producer onto the tensor core (branch exp/tv, pushed)
+
+Idea: the producer's per-tile V work (LDS FP8, F2FP, STS FP16, fence, arrive) is the producer issue/smem traffic the
+s81 lesson pointed at. Instead each consumer WG computes VT[d][key] = I @ V^T as an FP8 wgmma (A = 64x64 identity in
+smem, B = the FP8 ring's V half, like K; **f16 accumulator, exact**), feeds VT as the register A operand of
+O^T[d][row] += VT @ P^T, and stores its P (FP16, STSM x4) to a double-buffered smem tile as the B operand. Alpha
+(per row = per column of O^T) goes through smem too (store, WG barrier, 8 LDS.64, warp-vote skip). The producer
+only gathers (cp.async + cp.mbarrier_arrive). Primitives verified in tools/s83/prim.py (max err 7.6e-6).
+- Correct: verify 16/32 full rel err identical to main (0.0295/0.0286).
+- TV 2 (VT wgmma issued with QK, live across softmax): 38 spills at the 104-reg consumer cap, wgmmas serialized:
+  real 576 vs 258 us. TV 3 (VT wgmma after softmax): 4 spills (outside the loop), H100 tools/s83/tv.py 3 rounds:
+  **verify 32 full real 261.9 vs 258.0 (+3.7), all-L2 236.6 vs 189.5 (+47)**; verify 16 real +3.6, all-L2 +23.6.
+  NS 4 no better.
+- Why: the consumer is the critical path and TV adds per tile one exposed wgmma round trip (VT), two more WG
+  barriers (Gluon inserts one before the P store; mine before PV), MEMBAR.ALL.CTA + FENCE.VIEW.ASYNC (the fence),
+  STSM + alpha LDS: ~600 cycles per WG-tile. The ceiling was small anyway (H200 "no V convert" ablation in s77:
+  ~-10/-5 us = ~1.2% overall). Don't retry in Gluon; a native version would still pay the barrier + exposed wgmma.
+
+### Batch-1 (lead's #1): decode 1 full merge knobs are noise
+
+H100 sweep decode 1 full (base 15.39/15.49): cw 16 15.28, cw 4 16.35, csb 256 16.03, splits 383 16.11 (others
+worse). The Triton merge is tuned; batch-1 gains need the native single-kernel designs in the brief.
+
+### Next (batch-1, per the brief; a multi-session native build)
+
+Verify 1 sliding is the best per-us target left that has a concrete plan (1.28 %/us; H200 judge 7.19 = attn 3.8 +
+_combine 1.7 + launch): a csl-style kernel, one 16-CTA cluster (8 CTAs per KV head, 256 keys each, 64 rows), what
+made s72's attempt lose fixed: FP16 mma.sync m16n8k16 (K, V unpacked e4m3x2 -> f16x2, Q rounded to E4M3 then f16:
+exact) instead of the emulated FP8 mma, and an owner-row DSMEM push merge (each CTA owns 8 rows, receives 7 x 2 KB;
+s74 measured ~0.5-0.7 us) with st.async + mbarrier complete_tx as in tools/s72/csl.cu. Target judge ~5.5-6 us
+(-1.2..-1.7 us = +1.5..2%). Prototype the merged-cluster compute alone first on the H100 against _attn_split's 3.8.
+
+### Budget (UTC day 2026-10-25)
+
+Checks 5/20 (unchanged), scored 2/10.

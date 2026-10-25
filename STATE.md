@@ -1,6 +1,11 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~02:55 UTC (session 82 = unattended session 15 of the #1-push brief).
+Updated 2026-10-25 ~03:25 UTC (session 83 = unattended session 16 of the #1-push brief).
+
+**s83: TV (V FP8->FP16 convert as an identity FP8 wgmma with f16 acc, P via smem; exp/tv) = correct but dead**: H100
+verify 32 full real +3.7, all-L2 +47 us (consumer gains an exposed wgmma + 2 WG barriers + fence per tile). Decode 1
+full merge knobs (cw/csb/splits) = noise. Brief now (e76a294): batch-1 first; next = native verify-1-sliding cluster
+kernel (NOTES s83 Next). No checks used.
 
 **s82: three probes, all dead (no checks).** F2FP doesn't share the MUFU pipe (tools/s82/pipe.cu); verify 1 full on
 `_gw_verify` ties Triton at 127 splits and loses above 132; verify 32 full at 1 CTA/SM (BN 64 or 128) loses 12-37%.
@@ -34,17 +39,10 @@ tile) 209.6/109.0 = loses: Gluon's tensor->scalar reduce costs ~20-30 us. Native
 197 all-L2 H100 (consumer spills at 104 regs). Open problem: exact at ~no cost (NOTES s78 Next). FP16 P only (FP8 P
 with offset 0 loses FA3's range).
 
-**s77: H200 per-kernel diagnostics** (branch exp/h200diag, tools/s77/README.md): extra renamed kernel copies in a
-check are timed by the judge's profile, so ONE check measures ~10 variants on the real H200, paired. Verify 32 full
-on the H200: consumer-only ~171, gathers-only ~167, producer-only ~174, combined ~209 cold (warm 203). Both halves
-must improve; page-table prefetch and TLB warm are dead. Native speculative-max softmax: consumer -4.4% in the
-microbench (tools/s77/cspec) but no register room in nverify. NOTES session 77.
+**s77: H200 per-kernel diagnostics** (exp/h200diag, tools/s77/README.md): renamed extra kernel copies in a check are
+timed by the judge's profile, so one check measures ~10 variants on the real H200. NOTES s77.
 
-**s76: tools/bench.py now mirrors the judge** (read flush, truly empty graph subtracted; BENCH_OLD=1 = old). The old
-bench under-counted every shape by ~2 us (it subtracted one kernel launch) and penalized DRAM-bound shapes with
-dirty-line write-backs. New H100 bench of main: decode 1/16/32 sliding 6.02/9.55/15.22, full 15.28/127.0/244.9;
-verify 1/16/32 sliding 7.87/14.16/18.94, full 18.02/135.8/256.4 (geomean 1.939). Compare only against new-bench
-numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOTES s76).
+**s76: tools/bench.py mirrors the judge** (compare only against new-bench numbers; H100 main geomean ~1.94).
 
 ## Board and best run
 
@@ -79,21 +77,11 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
-## Current direction (session 69): native verify-full consumer (CUDA, inline-PTX wgmma)
+## Current direction
 
-Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations of `_gw_verify`):
-- Gluon kernel all-L2 196 us; producer-only 107; consumer-only (no gathers/convert) 178. Consumer is the limit.
-- Native consumer-only microbench (tools/s69/cmicro.cu, wgmma QK FP8 + PV FP16, correct to 2e-4):
-  unpipelined 163 us, FA3 intra-WG pipelined 164-166 (no gain), 1 CTA/SM pipelined 164.5.
-  No softmax 87; no exp (MUFU) 145; no PV 140-155. MUFU pipe 60% busy, issue 55%, 3.5 warps/scheduler.
-- So a native kernel's consumer floor is ~160 vs Gluon 178 all-L2: maybe -15..-20 us on H200 verify 32.
-- Poly exp2 offload, P@ones row sums: lose natively too; warp-vote lazy rescale ~-3%. Native verify-full upside is
-  ~+1.5-2% overall: not the top lever.
-- Sliding gather floor with every row in flight (tools/s69/sgather.cu): decode 1/16/32 = 3.2/6.7/10.9 us (H100), same
-  as before. Our sliding shapes are 1.3-8.6 us above it.
-- Cluster push-merge (tools/s69/cmerge.cu): one kernel, 16-CTA cluster, each CTA stores its partial rows into the
-  owner's smem (st.shared::cluster), one cluster barrier, local merge: 2.32 us vs 3.87-4.03 for partials + separate
-  PDL merge kernel (-1.6 us at 16 splits; -0.45 at 4). Pulling via map_shared_rank loads costs ~+1 us (latency).
+See CLAUDE.md "Current direction" (lead agent, e76a294): batch-1 shapes first, verify full only with a structural
+idea, physical-order decode full after a cheap multi-split prototype. (s69's native verify-full consumer microbench
+numbers: NOTES s69.)
 
 ## Ranked ideas
 
@@ -135,6 +123,8 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 - Nothing queued. main 4aa402b = scored 9f8e594b 2.350x; submit only after a check beats 2.353.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s83: TV (tensor-core V convert in _gw_verify, exp/tv), decode 1 full merge cw/csb/splits.
 
 - s82: F2FP/MUFU pipe sharing (none), verify 1 full on gw_verify (tie/loss), verify full 1 CTA/SM incl. BN 128.
 
