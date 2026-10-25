@@ -390,6 +390,7 @@ DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
 LZ = 3  # _gw_verify softmax: 3 = exact per-warp lazy max (session 79), 0 = per-tile row max + rescale
+LZ_T = int(__import__('os').environ.get('LZT', '1'))
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
@@ -717,6 +718,8 @@ if HAVE_GLUON:
     LZ_ACC_CON = gl.constexpr(",".join(["=f"] * 64 + ["f"] * 128))
     LZ_ASM = gl.constexpr(_lz_asm())
     LZ_ASM2 = gl.constexpr(_lz_asm2())
+    TL_LZ_ASM = tl.constexpr(_lz_asm2())
+    TL_LZ_CON = tl.constexpr(",".join(["=f"] * 64 + ["f"] * 96))
     LZ_CON = gl.constexpr(",".join(["=f"] * 64 + ["f"] * 96))
 
     @gluon.jit
@@ -1221,10 +1224,16 @@ def _norm_rope(ptr, off, ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr
 
 
 @triton.jit
+def _pick(a, b):
+    return a
+
+
+@triton.jit
 def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, MASKED: tl.constexpr,
           PAGE: tl.constexpr, ROW_W: tl.constexpr, D: tl.constexpr, WINDOW: tl.constexpr, QK8: tl.constexpr,
-          DOT: tl.constexpr):
-    """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi."""
+          DOT: tl.constexpr, LZT: tl.constexpr = 0):
+    """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi. LZT: the scores are
+    a [64, 64] wgmma tile over 4 warps (S_L's layout): _gw_consumer_bal's exact per-warp lazy max (LZ_ASM2)."""
     if MASKED:
         # Past the end, gather the last valid row again (no load masks); the scores are masked.
         t_ok = t < hi
@@ -1244,9 +1253,15 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
     elif WINDOW > 0:
         s = tl.where(t[None, :] > pos[:, None] - WINDOW, s, float("-inf"))
     # The scale (> 0) goes into the row maxima and the exponent's FMA, not every score.
-    m_new = tl.maximum(m_i, tl.max(s, 1) * scale)
+    if LZT:
+        p, me = tl.inline_asm_elementwise(TL_LZ_ASM, TL_LZ_CON, [s, tl.zeros_like(s) + m_i[:, None],
+                                                                 tl.zeros_like(s) + scale],
+                                          dtype=(tl.float32, tl.float32), is_pure=True, pack=32)
+        m_new = tl.reduce(me, 1, _pick)
+    else:
+        m_new = tl.maximum(m_i, tl.max(s, 1) * scale)
+        p = tl.exp2(tl.fma(s, scale, -m_new[:, None]))
     alpha = tl.exp2(m_i - m_new)
-    p = tl.exp2(tl.fma(s, scale, -m_new[:, None]))
     l_i = l_i * alpha + tl.sum(p, 1)
     acc = acc * alpha[:, None] + tl.dot(p.to(DOT), v.to(DOT))
     return m_new, l_i, acc
@@ -1327,7 +1342,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
-                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
+                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False, LZT: tl.constexpr = 0,
                 PRE: tl.constexpr = 0):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
@@ -1411,16 +1426,16 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         full_end = lo
     for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              False, PAGE, ROW_W, D, WIN, QK8, DOT)
+                              False, PAGE, ROW_W, D, WIN, QK8, DOT, LZT)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
-                                 False, PAGE, ROW_W, D, WIN, QK8, DOT)
+                                 False, PAGE, ROW_W, D, WIN, QK8, DOT, LZT)
     for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              True, PAGE, ROW_W, D, WIN, QK8, DOT)
+                              True, PAGE, ROW_W, D, WIN, QK8, DOT, LZT)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
-                                 True, PAGE, ROW_W, D, WIN, QK8, DOT)
+                                 True, PAGE, ROW_W, D, WIN, QK8, DOT, LZT)
 
     if PF:
         m_i += tl.where(pf == -7, 1.0, 0.0) * 0.0
@@ -1841,6 +1856,7 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
         PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"),
         PRE=0 if dual else plan.get("pre", 0), num_warps=plan["warps"],
+        LZT=int(LZ_T and hpp * rows == 64 and block_n == 64 and plan["warps"] == 4 and not dual),
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
