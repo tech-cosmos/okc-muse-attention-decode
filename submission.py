@@ -1942,6 +1942,7 @@ USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 los
 BRED = True
 BNR = 1
 USE_GD1 = True  # decode full at batch * hkv == 2 on _gd_full too (511 splits, 8-warp one-pass merge); unchecked on H200
+GW_WK = tl.constexpr(0)  # gbal range weights (see _gw_bnd); 0 = equal shares
 NT_AFTER = True  # gbal: _new_tokens launched after _gw_verify (it blocked 2nd gw CTAs on its SMs; s125)
 USE_GBAL = True  # verify full from 16 KV head pairs: balanced splits over the whole batch (_gw_bal); unchecked on H200
 # Split partials' accumulator dtype (plan key pdt). FP32 only: SGLang's FA3 keeps its split partials in
@@ -2187,6 +2188,17 @@ if HAVE_GLUON:
     # end to end, so a range can span requests: one segment per request it touches, each stored at partial
     # id p + b (unique: moving to the next segment bumps p or b). Ids P + B + b hold the new tokens.
     @gluon.jit
+    def _gw_bnd(p, tt, P: gl.constexpr):
+        # Range bound of program p: equal shares, or (GW_WK > 0) shares weighted 1 + GW_WK / 1024 * (1 - 2 p / P)
+        # (later programs end later at equal shares: s125).
+        if GW_WK == 0:
+            r = p * tt // P
+        else:
+            pl = p.to(gl.int64)
+            r = ((pl * (1024 * P) + GW_WK * pl * (P - pl)) * tt // (1024 * P * P)).to(gl.int32)
+        return r
+
+    @gluon.jit
     def _gw_bal(seq_ptr, p, B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, BN: gl.constexpr,
                 NW: gl.constexpr):
         # All B_PAD lengths in each warp (replicated across warps): the scan and sums stay inside a warp.
@@ -2196,8 +2208,8 @@ if HAVE_GLUON:
         tiles = (seqv + (BN - 1)) // BN
         incl = gl.associative_scan(tiles, 0, _gw_add)
         tt = gl.maximum(gl.sum(tiles, 0), 1)
-        start = p * tt // P
-        end = (p + 1) * tt // P
+        start = _gw_bnd(p, tt, P)
+        end = _gw_bnd(p + 1, tt, P)
         b_first = gl.sum((incl <= start).to(gl.int32), 0)
         b_end = gl.sum(((incl - tiles < end) & (idx < B)).to(gl.int32), 0)
         nseg = gl.where(end > start, b_end - b_first, 0)
@@ -3451,6 +3463,17 @@ def _combine_hb(qkv_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
 
 
 @triton.jit
+def _cb_bnd(p, tt, P: tl.constexpr):
+    """_gw_bnd for the merge."""
+    if GW_WK == 0:
+        r = p * tt // P
+    else:
+        pl = p.to(tl.int64)
+        r = ((pl * (1024 * P) + GW_WK * pl * (P - pl)) * tt // (1024 * P * P)).to(tl.int32)
+    return r
+
+
+@triton.jit
 def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
                  HQ: tl.constexpr, HKV: tl.constexpr, G: tl.constexpr, L: tl.constexpr, M: tl.constexpr,
                  D: tl.constexpr, B: tl.constexpr, B_PAD: tl.constexpr, P: tl.constexpr, NID: tl.constexpr,
@@ -3474,8 +3497,8 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
     excl = tl.sum(tl.where(idx < b, tiles, 0), 0)
     incl = excl + tl.sum(tl.where(idx == b, tiles, 0), 0)
     # Programs p with start(p) < incl, end(p) > excl, end(p) > start(p) (a superset range, then the test).
-    p_lo = tl.maximum((excl + 1) * P // tt - 1, 0)
-    p_hi = tl.minimum((incl * P) // tt + 1, P - 1)
+    p_lo = tl.maximum((excl + 1) * P // tt - 1 - (P * GW_WK // 4096 + 1 if GW_WK else 0), 0)
+    p_hi = tl.minimum((incl * P) // tt + 1 + (P * GW_WK // 4096 + 1 if GW_WK else 0), P - 1)
     if PROP:
         # _gd_full's length-proportional splits (plan dbal): request b owns programs [c_b, c_b+1) exactly.
         p_lo = b + (P - B) * excl // tt
@@ -3491,8 +3514,8 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
         acc = tl.load(pacc_ptr + nrow[:, None] * D + d[None, :]).to(tl.float32)
         for i in range(p_lo, p_hi + 1, SB):
             pp = i + sb
-            st = pp * tt // P
-            en = (pp + 1) * tt // P
+            st = _cb_bnd(pp, tt, P)
+            en = _cb_bnd(pp + 1, tt, P)
             if PROP:
                 ok = (pp <= p_hi)[:, None]
             else:
@@ -3511,8 +3534,8 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
         m_max = tl.load(pml_ptr + nrow * 2)
         for i in range(p_lo, p_hi + 1, SB):
             pp = i + sb
-            st = pp * tt // P
-            en = (pp + 1) * tt // P
+            st = _cb_bnd(pp, tt, P)
+            en = _cb_bnd(pp + 1, tt, P)
             if PROP:
                 ok = (pp <= p_hi)[:, None]
             else:
@@ -3524,8 +3547,8 @@ def _combine_bal(qkv_ptr, seq_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr,
         acc = wn[:, None] * tl.load(pacc_ptr + nrow[:, None] * D + d[None, :]).to(tl.float32)
         for i in range(p_lo, p_hi + 1, SB):
             pp = i + sb
-            st = pp * tt // P
-            en = (pp + 1) * tt // P
+            st = _cb_bnd(pp, tt, P)
+            en = _cb_bnd(pp + 1, tt, P)
             if PROP:
                 ok = (pp <= p_hi)[:, None]
             else:

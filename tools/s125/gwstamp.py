@@ -98,3 +98,16 @@ print("end - start: p10 %.2f p50 %.2f p90 %.2f max %.2f" % tuple(np.percentile(E
 E = np.stack([((st[:n].numpy()[:, 3] - st[:n].numpy()[:, 0].min()) / 1e3) for st in rows])
 pm = E.mean(0); print("per-program mean end: p10 %.2f p50 %.2f max %.2f; rep-to-rep std median %.2f" % (np.percentile(pm, 10), np.median(pm), pm.max(), np.median(E.std(0))))
 print("slowest 10 program ids:", np.argsort(pm)[-10:], "their tiles", rows[0][np.argsort(pm)[-10:], 5].numpy())
+# per-SM consistency: mean end of the programs on each SM, per rep
+smE = {}
+for st in rows:
+    st = st[:n].numpy().astype(np.float64); t0 = st[:, 0].min()
+    for s_, e_ in zip(st[:, 4], (st[:, 3] - t0) / 1e3): smE.setdefault(int(s_), []).append(e_)
+sm_mean = np.array([np.mean(smE[k]) for k in sorted(smE)])
+print("per-SM mean end: p10 %.2f p50 %.2f p90 %.2f max %.2f" % tuple(np.percentile(sm_mean, [10, 50, 90, 100])))
+order = np.argsort(sm_mean)
+print("slowest SMs:", [sorted(smE)[i] for i in order[-12:]], "fastest:", [sorted(smE)[i] for i in order[:8]])
+# GPC guess: H100 SM ids are TPC-major (2 SMs per TPC); print mean by smid // 18
+print("by smid//16:", [round(float(np.mean([np.mean(smE[k]) for k in smE if k // 16 == g])), 2) for g in range(9)])
+print("mean end by id//22:", [round(float(pm[g*22:(g+1)*22].mean()), 2) for g in range((n + 21) // 22)])
+seqs = d["seq_lens"].cpu().tolist(); print("seq_lens:", seqs)
