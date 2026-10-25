@@ -2080,11 +2080,8 @@ def _bw_read(kc, vc, idx, seq, out, B: tl.constexpr, B_PAD: tl.constexpr, IDX: t
 
 # (name, list: dense|rand|gsort|rsort, lockstep, BN, warps, stages, programs per SM); H100 bests in tools/s80.
 _BW_CFG = [("_bwd_dense_a", "dense", True, 128, 4, 3, 2), ("_bwd_dense_b", "dense", True, 32, 2, 3, 4),
-           ("_bwd_dense_c", "dense", False, 64, 4, 4, 4),
-           ("_bwd_rand_a", "rand", True, 64, 4, 4, 4), ("_bwd_rand_b", "rand", False, 64, 4, 3, 2),
-           ("_bwd_gsort_a", "gsort", True, 64, 4, 3, 2), ("_bwd_gsort_b", "gsort", True, 32, 2, 3, 4),
-           ("_bwd_gsort_c", "gsort", False, 64, 4, 4, 4),
-           ("_bwd_rsort_a", "rsort", True, 64, 4, 4, 4)]
+           ("_bwd_dense_c", "dense", False, 64, 4, 4, 4), ("_bwd_dense_d", "dense", False, 128, 4, 3, 2),
+           ("_bwd_gsort_b", "gsort", True, 32, 2, 3, 4), ("_bwd_gsort_d", "gsort", True, 128, 4, 3, 2)]
 
 
 def _diag_bw(data, cfg, plan, progs, nid, b_pad):
@@ -2096,12 +2093,8 @@ def _diag_bw(data, cfg, plan, progs, nid, b_pad):
     t = torch.arange(MP, device=device)
     valid = t[None, :] < seq[:, None]
     big = torch.iinfo(torch.int32).max
-    pos = torch.where(valid, torch.arange(B * MP, device=device).view(B, MP), B * MP)
-    order = torch.sort(pos.flatten()).values.clamp(max=B * MP - 1)
-    lists = dict(rand=pt.flatten()[order].contiguous(),
-                 gsort=torch.sort(torch.where(valid, pt, big).flatten()).values.contiguous(),
-                 rsort=torch.sort(torch.where(valid, pt, big), dim=1).values.flatten()[order].contiguous())
-    lists["dense"] = lists["rand"]
+    lists = dict(gsort=torch.sort(torch.where(valid, pt, big).flatten()).values.contiguous())
+    lists["dense"] = lists["gsort"]
     kc, vc = data["k_cache"].view(-1), data["v_cache"].view(-1)
     sms = _num_sms(device)
     dacc = torch.empty((hkv, nid, group, d), dtype=torch.float32, device=device)
@@ -2117,10 +2110,8 @@ def _diag_bw(data, cfg, plan, progs, nid, b_pad):
             NID=nid, ABL=abl, num_warps=1)
 
     gd("_bwd_gd_base_a", 0)
-    gd("_bwd_gd_gath", 1)
     for name, lst, lock, bn, w, st, ps in _BW_CFG:
         _diag_flush(device)
         out = torch.empty((sms * ps, 128), dtype=torch.float32, device=device)
         _renamed(_bw_read, name, triton.jit)[(sms * ps,)](kc, vc, lists[lst], seq, out, B=batch, B_PAD=b_pad,
                                                           IDX=lst != "dense", LOCK=lock, BN=bn, ST=st, num_warps=w)
-    gd("_bwd_gd_base_b", 0)
