@@ -26,10 +26,9 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 - (s15) LISTED in COORD Ready to merge: **agent2-exp/nvhalf 7ba35f9** (= agent2 now) = origin/main d93a80d + NV_HALF;
   agent 1's check 2d0bfdc6: verify 16 sliding 11.63 H200 (was 11.90) WIN, verify 32 tie.
-- (s15) QUEUED (first agent2 check after 00:00Z 2026-10-26): **agent2-exp/half e5f65ed** (merged with main as d7dd5a4, same submission.py) = NV_HALF + cl at verify 32
-  (2-CTA DSMEM merge, no combine; H100 -0.29..-0.86 vs NV_HALF+combine) + split start cluster barrier (H100 -0.19..-0.29
-  more). tests 16/16. Compare verify 32 sliding vs 15.4 H200.
-- Checks used by agent2 on 2026-10-25: 5; account 20/20 (s16: 0).
+- (s15) inside halfpf: agent2-exp/half e5f65ed = NV_HALF + cl at verify 32 (2-CTA DSMEM merge, no combine; H100
+  -0.29..-0.86 vs NV_HALF+combine) + split start cluster barrier (H100 -0.19..-0.29 more). tests 16/16.
+- Checks used by agent2 on 2026-10-25: 5; account 20/20 (s16-s19: 0).
 
 ## Ranked ideas
 
