@@ -1,6 +1,16 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~05:50 UTC (session 91 = unattended session 24 of the #1-push brief).
+Updated 2026-10-25 ~06:55 UTC (session 93 = unattended session 26 of the #1-push brief).
+
+**s93: merged agent2 nvs (verify sliding B>=32 native) -> main 4e63331; check 13582a1b 2.465x (verify 32 sliding 15.14),
+scored 8abec5c6 2.385x (noisy full layers, board keeps 2.445).** Dead (H100): nvs at verify 1 sliding (8.5 vs 7.7 us),
+csl coalesced page-table + shuffles, csl nc gathers. csl stamps: 2 DRAM trips ~2.07 us + 1.2 us tail. NOTES s93.
+
+**s92: native pipelined decode-1-full kernel (tools/s92/nfl.cu, exp/nfull): correct, DEAD on the H100, no checks.** Best
+15.65-15.74 us vs main 14.6 (kernel alone 12.8-13.1 vs `_gd_full` 11.7; 2.9 us fixed + 0.095 us/1k keys = the 2.7 TB/s
+gather rate; the 128-slot `_combine` still exposes ~2.9 us). Lessons: FP8 mma.sync is emulated on sm_90 (use FP16
+m16n8k16 on exact E4M3 values); no early `break` around shuffles (ENDCOLLECTIVE slow path); per-lane cp.async rings of
+small copies are issue-bound (33-49 us). NOTES s92.
 
 **s91: csl one 16-CTA cluster per (request, KV head), 4 warps/CTA (each SM gathers 16 KB, not 32): SCORED 08bf9391
 2.445x = NEW ACCOUNT BEST (main 9b14e27).** H200 decode 1 sliding 4.91 -> 4.17 (check) / 4.73 (scored), decode 16
@@ -11,18 +21,7 @@ phases that don't shrink with fewer instructions (owner merge fast-math/tree, ea
 BEST.** Verify 1 full probes: compute-latency-bound in Triton (warm 14.2 vs cold 15.45 us; 6.2 us fixed + 0.111 us/1k
 keys; doubling warps/SM raises CPI 4.5 -> 7.1, IPC +15%); FP8 P@V in Triton dead (+10 us). NOTES s90.
 
-**s89: native wgmma verify-1-sliding single kernel (tools/s89/vsw.cu): correct, dead, no checks.** H100 8.0-8.2 vs
-main 7.6 us. Compute is fine (wgmma tile ~1.0 us after the gathers land); the wall is the cluster merge: each CTA
-must send a 16 KB FP32 64-row partial over DSMEM (~1.3 us, ~12 B/ns/SM, matches the s74 microbench), and an L2
-exchange is far worse (13.2). Third native verify-1-sliding kernel to lose (s72, s84, s89). NOTES s89.
-
-**s88: batch-1 full probes, all dead, no checks** (tools/s88). H100: decode 1 full merge exposure 2.9 us = acc loads 1.0
-+ fixed 1.9; native gather floor for its bytes 9.5 us vs `_gd_full` attention 11.7. Dead: `_gd_full` hoisted prologue
-(deeper rings still lose), `_combine` num_ctas 2/4 (+3.4), verify 1 full dual/splits 191-255/peel, uniform-branch tail
-mask (-16% loop instructions, tie). Since 04:09Z agent2 (~/repo2) owns batch 16/32 sliding and gets >= 8 checks/day;
-merge its COORD "Ready to merge" wins. NOTES s88.
-
-**s76-s87:** see NOTES (s86 SPEC loop form, s85 SPEC, s84 native vsl lost, s80 H200 dense/random bytes, s79 LZ 3).
+(s88-s89 summaries: NOTES s88/s89 and the dead-ends index.)
 
 ## Board and best run
 
@@ -35,18 +34,16 @@ merge its COORD "Ready to merge" wins. NOTES s88.
 
 ## Code state
 
-- main = 9b14e27 (= scored 08bf9391 2.445x; csl cluster per KV head on top of ad2116c).
-- Dispatch: decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
+- main = 4e63331 (check 13582a1b 2.465x, scored 8abec5c6 2.385x noisy; best scored still 08bf9391 2.445x = 9b14e27).
+- Dispatch: verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full`; sliding + small -> Triton
   `_attn_split` + PDL merges.
 
-## Budget (UTC day 2026-10-24; API: `okc problems --json`)
+## Budget (UTC day 2026-10-25; API: `okc problems --json`)
 
-- 2026-10-25 after s91: checks 11/20, scored 5/10 (s91: check 750924a0, submit 08bf9391).
+- 2026-10-25 after s93: checks 15/20, scored 6/10 (s93: check 13582a1b, submit 8abec5c6). Claude's 6 submits today are USED.
 
-- 2026-10-25: checks 10/20 at s89 start (s89 used none; agent2 gets >= 8 of the rest); earlier: checks 9/20 (s86: 6e8ac91c diag 2.302x, e1620b92 2.359x; scored 8aec5993 2.354x = 3/10 scored) (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
-  2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
-  00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
+- Today's judge runs are listed in ~/COORD.md "Judge runs" and NOTES s85-s91. Agent2 keeps >= 8 checks/day (it has used 1).
 
 ## Current direction
 
@@ -91,10 +88,15 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- Nothing queued: main 9b14e27 = scored 08bf9391 (2.445x). Submit a new main only if its check beats 2.445.
+- main 4e63331 checked 2.465x but scored 2.385x (noise). A re-score of main is reasonable next UTC day (00:00Z) if nothing
+  better is ready; its check beat 2.445.
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s93: nvs at verify 1 sliding (S 8/16/32), csl ptsh (coalesced page table + shfl), csl nc gathers.
+
+- s92: native pipelined decode-1-full kernel + `_combine` (nfl: register or cp.async rings, NW 4-16, NCTA 64-256).
 
 - s91: csl owner merge fast reciprocal/sigmoid-early/tree reductions, cluster wait after QK (H100 ties); not i-fetch.
 
