@@ -4912,3 +4912,36 @@ Lessons (why the s110 microbench's -22% doesn't transfer):
 
 ### Budget (UTC day 2026-10-25)
 - s111: 0 checks, 0 scored (the duplicate didn't count). Account: checks 19/20, scored 8/10.
+
+## Session 112 (unattended session 45, 2026-10-25 13:17 - ~14:20 UTC): last check of the day on agent2 NV_HALF; lever arithmetic
+
+Board 13:20Z: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). No new "Ready to
+merge". Account at start: checks 19/20, scored 8/10 (Claude's 6 submits for the day already used, s93).
+
+### Check 2d0bfdc6 (exp/s112-half = main + agent2-exp/half 0ae2b8a submission.py, NV_HALF nvs; tests 16/16): 2.507x
+- Per shape H200 (us) vs e64d3450: d1 4.45/13.44 (4.44/13.57); d16 7.86/87.98 (7.53/87.66); d32 12.47/168.43
+  (11.93/168.19); v1 5.86/16.97 (5.74/16.18); **v16 sliding 11.63 (11.90): NV_HALF wins -0.27**; **v32 sliding 15.43
+  (15.42): tie**; v16/v32 full 106.75/198.73 (106.19/196.60).
+- The overall drop is on shapes NV_HALF doesn't touch (decode 16/32 sliding, verify 1 full): node noise. Not submitted
+  (below 2.542; no submits left for Claude today anyway). H100 bench of the same code: verify 16 sliding 13.38 -> 12.83,
+  verify 32 16.48 -> 16.50 (same picture as the H200).
+- For agent2: keep NV_HALF for verify 16 sliding; at verify 32 it's a tie on both GPUs.
+
+### Lever arithmetic (to stop re-deriving it): per-us value is weight x 1/load
+- Overall ln gain per us = (46 or 16) / load_us / 6. With e64d3450 loads (d1 421, d16 1749, d32 3240, v1 523, v16 2246,
+  v32 3855 us): decode 1 sliding 1.8 %/us, verify 1 sliding 1.5, decode 1 full 0.63, verify 1 full 0.51, decode 16 sliding
+  0.44, verify 16 sliding 0.34, decode 32 sliding 0.24, verify 32 sliding 0.20, decode/verify 16 full 0.15/0.12, 32 full
+  0.08/0.07.
+- #1's 2.910x can't come from batched full layers alone: at the H200 dense floor (~145 us for 32-batch full) a 32-load
+  tops out at ~2.8x, so #1 must also be strong on batch 1 and/or batched sliding.
+- Rechecked and found already dead (don't redo): FA4 poly exp2 offload in the verify-full consumer (s21, s69: MUFU isn't
+  the limit), csl distributed per-head owner merge (already the design; s93 priced further tail work <= 0.15 us).
+
+### Next
+- After 00:00Z 2026-10-26: the open question with the highest per-us value is the H200 gather floor at batch 1 (decode 1
+  full 13.4-13.6 us for 20 MB, H200 dense rate would read it in ~4.5 us + ~2 us launch). exp/hdiag2's `hfloor` decode 1 /
+  verify 1 full variants measure it in one diag check; if the H200 floor is <= ~9 us, batch-1 full has 3-4 us (= 2-2.5%
+  overall) of headroom and is the next build.
+
+### Budget (UTC day 2026-10-25)
+- s112: 1 check (2d0bfdc6), 0 scored. Account: checks 20/20, scored 8/10.

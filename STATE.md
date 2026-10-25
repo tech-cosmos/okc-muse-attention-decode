@@ -1,6 +1,9 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~13:20 UTC (session 111 = unattended session 44 of the #1-push brief).
+Updated 2026-10-25 ~14:20 UTC (session 112 = unattended session 45 of the #1-push brief).
+
+**s112: check 2d0bfdc6 (main + agent2 NV_HALF) 2.507x: NV_HALF wins verify 16 sliding 11.63 (vs 11.90), ties verify 32 sliding;
+overall drop is noise on untouched shapes. Checks 20/20 used today. Per-us lever table in NOTES s112. Next: H200 batch-1 gather floor (hdiag2).**
 
 **s111: native pipelined verify-full kernel BUILT (exp/nvf 4eb2b26, v1-v5, all 23/23 correct) and LOSES in every layout
 (best verify 32 full real +24 / all-L2 +31 us vs Gluon): 80 in-flight regs need 112/consumer (C7512 at 104), 112 only fits
@@ -89,6 +92,8 @@ numbers: NOTES s69.)
 3. Merge tail on verify full (~7 us on the H200 at verify 16/32 = ~0.8% overall at most).
 
 ## Queued for checks
+
+- **s112 FIRST after 00:00Z 2026-10-26: check exp/hdiag2 98153b5 (diag) mainly for the `hfloor` batch-1 full floors on the H200 (decides whether decode/verify 1 full has 3-4 us of headroom).** NV_HALF verify 16 sliding is H200-verified (agent2 to list it in Ready to merge).
 
 - **FIRST after 00:00Z 2026-10-26: main's s103/s105/s106 changes are now inside scored e64d3450 (2.542x); compare its per-shape
   times (okc status e64d3450daad496e --json, records) with 8725ba7e before re-checking. Old item: check main 05efdde** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full
