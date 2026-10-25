@@ -51,9 +51,7 @@ at verify 32/16 full. s77 H200 per-kernel diag harness (renamed kernel copies in
 
 ## Code state
 
-- main = c9b3242 (session 72): 14355d4's kernel + the native cluster decode-sliding kernel `_CSL` (tools/s72/csl.cu)
-  for decode sliding at batch <= 16. Checked a6081cf6: 2.322x [2.287, 2.357] (noise on untouched shapes); decode 1
-  sliding 5.63 us (was 6.05), decode 16 sliding 8.70 (was 10.72). NOT yet scored: re-check/submit next UTC day.
+- main = e8a1f73+ (code 07a06b3 = scored 8aec5993 2.354x).
 - Dispatch: decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per request, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full`; sliding + small -> Triton
   `_attn_split` + PDL merges.
