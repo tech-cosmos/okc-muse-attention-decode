@@ -1,6 +1,12 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~05:50 UTC (session 91 = unattended session 24 of the #1-push brief).
+Updated 2026-10-25 ~06:15 UTC (session 92 = unattended session 25 of the #1-push brief).
+
+**s92: native pipelined decode-1-full kernel (tools/s92/nfl.cu, exp/nfull): correct, DEAD on the H100, no checks.** Best
+15.65-15.74 us vs main 14.6 (kernel alone 12.8-13.1 vs `_gd_full` 11.7; 2.9 us fixed + 0.095 us/1k keys = the 2.7 TB/s
+gather rate; the 128-slot `_combine` still exposes ~2.9 us). Lessons: FP8 mma.sync is emulated on sm_90 (use FP16
+m16n8k16 on exact E4M3 values); no early `break` around shuffles (ENDCOLLECTIVE slow path); per-lane cp.async rings of
+small copies are issue-bound (33-49 us). NOTES s92.
 
 **s91: csl one 16-CTA cluster per (request, KV head), 4 warps/CTA (each SM gathers 16 KB, not 32): SCORED 08bf9391
 2.445x = NEW ACCOUNT BEST (main 9b14e27).** H200 decode 1 sliding 4.91 -> 4.17 (check) / 4.73 (scored), decode 16
@@ -42,7 +48,7 @@ merge its COORD "Ready to merge" wins. NOTES s88.
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- 2026-10-25 after s91: checks 11/20, scored 5/10 (s91: check 750924a0, submit 08bf9391).
+- 2026-10-25 after s92: checks 11/20, scored 5/10 (s92 used none; s91: check 750924a0, submit 08bf9391).
 
 - 2026-10-25: checks 10/20 at s89 start (s89 used none; agent2 gets >= 8 of the rest); earlier: checks 9/20 (s86: 6e8ac91c diag 2.302x, e1620b92 2.359x; scored 8aec5993 2.354x = 3/10 scored) (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
@@ -95,6 +101,8 @@ numbers: NOTES s69.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s92: native pipelined decode-1-full kernel + `_combine` (nfl: register or cp.async rings, NW 4-16, NCTA 64-256).
 
 - s91: csl owner merge fast reciprocal/sigmoid-early/tree reductions, cluster wait after QK (H100 ties); not i-fetch.
 
