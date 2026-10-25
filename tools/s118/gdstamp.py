@@ -69,6 +69,10 @@ sub = importlib.util.module_from_spec(spec); sys.modules["submission"] = sub; sp
 import bench
 load, cfgd = [x for x in bench.SCORED if f"{x[0]} {x[1]['layer']}" == "decode 1 full"][0]
 data = bench.data_for(load, cfgd)
+import json
+if os.environ.get("PLAN"):
+    _orig = sub._plan; _ov = json.loads(os.environ["PLAN"])
+    sub._plan = lambda cfg, mp, dev: {**_orig(cfg, mp, dev), **_ov}
 sub._STAMP = torch.zeros(8192, dtype=torch.int64, device="cuda")
 fn = lambda: sub.kernel_fn(data)
 fn(); torch.cuda.synchronize()
