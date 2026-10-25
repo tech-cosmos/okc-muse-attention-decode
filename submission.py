@@ -935,11 +935,11 @@ def _counters(n, device, tag=""):
     return buf
 
 
-def _red_buf(n, device):
-    """Zeroed FP32 sums for plan red's in-grid merge; each call leaves them zeroed again."""
-    buf = _COUNTERS.get((device, "red"))
+def _red_buf(n, device, tag="red"):
+    """Zeroed FP32 sums for plan red's atomic merge; each call leaves them zeroed again."""
+    buf = _COUNTERS.get((device, tag))
     if buf is None or buf.numel() < n:
-        buf = _COUNTERS[(device, "red")] = torch.zeros(n, dtype=torch.float32, device=device)
+        buf = _COUNTERS[(device, tag)] = torch.zeros(n, dtype=torch.float32, device=device)
     return buf
 
 
@@ -1921,13 +1921,31 @@ def _new(split, b, seq, j, q, m_i, l_i, acc, hp0, c, scale, k_scale, qkv_ptr, cs
 
 @triton.jit
 def _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV: tl.constexpr,
-            MG: tl.constexpr, D: tl.constexpr, S: tl.constexpr, SEP: tl.constexpr = False):
-    """Every split writes its partial (max, sum, accumulator) for KV heads hp0 .. hp0 + HPP - 1."""
+            MG: tl.constexpr, D: tl.constexpr, S: tl.constexpr, SEP: tl.constexpr = False, RED: tl.constexpr = False,
+            red_ptr=None, rcnt_ptr=None, L: tl.constexpr = 1):
+    """Every split writes its partial (max, sum, accumulator) for KV heads hp0 .. hp0 + HPP - 1.
+    RED (batch 1, HPP 1; plan red): instead, add it into replica split % 4 of FP32 sums at reference max 0 (exact
+    while its max is in [-60, 100]), or store it and list it for each of the head's L _red_fin_v programs."""
     # Partials [B, HKV, S, MG]: each row's own head's D columns of acc.
     part = ((b * HKV + hp0 + hp) * (S + SEP) + split) * MG + rr
-    tl.store(pml_ptr + part * 2, m_i, mask=r_ok)
-    tl.store(pml_ptr + part * 2 + 1, l_i, mask=r_ok)
-    tl.store(pacc_ptr + part[:, None] * D + (c % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=q_ok)
+    if RED:
+        bad = r_ok & (l_i > 0.0) & ((m_i > 100.0) | (m_i < -60.0))
+        if tl.max(bad.to(tl.int32), 0) > 0:
+            tl.store(pml_ptr + part * 2, m_i, mask=r_ok)
+            tl.store(pml_ptr + part * 2 + 1, l_i, mask=r_ok)
+            tl.store(pacc_ptr + part[:, None] * D + (c % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=q_ok)
+            for t in tl.static_range(L):
+                lst = hp0 * L + t
+                tl.store(rcnt_ptr + 64 + lst * (S + SEP) + tl.atomic_add(rcnt_ptr + lst, 1, sem="relaxed"), split)
+        else:
+            f = tl.where(l_i > 0.0, tl.exp2(m_i), 0.0)
+            row = ((split % 4) * HKV + hp0 + hp) * MG + rr
+            tl.atomic_add(red_ptr + row[:, None] * D + (c % D)[None, :], acc * f[:, None], mask=q_ok, sem="relaxed")
+            tl.atomic_add(red_ptr + 4 * HKV * MG * D + row, l_i * f, mask=r_ok, sem="relaxed")
+    else:
+        tl.store(pml_ptr + part * 2, m_i, mask=r_ok)
+        tl.store(pml_ptr + part * 2 + 1, l_i, mask=r_ok)
+        tl.store(pacc_ptr + part[:, None] * D + (c % D)[None, :], acc.to(pacc_ptr.dtype.element_ty), mask=q_ok)
 
 
 @triton.jit
@@ -1960,7 +1978,8 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
                 BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
-                PRE: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0):
+                PRE: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0, RED: tl.constexpr = False,
+                red_ptr=None, rcnt_ptr=None):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -2072,7 +2091,8 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
 
     if PF:
         m_i += tl.where(pf == -7, 1.0, 0.0) * 0.0
-    _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
+    _finish(split, b, j, m_i, l_i, acc, hp0, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP, RED, red_ptr,
+            rcnt_ptr, L)
     if DUAL:
         _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
 
@@ -2116,7 +2136,8 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
                 BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
-                PRE: tl.constexpr = 0, SPEC: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0):
+                PRE: tl.constexpr = 0, SPEC: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0,
+                RED: tl.constexpr = False, red_ptr=None, rcnt_ptr=None):
     """Kernel wrapper of _attn_body. SPEC > 0 (batch 1, page 1, shapes only): SGLang slices the page table to the
     batch's longest length, so seq = width - L is known before the seq_lens load lands; run on it at once (the
     page-table and cos/sin loads skip one DRAM trip) and redo the split with the real length if it differs."""
@@ -2131,7 +2152,7 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
             go = real != seq
             seq = real
     else:
-        _attn_body(0, False, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ)
+        _attn_body(0, False, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ, RED, red_ptr, rcnt_ptr)
 
 
 @triton.jit
@@ -2426,7 +2447,7 @@ def _plan(cfg, max_pages, device):
         if length > 1:
             # pf: the split's page-table lines touched before the query load (H100 paired -0.35 us, 10/11 and 8/11).
             return dict(splits=127, block_n=64, warps=4, stages=8, hpp=1, fuse=False, qk8=True, pdt="f32", tsep=True,
-                        pf=True, pre=2)
+                        pf=True, pre=2, red=True)
         return dict(splits=128, block_n=128, warps=4, stages=6, hpp=1, fuse=False, qk8=True, pdt="f32")
     if length == 1:
         if HAVE_GLUON and USE_GDEC and hkv % 2 == 0 and cfg["num_q_heads"] // hkv == 8 and cfg["head_dim"] == 64:
@@ -2525,6 +2546,55 @@ def _red_fin(qkv_ptr, red_ptr, rcnt_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, HQ:
     tl.store(out_ptr + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
 
 
+@triton.jit
+def _red_fin_v(qkv_ptr, red_ptr, rcnt_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, HQ: tl.constexpr, HKV: tl.constexpr,
+               G: tl.constexpr, L: tl.constexpr, D: tl.constexpr, SP: tl.constexpr):
+    """_attn_split's plan red merge (batch 1, MG = L G rows per KV head): program (KV head h, token t) sums the 4
+    replicas of its G rows, merges its list of out-of-range partials exactly, then RMSNorm and sigmoid(gate). Leaves
+    its sums and list count zeroed."""
+    p = tl.program_id(0)
+    h = p // L
+    t = p % L
+    MG: tl.constexpr = L * G
+    QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    g = tl.arange(0, G)
+    d = tl.arange(0, D)
+    rr = t * G + g
+    col = ((h * G + g) * D)[:, None] + d[None, :]
+    gate = tl.load(qkv_ptr + t * QKV_W + (HQ + 2 * HKV) * D + col).to(tl.float32)
+    vs = tl.load(vs_ptr)
+    gdc_wait()
+    a = tl.zeros([G, D], tl.float32)
+    l = tl.zeros([G], tl.float32)
+    for k in tl.static_range(4):
+        row = (k * HKV + h) * MG + rr
+        a += tl.load(red_ptr + row[:, None] * D + d[None, :])
+        l += tl.load(red_ptr + 4 * HKV * MG * D + row)
+    nf = tl.load(rcnt_ptr + p)
+    tl.debug_barrier()  # every thread's copies loaded before one of them zeroes the replicated words
+    for k in tl.static_range(4):
+        row = (k * HKV + h) * MG + rr
+        tl.store(red_ptr + row[:, None] * D + d[None, :], tl.zeros([G, D], tl.float32))
+        tl.store(red_ptr + 4 * HKV * MG * D + row, tl.zeros([G], tl.float32))
+    tl.store(rcnt_ptr + p, 0)
+    m = tl.where(l > 0.0, 0.0, -1.0e30)
+    for i in range(nf):
+        s = tl.load(rcnt_ptr + 64 + p * SP + i)
+        prow = (h * SP + s) * MG + rr
+        lp = tl.load(pml_ptr + prow * 2 + 1)
+        mp = tl.where(lp > 0.0, tl.load(pml_ptr + prow * 2), -1.0e30)
+        ap = tl.load(pacc_ptr + prow[:, None] * D + d[None, :]).to(tl.float32)
+        mn = tl.maximum(m, mp)
+        a1 = tl.exp2(m - mn)
+        a2 = tl.where(lp > 0.0, tl.exp2(mp - mn), 0.0)
+        l = l * a1 + lp * a2
+        a = a * a1[:, None] + ap * a2[:, None]
+        m = mn
+    o = a / l[:, None] * vs
+    o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
+    tl.store(out_ptr + t * HQ * D + col, (o * tl.sigmoid(gate)).to(tl.bfloat16))
+
+
 def _verify_nvs(data, cfg):
     """Verify sliding (L 8, G 8, D 64, HKV 2, page 1) on the native nvs kernel + _combine_hb."""
     batch, length, hq, hkv, d = cfg["batch"], cfg["q_len"], cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
@@ -2587,6 +2657,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     pacc = torch.empty((batch, hkv, splits + sep, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, splits + sep, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
+    spec = max_pages - length if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 and not fuse else 0
+    red = bool(plan.get("red")) and batch == 1 and hpp == 1 and not dual and not fuse and not spec and hkv * length <= 64 \
+        and (splits + sep) * hkv * length <= 4096 - 64
     _attn_split[(splits + sep, batch, hkv // (2 if dual else hpp))](
         qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
         data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
@@ -2597,10 +2670,16 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
         PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"),
         PRE=0 if dual else plan.get("pre", 0), MIF=bool(plan.get("mif")), PREQ=0 if dual else plan.get("preq", 0),
-        SPEC=max_pages - length if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 and not fuse else 0,
-        num_warps=plan["warps"],
+        SPEC=spec, num_warps=plan["warps"],
+        **(dict(RED=True, red_ptr=_red_buf(4 * hkv * rows * (d + 1), device, "redv"),
+                rcnt_ptr=_counters(4096, device, "rv")) if red else {}),
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
+        return out
+    if red:
+        _red_fin_v[(hkv * length,)](qkv, _red_buf(1, device, "redv"), _counters(1, device, "rv"), pacc, pml,
+                                    data["v_scale"], out, HQ=hq, HKV=hkv, G=group, L=length, D=d, SP=splits + sep,
+                                    num_warps=1, launch_pdl=True)
         return out
     splits += sep
     hb = plan.get("hb", 1) if group % plan.get("hb", 1) == 0 else 1
