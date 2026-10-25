@@ -1,6 +1,14 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~01:30 UTC (session 79 = unattended session 12 of the #1-push brief).
+Updated 2026-10-25 ~02:10 UTC (session 80 = unattended session 13 of the #1-push brief).
+
+**s80: H200 bandwidth measured (lead agent's #1; branch exp/bwdiag, diag checks 50c3fc4d + 025c8861).** Decode 32 full
+bytes (654 MB): **dense 144.7 us (4.52 TB/s)**, all rows sorted by physical address 148.4, random 128-B rows ~162-166,
+`_gd_full` 163-167 (its gathers alone 164.3). So full layers are AT the random-gather ceiling and physical order is
+-11%. H100 (same harness) shows it too (dense 210 / sorted 215 / rand 233). But the win needs ~all requests mixed in
+each tile (sorting within groups of <= 4 requests: nothing), and a global owner[phys] scatter costs 46 us (H100):
+only a coalesced multi-split by physical window + smem owner maps could work, est. decode 32 full ~155-160 vs 168
+= ~+1-1.5% overall for a big native build. Verify-full consumer stays the biggest lever (NOTES s80 "Where the gap is").
 
 **s79: exact per-warp lazy max in `_gw_verify` (LZ 3, on main 4aa402b), scored 9f8e594b 2.350x = new best.** Inline
 asm (pack 32 over S's registers; slot j = row r + 8*((j>>1)&1)) computes each thread's row maxima, warp-votes
@@ -31,7 +39,7 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
 
 ## Board and best run
 
-- Board 2026-10-25 01:20Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.350x (#21)** (scored
+- Board 2026-10-25 01:10Z (unchanged at 01:20): #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.350x (#21)** (scored
   **9f8e594b**, main 4aa402b). Need ~+24% for #1. Table below is the older 7f45c5c6 run (NOTES s79 has 9f8e594b's).
 - Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
 
@@ -58,7 +66,7 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- 2026-10-25: checks 2/20 (c5888ee5 diag, 577c5b9d 2.353x), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
+- 2026-10-25: checks 4/20 (c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
@@ -79,6 +87,9 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
   PDL merge kernel (-1.6 us at 16 splits; -0.45 at 4). Pulling via map_shared_rank loads costs ~+1 us (latency).
 
 ## Ranked ideas
+
+000000. (s80) Physical-order decode full (NOTES s80 design): prototype first the multi-split pass (<= ~5 us?) and
+   mixed-request mma.sync compute under a dense 256-row stream. ~+1-1.5% overall. Below the verify-full consumer.
 
 00000. (s79) LZ 3 follow-up: sum-based check (no FMNMX), power-of-two per-warp fallback, inf-only redo launch
    (NOTES s79 Next 1). Then the producer half.
