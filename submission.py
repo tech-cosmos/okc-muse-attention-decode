@@ -1775,7 +1775,8 @@ def _plan(cfg, max_pages, device):
             # Batched sizes lose with tsep (+0.6-2.7 us).
             tiny = heads <= 4
             return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
-                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
+                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny,
+                        **({"spec": True} if tiny and batch == 1 and length > 1 else {}))
             # (spec + pre 2 for verify 1 sliding, s85: H100 paired -0.30 us, but H200 check f51b8c4b judged 9.55 vs
             # ~7.2 us with unchanged profiled kernels (5.5 us): off. _attn_split keeps the SPEC code for that study.)
         # Large batches: smaller, deeply pipelined programs.
