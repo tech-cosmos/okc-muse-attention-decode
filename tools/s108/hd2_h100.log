@@ -1,0 +1,103 @@
+== decode 1
+Memset (Device)                          n 220 median 0.80 us
+_gd_full                                 n 20 median 11.20 us
+_red_fin                                 n 20 median 13.54 us
+d1a_gd_full                              n 20 median 11.49 us
+d1a_red_fin                              n 20 median 13.41 us
+d1s3_gd_full                             n 20 median 11.87 us
+d1s3_red_fin                             n 20 median 14.08 us
+d1s4_gd_full                             n 20 median 12.51 us
+d1s4_red_fin                             n 20 median 14.33 us
+d1p1023_gd_full                          n 20 median 11.78 us
+d1p1023_red_fin                          n 20 median 6.59 us
+d1p255_gd_full                           n 20 median 13.70 us
+d1p255_red_fin                           n 20 median 15.71 us
+d1b16s4_gd_full                          n 20 median 12.70 us
+d1b16s4_red_fin                          n 20 median 14.85 us
+d1b_gd_full                              n 20 median 11.49 us
+d1b_red_fin                              n 20 median 13.89 us
+void hfloor<2, 0>(uint4 const*, uint4 co n 20 median 9.31 us
+void hfloor<4, 0>(uint4 const*, uint4 co n 20 median 9.38 us
+void hfloor<2, 1>(uint4 const*, uint4 co n 20 median 8.74 us
+== verify 1
+Memset (Device)                          n 200 median 0.86 us
+_attn_split                              n 20 median 13.73 us
+_combine                                 n 20 median 15.68 us
+v1a_attn_split                           n 20 median 14.08 us
+v1a_combine                              n 20 median 15.74 us
+v1fix0_attn_split                        n 20 median 14.49 us
+v1fix0_combine                           n 20 median 16.00 us
+v1gw_new_tokens                          n 20 median 4.32 us
+v1gw_gw_verify                           n 20 median 13.60 us
+v1gw_combine                             n 20 median 15.30 us
+v1s6_attn_split                          n 20 median 14.59 us
+v1s6_combine                             n 20 median 16.26 us
+v1p255_attn_split                        n 20 median 14.94 us
+v1p255_combine                           n 20 median 19.49 us
+v1b_attn_split                           n 20 median 14.05 us
+v1b_combine                              n 20 median 15.71 us
+v1fix0b_attn_split                       n 20 median 14.30 us
+v1fix0b_combine                          n 20 median 15.87 us
+void hfloor<2, 0>(uint4 const*, uint4 co n 20 median 9.28 us
+void hfloor<2, 1>(uint4 const*, uint4 co n 20 median 8.74 us
+== decode 16
+Memset (Device)                          n 100 median 0.80 us
+_gd_full                                 n 20 median 122.78 us
+_red_fin                                 n 20 median 122.66 us
+d16a_gd_full                             n 20 median 123.55 us
+d16a_red_fin                             n 20 median 122.97 us
+d16nored_gd_full                         n 20 median 122.82 us
+d16nored_combine                         n 20 median 124.61 us
+d16b_gd_full                             n 20 median 124.16 us
+d16b_red_fin                             n 20 median 123.68 us
+d16noredb_gd_full                        n 20 median 122.98 us
+d16noredb_combine                        n 20 median 125.06 us
+== verify 16
+Memset (Device)                          n 100 median 0.80 us
+_new_tokens                              n 20 median 3.49 us
+_gw_verify                               n 20 median 129.50 us
+_combine_bal                             n 20 median 17.57 us
+v16a_new_tokens                          n 20 median 3.65 us
+v16a_gw_verify                           n 20 median 129.34 us
+v16a_combine_bal                         n 20 median 17.66 us
+v16lz3_new_tokens                        n 20 median 4.74 us
+v16lz3_gw_verify                         n 20 median 130.33 us
+v16lz3_combine_bal                       n 20 median 18.88 us
+v16b_new_tokens                          n 20 median 3.90 us
+v16b_gw_verify                           n 20 median 129.38 us
+v16b_combine_bal                         n 20 median 18.14 us
+v16lz3b_new_tokens                       n 20 median 5.41 us
+v16lz3b_gw_verify                        n 20 median 129.79 us
+v16lz3b_combine_bal                      n 20 median 18.82 us
+== decode 32
+Memset (Device)                          n 140 median 0.74 us
+_gd_full                                 n 20 median 241.22 us
+_red_fin                                 n 20 median 241.02 us
+d32a_gd_full                             n 20 median 241.63 us
+d32a_red_fin                             n 20 median 241.37 us
+d32nored_gd_full                         n 20 median 241.34 us
+d32nored_combine_bal                     n 20 median 52.00 us
+d32b_gd_full                             n 20 median 241.60 us
+d32b_red_fin                             n 20 median 241.18 us
+d32noredb_gd_full                        n 20 median 241.76 us
+d32noredb_combine_bal                    n 20 median 51.01 us
+void hfloor<2, 0>(uint4 const*, uint4 co n 20 median 234.27 us
+void hfloor<2, 1>(uint4 const*, uint4 co n 20 median 209.25 us
+== verify 32
+Memset (Device)                          n 120 median 0.83 us
+_new_tokens                              n 20 median 3.46 us
+_gw_verify                               n 20 median 248.70 us
+_combine_bal                             n 20 median 21.41 us
+v32a_new_tokens                          n 20 median 3.87 us
+v32a_gw_verify                           n 20 median 249.21 us
+v32a_combine_bal                         n 20 median 22.40 us
+v32lz3_new_tokens                        n 20 median 4.70 us
+v32lz3_gw_verify                         n 20 median 249.12 us
+v32lz3_combine_bal                       n 20 median 24.16 us
+v32b_new_tokens                          n 20 median 3.81 us
+v32b_gw_verify                           n 20 median 248.51 us
+v32b_combine_bal                         n 20 median 21.92 us
+v32lz3b_new_tokens                       n 20 median 4.51 us
+v32lz3b_gw_verify                        n 20 median 249.18 us
+v32lz3b_combine_bal                      n 20 median 24.32 us
+void hfloor<2, 0>(uint4 const*, uint4 co n 20 median 234.17 us

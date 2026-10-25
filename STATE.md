@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~11:10 UTC (session 107 = unattended session 40 of the #1-push brief).
+Updated 2026-10-25 ~11:45 UTC (session 108 = unattended session 41 of the #1-push brief).
+
+**s108: REDO stress of main (40 seeds x 6 verify shapes, judge order): 240/240 correct, no REDO. Built exp/hdiag2 98153b5
+(diag, never submit): exp/hdiag on current main + in-run paired variants of main's unverified changes. H100: decode 32
+full dense floor 209 vs random 234 us (-11%). 0 checks. NOTES s108.**
 
 **s107: FOLD (Q prescaled + reference subtracted by an extra QK wgmma k-step, no FFMA in the verify-full loop) = dead:
 H100 all-L2 -2.56/-0.93 us but real +0.6/+0.7, H200 emu tie; rare unexplained REDO storm under emu. exp/fold. 0 checks. NOTES s107.**
@@ -83,8 +87,9 @@ numbers: NOTES s69.)
 - **FIRST after 00:00Z 2026-10-26: check main 05efdde** (s103 red on decode 16/32 full + s105 LZ 10 on verify 16/32 full
   + s106 fix 1 on verify 1 full); submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False;
   verify 16/32 full lose -> LZ = 3; verify 1 full lose -> drop `fix=1` from its plan.
-- **SECOND: check exp/hdiag 63dd0fd (DIAG, never submit): read `<variant>_gd_full` /
-  `_attn_split` / `hfloor` durations from the profile; port per-shape plan winners to main, then check main.**
+- **SECOND: check exp/hdiag2 98153b5 (DIAG, never submit; replaces exp/hdiag): paired in-run kernels fix 0/1 (verify 1
+  full), LZ 3/10 (verify 16/32 full), red/nored (decode 16/32 full), gw at verify 1 full, decode 1 full plans, gather
+  floors (random vs dense). Revert per shape what loses; port winners; then check main.**
   (main 1e4c80e was scored in s102: 8725ba7e 2.460x; don't resubmit it unchanged.)
 
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.

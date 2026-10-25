@@ -4759,3 +4759,38 @@ decode 32 sliding 0.23 / full 0.08, verify 32 sliding 0.19 / full 0.065.
 
 ### Budget (UTC day 2026-10-25)
 - s107: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 108 (unattended session 41, 2026-10-25 10:52 - ~11:45 UTC): REDO stress (clean) + exp/hdiag2 paired diag (no checks)
+
+Board 10:53Z unchanged (#1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.460x 8725ba7e). Account: checks 18/20 (2 left =
+agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.** main unchanged (05efdde code).
+
+### REDO stress of main's fixed-reference paths (tools/s108/stress.py)
+- 40 seeds (0-39) x the six scored verify shapes in judge order in one process (sliding before full, so any state
+  left by the sliding kernels is exercised): **240/240 correct, no REDO** (a REDO would show ~17 ms; the max sync-timed
+  call was 330 us, seed 26's slow row = my concurrent test run). Covers LZ 10 (verify 16/32 full) and fix 1 (verify 1
+  full). s107's FOLD REDO storm does not reproduce on main's kernel. Seed 1000 over all 12 shapes: all correct.
+- So tomorrow's submit of main carries no observed REDO risk beyond s105's tail estimate.
+
+### exp/hdiag2 98153b5 (pushed; DIAG ONLY, never submit) = exp/hdiag rebased on main 05efdde
+Same harness as s102's exp/hdiag (variants re-run after the real call, each after an L2 flush, kernels renamed), now with
+**in-run paired variants for main's unverified changes**, so the judge's node bimodality (s102) drops out:
+verify 1 full `v1a`/`v1b` (fix 1) vs `v1fix0`/`v1fix0b`, `v1gw` (s94 non-bal Gluon plan); verify 16/32 full `v16a/b`,
+`v32a/b` (LZ 10) vs `v16lz3(b)`, `v32lz3(b)`; decode 16/32 full `d16a/b`, `d32a/b` (red) vs `d16nored(b)`, `d32nored(b)`
+(the pre-s103 plan via BRED = False); plus s102's decode 1 full plan variants and the `hfloor` gather floors (decode 1/32,
+verify 1/32 full). Read the attention kernels' durations (`<v>_gd_full`, `<v>_attn_split`, `<v>_gw_verify`); merge
+kernels are PDL-launched, so their durations include waiting: compare whole-call effects via the main check instead.
+Tests 16/16. H100 dry run (tools/s108/hd2_h100.log, CUPTI medians of 20, flushed, us):
+- verify 1 full `_attn_split`: fix 1 14.08/14.05 vs fix 0 14.49/14.30; gw `_gw_verify` 13.60 (+ `_new_tokens` 4.3).
+- verify 16 full `_gw_verify`: LZ 10 129.3/129.4 vs LZ 3 130.3/129.8; verify 32: 249.2/248.5 vs 249.1/249.2 (H100 DRAM-bound).
+- decode 16/32 full `_gd_full` red vs nored: tie (122.8-124.2; 241.3-241.8); the win is in the merge (red_fin vs combine).
+- **decode 32 full floors: random 234.2, dense (each request's rows contiguous) 209.3 = -11% on the H100** (s39's
+  232 vs 236 was a different dense kernel). Physical order still needs the inversion (s84: 42+ us), but the dense
+  premium is bigger than the notes assumed; the H200 number from this diag decides whether s80's design is worth more.
+
+### Next
+- After 00:00Z 2026-10-26: (1) check main 05efdde, submit if it beats 1531.2 us; (2) check exp/hdiag2 (replaces
+  exp/hdiag in the queue) and drop any of main's per-shape changes whose paired kernel loses on the H200.
+
+### Budget (UTC day 2026-10-25)
+- s108: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
