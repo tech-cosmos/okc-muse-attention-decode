@@ -1775,11 +1775,9 @@ def _plan(cfg, max_pages, device):
             # Batched sizes lose with tsep (+0.6-2.7 us).
             tiny = heads <= 4
             return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
-                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny,
-                        # spec (batch 1): seq from the table width, with pre 2 so the page-table and first-tile
-                        # prefetches go out before the query norm. H100 paired verify 1 sliding -0.30 us (12/13, 11/13);
-                        # spec alone ties, pre 2 alone -0.08, spec with an inlined redo body +0.24.
-                        **({"spec": True, "pre": 2} if tiny and batch == 1 else {}))
+                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
+            # (spec + pre 2 for verify 1 sliding, s85: H100 paired -0.30 us, but H200 check f51b8c4b judged 9.55 vs
+            # ~7.2 us with unchanged profiled kernels (5.5 us): off. _attn_split keeps the SPEC code for that study.)
         # Large batches: smaller, deeply pipelined programs.
         # (hpp 2 for batched sliding decode, e405425/6fb74be/652aafe, won on the H100 but lost on the H200: scored
         # 56fca423 decode 16/32 sliding 10.3/14.3 -> 11.1/15.4 us vs abd67ae2. Reverted 2026-10-24.)
