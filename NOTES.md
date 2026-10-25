@@ -4823,3 +4823,39 @@ H100 paired graph timing, 11 rounds, all variants correct on the 5 cases:
 
 ### Budget (UTC day 2026-10-25)
 - s109: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 110 (unattended session 43, 2026-10-25 11:34 - ~12:40 UTC): pipelined fixed-reference consumer (H100 only, no checks)
+
+Board 11:35Z unchanged (#1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.460x 8725ba7e). Account: checks 18/20 (2 left =
+agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.** main unchanged (05efdde code).
+
+### Native consumer microbench with the fixed reference (tools/s110/cmicro.{cu,py} = s69 cmicro + FIX / NOFADD)
+FIX = LZ 10's loop (no row max, alpha, rescale; constant m); NOFADD drops the row-sum FADDs (wrong, ceiling only).
+H100, verify-32-sized work (264 CTAs x 152 tiles), us: variant 0 = unpipelined 2 CTAs/SM, 1 = FA3 intra-WG pipelined
+(QK(i) + PV(i-1) issued, wait(1), softmax(i), wait(0)) 2 CTAs/SM, 2 = pipelined 1 CTA/SM.
+| | v0 | v1 | v2 |
+|---|---|---|---|
+| exact max (s69 base) | 162.8 | 166.1 | 173.8 |
+| FIX | 144.9 | **126.9** | 131.5 |
+| FIX + NOFADD | 130.0 | 126.4 | 132.9 |
+- With the fixed reference, pipelining is worth -12% of the consumer (it lost before because of the rescale chain).
+- Row-sum FADDs cost nothing once pipelined: **ones-column row sums (P@V n72) are dead** (ceiling 0.5 us).
+- The pipelined FIX consumer needs **122 registers** (no spills; cuobjdump -res-usage).
+
+### The same pipelining in Gluon `_gw_verify` (exp/lzpipe 890f73f, plan LZ_PIPE, off; tests 16/16)
+Fixed loop of _gw_consumer_bal rewritten FA3-style, nothing in flight across the back-edge (s21's C7514 cause).
+- 2 CTAs/SM (consumer 96-112 regs): ptxas **C7512 "wgmma serialized due to insufficient register resources"** + spills
+  at every pregs/cregs split tried (40/96, 24/104, 24/112, 32/104; P converted after the wait to drop the 2nd P
+  buffer: same). Verify 32 / 16 full real +111 / +56 us (279 at best vs 258). Dead.
+- 1 CTA/SM (new plan key `cps`, maxnreg 128, cregs 168, stages 5): compiles clean (0 spills, no C7512) but vs main
+  real +24.3 / +10.6, all-L2 +29.0 / +11.4 (verify 32 / 16); vs unpipelined at the same 1 CTA/SM: all-L2 -4.7 (3/3),
+  real +0.1. So halving consumer WGs/SM costs ~30 us and pipelining recovers only ~5 in the real kernel. Dead.
+### Lead for a native verify-full kernel (the "structural idea" the direction asks for)
+Native code can fit the pipelined FIX consumer at 2 CTAs/SM: with a 24-reg producer WG the consumer cap is 112 regs
+(122 now; a single P buffer saves ~16). Consumer-only 162.8 (s71 nverify-class) -> 126.9 us (-22%) in the
+microbench; Gluon LZ 10 got only -13.5 us all-L2 of that. Build = tools/s71/nverify.cu (exp/nverify) + LZ 10 fixed
+reference (exact first 4 tiles, m+14, REDO flag via non-finite acc) + this pipelined loop + gbal partition format.
+Multi-session; s71's producer contention is the other risk (nverify tied Gluon on the H200 with the old consumer).
+
+### Budget (UTC day 2026-10-25)
+- s110: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.

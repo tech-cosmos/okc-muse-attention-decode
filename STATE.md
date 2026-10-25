@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~11:40 UTC (session 109 = unattended session 42 of the #1-push brief).
+Updated 2026-10-25 ~12:40 UTC (session 110 = unattended session 43 of the #1-push brief).
+
+**s110: fixed-reference (LZ 10) consumer + FA3 intra-WG pipelining: native microbench 126.9 vs 144.9 unpipelined (-12%;
+vs 162.8 for the s71-class exact consumer), 122 regs. In Gluon _gw_verify: C7512 at 2 CTAs/SM (+111 us), 1 CTA/SM +24:
+dead (exp/lzpipe 890f73f). Ones-column row sums dead (FADDs free once pipelined). 0 checks. NOTES s110.**
 
 **s109: csl w8 (8 warps x 16 keys) +0.08/+2.2 and w1 (1 warp x 128 keys, no premerge) +1.74/+0.99 at decode 1/16
 sliding: dead; gw/gbal at verify 1 full with LZ 10: 18.9-22 vs 17.15 us: dead. 0 checks. NOTES s109.**
@@ -44,6 +48,10 @@ numbers: NOTES s69.)
 
 ## Ranked ideas
 
+0000000. (s110) NATIVE verify-full kernel with LZ 10 fixed reference + FA3 pipelined consumer at 2 CTAs/SM (consumer
+   cap 112 regs with a 24-reg producer; microbench needs 122, single P buffer saves ~16). Consumer-only -22% vs the s71
+   nverify consumer. Start from tools/s71/nverify.cu (exp/nverify) + tools/s110/cmicro.cu (FIX, PIPE). Multi-session.
+
 000000. (s80; s84: GATE FAILED, bucketing pass 42+ us H100, see NOTES s84) Physical-order decode full (NOTES s80 design): prototype first the multi-split pass (<= ~5 us?) and
    mixed-request mma.sync compute under a dense 256-row stream. ~+1-1.5% overall. Below the verify-full consumer.
 
@@ -85,6 +93,7 @@ numbers: NOTES s69.)
 
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s110: pipelined LZ 10 loop in Gluon (C7512 at 2 CTAs/SM; 1 CTA/SM +24 us), ones-column (n72) row sums (ceiling 0).
 - s109: csl keys per warp 16 (w8) / 128 (w1, no premerge) vs 32; gw / gbal Gluon at verify 1 full even with LZ 10.
 - s107: FOLD (softmax scale/reference subtraction folded into the QK wgmma: extra k-step lengthens the chain).
 - s106: fixed reference in _gd_full (decode full gather-bound), at verify 16 sliding (+0.59), verify-full plan knobs under
