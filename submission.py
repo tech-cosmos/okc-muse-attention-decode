@@ -1204,12 +1204,11 @@ __global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restr
 void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc, torch::Tensor ks, torch::Tensor vsc,
          torch::Tensor loc, torch::Tensor pt,
          torch::Tensor seq, torch::Tensor pacc, torch::Tensor pml, double qk_scale, int64_t S, int64_t ch, int64_t win) {
-    // Producer lag: 2 at 4 splits (verify 32: H100 paired -0.26 us), 1 at 8 (verify 16: LAG 2 +0.2 there).
-    auto f = S <= 4 ? nv::nvs<NV_NS, 2> : nv::nvs<NV_NS, NV_LAG>;
+    // Producer lag NV_LAG (1) at every S: LAG 2 at 4 splits was H100 -0.18 us but H200 +0.2 (check 9249146d, verify 32).
+    auto f = nv::nvs<NV_NS, NV_LAG>;
     const int smem = (int)sizeof(nv::Smem<NV_NS>) + 1024;
     static bool once = false;
     if (!once) {
-        cudaFuncSetAttribute(nv::nvs<NV_NS, 2>, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
         cudaFuncSetAttribute(nv::nvs<NV_NS, NV_LAG>, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
         once = true;
     }
@@ -1224,7 +1223,7 @@ void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
 '''
 try:
     _NVS = _load_inline(
-        name="muse_nvs_a2s9",
+        name="muse_nvs_a2s12",
         cpp_sources="void nvs(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, int64_t, int64_t, "
                     "int64_t);",
