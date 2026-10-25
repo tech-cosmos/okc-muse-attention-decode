@@ -76,8 +76,4 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 - s4: nvs fused last-CTA merge +1.6..+3.6 us (tail latency-bound on 4 warps/SM); 4-CTA clusters for nvs don't fit one
   wave (30 max); _combine_hb HB/warps other than (2,1); csl 8-CTA clusters (+0.48), csl 64-reg cap (+2.0), csl 2 warps
   x 2 chunks (+2.9). NOTES-agent2 s4.
-- s1: verify sliding fuse / dual / hpp 2 / stages 4 / splits 8; decode 32 fuse, block_n 16/64, warps 1/4,
-  splits 4/16, hpp 2 (plateau); preq for decode 32 and verify 32.
-- s2: in-grid merge via S-CTA clusters + barrier.cluster (`cl`, agent2-exp/clmerge): verify 32/16, decode 32
-  +1.87/+1.30/+1.22 us (cluster-4 launch uses 124 SMs, 8 with 3 CTAs: +2.5 us alone). Gluon _gw_verify at
-  splits 2-16 on a ctx-2048 proxy: 15.6/19.4 us vs Triton sliding 13.66/18.46 (tools/a2/proxy2.py).
+- s1-s2: verify sliding fuse/dual/hpp2/stages/splits, decode 32 knob plateau, S-CTA cluster merges, Gluon _gw_verify (NOTES-agent2 s1-s2).
