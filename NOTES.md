@@ -3848,3 +3848,43 @@ guess; it only skips one DRAM trip when the guess holds.
 ### Budget (UTC day 2026-10-25)
 
 Checks 7/20 (+ f51b8c4b, 297d496a), scored 2/10.
+
+## Session 86 (unattended session 19, 2026-10-25 03:24 - ~04:20 UTC): verify 1 sliding SPEC loss bisected and fixed (loop form)
+
+Board 03:25Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.350x (#24).
+
+### Bisecting s85's verify 1 sliding SPEC loss on the H200 (f51b8c4b judged 9.55 vs ~7.2 us)
+
+- **6e8ac91c** (exp/specdiag 3104d49 = main + SPEC for verify 1 sliding, WITHOUT pre 2): **2.302x**; verify 1 sliding
+  **9.24** (profiled kernels unchanged 3.8 + 1.7). So SPEC itself loses ~2 us on the H200 judge; pre 2 is innocent.
+- Compiled `_attn_split` (verify 1 sliding): main 123 regs / 139K PTX; SPEC with the `noinline` redo copy 111 regs /
+  283K PTX (two bodies). The redo never runs (judge's batch-1 inputs: spread fixed, width = seq + L, so the guess
+  holds), so the cost is the second (out-of-line) body being in the kernel. H100 doesn't show it (read-flush bench).
+  Note: the judge's profiles look warm-L2 (decode/verify 1 full profile 7.2 / 12.8 us vs judged 14.0 / 16.5; 20 MB
+  fits in L2), so "profiled kernels unchanged" says nothing about the cold path.
+- **Loop form** (07a06b3): one copy of the body in `while go:` (seq carried: SPEC constant on pass 1, the real length
+  on a pass 2 that runs only on mismatch). 193 regs, 137K PTX, no spills. H100 paired: alone -0.06 (7/11), + pre 2
+  **-0.29 (10/11)**. Fallback correct (tools/s85/fallback.py, tables padded 1/7/3000).
+- **e1620b92** (07a06b3): **2.359x** [2.323, 2.405] (best check so far; > 2.350 board best). verify 1 sliding **7.32**
+  (= tie with main's 7.05-7.26: the H100 -0.29 doesn't show, but the loss is gone); decode 1 sliding 4.72, decode 16
+  sliding 8.13, decode 1 full 14.19; rest noise. Submitted (see below).
+- Verify 1 full SPEC (loop form, + existing pre 2/pf): H100 +0.35 (0/11): off.
+- Lesson: on the H200 judge, an unexecuted out-of-line `noinline` copy in a Triton kernel can cost ~2 us at batch 1
+  (cold); `_gd_full`'s Gluon noinline redo didn't hurt (decode 1 full won). Prefer loop-carried redo in Triton.
+- `_gd_full` SPEC in the same loop form (Gluon `while`): H100 decode 1 full **+1.18 us (0/11)**: keep its noinline redo.
+
+### Judge runs and budget (UTC day 2026-10-25)
+
+- 6e8ac91c check 3104d49 (diag) 2.302x; e1620b92 check 07a06b3 2.359x; **8aec5993 submit 07a06b3 2.354x** [2.319,
+  2.400] = new account best (was 9f8e594b 2.350x), board rank 26. Per shape (us): decode 1/16/32 sliding 5.07 / 8.19 /
+  13.97, decode 1/16/32 full 14.31 / 89.62 / 167.97, verify 1/16/32 sliding **6.91** / 12.75 / 17.72, verify 1/16/32
+  full 16.82 / 115.83 / 213.53. main = 07a06b3's code.
+- Account day: checks 9/20, scored 3/10.
+
+### Next
+
+1. Gains are noise-sized now; the gap to #1 (2.910x) is still +24%. Per the brief: batch-1 natives with merges fused or
+   overlapped; verify full only with a structural idea.
+2. Cheap: the H200 judge punishes code that looks free on the H100 (noinline copy here, hpp 2 earlier). Before any
+   check, compare register count / PTX size against main (tools: /tmp-style script in NOTES s86, n_regs/asm on
+   `kernel.device_caches`).
