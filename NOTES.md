@@ -4588,3 +4588,44 @@ So any extra epilogue in the verify consumer costs more than the ~3.5 us tail. (
   Compare decode 16/32 full within the same node level (judge full layers are bimodal, s102); submit if the score beats
   1531.2 us (2.460x). Then exp/hdiag (diag only; based on the old main, fine for its plan/floor questions).
 - Decode 16 dprogs 768 (-0.63 H100) only if the H200 shows red/dbal winning there.
+
+## Session 104 (unattended session 37, 2026-10-25 09:39 - ~11:05 UTC): verify-full lazy-max gap decomposed (H100 only)
+
+Board 09:40Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 abhishekgahlot2 2.710x; ours 2.460x (8725ba7e).
+Account: checks 18/20 (the 2 left are agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.**
+main unchanged (bf12587 code). Tools: tools/s104/mk.py builds the variants below from exp/lz4's submission.py
+(`git show exp/lz4:submission.py > /tmp/s104/lz4.py`), timed with tools/s54/abl2.py (H100 paired, 5 rounds, verify 32 full).
+
+### Question
+s78's no-max ceiling (SPEC 2) was -26 us on the H200 verify 32 full kernel (178 vs 204), but the exact LZ 4 (s81) tied
+LZ 3 on the H200. What in LZ 4 costs the difference? (Real H100 timings are DRAM-bound and say nothing; all-L2 = proxy.)
+
+### H100 all-L2 verify 32 full, paired (A -> B)
+| A -> B | all-L2 | real |
+|---|---|---|
+| LZ 3 -> LZ 4 | 189.1 -> 184.8 (-4.3, 5/5) | -0.13 |
+| LZ 4 -> c2 = no-max ceiling on the same base (P = exp2(s*scale - m), m fixed 0, no alpha, no acc rescale, no asm) | 185.1 -> 173.0 (**-12.2**, 5/5) | -0.62 (5/5) |
+| LZ 4 -> d1 = LZ 4 without the acc *= alpha asm (LZ_ACC) | +2.1 (worse: the acc asm costs nothing) | tie |
+| LZ 4 -> d3 = no in-loop `i == 0` branch (wrong: tile 0 overflows, m = inf, alpha = NaN, so acc rescales every tile) | +7.8 | tie |
+| LZ 4 -> lz4nb = no branch, m starts at 0 (fallback storm: coherent rows exceed 2^15 sums) | +10.5 | tie |
+| c2 -> c2bf = c2 with BF16 P and V (Triton's fp8 -> bf16 convert in the producer) | **+96.9** | +18.8 |
+| c2 -> c2bfa = same, V via a 9-instruction PRMT/LOP3 asm (unscaled bits, timing only) | **+17.6** | +0.4 |
+
+Reading: the exact lazy max still costs ~12 us all-L2 over the no-max form, and it is not the acc rescale asm. What is
+left in LZ 4's hot loop vs c2: the big asm block (vote + data-dependent branch + the fallback code and its extra live
+registers), alpha = exp2(m_i - m_new) and the l4 update, and the in-loop `i == 0` choice of asm (the d3/lz4nb proxies
+were broken by NaN alpha / fallback storms, so the branch's own cost is still unmeasured).
+The idea I priced and dropped this session: BF16 P/V (no FP16 overflow, so no per-tile check: peel tile 0 for an exact
+reference, fixed m afterwards, redo only on inf). It dies on the producer: e4m3 -> bf16 has no single sm_90 cvt (f16x2 only),
+and even a 9-op asm convert costs +17.6 us all-L2, more than the 12 us it would buy. A 4-op form (cvt.rn.f16x2.e4m3x2 + shr +
+lop3 + exponent fix folded into P's bias as 2^56 and acc's as 2^-56) might be ~2x cheaper but is still unlikely to pay.
+
+### Next (verify full)
+- Find the 12 us: build a correct peeled variant (iteration 0 written out before the loop with the exact max; loop
+  from 1 with the non-peel asm only) and time it vs LZ 4; then strip the asm to "vote only, no fallback code" (timing)
+  to price the fallback code's registers. If a variant reaches ~c2 on the H100 all-L2, one H200 check (diag copies like
+  exp/lazydiag) decides: c2-class costs were worth -26 us at verify 32 / -16 at verify 16 on the H200 (~+3% overall).
+- Unchanged queue: first check after 00:00Z 2026-10-26 = main bf12587, then exp/hdiag (diag only).
+
+### Budget (UTC day 2026-10-25)
+- s104: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.

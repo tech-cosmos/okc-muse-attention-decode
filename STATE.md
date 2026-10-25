@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~10:00 UTC (session 103 = unattended session 36 of the #1-push brief).
+Updated 2026-10-25 ~11:05 UTC (session 104 = unattended session 37 of the #1-push brief).
+
+**s104 (H100 only, no checks): exact lazy max LZ 4 is still 12.2 us (all-L2, verify 32 full) above the no-max
+ceiling c2 on the same base; not the acc rescale asm (removing it +2). BF16 P/V to skip the overflow check dies on the
+producer's fp8->bf16 convert (+17.6..+97). Next: a properly peeled LZ 4 + vote-only asm to locate the 12 us. NOTES s104.**
 
 **s103: main bf12587 = plan red (in-grid FP32 atomic merge, 1 replica/request) on decode 16/32 full + dbal at decode 16:
 H100 paired decode 16 full -1.58 us (20/20), decode 32 full -1.09 (10/10), decode 1 full tie. H200 UNVERIFIED. Red on verify
@@ -44,6 +48,9 @@ idea, physical-order decode full after a cheap multi-split prototype. (s69's nat
 numbers: NOTES s69.)
 
 ## Ranked ideas
+
+0000000. (s104) Locate LZ 4's 12 us over the no-max ceiling c2 (H100 all-L2; c2-class was -26/-16 us on the H200 at
+   verify 32/16 full = ~+3% overall): truly peeled first tile, vote-only asm. tools/s104/mk.py, NOTES s104.
 
 000000. (s80; s84: GATE FAILED, bucketing pass 42+ us H100, see NOTES s84) Physical-order decode full (NOTES s80 design): prototype first the multi-split pass (<= ~5 us?) and
    mixed-request mma.sync compute under a dense 256-row stream. ~+1-1.5% overall. Below the verify-full consumer.
@@ -90,6 +97,7 @@ numbers: NOTES s69.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s104: BF16 P/V for verify full (producer fp8->bf16 convert +17.6 us all-L2 even as asm), removing the LZ_ACC asm (+2).
 - s103: red on verify full (consumer spills at cregs 96-104), decode 1 red NR != 4, pre-summing atomics (atomics cost ~0),
   _combine_bal hb/cw.
 - s101: decoupled V ring / more gathers in flight in gbal (H200 diag tie/loss), FA3 ping-pong, dual-head ILP (microbench), decode 1 full splits.
