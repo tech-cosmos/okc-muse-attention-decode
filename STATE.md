@@ -1,6 +1,12 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~03:25 UTC (session 83 = unattended session 16 of the #1-push brief).
+Updated 2026-10-25 ~03:00 UTC (session 84 = unattended session 17 of the #1-push brief).
+
+**s84: two brief items closed as dead (no checks).** (1) Native verify-1-sliding cluster kernel (tools/s84/vsl.cu,
+FP16 mma.sync, owner-row st.async merge) correct (10x lower error than main) but H100 9.6-9.9 us (cluster per head) /
+11-12 (cluster per request) vs main 7.7: beyond the shared 3-trip chain, compute ~2.3 + in-cluster merge ~2.4 us
+(globaltimer stamps). (2) Physical-order decode full gate: bucketing 2.59M page-table entries by physical window =
+42+ us H100 (page-table read alone ~7; contended global atomics dominate) vs the <= ~5 us gate. NOTES s84.
 
 **s83: TV (V FP8->FP16 convert as an identity FP8 wgmma with f16 acc, P via smem; exp/tv) = correct but dead**: H100
 verify 32 full real +3.7, all-L2 +47 us (consumer gains an exposed wgmma + 2 WG barriers + fence per tile). Decode 1
@@ -11,38 +17,10 @@ kernel (NOTES s83 Next). No checks used.
 `_gw_verify` ties Triton at 127 splits and loses above 132; verify 32 full at 1 CTA/SM (BN 64 or 128) loses 12-37%.
 New per-us sensitivity table in NOTES s82: decode/verify 1 sliding are worth 1.6/1.3 %/us, verify 32 full 0.064 %/us.
 
-**s81: LZ 4 (FMNMX-free exact lazy max in `_gw_verify`, branch exp/lz4) = H200 TIE.** Sum-checked lazy max + power-of-two
-warp fallback + inf -> m=+inf -> exact recompute in `_combine_bal` (REDO). H100 all-L2 verify 32/16 full -4.0/-3.1 us, but
-H200 check f4199324 2.349x: verify 16/32 full 113.67/209.61 vs LZ 3's 114.09/210.06. Consumer-only trims no longer move
-the H200 verify-32 time (contention-bound); next lever must cut producer work or gathers. NOTES s81.
-
-**s80: H200 bandwidth measured (lead agent's #1; branch exp/bwdiag, diag checks 50c3fc4d + 025c8861).** Decode 32 full
-bytes (654 MB): **dense 144.7 us (4.52 TB/s)**, all rows sorted by physical address 148.4, random 128-B rows ~162-166,
-`_gd_full` 163-167 (its gathers alone 164.3). So full layers are AT the random-gather ceiling and physical order is
--11%. H100 (same harness) shows it too (dense 210 / sorted 215 / rand 233). But the win needs ~all requests mixed in
-each tile (sorting within groups of <= 4 requests: nothing), and a global owner[phys] scatter costs 46 us (H100):
-only a coalesced multi-split by physical window + smem owner maps could work, est. decode 32 full ~155-160 vs 168
-= ~+1-1.5% overall for a big native build. Verify-full consumer stays the biggest lever (NOTES s80 "Where the gap is").
-
-**s79: exact per-warp lazy max in `_gw_verify` (LZ 3, on main 4aa402b), scored 9f8e594b 2.350x = new best.** Inline
-asm (pack 32 over S's registers; slot j = row r + 8*((j>>1)&1)) computes each thread's row maxima, warp-votes
-"max*scale - m <= 15", and exponentiates against the stale maxima (else the usual update for the warp's rows); acc
-rescale is a pack-64 asm skipped when the warp's alphas are all 1. H200 check 577c5b9d 2.353x: verify 32/16 full
-210.1/114.1 us, kernel 202.4 (was 209.8). Same trick in Triton `_tile` loses (exp/lztri). NOTES s79 Next: drop the
-32 FMNMX via sum check + power-of-two fallback + rare redo launch.
-
-**s78: lazy-max softmax for verify full = the biggest verify-full lever measured.** Exponentiate against the running
-maxima with no per-tile row max/rescale; exact iff every thread's partial row sums stay <= 2^T (P >= 0), else the
-usual update. H200 diag check c5888ee5 (renamed _gw_verify copies): verify 32/16 full base 204-206/105-106 us, no-max
-ceiling (no fallback, INCORRECT) **178.3/89.8**, consumer-only 172 -> 146. Exact Gluon version (gl.max WG reduce per
-tile) 209.6/109.0 = loses: Gluon's tensor->scalar reduce costs ~20-30 us. Native nvl (exp/nvlazy) exact but 222 vs
-197 all-L2 H100 (consumer spills at 104 regs). Open problem: exact at ~no cost (NOTES s78 Next). FP16 P only (FP8 P
-with offset 0 loses FA3's range).
-
-**s77: H200 per-kernel diagnostics** (exp/h200diag, tools/s77/README.md): renamed extra kernel copies in a check are
-timed by the judge's profile, so one check measures ~10 variants on the real H200. NOTES s77.
-
-**s76: tools/bench.py mirrors the judge** (compare only against new-bench numbers; H100 main geomean ~1.94).
+**s76-s81 (one line each; NOTES has the detail):** s81 LZ 4 FMNMX-free lazy max = H200 tie (f4199324). s80 H200
+bandwidth: decode 32 full bytes dense 144.7 / sorted 148.4 / random ~164 us (`_gd_full` at the random ceiling).
+s79 LZ 3 exact per-warp lazy max (on main, scored 9f8e594b 2.350x = best). s78 lazy-max softmax ceiling -27/-16 us
+at verify 32/16 full. s77 H200 per-kernel diag harness (renamed kernel copies in a check). s76 bench mirrors judge.
 
 ## Board and best run
 
@@ -85,7 +63,7 @@ numbers: NOTES s69.)
 
 ## Ranked ideas
 
-000000. (s80) Physical-order decode full (NOTES s80 design): prototype first the multi-split pass (<= ~5 us?) and
+000000. (s80; s84: GATE FAILED, bucketing pass 42+ us H100, see NOTES s84) Physical-order decode full (NOTES s80 design): prototype first the multi-split pass (<= ~5 us?) and
    mixed-request mma.sync compute under a dense 256-row stream. ~+1-1.5% overall. Below the verify-full consumer.
 
 00000. (s79) LZ 3 follow-up: sum-based check (no FMNMX), power-of-two per-warp fallback, inf-only redo launch
@@ -94,7 +72,7 @@ numbers: NOTES s69.)
 0000. (s78) Exact lazy max in the verify-full consumer at ~no cost: -27/-16 us H200 ceiling (verify 32/16 full) =
    ~+3% overall. Branches exp/lazymax (Gluon SPEC variants), exp/lazydiag (diag harness), exp/nvlazy (native). NOTES s78.
 
-000. (s75) Verify sliding is consumer-chain-bound, not DRAM-bound (H100 all-L2 attention verify 32/16 sliding 13.4/9.1 vs
+000. (s84: native verify-1-sliding cluster kernel built and lost, NOTES s84) (s75) Verify sliding is consumer-chain-bound, not DRAM-bound (H100 all-L2 attention verify 32/16 sliding 13.4/9.1 vs
    real 16.5/11.2 us; Triton ~1.8 64-key tiles/us/SM vs Gluon gw 2.9 on verify full). gw_verify itself loses at
    sliding size (fixed costs). The open design is a native wgmma verify-sliding kernel with csl-style low fixed
    cost (no warp-spec setup, cluster DSMEM merge), 2-4 pipelined tiles per CTA: ~1.5-2% overall if it reached gw's
@@ -123,6 +101,9 @@ numbers: NOTES s69.)
 - Nothing queued. main 4aa402b = scored 9f8e594b 2.350x; submit only after a check beats 2.353.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s84: native verify-1-sliding cluster kernel (vsl, NPH 8/16), physical-order bucketing pass (bucket.cu, 42+ us),
+  verify 1 sliding 64 splits.
 
 - s83: TV (tensor-core V convert in _gw_verify, exp/tv), decode 1 full merge cw/csb/splits.
 

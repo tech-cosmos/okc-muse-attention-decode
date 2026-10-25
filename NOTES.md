@@ -3739,3 +3739,59 @@ s74 measured ~0.5-0.7 us) with st.async + mbarrier complete_tx as in tools/s72/c
 ### Budget (UTC day 2026-10-25)
 
 Checks 5/20 (unchanged), scored 2/10.
+
+## Session 84 (unattended session 17, 2026-10-25 02:30 - ~03:00 UTC): native verify-1-sliding cluster kernel = dead; physical-order bucketing pass = fails its gate
+
+Board 02:35Z unchanged: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.350x (#23). No checks used (nothing
+beat a tie). Followed the brief (batch-1 first; s83 Next = native verify-1-sliding cluster kernel).
+
+### Dead end: native verify-1-sliding cluster kernel (tools/s84/vsl.cu, vsl.py; not integrated)
+
+Built s83's plan as written: one 16-CTA cluster per request (NPH 8 CTAs per KV head, 256 keys each) or per KV head
+(NPH 16, 128 keys each; template param), 16 warps = 4 row groups (16 rows: tokens 2rg, 2rg+1 x 8 heads) x 4 key
+quarters, **FP16 mma.sync m16n8k16** (K/V e4m3x2 -> f16x2 exact; Q in FP16, P in FP16; a permuted d order lets each
+thread's K fragment be one 16-B row load, V fragments built with 2 PRMT + 4 cvt per row pair), one-pass softmax per
+warp, the 8 new tokens (norm, RoPE, quantize, cache store, smem, named barrier) as a 9th causal 8-key tile in the
+last CTA, the 4 key quarters pre-merged in smem, then each CTA st.async-pushes its rows to the owner CTA (8 or 4
+rows each; mbarrier complete_tx), which merges, RMS-normalizes, gates and stores BF16. 128 regs, no spills.
+- **Correct** on 7 cases (batch 1-5, ctx 10 edges, page 64, kv_scale, mixed); rel err 0.0047 vs main's 0.060
+  (FP16 Q instead of E4M3 Q: 10x more accurate).
+- **H100 graph-timed (us): main 7.7; NPH 8: 11.0-11.9; NPH 16: 9.6-9.9.** Ablations NPH 16: loads only 4.3-4.6,
+  + compute 6.8-7.1, + smem pre-merge 8.2-8.4, + push/owner merge 9.6-9.9. NPH 8 compute is +4 us: 67 MFLOP + 263K
+  exp2 on 16 SMs is simply too much per SM (Triton spreads it over 66 programs with wgmma).
+- In-kernel %globaltimer stamps (abl 19, cold L2, non-graph; 256-ns resolution), NPH 16, from kernel start: K landed
+  + S issued 3.3-3.6, PV issued 4.6-4.9, smem pre-merge done 5.9-6.1, owners received 7.2, done 7.4-7.7. So beyond
+  the 3-trip chain (seq -> page table -> K/V, same as main) compute costs ~2.3 us and the in-cluster merge ~2.4 us,
+  vs Triton's whole attn kernel 3.8 + _combine 1.7 on the H200. Same outcome as s72's csv.cu (7.6 vs 5.5 old bench):
+  **the emulated FP8 mma was not the problem; FP16 mma.sync changes nothing.** Verify sliding needs 64 rows x 2055
+  keys x 2 heads of exp2/MMA spread over >= 64 SMs, and a cluster (<= 16 SMs per merge domain) can't spread that
+  far without a global merge, which is what main already does.
+- Load-order gotcha: ptxas sinks page-table-independent loads (Q, cos/sin; even as asm volatile ld.global.nc) below
+  the page-table-dependent gathers (cuobjdump SASS), costing nothing measurable here. csl's SASS is fine (gathers
+  last).
+- Triton plan probe: verify 1 sliding 64 splits x 32 keys: 8.3-9.4 vs 7.7 (merge cost grows). Current plan stays.
+
+### Physical-order decode full: the multi-split pass prototype fails the <= ~5 us gate (tools/s84/bucket.{cu,py})
+
+Brief item 3's gate. One kernel buckets decode 32 full's 2.59M page-table entries (32 x 86001 int32, 10.3 MB) by
+physical window (132 or 256 windows) into per-window lists (smem histogram ranks, global atomic run reservation per
+window, then in-smem counting sort and contiguous run stores). Correct (counts = torch.bincount, entries map back).
+H100 graph-timed: **42-124 us** (best NW 132, 4096 entries per CTA: 42.5). Ablations: page-table read alone 6.8-7.2 us
+(H200 ~5: the whole gate); no global atomics 24-31 (the 132-256 contended counters x 630-1260 CTAs dominate);
+first version without the smem sort (each warp store hits ~32 windows) 48-65. An exact atomic-free version would
+need a counts matrix + scan + second page-table pass (>= 2 more launches, 2 x 7 us reads). **Verdict: the inversion
+costs >= the page-table read (~5 us H200) plus a scatter that costs more; with s80's ~8-13 us total gain at decode 32
+full it is not worth a multi-session build.** Don't start physical-order decode full without a fundamentally
+different inversion (none known).
+
+### Next
+
+- Batch-1: both native single-kernel attempts at verify sliding (s72 csv, s84 vsl) lose by ~2 us to Triton + PDL
+  merge; decode 1 full merge already exhausted (s29 W4, s34 flags, D-split, s74 cmg, s83 knobs). The batch-1 brief
+  has no concrete lever left that I know of; csl (decode 1 sliding) remains the only native win.
+- Remaining big lever (s80 arithmetic): verify-full consumer issue (consumer-only 170 us H200 vs 78 us MUFU floor),
+  needs a structural idea; all knob-level and lazy-max variants are done (s78-s83).
+
+### Budget (UTC day 2026-10-25)
+
+Checks 5/20 (unchanged), scored 2/10.
