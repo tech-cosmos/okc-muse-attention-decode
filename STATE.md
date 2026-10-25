@@ -1,17 +1,14 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~14:30 UTC (session 115 = unattended session 48 of the #1-push brief).
+Updated 2026-10-25 ~15:00 UTC (session 119 = unattended session 52). **s119 (0 checks): H100 reference numbers for
+exp/hdiag4's batch-1 variants (decode 1 full stages 3/4, BN 64/16, splits 255/1023; verify 1 full stages 10/12: all lose
+on the H100); dead: `_gd_full` work stealing (on paper), csl owner-merge sig/tree trims (re-tied). main unchanged ae1161c.
+NOTES s119.**
 
-**s115 (0 checks): the judge's per-kernel profile is WARM (no L2 flush): H200 profile ~= H100 warm CUPTI (decode 1 full
-8.2 vs 8.1, verify 1 full 12.7 vs 12.35, csl 3.7 vs 3.3); profile->scored gaps = cold penalties. Verify 1 full knobs
-(warps 8, BN 128/32, splits 63/255, hpp 2) lose cold AND warm. All branches pushed; profiles committed. NOTES s115.**
+**s118: decode 1 full timeline; `_red_fin` 16 warps at batch 1 on main ae1161c (H100 -0.3 us). NOTES s118.**
 
-**s114 (0 checks): physical-order decode full CLOSED on both routes: atomic-free global inversion (in-place slice sort
-+ smem owner map) best 18.1 us H100 at decode 32 (p1 10.1 + map 8.0; gate <= 5); windowed L2 sweep (per-program
-window buckets + L2 prefetch-ahead) 325-455 vs random 246 (prefetch hints double DRAM traffic), window order alone
--3% H100. NOTES s114.**
-
-**Earlier: NOTES s91-s114 (per-session summaries in the Dead-ends index below).**
+**Earlier: s114-s117 (0 checks each): physical-order decode full CLOSED (s114), judge profile is warm (s115), decode 1
+full atomics <= 0.4 us (s116, exp/hdiag4 built), merge exposure on batched full <= 0.3% (s117).**
 
 ## Board and best run
 
@@ -27,7 +24,7 @@ window buckets + L2 prefetch-ahead) 325-455 vs random 246 (prefetch hints double
 
 ## Code state
 
-- main = 5e3d586 = f2b1c52 + agent2 7ba35f9 NV_HALF (H200-verified per shape in check 2d0bfdc6; tests 16/16; unscored). f2b1c52 (= agent2 652f126 merged, SCORED e64d3450 2.542x) on top of 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
+- main = ae1161c = 5e3d586 + s118 `_red_fin` 16 warps at batch 1 (decode 1 full, H100 -0.3, H200 unverified). 5e3d586 = f2b1c52 + agent2 7ba35f9 NV_HALF (H200-verified per shape in check 2d0bfdc6; tests 16/16; unscored). f2b1c52 (= agent2 652f126 merged, SCORED e64d3450 2.542x) on top of 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
 - Dispatch: verify sliding B=1 -> native `vtk_verify` (s96); verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full` (batch 1: plan red, atomic merge + `_red_fin`); sliding + small -> Triton
   `_attn_split` + PDL merges.
@@ -64,21 +61,29 @@ numbers: NOTES s69.)
 1. Native verify-full kernels (s71 nverify, s111 nvf) tie/lose Gluon `_gw_verify`: resume only with a way to cut
    producer instructions or fit a pipelined consumer at 2 CTAs/SM (NOTES s71, s110, s111).
 2. Sliding shapes in Triton: no cheap lever left (s70); batch 16/32 sliding = agent2's lane.
-3. Merge tail on verify full (~7 us on the H200 at verify 16/32 = ~0.8% overall at most).
+3. Merge tail on verify full: H100 exposure 3.7-3.8 us (s117), in-grid merge net ~2 us = ~0.3% overall: not worth it.
 
 ## Queued for checks (exact; sandbox is deleted ~17:45Z 2026-10-25, everything is pushed to origin)
 
-1. **FIRST after 00:00Z 2026-10-26: check main @ 5e3d586 code** (later main commits are notes only). Per shape vs
-   e64d3450 (scored 2.542x, 1481.9 us): only verify 16 sliding changed (agent2 NV_HALF, H200 11.63 vs 11.90 in
-   2d0bfdc6); verify 32 sliding uses NV_HALF too (tie 15.43 vs 15.42); all other shapes = e64d3450 code. Submit if the
+1. **FIRST after 00:00Z 2026-10-26: check main @ ae1161c code** (H100 bench s118: 2.051) (later main commits are notes only). Per shape vs
+   e64d3450 (scored 2.542x, 1481.9 us): verify 16 sliding changed (agent2 NV_HALF, H200 11.63 vs 11.90 in
+   2d0bfdc6); verify 32 sliding uses NV_HALF too (tie 15.43 vs 15.42); decode 1 full `_red_fin` 16 warps (s118, expect
+   ~-0.2 vs 13.57; revert RF_NW1 to 4 if it loses > 0.3); all other shapes = e64d3450 code. Submit if the
    check beats 1481.9 us (and tests pass).
-2. **exp/hdiag3 @ e147d8e (diag, NEVER submit)**: read the judge profile's per-variant kernel durations
-   (`d1*`/`v1*` `_gd_full` / `_attn_split` / `hfloor`, `d32*`/`v32*` floors), all after an explicit flush. Port any
-   decode 1 / verify 1 full variant beating `d1a` / `v1a` by > 0.3 us. Also compare main's unflushed `_gd_full` with
-   `d1a_gd_full` (confirms s115: profile = warm).
+2. **exp/hdiag4 @ 8b557ec (diag, NEVER submit; supersedes hdiag3 = hdiag3 + main 5e3d586 + decode 32 full variants + v32 lag2/s2)**:
+   read the judge profile's per-variant kernel durations (`d1*`/`v1*` `_gd_full` / `_attn_split` / `hfloor`; `d32a`,
+   `d32s3`, `d32p768s3`, `d32p1536`, `d32b16s4` `_gd_full` vs `d32fl2`/`d32fl4`/`d32dense` hfloor; `v32*`), all after an
+   explicit flush. Port any decode 1 / verify 1 full variant beating `d1a` / `v1a` by > 0.3 us, and any decode 32 full
+   variant beating `d32a` by > 2 us (then also try it at decode 16). H100 CUPTI cold: d32 241.7 / 243.4 / 244.6 / 246.6 /
+   248.3, floors random 234.2, dense 209.4. Also compare main's unflushed `_gd_full` with `d1a_gd_full` (s115: warm).
 3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s119: decode 1 full stages 3/4, BN 64 s2, BN 16 s4, splits 255/1023 and verify 1 full stages 10/12 (H100; H200 via
+  hdiag4), `_gd_full` work stealing (on paper: late grab = 3 trips > 0.86 us spread), csl owner-merge sig/tree (tie again).
+- s118: FAST _red_fin (reorder), decode 1 full split counts 396-1300 (all-keyed splits +1.4..+2.5: new token must be in an
+  empty program), verify 1 full _combine cw 8/16, _combine_bal cw/hb at verify 16 full.
+- s116: decode 1 full end-of-grid atomic burst (whole atomic removal -0.3..-0.4 us cold H100; pre-sum ideas capped there).
 - s115: verify 1 full plan knobs (warps 8, BN 128 st 6, BN 32 st 12, splits 63/255, hpp 2) cold and warm.
 - s114: physical-order decode full: atomic-free multi-split inversion (18 us H100), windowed L2 sweep with prefetch hints
   (2x DRAM traffic), window-sorted order alone (-3% H100, ~-1.5% H200).
