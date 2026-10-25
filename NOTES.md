@@ -5383,3 +5383,49 @@ answer the open H200 batch-1/batch-32 gather question, so no new diag variants w
 
 ### Budget (UTC day 2026-10-25)
 - s124: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 125 (unattended session 58, 2026-10-25 15:58 - ~17:15 UTC): NT_AFTER = verify 16/32 full -2.4/-1.9 us (H100, on main); gbal end spread measured
+
+Board 16:00Z unchanged: #1 pjmullin3 2.910x (1294.4 us), ours 2.542x rank 8 (e64d3450, 1481.9 us). Account: checks
+20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new. **0 checks, 0 scored.** Tools: tools/s125/
+(icpt.py: whole time + per-kernel durations over batch/ctx; gwstamp.py: %globaltimer per `_gw_verify` gbal program
+[start, consumer-0 first tile ready, consumer-0 done, end, smid, tiles, nseg], cold graph replays; ab.py: paired plan A/B).
+
+### Verify full has a ~15 us intercept (H100, cold)
+Whole verify full at B16 ctx 40K / 80K / 160K: 74.9 / 135.3 / 253.7 us; B32 ctx 40K / 80K: 136.5 / 255.0. Linear in keys
+(~1.5 us per 1K keys x 16 requests) with **~15-18 us fixed**; `_gw_verify` alone ~10 of it, + `_combine_bal` exposure 3.7
+(s117) + `_new_tokens`. (H200 e64d3450: 2 x verify 16 full - verify 32 full = 15.8 us, the same.)
+
+### Per-program timeline of gbal `_gw_verify` at verify 16 full (264 programs, 76-77 tiles each, 2 per SM)
+- Before: start p50 0.26 / p90 2.56 / max 4.35 us: **24% of programs (the high ids = second CTA per SM) started late**
+  because the 32 `_new_tokens` CTAs, launched first, held SM resources; late starters ended 3.2 us later on average.
+- First tile ready p50 5.4-5.6, max 9-13 (all programs request ~13 MB at once: DRAM queueing, not lost time).
+- End p10 127.5 / p50 130.8 / max 137-140 us (B32: 244 / 249 / 261): **the slowest program sets the time ~6-12 us after
+  the median**. Per-program means over replays: p10 128.3 / max 134.1 (systematic part ~3 us: mean end rises with program
+  id, 128.6 for ids 0-21 to ~131.8 for ids 176-263); per-SM means are tight (130.2-132.2); rep-to-rep std per program
+  1.4 (B32 1.9). So most of the tail is random per replay.
+
+### WIN (H100, on main 410dcb6): NT_AFTER (gbal path only)
+`_new_tokens` (independent of `_gw_verify`: gw reads keys [0, seq), `_new_tokens` writes the block's new slots and their
+partial id) is now launched AFTER `_gw_verify` with PDL and ends with `griddepcontrol.wait` (WAIT constexpr), so
+`_combine_bal`'s wait still covers both grids. Its CTAs now run on SMs freed in gw's tail. All gw programs start within
+0.26 us. H100 paired, 11/11 each: **verify 16 full 135.62 -> 133.14 (-2.43), verify 32 full 255.12 -> 253.28 (-1.87)**.
+Tests 16/16; bench geomean 2.057 (s123 main 2.053). Plan key `nta` (default NT_AFTER = True) for A/B. Unverified on the
+H200 (expect similar: the blocking is a residency effect).
+
+### Dead: static range weights by program id (exp/wramp 5f... pushed; GW_WK in `_gw_bnd` / `_cb_bnd`)
+Shares weighted 1 + WK/1024 (1 - 2p/P) (low ids get more): H100 WK 12/24/128/256 vs 0: verify 16 full
++1.5/+1.9/+6.9/+12.3, verify 32 full +2.1/+2.2/+11.6/+23.7 us. The id gradient is smaller than the per-replay noise, so
+extra work on low ids makes them the new tail. Only dynamic assignment can remove the random tail.
+
+### Next build (priced from the stamps): dynamic tail for gbal verify full
+Expected H100 gain ~3-4 us at verify 16 full, ~8-10 at verify 32 full (max end - mean end minus chunk overhead).
+Design: per request, the last NCB x CH tiles form a dynamic pool (chunks never span requests: chunk k = request
+k // NCB, tiles [max(tiles_b - NCB CH, 0) + (k % NCB) CH, +CH) clipped); the static gbal partition runs over the
+remaining tiles (tiles_b - NCB CH) as now. After its static range, each program's producer grabs chunk ids from a global
+counter (no reset needed: each call takes exactly NCH + P grabs, so k = old % (NCH + P), k >= NCH = stop, each program
+fails once) and passes k to both consumers through a small smem ring with its own mbarriers. Partial ids: static r + b
+(< P + B), chunk k at P + B + k, new tokens after (nid = P + NCH + 2B... adjust _new_tokens NBASE). `_combine_bal` adds
+the request's NCB chunk ids (mask empty ones by the same clip formula). Costs: one query reload per chunk on the consumer
+chain (prefetch it in the producer if it shows), ~NCB more partials per request in the merge (keep SB one pass), chunk
+granularity CH x ~1.7 us. Start with CH 2, NCB 8-16.
