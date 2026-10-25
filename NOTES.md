@@ -5156,3 +5156,48 @@ to dig next: if the H200 batch-1 random gather floor is far below `_gd_full`/`_a
 
 ### Budget (UTC day 2026-10-25)
 - s117: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 118 (unattended session 51, 2026-10-25 14:33 - ~15:00 UTC): decode 1 full timeline stamps; _red_fin 16 warps (-0.3 us H100, on main)
+
+Board 14:33Z unchanged: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450, 1481.9 us).
+Account: checks 20/20 (0 left today), scored 8/10. No new COORD "Ready to merge". **0 checks, 0 scored.**
+**main = ae1161c** (5e3d586 + `_red_fin` 16 warps at batch 1); tests 16/16; H100 bench 2.051 (decode 1 5.09 / 13.82,
+decode 16 9.47 / 125.82, decode 32 13.54 / 243.38, verify 1 6.37 / 17.92, verify 16 12.77 / 135.44, verify 32 16.38 /
+254.91). (A first bench run read 2.02 with every shape slow: another process was on the GPU; rerun clean.)
+Tools: tools/s118/gdstamp.py (patched copy of submission.py: %globaltimer stamps per `_gd_full` program + in
+`_red_fin`, decode 1 full, cold graph replays), ab.py (paired rounds of module switches / plan overrides), chk.py.
+
+### Decode 1 full timeline (H100, cold, us from the first `_gd_full` program's start, mean of 20 replays)
+- 511 one-warp programs (500 with 5 tiles of 32 keys, 11 empty incl. the new-token program); all start by 0.24.
+- **first tile landed: p50 2.56** (page-table DRAM trip + row gather trip, 4 MB requested at once); loop done p50 8.73;
+  program end p10 8.63 / p50 9.19 / max 10.05 (spread ~1.4 us = DRAM queue randomness + per-SM load: SMs with 4
+  programs end 0.26 later than SMs with 3, first tile 2.82 vs 2.56).
+- Steady state: ~16 MB in ~6.2 us = 2.6 TB/s (hfloor's random gather 2.77).
+- `_red_fin` (PDL): launched at 1.0, released 10.59 (0.55 after the last program), replicas loaded 11.26 (0.67 L2 trip),
+  zeroing + list 11.44, end 11.83 (normalize / RMS / sigmoid / store 0.39). So the merge hop is ~1.8 us after the last
+  `_gd_full` program, as s113/s117 said.
+
+### WIN (H100, on main): `_red_fin` with 16 warps at batch 1 (RF_NW1; batched stays 4 = RF_NW)
+Paired decode 1 full (tools/s118/ab.py, cold): 4 -> 16 warps 14.37 -> 14.10 and 14.38 -> 14.03 (15/15 twice), again
+14.14 -> 13.92 (10/11) later. 8 warps -0.14..-0.28, 32 tie, 1-2 warps +0.6..+1.7. Bit-identical output (chk.py: 4 seeds
+incl. the bench's, max |diff| 0; all within the reference bound), tests 16/16 (none exercises batch-1 decode full,
+hence chk.py). Batched decode 16/32 full with 8/16 warps: tie/lose (kept 4). Unverified on the H200: rides on the first
+check of main (decode 1 full; e64d3450 13.57 us). Expected ~-0.2..-0.3 us = ~0.15% overall.
+
+### Dead (H100, paired)
+- FAST `_red_fin` (sigmoid(gate) before the PDL wait, sums zeroed after the output store): tie at 4 warps, +0.15 at 16
+  (the kernel ends when every store is done, so moving the zeroing off the "critical path" buys nothing).
+- Decode 1 full split counts (spec, BN 32, stages 2): 700/900 tie over 21 rounds (an 11-round -0.21 was noise), 834 tie,
+  417 +0.3, 396 +0.7, 1300 +2.4. **Any split count where every split has keys (500, 625) costs +1.4..+2.5 us**: the
+  new-token epilogue then runs after a key loop instead of in an empty program from t = 0. Keep 511.
+- Verify 1 full `_combine` cw 8/16 (paired, 15 rounds): tie (128 programs already in parallel; the warp-count lever is
+  specific to `_red_fin`'s single program). verify 16 full `_combine_bal` cw 2/4, hb 1/4: +1.5..+2.4 (as s103).
+
+### Next (after 00:00Z 2026-10-26, new sandbox)
+1. Check main **ae1161c** code (= 5e3d586 + `_red_fin` 16 warps): changed shapes vs e64d3450 are verify 16 sliding
+   (NV_HALF, H200 11.63 in 2d0bfdc6) and decode 1 full (expect ~-0.2); submit if it beats 1481.9 us.
+2. Check exp/hdiag4 @ 8b557ec (diag, never submit; its decode 1 full variants use the 4-warp `_red_fin`, fine for
+   reading `_gd_full` kernel durations).
+
+### Budget (UTC day 2026-10-25)
+- s118: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.

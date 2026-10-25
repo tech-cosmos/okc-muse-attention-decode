@@ -113,3 +113,14 @@ r = rows[-1]
 h = torch.histc(r[2][:, 0], bins=24, min=0, max=6); print("start hist (0.25us bins):", h.int().tolist())
 h = torch.histc(r[2][:, 3], bins=48, min=0, max=12); print("end hist (0.25us bins):", h.int().tolist())
 cnt = torch.bincount(r[3].long()); print("progs per SM: min %d max %d, SMs %d" % (cnt[cnt > 0].min(), cnt.max(), (cnt > 0).sum()))
+# end time vs programs on the same SM (all reps)
+by = {}
+for rr in rows:
+    sm = rr[3].long(); cnt = torch.bincount(sm)
+    keyed = (rr[2][:, 2] - rr[2][:, 1]) > 0.5  # programs with key tiles
+    for k in range(sm.shape[0]):
+        if keyed[k]:
+            by.setdefault(int(cnt[sm[k]]), []).append((float(rr[2][k, 3]), float(rr[2][k, 1])))
+for n, v in sorted(by.items()):
+    e = torch.tensor(v)
+    print(f"SM with {n} progs: n {len(v)//len(rows)}/rep, end p50 {e[:, 0].median():.2f} p90 {e[:, 0].quantile(.9):.2f}, first tile p50 {e[:, 1].median():.2f}")
