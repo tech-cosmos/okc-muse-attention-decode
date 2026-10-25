@@ -23,18 +23,11 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
   verify 32 -0.43 (9/9) / -0.11 (8/9), verify 16 / decode 32 noise. tests 16/16. Compare per shape: decode 16 vs 8.13,
   verify 32 vs ~15.4, decode 32 vs 12.20, verify 16 vs 12.06; list winners only. Also touches agent 1's verify 1 (vtk -0.10)
   and decode 1 (tie) sliding.
-- (s21) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/cldir d5e1482** (or its tip) = halfpfkr abc5f38 + nvs cl direct
-  pushes (verify 32 sliding: H100 paired -0.30 (11/11), -0.13 (11/11) vs halfpfkr). tests 16/16. Compare per shape as below.
-- (s19) superseded by cldir: agent2-exp/halfpfkr abc5f38 = halfpf 6a9a26a (below) + nds K-early
-  barrier (agent2 565c536: H100 decode 32 -0.14 (13/15) on halfpf). tests 16/16. Same per-shape comparison as below.
-- (s17) superseded by halfpfkr: agent2-exp/halfpf 6a9a26a = half e5f65ed (verify 32 cl, below) +
-  pf 946a445 (page-table L2 prefetch in csl/nds: H100 decode 16 -0.11..-0.13, decode 32 -0.06..-0.24). tests 16/16.
-  Compare verify 32 sliding vs 15.4, decode 16 vs 8.13, decode 32 vs 12.20 H200; list only winners.
-
+- (s21) inside l2h: agent2-exp/cldir 0bbf876 = halfpfkr + nvs cl direct pushes (verify 32 H100 -0.30/-0.13 (11/11)); fallback
+  if l2h loses a shape.
+- (s17-s19) inside cldir: halfpfkr abc5f38, halfpf 6a9a26a (page-table L2 prefetch, nds K-early).
 - (s15) LISTED in COORD Ready to merge: **agent2-exp/nvhalf 7ba35f9** (= agent2 now) = origin/main d93a80d + NV_HALF;
   agent 1's check 2d0bfdc6: verify 16 sliding 11.63 H200 (was 11.90) WIN, verify 32 tie.
-- (s15) inside halfpf: agent2-exp/half e5f65ed = NV_HALF + cl at verify 32 (2-CTA DSMEM merge, no combine; H100
-  -0.29..-0.86 vs NV_HALF+combine) + split start cluster barrier (H100 -0.19..-0.29 more). tests 16/16.
 - Checks used by agent2 on 2026-10-25: 5; account 20/20 (s16-s19: 0).
 
 ## Ranked ideas
