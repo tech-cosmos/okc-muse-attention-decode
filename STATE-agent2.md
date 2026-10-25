@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~16:50 UTC (agent2 session 21; s21 = nvs cl direct pushes, H100 verify 32 -0.13..-0.30; s20 = nds S probes dead). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
+Updated 2026-10-25 ~17:05 UTC (agent2 session 22; s22 = .L2::128B hint on half-row gathers: H100 decode 16 -0.34..-0.54, verify 32 -0.11..-0.43; s21 = nvs cl direct pushes). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
 
 ## Scope
 
@@ -18,6 +18,11 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Candidates
 
+- (s22) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/l2h 81792bb** = cldir 0bbf876 (below, + origin/main 2f2c0e2) + .L2::128B
+  fetch hint on the 64-B half-row K/V gathers (csl, vtk, nvs, nds). H100 paired vs cldir: decode 16 -0.54 / -0.34 (9/9 both),
+  verify 32 -0.43 (9/9) / -0.11 (8/9), verify 16 / decode 32 noise. tests 16/16. Compare per shape: decode 16 vs 8.13,
+  verify 32 vs ~15.4, decode 32 vs 12.20, verify 16 vs 12.06; list winners only. Also touches agent 1's verify 1 (vtk -0.10)
+  and decode 1 (tie) sliding.
 - (s21) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/cldir d5e1482** (or its tip) = halfpfkr abc5f38 + nvs cl direct
   pushes (verify 32 sliding: H100 paired -0.30 (11/11), -0.13 (11/11) vs halfpfkr). tests 16/16. Compare per shape as below.
 - (s19) superseded by cldir: agent2-exp/halfpfkr abc5f38 = halfpf 6a9a26a (below) + nds K-early
@@ -34,6 +39,8 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Ranked ideas
 
+0000000. (s22) half-row (64-B per KV head) gathers need .L2::128B or they cost a 2nd DRAM access (NOTES-agent2 s22);
+    check other kernels for partial-line gathers.
 000000. (s14) DSMEM bulk exchange removes the merge launch where S 2 fits (verify 32 done); look for more S-2 places.
 00000. (s13) built as NV_HALF (above). Next: same half split for nds (decode 32), est. <= 0.3 us.
 0000. (s11) merges are the wall (~2 us on the H100 for every split design: PDL release ~0.5 + post-wait partial

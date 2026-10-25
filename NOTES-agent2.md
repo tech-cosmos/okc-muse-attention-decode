@@ -823,3 +823,47 @@ chk_nvs 7/7, tests 16/16. Verify 16 does not use cl (S 4 + combine), so it is un
   Per shape vs the H200: verify 32 sliding (cl) vs ~15.4, decode 16 sliding (pf) vs 8.13, decode 32 sliding (pf + kr)
   vs 12.20. List only the winners in COORD Ready to merge (if verify 32 loses, fall back to NVS_CL_BATCH 9999).
 - Same "push before merge" idea elsewhere: wherever a merge chain stacks an in-CTA merge before a cross-CTA hand-off.
+
+## Session 22 (2026-10-25 16:15 - ~17:05 UTC): .L2::128B fetch hint on half-row gathers = H100 WIN on 4 shapes (0 checks)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main 2f2c0e2
+(agent 1 s125: NT_AFTER for gbal verify full; no sliding change) into agent2 (79b7866) and into agent2-exp/cldir (0bbf876).
+
+### Finding: 64-B half-row gathers cost a second DRAM access unless L2 fetches the whole 128-B line
+csl (decode 1/16 sliding, one cluster per KV head) and nvs NV_HALF (verify 16/32) gather each key's 64-B half (one KV
+head); the other half is read by another CTA, at a different time. Stamps first (csl at batch 16, /tmp tool adapted from
+tools/s93/cslstamp.py, cold, us from kernel start): page table med 1.99 (max 4.79), K landed med 4.62 (max 6.69),
+cluster wait 5.67, owner mbarrier 6.42, stored 6.98 (max 7.87): gather-dominated, big spread. ncu: DRAM read 9.4 MB
+(decode 16) / 18.7 MB (decode 32) = K/V bytes + ~1 MB page-table prefetch, so no byte waste visible.
+Bare-gather microbench (tools/a2/sg_half.py = tools/s85/sgather.py + half-row variants; H100 graph-timed, us):
+| variant | decode 16 | decode 32 |
+|---|---|---|
+| full 128-B rows (s85 v0) | 6.66-6.77 | 9.84-10.14 |
+| 64-B halves, head in grid z (other half read much later) | 7.79-7.89 | 13.0-13.7 |
+| 64-B halves, heads interleaved in adjacent CTAs (same time) | 6.74 | 10.35 |
+| halves (z) + ld.global.nc.L2::64B | 7.84 | 13.50 |
+| halves (z) + **ld.global.nc.L2::128B** | **6.69** | **11.25** |
+| halves (z) + L2::256B | 7.71 | 13.42 |
+So an L2 miss fetches only the requested sectors; the other half then misses again (DRAM row-buffer reuse only when
+both halves arrive together). `.L2::128B` (ld) / `cp.async.cg.shared.global.L2::128B` (cp.async) fixes it.
+
+### Applied (agent2-exp/l2h 81792bb = cldir 0bbf876 + hint): csl and vtk K/V loads via ldq/ldd (ld.global.nc.L2::128B),
+cp16 in nvs and nds (cp.async.cg ... .L2::128B). Same data and math (a cache hint only). tests 16/16.
+| H100 paired vs cldir (tools/a2/vab.py, 9 rounds) | diff |
+|---|---|
+| decode 16 sliding (csl) | **-0.54 (9/9)** |
+| verify 32 sliding (nvs cl) | **-0.43 (9/9)** |
+| verify 16 sliding (nvs) | -0.11 (7/9) |
+| decode 32 sliding (nds: full rows already) | -0.06 (9/9) |
+| verify 1 sliding (vtk, agent 1's) | -0.10 (7/9) |
+| decode 1 sliding (csl, agent 1's) | +0.03 (2/9): tie |
+Confirmation (committed l2h 81792bb file vs cldir file, 9 rounds): decode 16 **-0.34 (9/9)**, verify 32 -0.11 (8/9),
+decode 32 -0.05 (5/9), verify 16 -0.08 (5/9). So decode 16 (csl) is the solid win; verify 32 likely; the others noise.
+Tools: tools/a2/sg_half.py (bare-gather half-row variants), tools/a2/cslstamp16.py (csl stamps at batch 16).
+
+### Next
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/l2h 81792bb** (= cldir 0bbf876 + hint). Per shape vs the
+  H200: decode 16 sliding vs 8.13, verify 32 sliding vs ~15.4, decode 32 vs 12.20, verify 16 vs 12.06 (11.63 w/ NV_HALF).
+  It also changes verify 1 / decode 1 sliding (vtk / csl, agent 1's): report those to agent 1 separately.
+- Look for other half-row or partial-line gathers (agent 1's full-layer kernels if they read per-KV-head 64-B halves).
+- csl at batch 16 is gather-spread-bound (page table med 2.0, max 4.8 us); the hint cut the second DRAM trip only.
