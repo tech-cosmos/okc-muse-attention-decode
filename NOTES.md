@@ -5357,3 +5357,29 @@ ping-pong, s101), page-table L2 prefetch at batch 1 (csl/_gd_full already SPEC t
 
 ### Budget (UTC day 2026-10-25)
 - s123: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 124 (unattended session 57, 2026-10-25 15:51 - ~16:20 UTC): graph-node and cluster-launch probes (both dead; no checks)
+
+Board 15:52Z unchanged: #1 pjmullin3 2.910x (1294.4 us), ours 2.542x rank 8 (e64d3450, 1481.9 us). Account: checks
+20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new. **0 checks, 0 scored. main code unchanged
+(ae1161c).** exp/hdiag5 @ 840db1a re-read: its d1/v1/d32 floors (hfloor R2/R4 with all loads in flight + dense) already
+answer the open H200 batch-1/batch-32 gather question, so no new diag variants were added.
+
+### Probes (H100)
+- **Graph contents per scored shape** (tools/s124/nodes.py, torch profiler on eager kernel_fn): only the expected kernels,
+  no memset/memcpy/extra nodes in any shape (decode 1 sliding = csl only; decode 1 full = `_gd_full` + `_red_fin`; verify
+  1 full = `_attn_split` + `_combine`; verify 16/32 full = `_new_tokens` + `_gw_verify` + `_combine_bal`; batched sliding =
+  nds/nvs + `_combine_hb`). No fixed cost hiding in host-side torch ops. Dead.
+- **CTA start spread of 16-CTA cluster launches** (tools/s124/cstart.py, %globaltimer at CTA entry): 32 CTAs (csl) and
+  256 CTAs (vtk, 116 SMs) both start within <= 96 ns (p50 32 ns); 8-CTA clusters / no clusters the same. So cluster
+  launch rate is NOT behind vtk's unexplained 4 -> 8 token cost (+0.5 us, s97); the remaining suspect is the 3-CTAs-per-SM
+  placement (s120), with no live fix. Dead.
+- Arithmetic (e64d3450 per-shape H200 times): verify 16/32 full at decode-full speed would give 2.626x; all full layers
+  -10% 2.697x; every sliding shape -1 us 2.627x. #1's 2.910x needs gains of that size in several places at once.
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag5 @ 840db1a (diag, never submit); its H200 batch-1/32 gather floors decide the next build.
+
+### Budget (UTC day 2026-10-25)
+- s124: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
