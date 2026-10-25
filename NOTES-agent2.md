@@ -165,3 +165,21 @@ What mattered / dead ends inside nvs:
 - Stamps (nvs.py stamp, NV_STAMP=1): Q ready 2.0 us, first tile ready 4.1 (seq -> page table -> gathers), loop
   ~1.1 us/tile, stores 0.5.
 - __launch_bounds__(384, 2) with the new-token code: 80 regs, spills + "wgmma serialized" (C7512): use (384, 1).
+
+### H200 checks (session 3)
+
+- 9a841c48fc014363 (fd7fa2e, nvs at batch >= 32): 2.371x [2.335, 2.406], 16/16. **Verify 32 sliding 15.28 us** (vs 16.64
+  in a27e9a52); profile: nvs kernel 10.8 us vs Triton _attn_split 13.2, _combine_hb 2.6 (unchanged).
+- baea7057c6d3454c (2b82970, + verify 16 on nvs with 8 splits): 2.381x [2.345, 2.416], 16/16. Verify 32 sliding 15.07,
+  **verify 16 sliding 12.63 = same as Triton's 12.63** in 9a841c48: tie, so reverted (NVS_MIN_BATCH 32).
+- Branch merged origin/main 9b14e27 (agent 1's csl-per-KV-head, submitted 08bf9391 2.445x); tests 16/16 after the merge.
+  Listed in COORD "Ready to merge". Agent2 checks today: 3 (a27e9a52, 9a841c48, baea7057).
+
+### Next ideas
+
+1. nvs verify 32: the prologue is ~4 us before the first cached tile lands (seq -> 4-byte page-table cp.async ->
+   gathers). E.g. load seq + page-table entries of the first tiles with plain loads in the producer (no cp.async
+   round trip), or prefetch the first tile's rows to L2 from the consumers while they do Q/new tokens.
+2. The merge (_combine_hb, 2.6 us H200 at verify 32) is now ~20% of the shape; all in-grid merges lost before.
+3. Decode 32 sliding (H200 14.0): an nvs-style decode kernel (rows = 8 per KV head pads wgmma M 64 8x: would need
+   both KV heads + several requests per CTA, or mma.sync) - unexplored.

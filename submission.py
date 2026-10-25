@@ -887,8 +887,8 @@ try:
 except Exception as _e:  # noqa: BLE001
     print("nvs build failed, using Triton:", _e)
     _NVS = None
-NVS_MIN_BATCH = 16  # verify sliding from this batch on nvs (H100 paired verify 32 -1.66 us, H200 16.64 -> 15.28;
-# verify 16 with 8 splits -0.14 us, 11/11)
+NVS_MIN_BATCH = 32  # verify sliding from this batch on nvs (H100 paired verify 32 -1.66 us, H200 16.64 -> 15.28/15.07;
+# verify 16 with 8 splits: H100 -0.14 us but H200 tie 12.63 vs 12.63 (check baea7057), so Triton keeps it)
 
 
 RMS_EPS = 1e-5

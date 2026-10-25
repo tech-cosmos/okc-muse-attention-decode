@@ -21,11 +21,11 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 - agent2-exp/maskif 6c6a87a: MIF (score masks only on tiles that need them) for verify 16/32 sliding + PREQ 1 for
   verify 16. H100 paired: verify 32 -0.61 us, verify 16 -0.37. H200 check a27e9a52 2.376x: verify 32/16 sliding
   16.64/12.49 us. In COORD "Ready to merge" (merged into agent2).
-- Checks used by agent2 on 2026-10-25: 1 (a27e9a52). Session 2: none (nothing won on the H100).
 
 - agent2-exp/nvs fd7fa2e (s3): native verify-sliding kernel `nvs` (tools/a2/nvs_clean.cu embedded as _NVS_SRC) for
-  verify sliding batch >= 32: H100 paired verify 32 -1.66 us (9/9), tests 16/16, chk_nvs 5/5. H200 check: see NOTES-agent2 s3.
-  Queued: also verify 16 on nvs with S 8 (H100 paired -0.14, 11/11) -> needs one check.
+  verify sliding batch >= 32: H100 paired verify 32 -1.66 us (9/9), tests 16/16, chk_nvs 5/5. H200 checks 9a841c48 / baea7057: verify 32 sliding
+  16.64 -> 15.28 / 15.07 us. Verify 16 on nvs (S 8) tied on the H200 (12.63 both): off. In COORD "Ready to merge".
+- Checks used by agent2 on 2026-10-25: 3 (a27e9a52, 9a841c48, baea7057).
 
 ## Ranked ideas
 
