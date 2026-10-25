@@ -6,6 +6,10 @@ from torch.utils.cpp_extension import load_inline
 s0 = submission._NVS_SRC
 if "nogather" in sys.argv:
     s0 = s0.replace("                cp16(kdst + s", "                if (lim == -12345) cp16(kdst + s").replace("                cp16(vdst + s", "                if (lim == -12345) cp16(vdst + s")
+if "bn1" in sys.argv:
+    s0 = s0.replace("#define NV_BN2 1", "#define NV_BN2 0").replace("#define NV_NS 6", "#define NV_NS 4")
+if "cr232" in sys.argv:
+    s0 = s0.replace("#define NV_CREGS 160", "#define NV_CREGS 232").replace("#define NV_PREGS 40", "#define NV_PREGS 24")
 m = load_inline(name=f"a2nvs1_{abs(hash(s0)) % 10**10}", cpp_sources="void nvs(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, int64_t, int64_t, int64_t);",
     cuda_sources=s0, functions=["nvs"], extra_cuda_cflags=["-gencode=arch=compute_90a,code=sm_90a", "-O3", "-lineinfo"])
 S = int(sys.argv[1])

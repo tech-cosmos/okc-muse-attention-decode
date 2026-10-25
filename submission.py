@@ -859,7 +859,7 @@ __device__ __forceinline__ void cp4ca(uint32_t dst, const void* src) {
     asm volatile("cp.async.ca.shared.global [%0], [%1], 4;" ::"r"(dst), "l"(src) : "memory");
 }
 
-template <int NS>
+template <int NS, int LAG>
 __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict__ kc, const uint8_t* __restrict__ vc,
                                          const int* __restrict__ pt, Range rg, int maxp) {
     const int tid = threadIdx.x;  // 0..127
@@ -881,7 +881,7 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
     const int grow = tid >> 3;
     const uint32_t kdst = smem_u32(&sm.k[0][0]) + grow * 128, vdst = smem_u32(&sm.vs[0][0]) + grow * 128;
     const int lane = tid & 31;
-    for (int i = 0; i < total + NV_LAG; ++i) {
+    for (int i = 0; i < total + LAG; ++i) {
         if (i < total) {
             const int s = i % NS;
             const int lim = sm.lim[i & 7];
@@ -900,9 +900,9 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
             }
         }
         cp_commit();
-        if (i >= NV_LAG) {
-            const int s = (i - NV_LAG) % NS;
-            cp_wait<NV_LAG>();
+        if (i >= LAG) {
+            const int s = (i - LAG) % NS;
+            cp_wait<LAG>();
             asm volatile("bar.sync 1, 128;" ::: "memory");
             {
                 const uint32_t vsb = smem_u32(&sm.vs[s][0]), vtb = smem_u32(&sm.vt[s][0][0]);
@@ -1172,7 +1172,7 @@ __device__ __forceinline__ void consumer(Smem<NS>& sm, int h, const __nv_bfloat1
     }
 }
 
-template <int NS>
+template <int NS, int LAG>
 __global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ cs,
                                               uint8_t* __restrict__ kc, uint8_t* __restrict__ vc,
                                               const float* __restrict__ ks, const float* __restrict__ vsc,
@@ -1193,7 +1193,7 @@ __global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restr
     const Range rg = rng(seq, blockIdx.x / S, split, ch, win);
     if (wg == 0) {
         asm volatile("setmaxnreg.dec.sync.aligned.u32 %0;\n" ::"n"(NV_PREGS));
-        producer<NS>(sm, kc, vc, pt, rg, maxp);
+        producer<NS, LAG>(sm, kc, vc, pt, rg, maxp);
     } else {
         asm volatile("setmaxnreg.inc.sync.aligned.u32 %0;\n" ::"n"(NV_CREGS));
         consumer<NS>(sm, wg - 1, qkv, cs, rg, split, S, qkv_w, qk_scale * ks[0], win, pacc, pml, kc, vc, loc, ks[0], vsc[0]);
@@ -1204,10 +1204,15 @@ __global__ void __launch_bounds__(384, NV_MINB) nvs(const __nv_bfloat16* __restr
 void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc, torch::Tensor ks, torch::Tensor vsc,
          torch::Tensor loc, torch::Tensor pt,
          torch::Tensor seq, torch::Tensor pacc, torch::Tensor pml, double qk_scale, int64_t S, int64_t ch, int64_t win) {
-    auto f = nv::nvs<NV_NS>;
+    // Producer lag: 2 at 4 splits (verify 32: H100 paired -0.26 us), 1 at 8 (verify 16: LAG 2 +0.2 there).
+    auto f = S <= 4 ? nv::nvs<NV_NS, 2> : nv::nvs<NV_NS, NV_LAG>;
     const int smem = (int)sizeof(nv::Smem<NV_NS>) + 1024;
     static bool once = false;
-    if (!once) { cudaFuncSetAttribute(f, cudaFuncAttributeMaxDynamicSharedMemorySize, smem); once = true; }
+    if (!once) {
+        cudaFuncSetAttribute(nv::nvs<NV_NS, 2>, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
+        cudaFuncSetAttribute(nv::nvs<NV_NS, NV_LAG>, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
+        once = true;
+    }
     const int B = (int)seq.size(0);
     f<<<dim3((unsigned)(S * B)), 384, smem, c10::cuda::getCurrentCUDAStream()>>>(
         (const __nv_bfloat16*)qkv.data_ptr(), (const float*)cs.data_ptr(), (uint8_t*)kc.data_ptr(),
@@ -1219,7 +1224,7 @@ void nvs(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Tensor vc
 '''
 try:
     _NVS = _load_inline(
-        name="muse_nvs_a2s3",
+        name="muse_nvs_a2s9",
         cpp_sources="void nvs(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, double, int64_t, int64_t, "
                     "int64_t);",
@@ -1228,8 +1233,8 @@ try:
 except Exception as _e:  # noqa: BLE001
     print("nvs build failed, using Triton:", _e)
     _NVS = None
-NVS_MIN_BATCH = 32  # verify sliding from this batch on nvs (H100 paired verify 32 -1.66 us, H200 16.64 -> 15.28/15.07;
-# verify 16 with 8 splits: H100 -0.14 us but H200 tie 12.63 vs 12.63 (check baea7057), so Triton keeps it)
+NVS_MIN_BATCH = 16  # verify sliding from this batch on nvs (verify 32: H100 paired -1.66 us, H200 16.64 -> 15.28/15.07;
+# verify 16 with 8 splits: H100 paired -0.38 us in s9 (6/7), but the H200 tied 12.63 vs 12.63 in check baea7057)
 
 
 RMS_EPS = 1e-5

@@ -402,3 +402,51 @@ got slower (the QK latency was not what each step waited on). CREGS 192 alone: n
    128 keys instead of 64; m64n128 QK); move the V transpose off the SMSPs the consumers use (PRMT 7 %); FMNMX3
    (3-input max, sm_90 has FMNMX only 2-input: check SASS); packed f16x2 for the row sums is NOT allowed (precision).
 2. Fewer partial bytes is worth ~0.1 us/MB, but FP32 is mandatory and the split count is set by gather parallelism.
+
+## Session 9 (2026-10-25 09:07 - ~10:30 UTC): nvs consumer trims: BN 128 steps and lazy rescale (both DEAD)
+
+Start: merged origin/main cc93187 (agent 1 s99-s101, batch-1/full only) into agent2 (7ffbdd0). Account: 18/20
+checks used, 2 left = agent 1's (AGENT2.md: leave >= 4) -> **0 checks** this session.
+
+### BN2: consumer steps of 2 producer stages (128 keys): DEAD (tools/a2/nvs_bn2_dead.patch, NV_BN2)
+Idea (s8 Next 1): one max / shuffle / alpha / o-rescale per 128 keys; the producer is unchanged (64-key stages), the
+consumer issues 4 QK wgmmas into sA/sB and 4 PV wgmmas; a missing odd tail tile reuses the first stage and is
+masked (every wgmma issues unconditionally). Correct (chk_nvs 7/7).
+- NS 4 DEADLOCKS (GPU 100 %, hang): the producer marks tile t+1 ready only after issuing t+2 (LAG 1), which needs
+  the slot of t-2 that the consumer holds until both tiles of its next pair are ready. Needs NS >= 6.
+- At CREGS 160 ptxas serializes the wgmmas (C7512); CREGS 208/232 + PREGS 24 fix that (no C7512, 16-88 B stack).
+- H100 kernel-only (nvs2.py): verify 32 S4 15.1-15.3 vs BN 64 13.9-14.0; verify 16 S8 11.2-11.6 vs 10.1-10.2.
+  Gather-free S 1 (consumer chain only): 33.8-34.4 vs 27.9 us. So the 128-key chain is ~20 % SLOWER per key.
+- ncu (S 1, no gathers): BN2 executes about the same instructions (3.16 M vs 3.08 M) at 7.0 vs 6.0 cycles per issued
+  instruction (eligible warps 0.68 vs 0.83): the per-step fixed work was never the cost; longer steps only hurt
+  latency hiding between the two consumer warps on each SMSP.
+
+### Executed opcodes, shipped nvs (BN 64), per consumer warp per 64-key tile (ncu sass__inst_executed_per_opcode)
+FADD 38, FFMA 37, FMUL 37 (o rescale), FMNMX 36, IMAD 35, MUFU 35, F2FP 17, LOP3 13, R2UR 12.5, PRMT 9 (producer),
+BRA/SHF/ISETP/VIADD ~8 each; ~380 total vs ~145 essential (FADD/FFMA/MUFU/FMNMX 32 each + F2FP 16). The loop SASS
+has ~13 IMAD per step (descriptor/address math, mask path), not a pile of register moves.
+
+### Lazy o-rescale with FA3's offset 8 kept: DEAD
+Precision argument (why it would be legal): with a stale max at most T below the true max, P <= 2^(8+T); E4M3 max
+448 = 2^8.81, so T <= 0.75 never saturates and loses no small-weight range (s78's objection was lazy offset 0).
+Built as NV_LAZY 1 + threshold NV_LZT (offset fixed 8). H100 kernel-only, 2 rounds: verify 32 base 14.06-14.22,
+T 0.75 14.30-14.34, T 0 (exact: skip only when no row grows) 14.22-14.26; verify 16 S8 base 10.13-10.27, T 0.75
++0.16, T 0 +0.32. The warp votes cost more than the 32 FMULs they save (S4: only 8 tiles per split, maxima still
+grow often). Not kept.
+
+### Next ideas
+1. The consumer per-tile chain is latency + issue mixed at 2 consumer warps per SMSP; neither longer steps (BN2), more
+   chains (s5: 4 WGs) nor lazy rescale helps. Remaining instruction fat (~0.2-0.4 us at verify 32): uniform
+   descriptors hoisted out of the loop (R2UR/LOP3/SHF ~35 per tile), mask path only on the first/last tile.
+2. A decode-32 native kernel with both KV heads in one m64 (rows 0-7 head 0 queries in d 0-63, rows 8-15 head 1 in
+   d 64-127, zeros elsewhere; QK as m64n64k128 over the 128-B K rows; PV n128 and take each head's half): one consumer
+   WG per CTA, only warp 0 has live rows, so consumer issue is tiny and the kernel should sit near nvs's producer-only
+   time (11.2 H100 kernel) + combine. Ceiling ~-1 us H100 on decode 32 (15.2); csl32 showed H100 wins can tie on
+   the H200. Price it with nmb.py-style prototypes first.
+
+### Candidate for the next day's check: agent2-exp/lagS (nvs LAG by split count + verify 16 on nvs)
+vab.py (paired, combine included) on agent2: LAG 2 everywhere: verify 32 -0.26 (7/7) but verify 16-on-nvs only -0.16
+vs -0.38 for nvs16 at LAG 1. So the kernel is now templated on LAG: LAG 2 at S <= 4 (verify 32), LAG 1 at S 8
+(verify 16), and NVS_MIN_BATCH 16. Tests 16/16, chk_nvs 7/7. H100 paired vs agent2 (9 rounds): verify 16 -0.26
+(8/9), verify 32 -0.18 (9/9). H200 risk: verify 16 on nvs tied Triton in baea7057 (12.63 both). Check it in a bundle
+when the account has checks to spare; keep each half only for the shape where it wins.
