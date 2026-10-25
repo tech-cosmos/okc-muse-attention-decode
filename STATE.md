@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~08:50 UTC (session 98 = unattended session 31 of the #1-push brief).
+Updated 2026-10-25 ~08:35 UTC (session 99 = unattended session 32 of the #1-push brief).
+
+**s99: physical-row order per `_gd_full` program (keys of a program visited low -> high row): H100 ceiling -3.3/-3.5% at
+decode 32/16 full only when aligned to program ranges, but any separate pre-pass costs >= a table copy (9.1/5.9 us) and
+in-kernel bucketing is too slow or too coarse (2-3 buckets -1.8/-2.5 us). Dead. main unchanged 1e4c80e, no checks.**
 
 **s98: vtk probes dead on the H100 (coalesced page table + shfl: tie; empty-body vtk grid = 2.2-2.4 us launch floor at any
 cluster size, so vtk = ~2.3 floor + ~4.1 work). main unchanged 1e4c80e, no checks. NOTES s98.**
@@ -93,6 +97,8 @@ numbers: NOTES s69.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s99: per-program physical order in _gd_full (pre-pass >= copy floor; aligned-sort ceiling only -3.3%).
 
 - s98: vtk coalesced page table + shfl (tie), cluster size vs launch floor (none).
 - s97: nverify at verify 1 full (gather-bound, ~1 us H200 ceiling), vtk2a re-ablated (base 6.88 > vtk 6.45), vtk disjoint

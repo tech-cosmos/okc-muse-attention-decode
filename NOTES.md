@@ -4385,3 +4385,46 @@ ABL=1 python tools/s98/vtk.py check|time`.
 
 ### Budget (UTC day 2026-10-25)
 - s98: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
+
+## Session 99 (unattended session 32, 2026-10-25 08:07 - ~08:35 UTC): physical-order reads per _gd_full program = dead (no checks)
+
+Board 08:08Z unchanged: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; ours 2.445x (08bf9391). No new COORD
+"Ready to merge" items. Account: checks 16/20 (the 4 left are agent2's), scored 6/10 (Claude's 6 used). **No checks,
+main unchanged (1e4c80e)**, tests 16/16. H100 bench at session start: geomean 2.041 (decode 16/32 full 126.4/244.4).
+Tools: tools/s99/psort.py (unaligned blocks, flawed), tools/s99/psort2.py (aligned to each program's range; MODE=sort |
+shN = stable sort by phys >> N | shuf), tools/s99/psort_src.py + ptest.py (native pre-pass kernel prototype).
+
+### Question: can decode full get part of the H200 dense-read rate without a page-table inversion?
+Idea: each `_gd_full` program visits its own key range in physical-row order (allowed: on full layers a program's keys
+are a set, so the order changes only FP32 summation order). All ~1000 programs start together and move through their
+ranges at the same rate, so they sweep the pool from low to high rows roughly in lockstep. No cross-program change.
+
+- **Ceiling (page table pre-sorted inside each program's exact range, outside the timed call; H100, us)**: decode 32 full
+  (dbal ranges) 245.2 -> **237.1 (-3.3%)**; decode 16 full (63 equal splits) 127.6 -> **123.1 (-3.5%)**; decode 1 full
+  14.2 -> 14.1-14.4 (nothing). Max |out - main| 0.0078 (summation order). For comparison s80: H100 dense 223 / random
+  247, so this recovers ~1/3 of the gap.
+- The sort must be aligned to the program ranges: blocks of fixed size (128 .. 8192, or whole-request sort) give
+  **nothing** (244.2-245.3), because a program then sweeps the pool several times (or a program owns a physical region:
+  block mode) and the lockstep is lost.
+- Coarse buckets suffice: stable sort by phys >> N (pool 2.75M rows = 22 bits): N 12/14/16 (1K/170/42 buckets) = full
+  gain (236.8-237.7); N 18 (11 buckets) 239.9; N 20 (3) 242.9; N 21 (2) 243.7.
+- **Separate pre-pass kernel** (native, one 256-thread CTA per program range, smem counting sort into 64 buckets,
+  coalesced write of a permuted table that `_gd_full` reads unchanged): correct (every range a permutation; buckets
+  monotone), but **14.0-14.4 us alone at decode 32, 10.8 at decode 16; with main 255.5 / 135.1 vs 244.3 / 127.4.**
+  Even a plain copy of the table costs **9.1 / 5.9 us** (H100 graph, cold) = more than the gain, so no separate pass can
+  pay. An in-kernel Gluon version: 2-3 buckets (a one-pass front/back partition is cheap) buy only -1.8 / -2.5 us, and
+  >= 32 buckets need per-tile multi-way ranks (estimated >10 us of one-warp issue per program). A native decode-full
+  kernel with an smem counting sort in its prologue would net maybe ~-3 us on the H100 after the sort's start delay,
+  for a large build that has lost to `_gd_full` before (s73, s92). **Dead.** (H200 transfer unknown: s80's per-request
+  sorted lockstep was only -2.4 us there.)
+
+### Next
+- **First after 00:00Z 2026-10-26: check main 1e4c80e (vtk + s95 red); submit if > 2.445.** (unchanged)
+- Physical-order full layers are now closed in every form tried (global inversion s80/s84, per-program order s99). The
+  open piles stay verify 16/32 full overlap loss (H200 112/206 vs max(consumer, gathers) ~87/170) and batch-1 latency.
+- Observation for batch-1 full: H100 -> H200 barely speeds up decode 1 full (13.9 -> 13.5) or verify 1 full (18.3 ->
+  16.9) although their 20 MB would read ~1.4x faster: they are latency-chain-bound (page-table trip + gather trip per
+  2-stage ring refill), not bandwidth-bound, on the H200.
+
+### Budget (UTC day 2026-10-25)
+- s99: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
