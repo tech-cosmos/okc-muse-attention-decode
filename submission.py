@@ -389,7 +389,7 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
-LZ = int(__import__('os').environ.get('LZ', '1'))
+LZ = int(__import__('os').environ.get('LZ', '3'))
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
@@ -683,20 +683,12 @@ if HAVE_GLUON:
         # LZ 2: decide before exponentiating, from each thread's own row maxima (no shuffles): if every thread of
         # the warp has max(s) * scale - m <= 15 on both rows (so P <= 2^15), exponentiate against the stale maxima;
         # else the usual update for the warp's rows. The scores are dead once P is computed (no spills).
-        a = ["{", ".reg .f32 q<32>, na, nb, xa, xb, t, u<16>;", ".reg .pred ok, all;"]
+        a = ["{", ".reg .f32 q<32>, na, nb, xa, xb, t;", ".reg .pred ok, all;"]
         ra = [j for j in range(32) if not j & 2]
         rb = [j for j in range(32) if j & 2]
-        # Tree maxima (depth 4, not two 16-long chains).
-        for r, (rows, x) in enumerate(((ra, "xa"), (rb, "xb"))):
-            u = [f"${64 + j}" for j in rows]
-            k = 8 * r
-            while len(u) > 2:
-                nu = []
-                for i in range(0, len(u), 2):
-                    a.append(f"max.f32 u{k + i // 2}, {u[i]}, {u[i + 1]};")
-                    nu.append(f"u{k + i // 2}")
-                u = nu
-            a.append(f"max.f32 {x}, {u[0]}, {u[1]};")
+        # (Serial chains: a depth-4 tree measured +0.8 us all-L2.)
+        a += [f"max.f32 xa, ${64 + ra[0]}, ${64 + ra[1]};", f"max.f32 xb, ${64 + rb[0]}, ${64 + rb[1]};"]
+        a += [f"max.f32 xa, xa, ${64 + j};" for j in ra[2:]] + [f"max.f32 xb, xb, ${64 + j};" for j in rb[2:]]
         a += ["fma.rn.f32 t, xa, $128, 0fC1700000;", "setp.le.f32 ok, t, $96;",
               "fma.rn.f32 t, xb, $128, 0fC1700000;", "setp.le.and.f32 ok, t, $98, ok;",
               "vote.sync.all.pred all, ok, 0xffffffff;", "@all bra LZ_FAST;"]
