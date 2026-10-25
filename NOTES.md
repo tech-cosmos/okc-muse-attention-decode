@@ -4264,3 +4264,51 @@ list (hundreds of entries) and match main bit-for-bit in BF16. Values only steer
 
 ### Budget (UTC day 2026-10-25)
 - s95: 1 check (257c10be), 0 scored. Account after: checks 16/20 (the 4 left are agent2's), scored 6/10.
+
+## Session 96 (unattended session 29, 2026-10-25 07:10 - ~07:55 UTC): vtk = verify 1 sliding on per-token csl clusters (WIN on H100)
+
+Board 07:10Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391). No COORD "Ready to merge" items.
+Account: checks 16/20 (the 4 left are agent2's), scored 6/10 (Claude's 6 used). **No checks this session.**
+
+### Idea: split verify 1 sliding by ROWS across clusters, not just keys
+Every earlier single-kernel verify-1-sliding design (s72 csv, s84 vsl, s89 vsw) put a KV head's 64 rows (8 tokens x 8
+heads) in one 16-CTA cluster, so each CTA pushed a 64-row FP32 partial (16 KB/SM of DSMEM ~1.3 us) and did 8x decode's
+compute. vtk instead launches **one 16-CTA cluster per (request, block token, KV head)**: 16 clusters x 16 CTAs = 256
+CTAs at batch 1, each exactly csl's decode layout (8 rows, 128 keys/CTA, 4 warps x 32 keys, mma.sync E4M3, st.async
+push to 8 owners). The 8 token-clusters of a head re-gather the same 1 MB of K/V (8 MB L2->SM, 1 MB DRAM). Token j's
+window [pos_j - 2047, pos_j] is indexed from its own base, so new tokens n <= j sit at window keys 2047 - j + n, all in
+CTA 15's last warp (K tile 3 rows 24 + g, V rows 24 + 2c + e); no extra causal mask (keys past pos_j don't exist in
+the window). That warp computes all 8 new tokens (norm, RoPE, quantize) into smem and swaps them into its fragments;
+cluster j writes token j's cache row (each (token, head) row written once). Code: tools/s96/vtk.cu, submission
+`vtk_verify` in the csl extension (`muse_csl_s96`), dispatch length 8, batch <= VTK_MAX_BATCH (1), window 2048.
+
+### The trap: the new-token warp (2.2 us of it, found by ablation + %globaltimer stamps + SASS)
+- First vtk: 7.4-7.9 us = main. Token-count scaling (launch only the first n token-clusters): 1/2/4/8 tokens 5.2/5.3/6.1/7.7.
+- Ablation (vtk2a, ABL 5 = no new-token block): -2.2 us. Stamps: CTA 15 warp 3 finished the block 1.5-2 us after the
+  gathers were issued, and it's the cluster's straggler.
+- Causes, in order of size: (1) **IEEE `/ kscale`, `/ vscale`** (3 per token): each compiles to a slow-path branch, so
+  the 8 token chains serialize in separate basic blocks; reciprocal multiplies (exact for the power-of-two scales:
+  1 and 1/64) fixed most. (2) **`if (n <= jt)` / `if (n == jt)` guards** in the unrolled loop: same effect; made the
+  loop branch-free (duplicate token jt for n > jt, write unread smem slots, select the cache row after the loop).
+  (3) the qkv/cos loads of the new tokens were sunk below the spec-check branch (SASS); predicated (ternary) loads keep
+  them in the first basic block (no time change by itself).
+- Final: **H100 verify 1 sliding 7.65-7.82 (main) -> 6.43-6.50 us (paired); bench 6.34; geomean 2.013 -> 2.036**; 1-token
+  launch = decode csl (5.4). Tests 16/16 + 10 extra batch-1 verify sliding cases through kernel_fn (ctx 10 edges,
+  2047 edges, page 64 + kv_scale, 100k + kv_scale) PASS; cache rows identical to main's.
+- vtk stamps (cold L2, from kernel start): gathers issued 1.3-1.8, compute done ~3.1, owners done 3.8 (max 4.35).
+
+### Dead / tied this session
+- vtk2a: 2 tokens per cluster (rows g / g + 8 of the m16 mma = tokens T0 / T0 + 1, 128 CTAs, 16 owners, token T0 + 1's
+  own key on CUDA cores): 8.1-8.6 us even after the fixes (1-pair launch 7.7 vs vtk's 5.4: not found why; dropped).
+- vtkp 8-CTA clusters x 8 warps (one CTA per SM, 8 partials per owner): 7.1-7.2 vs 6.5.
+- Reciprocal instead of IEEE divides in decode csl (1 new token): tie (decode 1 sliding 4.96 vs 5.06, decode 16 9.71 vs 9.70).
+
+### Next
+- **Check main (1e4c80e = vtk) at the next UTC day; submit if it beats 2.445.** Expected H200 verify 1 sliding 6.87 ->
+  ~5.7 us (~1.3-1.6 %/us = +1.5-2% overall) if it transfers like csl did.
+- Lesson for every native kernel here: no IEEE divides or guarded blocks on a straggler warp's path (grep the SASS for
+  BSSY/CALL around the new-token code). csl's decode new token is a single chain and doesn't pay it.
+- vtk remaining: page-table + gather trips ~2.3 us, compute ~0.5, push/owner ~0.7; csl-style shaves only.
+
+### Budget (UTC day 2026-10-25)
+- s96: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
