@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~14:45 UTC (session 116 = unattended session 49). **s116 (0 checks): decode 1 full atomics ablation: removing them
+Updated 2026-10-25 ~15:10 UTC (session 117 = unattended session 50). **s117 (0 checks): merge exposure on batched full
+layers (H100 cold): verify 16/32 full `_combine_bal` 3.7/3.8 us, decode 16/32 full `_red_fin` 1.3/1.5, decode 1 full 1.8;
+an in-grid last-arriver merge for gbal is capped ~0.3% overall: not built. NOTES s117.**
+
+(s116) **s116 (0 checks): decode 1 full atomics ablation: removing them
 entirely (wrong output) saves only 0.3-0.4 us cold (plain stores are slower), so CTA pre-summing before the atomics is
 capped at ~0.2% overall: dead. Built exp/hdiag4 (queued diag item 2). NOTES s116.**
 
@@ -66,7 +70,7 @@ numbers: NOTES s69.)
 1. Native verify-full kernels (s71 nverify, s111 nvf) tie/lose Gluon `_gw_verify`: resume only with a way to cut
    producer instructions or fit a pipelined consumer at 2 CTAs/SM (NOTES s71, s110, s111).
 2. Sliding shapes in Triton: no cheap lever left (s70); batch 16/32 sliding = agent2's lane.
-3. Merge tail on verify full (~7 us on the H200 at verify 16/32 = ~0.8% overall at most).
+3. Merge tail on verify full: H100 exposure 3.7-3.8 us (s117), in-grid merge net ~2 us = ~0.3% overall: not worth it.
 
 ## Queued for checks (exact; sandbox is deleted ~17:45Z 2026-10-25, everything is pushed to origin)
 
@@ -74,7 +78,7 @@ numbers: NOTES s69.)
    e64d3450 (scored 2.542x, 1481.9 us): only verify 16 sliding changed (agent2 NV_HALF, H200 11.63 vs 11.90 in
    2d0bfdc6); verify 32 sliding uses NV_HALF too (tie 15.43 vs 15.42); all other shapes = e64d3450 code. Submit if the
    check beats 1481.9 us (and tests pass).
-2. **exp/hdiag4 @ 35fd944 (diag, NEVER submit; supersedes hdiag3 = hdiag3 + main 5e3d586 + decode 32 full variants)**:
+2. **exp/hdiag4 @ 8b557ec (diag, NEVER submit; supersedes hdiag3 = hdiag3 + main 5e3d586 + decode 32 full variants + v32 lag2/s2)**:
    read the judge profile's per-variant kernel durations (`d1*`/`v1*` `_gd_full` / `_attn_split` / `hfloor`; `d32a`,
    `d32s3`, `d32p768s3`, `d32p1536`, `d32b16s4` `_gd_full` vs `d32fl2`/`d32fl4`/`d32dense` hfloor; `v32*`), all after an
    explicit flush. Port any decode 1 / verify 1 full variant beating `d1a` / `v1a` by > 0.3 us, and any decode 32 full

@@ -5121,3 +5121,38 @@ beats `v32a` by > 2 us (then verify 16), and the d1/v1 rules from s113/s115.
 
 ### Budget (UTC day 2026-10-25)
 - s116: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 117 (unattended session 50, 2026-10-25 14:28 - ~15:10 UTC): merge-tail exposure on batched full layers (no checks)
+
+Board 14:30Z unchanged: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450, 1481.9 us).
+Account: checks 20/20 (0 left today), scored 8/10. No new COORD "Ready to merge". **0 checks, 0 scored.** main code
+unchanged (5e3d586). Tool: tools/s117/mexp.py (whole call vs the same call with one merge kernel not launched,
+env K=<kernel name>, timing only; bench.run_shape, cold L2).
+
+### Merge exposure on the batched full layers (H100, cold, median of 5)
+| shape | whole | merge not launched | exposure |
+|---|---|---|---|
+| verify 32 full (`_combine_bal`) | 255.18 | 251.38 | 3.8 |
+| verify 16 full (`_combine_bal`) | 135.41 | 131.71 | 3.7 |
+| decode 32 full (`_red_fin`) | 244.06 | 242.80 | 1.3 |
+| decode 16 full (`_red_fin`) | 126.74 | 125.23 | 1.5 |
+| decode 1 full (`_red_fin`) | 13.86 | 12.05 | 1.8 |
+(WARM=1 gives the same numbers: batched full K/V is 300+ MB, so a no-flush replay is still DRAM-cold.)
+Reading: a last-arriver in-grid merge inside `_gw_verify` (gbal) could save at most the 3.7-3.8 us exposure minus its
+own serial tail (counter acq_rel + one program merging ~10 partials x 64 rows, ~1.5-2 us by s95/s94), i.e. ~2 us per
+verify 16/32 full call = ~0.3% overall for a large Gluon warp-specialized build. Decode 16/32 full merges are already
+~1.4 us. Not worth building; STATE's "merge tail on verify full ~0.8%" idea is downgraded to <= 0.3%.
+
+### Score arithmetic (why #1 must be ahead almost everywhere)
+Our load ratios (e64d3450): decode 1 3.47, verify 1 3.12, decode 16 2.55, decode 32 2.34, verify 16 2.05, verify 32
+2.02 (geomean 2.54). Even with verify 16/32 full at our decode-full times (88/168) AND decode 16/32 full at the H200
+dense floor (76/145) we'd reach only ~2.76x; #1's 2.910x needs batch-1 gains as well (e.g. decode 1 at 3.5 / 10 us).
+So the H200 floors that exp/hdiag4 measures tomorrow (batch-1 and batch-32 full: random vs dense gather) decide where
+to dig next: if the H200 batch-1 random gather floor is far below `_gd_full`/`_attn_split`, batch-1 full is the build.
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged from s116
+1. Check main (5e3d586 code); submit if it beats 1481.9 us.
+2. Check exp/hdiag4 @ 8b557ec (diag, never submit).
+
+### Budget (UTC day 2026-10-25)
+- s117: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
