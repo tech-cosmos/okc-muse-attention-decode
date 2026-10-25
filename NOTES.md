@@ -3651,3 +3651,49 @@ convert, or moving the V convert off the SM's issue slots), or the gathers (phys
 ### Budget (UTC day 2026-10-25)
 
 Checks 5/20 (+ f4199324), scored 2/10.
+
+## Session 82 (unattended session 15, 2026-10-25 02:08 - ~02:55 UTC): three quick verify/batch-1 probes, all dead
+
+Board 02:10Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.350x (#23). No checks used (nothing beat a tie).
+
+### Per-us sensitivity of the score (from f4199324's per-shape times; % overall per us saved on one shape)
+
+| shape | sliding | full |
+|---|---|---|
+| decode 1 | **1.58** | 0.55 |
+| decode 16 | 0.43 | 0.15 |
+| decode 32 | 0.23 | 0.08 |
+| verify 1 | **1.28** | 0.44 |
+| verify 16 | 0.32 | 0.11 |
+| verify 32 | 0.18 | 0.064 |
+
+(= (1/6) x weight / load time.) 1 us at decode/verify 1 sliding is worth what 20-25 us at verify 32 full is. H200
+profile f4199324: decode 1 full = `_gd_full` 7.9 + `_combine` 3.1 us run back to back (no PDL overlap shown; the merge
+is only 16 CTAs x 8 warps reading 2 MB), judge 14.73; verify 1 full = `_attn_split` 13.2 + `_combine` 2.6, judge 16.8;
+verify 1 sliding = 3.8 + 1.7, judge 7.19; decode 1 sliding csl 3.9, judge 5.43 (one kernel costs ~1.5 us of launch
+above the empty graph, a second one ~2 us more).
+
+### Dead ends (H100)
+
+- **F2FP does not share the MUFU pipe** (tools/s82/pipe.cu, templated per mix): ex2 alone 16/clk/SM; ex2 + f32x2->f16x2
+  pack, ex2 + e4m3x2->f16x2 unpack, ex2 + f32x2->e4m3x2 pack, ex2 + PRMT, ex2 + FFMA all = ex2 alone (+0..1%).
+  The consumer's 16 F2FP per tile and the producer's V unpack don't steal exp2 throughput. Unpack alone runs ~64/clk.
+- **Verify 1 full on Gluon `_gw_verify`** (non-bal, separate `_combine`): splits 127 17.41 vs Triton 17.50 us (tie);
+  95: 19.8, 159: 22.2, 191: 21.3, 255/263: 23.9+; gfuse 132: 60, gbal 264: 152 (gfuse/gbal aren't built for 1 pair).
+  Above 132 CTAs it loses: two CTAs on an SM are slower than one CTA's chain. Dead.
+- **Verify 32 full at 1 CTA/SM** (maxnreg 168, cregs 232, pregs 40): BN 64 stages 4 286.9 vs 255.2 us; BN 128 stages 2
+  349.4 (LZ 3) / 329.7 (LZ 0). The consumer is occupancy/latency-bound: fewer, fatter warps lose 12-37%. (BN 128
+  correctness not checked; irrelevant.) STATE idea "1 CTA/SM + BN 128" is dead.
+
+### Next
+
+- Verify full: still needs a structural cut in producer work or consumer latency at >= 16 consumer warps/SM
+  (see s77/s81). Nothing cheap left in the Gluon kernel's knobs.
+- By sensitivity, decode 1 / verify 1 sliding (1.3-1.6 %/us) and the batch-1 full merges are where small native
+  work pays most; e.g. the decode 1 full merge is 3.1 us on 16 CTAs, serialized after `_gd_full` (a wider two-level
+  merge or a PDL overlap would be worth ~0.5%/us). These are outside the lead agent's current direction (verify
+  full): ask/flag before spending sessions on them.
+
+### Budget (UTC day 2026-10-25)
+
+Checks 5/20 (unchanged), scored 2/10.

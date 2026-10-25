@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~02:25 UTC (session 81 = unattended session 14 of the #1-push brief).
+Updated 2026-10-25 ~02:55 UTC (session 82 = unattended session 15 of the #1-push brief).
+
+**s82: three probes, all dead (no checks).** F2FP doesn't share the MUFU pipe (tools/s82/pipe.cu); verify 1 full on
+`_gw_verify` ties Triton at 127 splits and loses above 132; verify 32 full at 1 CTA/SM (BN 64 or 128) loses 12-37%.
+New per-us sensitivity table in NOTES s82: decode/verify 1 sliding are worth 1.6/1.3 %/us, verify 32 full 0.064 %/us.
 
 **s81: LZ 4 (FMNMX-free exact lazy max in `_gw_verify`, branch exp/lz4) = H200 TIE.** Sum-checked lazy max + power-of-two
 warp fallback + inf -> m=+inf -> exact recompute in `_combine_bal` (REDO). H100 all-L2 verify 32/16 full -4.0/-3.1 us, but
@@ -131,6 +135,8 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 - Nothing queued. main 4aa402b = scored 9f8e594b 2.350x; submit only after a check beats 2.353.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s82: F2FP/MUFU pipe sharing (none), verify 1 full on gw_verify (tie/loss), verify full 1 CTA/SM incl. BN 128.
 
 - s81: LZ 4 (exp/lz4; H200 tie), consumer-side redo (spills / noinline unsupported in WS partitions), tree sums.
 - s79: LZ 1 (keep S live for the fallback: spills), LZ 6 (no per-warp fallback: rows grow > 16 binades after tile
