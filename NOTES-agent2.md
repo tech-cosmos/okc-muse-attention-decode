@@ -82,3 +82,40 @@ merge" (agent 1 merges + submits). Budget: agent2 1 check today (account 10/20 c
 3. Decode 32: smem-staged (cp.async full-line, swizzled) csl-style CTAs in 8-CTA clusters (256 keys/CTA, 64 KB smem,
    2 CTAs/SM = one wave), compute per 32-key chunk as each cp.async group lands. Risky: s73 csl8 (similar) lost
    16.8 vs 15.9 H100 (compute 2.7 + merge 2 us exposed after the last load).
+
+## Session 2 (2026-10-25 04:41 - ~05:00 UTC by the sandbox clock), branch agent2-exp/clmerge (dead, pushed)
+
+Merged origin/main (e85e702; submission.py unchanged). H100 baseline (tools/a2/b4.py, new: times the 4 shapes):
+decode 16/32 sliding 9.63/15.07, verify 16/32 sliding 13.66/18.46 us. No checks used.
+
+### Dead: merge inside _attn_split via thread-block clusters (plan `cl`, agent2-exp/clmerge 5d94cbf, off)
+
+Idea: launch the S splits of each (request, KV head) as one S-CTA cluster, and after the partial stores run
+`barrier.cluster.arrive.release` / `wait.acquire` (hardware, co-scheduled, unlike s17's sfuse atomic + spin), then
+each CTA merges its MG / S rows from L2 (.cg) with RMSNorm * sigmoid(gate): no _combine_hb launch. How to launch a
+Triton kernel as clusters without num_ctas layouts: compile normally (program_id = %ctaid with num_ctas 1), then set
+the CompiledKernel's `packed_metadata` = (num_warps, cl, shared): the launcher sets gridDimX = gridX * cl and the
+cluster attribute (`_launch_cl` in the branch; only the CL=True specialization is patched). Correct (chk.py 12/12).
+H100 paired (abp.py, 9 rounds): **verify 32 +1.87, verify 16 +1.30, decode 32 +1.22 us (0/9 each)**. Ablations at
+verify 32 (env CL_ABL / CL_NOCL / CL_N / CL_SMEM in the branch):
+- attention alone, no merge, no cluster: 15.54 (so the merge costs 2.6 us of the 18.2 whole: the target).
+- same kernel as 2-CTA clusters 15.86 (+0.3), **4-CTA clusters 18.0 (+2.5)**: %smid shows the cluster launch puts
+  the 256 CTAs on only 124 SMs (8 idle, 8 SMs with 3 CTAs); a normal launch uses all 132 (124 x 2 + 8 x 1).
+  cuOccupancyMaxActiveClusters: 528/264/124/62 for cluster 1/2/4/8. Padding dynamic smem to force <= 2 CTAs/SM:
+  23.1 (clusters no longer all resident); 3/SM: 18.0.
+- + cluster barrier +0.6, + the slice merge another +1.5. So even a free co-scheduling barrier would leave at most
+  ~0.5 us. Don't retry in-grid merges for batched sliding (sfuse s17, fuse s1, cl s2 all lose).
+
+### Dead: Gluon _gw_verify with sliding-sized splits (tools/a2/proxy2.py)
+
+s75's proxy (full layer, ctx 2048, q_len 8) ran gw_verify at its one-wave splits (2-tile programs). Re-run with
+splits 2/4/8/16, gfuse on/off, uniform lengths: best B16 15.60 (s4, no gfuse), B32 19.41 (s8) us, before RoPE and
+window masks, vs real Triton verify 16/32 sliding 13.66/18.46. The warp-specialized structure loses at this size
+even tuned. (The Triton plan on that full-layer proxy reads 31/53 us; that proxy path is not representative.)
+
+### Next ideas (unchanged ranking otherwise)
+
+1. A native verify-sliding consumer still needs >= ~1.6 tiles/us/SM more than Triton at Triton's fixed cost; both
+   native attempts with clusters (s72 csv, s84 vsl) and both Gluon structures lose. If anyone builds `nvs`, launch it
+   WITHOUT clusters (above: 4-CTA cluster placement alone costs 2.5 us at 256 CTAs) and keep _combine_hb + PDL.
+2. Decode 32 sliding: no cluster designs either (same placement issue at 8-CTA clusters: 62 max active).

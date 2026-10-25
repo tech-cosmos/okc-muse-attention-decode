@@ -1,7 +1,10 @@
-"""agent2: correctness on extra configs for the batched sliding paths. python tools/a2/chk.py"""
-import sys, torch
+"""agent2: correctness on extra configs for the batched sliding paths. python tools/a2/chk.py ['<plan override json>']"""
+import sys, json, torch
 sys.path.insert(0, "/home/daytona/repo2")
 import reference, submission
+if len(sys.argv) > 1:
+    _o, _p = submission._plan, json.loads(sys.argv[1])
+    submission._plan = lambda cfg, mp, dev: {**_o(cfg, mp, dev), **_p}
 CASES = [
     dict(batch=32, ctx=80000, heads="tp8", layer="sliding", q_len=8, page=1, spread="agentic", dist="soft"),
     dict(batch=32, ctx=6000, heads="tp8", layer="sliding", q_len=8, page=1, dist="edges"),
