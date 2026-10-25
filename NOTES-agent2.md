@@ -704,3 +704,33 @@ spills (96, LOCAL 0 both). Lesson: keep nds-style producer/consumer splits as se
   verify 16 = NV_HALF, already merged to main via 7ba35f9). Compare verify 32 sliding vs ~15.4 H200.
 - Batched-sliding merge options are now all priced on the H100 (PDL combine ~2, DSMEM ~1 chain, global ticket ~2.5,
   same-SM packaging +1). Only cl at S 2 (verify 32) won.
+
+## Session 17 (2026-10-25 14:55 - ~15:30 UTC): page-table L2 prefetch (decode 16/32 small win, verify loses)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main 00a42b5
+(agent 1 s118) into agent2 (12911f3; submission.py batched-sliding code unchanged).
+
+### Idea: L2-prefetch the plausible page-table span while seq_lens is in flight
+Every batched sliding kernel runs seq_lens -> page table -> K/V rows: 3 dependent cold trips. With agentic lengths
+(reference.py: seq in ctx +/- 7.5 %, table width = longest + L) the window start is >= 0.86 x width - 2112, so at
+kernel start each CTA issues one `cp.async.bulk.prefetch.L2.global` over its 1/rq share of [0.86 maxp - 2112, maxp)
+of its request's page-table row (~56 KB per request: 0.9 / 1.8 MB at batch 16 / 32). The dependent page-table read
+then hits L2. A hint only: results bit-identical, decisions on shapes only; useless (not wrong) on other spreads.
+| H100 paired (tools/a2/vab.py) | diff |
+|---|---|
+| csl (decode 16 sliding), thread 32 | **-0.13 (10/11), -0.11 (10/11)** |
+| nds (decode 32 sliding), thread 32 | -0.24 (9/9), -0.11 (8/11), -0.06 (6/11) |
+| nds, issued by consumer warp 1 (thread 160) | ~tie vs thread 32 |
+| nvs (verify 16 / 32), thread 32 | **+0.18 (0/9) / +0.19 (1/9)** |
+| nvs, thread 160 | +0.32 / +0.35 (0/9) |
+Verify loses (probably the extra DRAM bytes against a gather-bandwidth-bound nvs; decode kernels are latency-bound).
+Kept on csl (spec < 0 only) and nds. Branch **agent2-exp/pf 946a445** (= agent2 now), tests 16/16.
+Bundle for the check: **agent2-exp/halfpf 6a9a26a** = agent2-exp/half e5f65ed (verify 32 cl) + pf; tests 16/16,
+H100 bench decode 16/32 sliding 9.52/13.42, verify 16/32 sliding 13.14/15.87.
+
+### Next
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpf 6a9a26a**. Per shape vs 652f126/nvhalf on the
+  H200: verify 32 sliding (cl) vs ~15.4; decode 16 sliding (pf) vs 8.13 (noisy, 7.63-8.41 across runs); decode 32
+  sliding (pf) vs 12.20. List only the shapes that win (pf can be dropped per kernel: delete the A2 prefetch block).
+- Same trick elsewhere: agent 1's batched full layers (_gd_full / _gw_verify) read seq -> page table too, but
+  their page-table reads are long streams (not on a single chain); probably nothing there.
