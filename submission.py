@@ -887,8 +887,8 @@ try:
 except Exception as _e:  # noqa: BLE001
     print("nvs build failed, using Triton:", _e)
     _NVS = None
-NVS_MIN_BATCH = 32  # verify sliding from this batch on nvs (H100 verify 32 18.2 -> 16.6 us; verify 16 ties: Triton)
-NVS_SPLITS = 4
+NVS_MIN_BATCH = 16  # verify sliding from this batch on nvs (H100 paired verify 32 -1.66 us, H200 16.64 -> 15.28;
+# verify 16 with 8 splits -0.14 us, 11/11)
 
 
 RMS_EPS = 1e-5
@@ -2430,7 +2430,7 @@ def _verify_nvs(data, cfg):
     """Verify sliding (L 8, G 8, D 64, HKV 2, page 1) on the native nvs kernel + _combine_hb."""
     batch, length, hq, hkv, d = cfg["batch"], cfg["q_len"], cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
     qkv, device = data["qkv"], data["qkv"].device
-    S = NVS_SPLITS
+    S = 4 if batch >= 32 else 8  # ~128 CTAs, one per SM
     chunk = triton.cdiv(triton.cdiv(cfg["window"], S), 64) * 64
     rows = length * (hq // hkv)
     pacc = torch.empty((batch, hkv, S, rows, d), dtype=torch.float32, device=device)

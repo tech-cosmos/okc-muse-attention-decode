@@ -2,7 +2,8 @@
 import sys, torch
 sys.path.insert(0, "/home/daytona/repo2")
 import reference, submission
-cases = [dict(batch=32, ctx=80000, heads="tp8", layer="sliding", page=1, q_len=8, dist="soft", spread="agentic"),
+cases = [dict(batch=16, ctx=80000, heads="tp8", layer="sliding", page=1, q_len=8, dist="soft", spread="agentic"), dict(batch=20, ctx=1800, heads="tp8", layer="sliding", page=1, q_len=8, dist="edges", spread="mixed"),
+         dict(batch=32, ctx=80000, heads="tp8", layer="sliding", page=1, q_len=8, dist="soft", spread="agentic"),
          dict(batch=32, ctx=1500, heads="tp8", layer="sliding", page=1, q_len=8, dist="edges", spread="mixed"),
          dict(batch=40, ctx=5000, heads="tp8", layer="sliding", page=1, q_len=8, dist="soft", kv_scale=0.015625, spread="mixed"),
          dict(batch=33, ctx=3000, heads="tp8", layer="sliding", page=1, q_len=8, dist="coherent", spread="mixed"),

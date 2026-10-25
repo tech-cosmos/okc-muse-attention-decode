@@ -119,3 +119,49 @@ even tuned. (The Triton plan on that full-layer proxy reads 31/53 us; that proxy
    native attempts with clusters (s72 csv, s84 vsl) and both Gluon structures lose. If anyone builds `nvs`, launch it
    WITHOUT clusters (above: 4-CTA cluster placement alone costs 2.5 us at 256 CTAs) and keep _combine_hb + PDL.
 2. Decode 32 sliding: no cluster designs either (same placement issue at 8-CTA clusters: 62 max active).
+
+## Session 3 (2026-10-25 04:52 - ~06:00 UTC), branch agent2-exp/nvs: native verify-sliding kernel `nvs` (WIN on H100)
+
+Merged origin/main (ad2116c: agent 1 merged maskif and submitted). Account at start: checks 10/20, scored 4/10.
+
+### Diagnosis of Triton verify 32 sliding (tools/a2/stamp.py, ao.py, top.py)
+
+- `tools/a2/ao.py`: whole vs attention-only (merge launch no-op'ed): verify 32 18.1 / 15.95 (merge 2.1-2.4),
+  verify 16 13.4 / 11.5. Splits 8 attn-only 18.1, splits 2 18.3: ~16 tile-units per SM either way.
+- ncu: issue slots 21%, DRAM 41%, SM active 68% of elapsed; stalls spread (long_sb 24%, wait 17%, short_sb 13%,
+  barrier 12%). %globaltimer stamps per program (stamp.py, inline asm in a patched copy): durations 11.7-16.5 us;
+  1-CTA SMs 11.8 vs 2-CTA SMs 14.2; split 0 (new tokens + window mask) +1.3 us median, but removing _new only moved
+  the work to the other CTAs on the SM (kernel max -0.6, graph time flat). Latency-chain bound, not issue bound.
+
+### nvs (tools/a2/nvs.cu = experiment file with ablation knobs; nvs_clean.cu = what ships; nvs.py check/out/time/stamp)
+
+From tools/s71/nverify.cu (agent 1's verify-full native kernel): one CTA per (request, split) of 384 threads, no
+clusters, S = 4 (128 CTAs at batch 32 = one per SM, __launch_bounds__(384, 1), setmaxnreg 40/160, NS 4 stages).
+Producer WG: page-table entries staged 4 tiles ahead via 4-byte cp.async (the window start is not 16-B aligned),
+8 lanes per 128-B row (both KV heads), FA3 ldmatrix.trans V transpose. Consumers (one per KV head): RMS norm + RoPE
++ E4M3 queries into smem, QK(i) || PV(i-1) wgmma pipeline, window mask on the first tile / tail mask by column
+thresholds, P in E4M3 with FA3's offset 8 (NV_LAZY 0: the lazy max is NOT used, per NOTES s70's precision note).
+New tokens: the last split's consumers normalize/RoPE/quantize the 8 new K/V rows, store them in the cache and lay
+them out as a K tile (rows 0-7, zero rows after) and a V^T tile (key slots 0-7 of group 0, zeros elsewhere), then
+run them as one causal tensor-core tile BEFORE the cached tiles (the consumers idle ~2 us waiting for the first
+gathers anyway), and rescale when the first cached tile's max arrives. Partials in _attn_split's layout -> the
+existing _combine_hb (PDL). Dispatch: window 2048, L 8, batch >= 32 (NVS_MIN_BATCH), hq 16, hkv 2, d 64, page 1.
+
+Correctness: partials vs Triton (lse exact, o within E4M3-P rounding); tools/a2/chk_nvs.py 5/5 (batch 32-64, ctx
+1500-80000, edges/soft/coherent, kv_scale 1/64), errors equal to Triton's (7.830e-2 vs 7.808e-2 at ctx 1500
+edges); tests 16/16 (they never reach nvs: batch <= 5).
+
+H100 (us): verify 32 sliding paired Triton 17.94 -> nvs 16.30 (-1.66, 9/9). Verify 16 at S 8: 13.49 vs 13.47 (tie,
+so Triton keeps it).
+
+What mattered / dead ends inside nvs:
+- New tokens on CUDA cores after the loop (512 FMA/thread): +2.5 us on the last split (it gates the kernel). In the
+  merge kernel before gdc_wait (tools/a2/cnt.py `_combine_nt`): merge 2.9 -> 7.3 us (2048 one-warp programs redo
+  the K-new norm/RoPE; they don't overlap the attention). Own CTA per request (S+1 CTAs): +2.4 us (the 32 extra
+  CTAs share SMs with main CTAs even when launched last). Early tensor-core tile: ~+0.6 us total. Winner.
+- 2 CTAs/SM (S 8, 256 CTAs) 15.5 attn-only vs S 4 14.0. NS 3/4/5/6 flat (4 best by ~0.2), LAG 2 +0.4, L2 prefetch
+  of tile i+2 rows +1.3 (i+3: broken/slow), producer-only (consumers just wait) 12.1, consumer chain with stale smem
+  (no gathers after NS tiles) 13.5: per tile ~1 us whichever side, so the kernel is a producer<->consumer chain.
+- Stamps (nvs.py stamp, NV_STAMP=1): Q ready 2.0 us, first tile ready 4.1 (seq -> page table -> gathers), loop
+  ~1.1 us/tile, stores 0.5.
+- __launch_bounds__(384, 2) with the new-token code: 80 regs, spills + "wgmma serialized" (C7512): use (384, 1).

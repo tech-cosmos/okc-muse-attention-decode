@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~05:00 UTC (agent2 session 2; session 1's clock stamps read later than s2's).
+Updated 2026-10-25 ~06:00 UTC (agent2 session 3).
 
 ## Scope
 
@@ -23,11 +23,17 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
   16.64/12.49 us. In COORD "Ready to merge" (merged into agent2).
 - Checks used by agent2 on 2026-10-25: 1 (a27e9a52). Session 2: none (nothing won on the H100).
 
+- agent2-exp/nvs fd7fa2e (s3): native verify-sliding kernel `nvs` (tools/a2/nvs_clean.cu embedded as _NVS_SRC) for
+  verify sliding batch >= 32: H100 paired verify 32 -1.66 us (9/9), tests 16/16, chk_nvs 5/5. H200 check: see NOTES-agent2 s3.
+  Queued: also verify 16 on nvs with S 8 (H100 paired -0.14, 11/11) -> needs one check.
+
 ## Ranked ideas
 
 0. (s2) H100 now: decode 16/32 sliding 9.63/15.07, verify 16/32 13.66/18.46 (tools/a2/b4.py).
-1. Native verify-sliding kernel `nvs` (NO clusters: s2 showed 4-CTA cluster placement alone +2.5 us) (2 consumer WGs per CTA, full-row cp.async gathers, wgmma; design in
+1. (built s3, see above) Native verify-sliding kernel `nvs` (NO clusters: s2 showed 4-CTA cluster placement alone +2.5 us) (2 consumer WGs per CTA, full-row cp.async gathers, wgmma; design in
    NOTES-agent2 s1 "Next ideas" 2). Biggest lever on verify 16/32 (~-1.7/-3.4 us H100 ceiling).
+1b. nvs follow-ups: cut its ~4 us prologue (seq -> page table -> first gathers; SPEC-like seq from table width
+   doesn't apply at batch > 1), and the 2-3 us _combine_hb (merge in-CTA is dead; maybe fewer/larger merge programs).
 2. Decode 32 sliding: smem-staged csl-style 8-CTA clusters (risky; s73 csl8 lost).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
