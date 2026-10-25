@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~15:10 UTC (agent2 session 16). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
+Updated 2026-10-25 ~15:40 UTC (agent2 session 18; s18 = 3 dead H100 probes, no code change). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
 
 ## Scope
 
@@ -17,6 +17,10 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 | verify 32 sliding | 17.72 | 18.96 | 0.18 | Triton (256 progs, 8 x 64-key tiles) + _combine_hb |
 
 ## Candidates
+
+- (s17) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/halfpf 6a9a26a** = half e5f65ed (verify 32 cl, below) +
+  pf 946a445 (page-table L2 prefetch in csl/nds: H100 decode 16 -0.11..-0.13, decode 32 -0.06..-0.24). tests 16/16.
+  Compare verify 32 sliding vs 15.4, decode 16 vs 8.13, decode 32 vs 12.20 H200; list only winners.
 
 - (s15) LISTED in COORD Ready to merge: **agent2-exp/nvhalf 7ba35f9** (= agent2 now) = origin/main d93a80d + NV_HALF;
   agent 1's check 2d0bfdc6: verify 16 sliding 11.63 H200 (was 11.90) WIN, verify 32 tie.
@@ -36,6 +40,8 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+- s18: nds cos/sin trip (constant-position upper bound -0.13), split-major CTA order +0.35, even/odd split halves +0.11. NOTES-agent2 s18.
+- s17: page-table L2 prefetch in nvs (verify 16/32) +0.18/+0.19 (thread 32), +0.32/+0.35 (thread 160). NOTES-agent2 s17.
 - s16: nds split pairs packed in one 512-thread CTA + smem merge (agent2-exp/ndp): +0.74 decode 32 (packaging +0.96,
   merge -0.3; loop ~0.5 us slower per split, cause not found). tools/a2/nds_pair_cta_dead.patch. NOTES-agent2 s16.
 - s15: cl 2 at verify 16 (split pairs in clusters + global per-warp ticket) +2.59 (sync chain ~3 L2 trips);

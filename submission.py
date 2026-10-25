@@ -1602,7 +1602,7 @@ template <int NS> struct Smem {
     alignas(1024) uint8_t q[2][MR * HD];       // per head FP8 queries [row][d], SW64
     int ptr[8][BN];                            // page 1: page-table entries of tiles i .. i + NV_PFD (ring of 8)
     int lim[8];                                // and each tile's last valid key
-    uint64_t ready[NS], empty[NS];
+    uint64_t ready[NS], empty[NS], readyv[NS];
     alignas(1024) uint8_t knew[BN * 128];      // last split: the 8 new keys as a K tile (rows 0-7; rows 8-63 zero)
     alignas(1024) uint8_t vtnew[2][HD * BN];   // and their V^T (key slots 0-7 of group 0; the rest zero)
 };
@@ -1670,6 +1670,10 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
         if (i >= NV_LAG) {
             const int s = (i - NV_LAG) % NS;
             cp_wait<NV_LAG>();
+            asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
+            __syncwarp();
+            if ((tid & 31) == 0) mb_arrive(&sm.ready[s]);   // agent2 s19 K-early: QK(i) starts while V(i) is transposed;
+            // P@V waits on readyv (H100 decode 32 -0.06/-0.10 us; on nvs it lost +0.10/+0.19 at verify 16/32)
             asm volatile("bar.sync 1, 128;" ::: "memory");
             {
                 const uint32_t vsb = smem_u32(&sm.vs[s][0]), vtb = smem_u32(&sm.vt[s][0][0]);
@@ -1691,7 +1695,7 @@ __device__ __forceinline__ void producer(Smem<NS>& sm, const uint8_t* __restrict
             }
             asm volatile("fence.proxy.async.shared::cta;" ::: "memory");
             __syncwarp();
-            if ((tid & 31) == 0) mb_arrive(&sm.ready[s]);
+            if ((tid & 31) == 0) mb_arrive(&sm.readyv[s]);
         }
     }
 }
@@ -1949,6 +1953,7 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
             const int sp = (i - 1) % NS, sc = i % NS;
             mb_wait(&sm.ready[sc], (i / NS) & 1);
             issue_qk2(s, qa, smem_u32(&sm.k[sc][0]));
+            mb_wait(&sm.readyv[sp], ((i - 1) / NS) & 1);
             fence_regs(pin);
             issue_pv2(o, pin, smem_u32(&sm.vt[sp][0][0]));
             wg_wait<1>();
@@ -1966,6 +1971,7 @@ __device__ __forceinline__ void dconsumer(Smem<NS>& sm, const __nv_bfloat16* __r
         };
         auto lastt = [&](uint32_t (&pin)[8]) {
             const int sp = (n - 1) % NS;
+            mb_wait(&sm.readyv[sp], ((n - 1) / NS) & 1);
             fence_regs(pin);
             issue_pv2(o, pin, smem_u32(&sm.vt[sp][0][0]));
             wg_wait<0>();
@@ -2031,7 +2037,7 @@ const __nv_bfloat16* __restrict__ qkv, const float* __restrict__ cs,
     }
     const int tid = threadIdx.x, wg = tid >> 7;
     if (tid == 0) {
-        for (int i = 0; i < NS; ++i) { mb_init(&sm.ready[i], 4); mb_init(&sm.empty[i], 4); }
+        for (int i = 0; i < NS; ++i) { mb_init(&sm.ready[i], 4); mb_init(&sm.empty[i], 4); mb_init(&sm.readyv[i], 4); }
         asm volatile("fence.mbarrier_init.release.cluster;" ::: "memory");
     }
     __syncthreads();

@@ -1,12 +1,12 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~15:00 UTC (session 118 = unattended session 51). **s118 (0 checks): decode 1 full %globaltimer
-timeline (first tile lands 2.56 us after start, steady 2.6 TB/s, end spread 1.4, `_red_fin` hop 1.8 after the last
-program); WIN on main ae1161c: `_red_fin` 16 warps at batch 1, H100 paired -0.22..-0.34 us (15/15 twice), bit-identical.
-Dead: FAST red_fin, decode 1 full split counts (all-keyed splits +1.4..+2.5), verify 1 full cw. NOTES s118.**
+Updated 2026-10-25 ~16:20 UTC (session 122 = unattended session 55). **s122 (0 checks): tensor vs MUFU pipe-overlap
+microbench (tools/s122/tm.cu): wgmma and MUFU/FFMA from different WGs overlap (10-24% mutual slowdown), so the
+verify-full consumer gap is chain scheduling, not a HW pipe limit; NOTES s122. s121 (0 checks): verify 1 full on agent2's nvs
+(exp/nvsf) DEAD: H100 cold +0.9 us (warm -0.6). s120: exp/hdiag5 @ 840db1a replaces hdiag4 as queued check 2.**
 
-**Earlier: s114-s117 (0 checks each): physical-order decode full CLOSED (s114), judge profile is warm (s115), decode 1
-full atomics <= 0.4 us (s116, exp/hdiag4 built), merge exposure on batched full <= 0.3% (s117).**
+**Earlier (0 checks each): s119 H100 refs for hdiag4's batch-1 variants (all lose); s118 `_red_fin` 16 warps at batch 1
+(main ae1161c, H100 -0.3 us); s114 physical-order decode full CLOSED; s115 judge profile is warm; s116-s117 merges <= 0.3%.**
 
 ## Board and best run
 
@@ -40,11 +40,7 @@ numbers: NOTES s69.)
 ## Ranked ideas
 
 0000000. (s111: DEAD) native pipelined verify-full kernel (exp/nvf, NOTES s110-s111).
-
 000000. (s114: CLOSED) physical-order decode full: inversion >= 18 us H100 (s84, s114), windowed L2 sweep dead (s114).
-
-0000. Lazy/fixed max in the verify-full consumer: DONE as LZ 10 (s105, on main, H200-verified).
-
 000. (s84: native verify-1-sliding cluster kernel built and lost, NOTES s84) (s75) Verify sliding is consumer-chain-bound, not DRAM-bound (H100 all-L2 attention verify 32/16 sliding 13.4/9.1 vs
    real 16.5/11.2 us; Triton ~1.8 64-key tiles/us/SM vs Gluon gw 2.9 on verify full). gw_verify itself loses at
    sliding size (fixed costs). The open design is a native wgmma verify-sliding kernel with csl-style low fixed
@@ -68,7 +64,8 @@ numbers: NOTES s69.)
    2d0bfdc6); verify 32 sliding uses NV_HALF too (tie 15.43 vs 15.42); decode 1 full `_red_fin` 16 warps (s118, expect
    ~-0.2 vs 13.57; revert RF_NW1 to 4 if it loses > 0.3); all other shapes = e64d3450 code. Submit if the
    check beats 1481.9 us (and tests pass).
-2. **exp/hdiag4 @ 8b557ec (diag, NEVER submit; supersedes hdiag3 = hdiag3 + main 5e3d586 + decode 32 full variants + v32 lag2/s2)**:
+2. **exp/hdiag5 @ 840db1a (diag, NEVER submit; = exp/hdiag4 8b557ec + main 705d9d2 + exp/ua `d1ua505`/`d1ua511` decode 1 full
+   variants; hdiag4 = hdiag3 + main 5e3d586 + decode 32 full variants + v32 lag2/s2)**:
    read the judge profile's per-variant kernel durations (`d1*`/`v1*` `_gd_full` / `_attn_split` / `hfloor`; `d32a`,
    `d32s3`, `d32p768s3`, `d32p1536`, `d32b16s4` `_gd_full` vs `d32fl2`/`d32fl4`/`d32dense` hfloor; `v32*`), all after an
    explicit flush. Port any decode 1 / verify 1 full variant beating `d1a` / `v1a` by > 0.3 us, and any decode 32 full
@@ -77,6 +74,11 @@ numbers: NOTES s69.)
 3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s122: "MUFU and tensor serialize in HW" (they overlap; tools/s122/tm.cu).
+- s121: nvs (native verify-sliding, NV_HALF/0, S 32-128, NS 5-7) at verify 1 full: cold +0.9..+6 us (exp/nvsf).
+- s120: forcing 1 CTA/SM for csl (already 1/SM at batch 1), vtk placement (116 SMs, max 3/SM; fixes = dead layouts).
+- s119: decode 1 full stages 3/4, BN 64 s2, BN 16 s4, splits 255/1023 and verify 1 full stages 10/12 (H100; H200 via
+  hdiag4), `_gd_full` work stealing (on paper: late grab = 3 trips > 0.86 us spread), csl owner-merge sig/tree (tie again).
 - s118: FAST _red_fin (reorder), decode 1 full split counts 396-1300 (all-keyed splits +1.4..+2.5: new token must be in an
   empty program), verify 1 full _combine cw 8/16, _combine_bal cw/hb at verify 16 full.
 - s116: decode 1 full end-of-grid atomic burst (whole atomic removal -0.3..-0.4 us cold H100; pre-sum ideas capped there).
