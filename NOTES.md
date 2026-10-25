@@ -3838,10 +3838,9 @@ guess; it only skips one DRAM trip when the guess holds.
 
 ### Next
 
-1. Find out why verify 1 sliding SPEC + pre 2 loses on the H200 judge only (diag check: SPEC without the redo body,
-   i.e. constant seq, and pre 2 alone, as separate renamed kernels per the s77 harness). If it's the redo path, the
-   judge's verify inputs may not have width = seq + 8; print shapes/seq in a check log (shapes and seq are fine to
-   print outside the timed call? No: only print config/shapes, never tensor values in kernel_fn).
+1. Find out why verify 1 sliding SPEC + pre 2 loses on the H200 judge only: a diag check with SPEC without the redo
+   body (constant seq) and pre 2 alone as separately named kernels (s77 harness). If only the redo-ful version loses,
+   the cost is the noinline call or the redo running on the judge's timed inputs.
 2. Batch-1 chains, now that seq is off the decode paths: csl is ~2.7 us above its 3.2 us gather floor on the H100
    (compute ~0.8, cluster merge ~0.8, cluster launch ~0.45 per s72).
 3. Batched sliding: decode 32 sliding is ~5 us above the gather floor on the H100 (13.05 attn + merge vs 10.1).

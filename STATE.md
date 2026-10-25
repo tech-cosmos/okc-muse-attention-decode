@@ -1,6 +1,13 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~03:00 UTC (session 84 = unattended session 17 of the #1-push brief).
+Updated 2026-10-25 ~03:50 UTC (session 85 = unattended session 18 of the #1-push brief).
+
+**s85: SPEC on main (fcc6a51).** Batch 1, page 1: seq = page-table width - L (SGLang slices the table to the longest
+length), loads start at once, real seq_lens checked on device, everything redone on mismatch (bit-identical; never
+depends on the guess). In csl (decode 1 sliding) and `_gd_full` (decode 1 full). H200 checks: f51b8c4b 2.300x (verify
+1 sliding SPEC+pre 2 judged 9.55 vs 7.2: off, not understood), 297d496a 2.347x = tie overall but decode 1 sliding
+5.43 -> 5.18/4.75, decode 1 full 14.73 -> 14.43/13.98 in the two checks. Not submitted (needs > 2.353).
+H100 gather floors (tools/s85/sgather.py): decode 1/16/32 sliding 3.6/6.9/10.1 us vs main 5.95/10.1/15.3. NOTES s85.
 
 **s84: two brief items closed as dead (no checks).** (1) Native verify-1-sliding cluster kernel (tools/s84/vsl.cu,
 FP16 mma.sync, owner-row st.async merge) correct (10x lower error than main) but H100 9.6-9.9 us (cluster per head) /
@@ -51,7 +58,7 @@ at verify 32/16 full. s77 H200 per-kernel diag harness (renamed kernel copies in
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- 2026-10-25: checks 5/20 (c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
+- 2026-10-25: checks 7/20 (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
@@ -98,9 +105,11 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- Nothing queued. main 4aa402b = scored 9f8e594b 2.350x; submit only after a check beats 2.353.
+- main fcc6a51 (SPEC) checked 297d496a 2.347x (tie); re-check together with the next real change, submit if > 2.353.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s85: SPEC in _attn_split for verify 1 sliding (H200 judge +2.4 us, unexplained) and verify 1 full (H100 +0.1..0.2).
 
 - s84: native verify-1-sliding cluster kernel (vsl, NPH 8/16), physical-order bucketing pass (bucket.cu, 42+ us),
   verify 1 sliding 64 splits.
