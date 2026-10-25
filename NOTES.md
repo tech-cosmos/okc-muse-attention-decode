@@ -4679,3 +4679,50 @@ tests reach 32-36 (K=1). So s79's LZ 6 verdict (rows grow > 16 binades) was righ
 
 ### Budget (UTC day 2026-10-25)
 - s105: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 106 (unattended session 39, 2026-10-25 10:13 - ~10:45 UTC): verify 1 full fixed reference (on main); SPEC OOB fix
+
+Board 10:13Z unchanged (#1 pjmullin3 2.910x, ours 2.460x 8725ba7e). Account: checks 18/20 (2 left = agent2's), scored 7/10.
+No new "Ready to merge". **0 checks, 0 scored.** main = **05efdde** (d6cb195 + exp/tfix + exp/specfix). Tools: tools/s106
+(pair.py: paired plan overrides on one scored shape, env WARM=1 / L2=1; pairf.py: paired submission files; prof.py:
+per-kernel profiler times; abl3.py: abl2 without agentic spread at batch 1; adv1.py: forced-overflow inputs at verify 1
+full; spec.py: batch-1 inputs with seq_lens < table width).
+
+### Verify 1 full: fixed-reference softmax in Triton `_attn_split` (plan `fix 1`, on main)
+- FIX n: before the key loop, QK^T of the split's first n tiles (scores only) gives the row reference max + FDELTA (14)
+  binades; every tile then runs P = exp2(s * scale - m) with no row max / alpha / acc rescale (the s105 LZ 10 idea in
+  Triton). Rows whose acc/l end non-finite store m = +inf; `_combine` (REDO constexpr) then re-merges that row,
+  recomputing each flagged split's keys exactly (FP32 P, BK 8; cold path). Only with tsep, no rope/window/dual/balance.
+- H100 paired verify 1 full (whole call): **cold -0.29 us (10/11)**, warm-L2 -0.27 (7/7); fix 1 + pre 0: warm -0.77
+  but cold +0.05 (kept pre 2). fix 2 +0.58; with splits 191/63, block_n 128/32, warps 8: all worse.
+- Adversarial (tools/s106/adv1.py, late keys aligned with the query, A 0.5-3): passes with REDO, NaN/Inf without it;
+  errors equal to fix 0's. Tests 16/16. Precision argument as s105 (max P 2^-14 in FP16, step 2^-11 of the max).
+- Not useful elsewhere: verify 16 sliding fix 1 +0.59 us (few tiles; the prepass is pure latency).
+- H200 unverified: rides on tomorrow's first check of main (independent shape). If verify 1 full is worse: fix 0.
+
+### SPEC out-of-bounds reads at batch 1 (FIXED on main, exp/specfix)
+- SPEC (seq from the page-table width) gathers speculatively from positions < width - L. When seq_lens is shorter
+  (never on the scored shapes or the 16 tests: batch 1 there is spread "fixed"), those page-table entries are -1, so
+  _gd_full / csl / vtk read row -1 (before k_cache): compute-sanitizer on main: 609 / 4098 / 31778 invalid reads, and a
+  fresh-process crash in _gd_full (decode 1 full, spread "agentic"). Fix: clamp speculative entries to >= 0 (csl/vtk
+  macro `max(ptr[t], 0)`, _gd_full `if SEQ_IN: pg = max(pg, 0)`, _attn_split `_tile(CL=SEQ_IN)` and the PRE/PREQ/FIX
+  prefetch rows). After: 0 sanitizer errors on all four batch-1 cases. H100 paired cost +0.02..+0.05 us (noise).
+- (tools/s54/abl2.py uses spread agentic at batch 1 too, so it crashed on decode 1 full; tools/s106/abl3.py doesn't.)
+
+### Measured and dead (H100)
+- Verify 32 full LZ 10 row sum (timing-only removal of the l8 FADDs): all-L2 -4.5 us, real -0.2. The ones-column-in-V
+  form needs MMA N = 72 (Gluon shapes are powers of two; N 128 doubles P@V) and P@ones already lost natively (s69).
+- Verify 32 full plan knobs under LZ 10 (all-L2): stages 2/4 +42/+44 us, lag 2 +50, cregs 104/pregs 24 +20, maxnreg 72
+  +174. The s105 plan stays.
+- Fixed reference in `_gd_full` (timing-only upper bound, constant reference): decode 1 full -0.13 us real, decode 16/32
+  full all-L2 -0.64/-1.38 but real +0.40/+0.08: gather-bound, dead.
+- csl/vtk: P goes to the MMA as E4M3 (needs the row max for its 2^8 range), so no absolute-reference variant there.
+- Profile (H100, cold): verify 32/16 full `_new_tokens` 5.2/5.8 us runs under PDL (overlapped), not serial.
+
+### Next
+- FIRST check after 00:00Z 2026-10-26: main (05efdde): red decode 16/32 full + LZ 10 verify 16/32 full + fix 1 verify 1
+  full + SPEC clamp. Submit if it beats 1531.2 us. Per shape: decode 16/32 full lose -> BRED = False; verify 16/32 full
+  lose -> LZ = 3; verify 1 full lose -> fix 0.
+
+### Budget (UTC day 2026-10-25)
+- s106: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
