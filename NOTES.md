@@ -4027,3 +4027,36 @@ verify-1-sliding single kernel to lose**; the in-kernel cross-CTA merge at verif
 ### Budget (UTC day 2026-10-25)
 
 No checks this session. Account: checks 10/20, scored 3/10 (agent2 gets >= 8 of the remaining 10).
+
+## Session 90 (unattended session 23, 2026-10-25 04:44 - ~05:30 UTC): merged agent2's maskif, SCORED 0339a5f6 2.364x (new best); verify 1 full probes
+
+### Judge runs
+- Merged agent2 `agent2-exp/maskif` (6c6a87a: `mif` + `preq` for verify 16/32 sliding; its check a27e9a52 was 2.376x) into
+  main as ad2116c (submission.py identical to the checked code; main's code had not changed since agent2's base f34f2fe).
+  Tests 16/16. **Submitted 0339a5f60bee4cfd: 2.364x [2.329, 2.400] = new account best** (was 8aec5993 2.354x).
+  H200 per shape (us): decode 1 sliding 4.91 / full 14.24; decode 16 8.41 / 90.80; decode 32 13.85 / 169.41; verify 1
+  7.15 / 17.07; verify 16 12.52 / 115.26; verify 32 16.98 / 211.73. Profiles: decode 1 full `_gd_full` 7.3 + `_combine`
+  3.0; verify 1 full `_attn_split` 12.9 + `_combine` 2.6; verify 32 full `_gw_verify` 205.5.
+
+### Verify 1 full is compute-latency-bound in Triton (H100, tools/s90)
+- Cold vs warm (no flush, all 20 MB K/V in L2; tools/s90/warm.py), attention only: verify 1 full 15.45 cold / 14.2 warm
+  (memory is only ~1.3 us of it); decode 1 full 11.7 / 8.7.
+- Time vs ctx (tools/s90/ctx.py, attention only, 127 splits): 10k/20k/40k/80k keys = 7.3/8.5/10.9/15.1 us cold, so
+  ~6.2 us fixed (incl. ~2.5 launch) + 0.111 us per 1000 keys (8.9 us at 80k). Per-key slope by splits: 63 -> 0.175,
+  127 -> 0.111, 254 -> 0.134. Decode 1 full: cold slope 0.083, warm 0.040 (memory-bound per key; ~3.5 us fixed chain).
+- ncu (warm, locked 1.45 GHz): 127 splits: 7.5 warps/SM, CPI 4.49, IPC 1.66, nothing above 43% (L1 42.6%, ALU 24.6%).
+  254 splits: 13.7 warps/SM but CPI 7.1, IPC only 1.91 (+15%) and more total instructions (per-program prologue);
+  stalls/issue: long_scoreboard 1.25, selected 1.0, wait 0.97, barrier 0.90, short_scoreboard 0.70, mio 0.39. So more
+  warps don't help; the wgmma/barrier/softmax chain per 4-warp program is the limit, and the issue-limited ideal (416
+  instr/warp/tile x 2500 tiles) would be ~4.5 us vs 8.9.
+- tl.exp2 already lowers to ex2.approx.ftz (no denormal fixup); the per-element FSELs are only in the masked tail loop.
+- Dead: FP8 P@V in Triton `_tile` (P = exp2(x - max + 8) as E4M3, FA3 Max_offset 8; `tl.dot(p8, v_fp8)`): verify 1
+  full 27.8 vs 17.8 us, verify 1 sliding 8.19 vs 7.54 (Triton's N-major FP8 B operand path; same as session ~5).
+  Plan sweep again: block_n 128 stages 3/4 +3.1/+3.3, block_n 32 stages 12 +3.1, warps 8 +7.8.
+- Conclusion: verify 1 full's remaining lever is a native consumer with a shorter per-tile chain (two 64-key tiles in
+  flight per warpgroup, no CTA barriers: e.g. FA3-style ping-pong between 2 WGs on 128 keys), not plans. ~4 us H200 at
+  most (~2% overall). Native verify consumers so far have tied Gluon/Triton (s71, s82), so prototype the consumer alone
+  first (tools/s69 cmicro style at verify-1 size: 64 rows x 80k keys x 2 heads, all-L2) and require <= ~9 us whole.
+
+### Budget (2026-10-25)
+- Account at s90 start: checks 10/20 used, scored 3/10. s90: 0 checks, 1 scored (0339a5f6) -> scored 4/10.

@@ -1,6 +1,10 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~05:20 UTC (session 89 = unattended session 22 of the #1-push brief).
+Updated 2026-10-25 ~05:30 UTC (session 90 = unattended session 23 of the #1-push brief).
+
+**s90: merged agent2 maskif (mif + preq, verify 16/32 sliding) -> main ad2116c; SCORED 0339a5f6 2.364x = NEW ACCOUNT
+BEST.** Verify 1 full probes: compute-latency-bound in Triton (warm 14.2 vs cold 15.45 us; 6.2 us fixed + 0.111 us/1k
+keys; doubling warps/SM raises CPI 4.5 -> 7.1, IPC +15%); FP8 P@V in Triton dead (+10 us). NOTES s90.
 
 **s89: native wgmma verify-1-sliding single kernel (tools/s89/vsw.cu): correct, dead, no checks.** H100 8.0-8.2 vs
 main 7.6 us. Compute is fine (wgmma tile ~1.0 us after the gathers land); the wall is the cluster merge: each CTA
@@ -15,7 +19,7 @@ merge its COORD "Ready to merge" wins. NOTES s88.
 
 **s87:** plan knobs, `_gd_full` ptpf, gbal K/V L2 prefetch-ahead: all dead on H100 (NOTES s87).
 
-**s86: SCORED 8aec5993 2.354x = NEW ACCOUNT BEST (main e8a1f73, code 07a06b3).** Bisected s85's verify 1 sliding
+**s86: SCORED 8aec5993 2.354x (then best) (main e8a1f73, code 07a06b3).** Bisected s85's verify 1 sliding
 SPEC loss: SPEC alone (no pre 2) also lost on the H200 (diag 6e8ac91c: 9.24 us); the cause is the unexecuted
 out-of-line `noinline` redo copy (2x PTX). Loop form (one body in `while go:`, seq loop-carried) + pre 2: H100 -0.29,
 H200 check e1620b92 2.359x (verify 1 sliding 7.32), scored 8aec5993 2.354x (verify 1 sliding 6.91). `_gd_full` loop
@@ -26,8 +30,8 @@ gate failed; s80 H200 decode 32 full bytes dense 144.7 / random ~164 us; s79 LZ 
 
 ## Board and best run
 
-- Board 2026-10-25 04:15Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.354x (#26)** (scored
-  **8aec5993**, main e8a1f73; previous best 9f8e594b 2.350x). Need ~+24% for #1. Table below is the older 7f45c5c6 run (NOTES s79 has 9f8e594b's).
+- Board 2026-10-25 05:25Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.364x (#22)** (scored
+  **0339a5f6**, main ad2116c; previous 8aec5993 2.354x). Need ~+23% for #1. Table below is the older 7f45c5c6 run (NOTES s90 has 0339a5f6's).
 - Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
 
 | load | sliding (x46) | full (x16) | load speedup |
@@ -44,7 +48,7 @@ gate failed; s80 H200 decode 32 full bytes dense 144.7 / random ~164 us; s79 LZ 
 
 ## Code state
 
-- main = e8a1f73+ (code 07a06b3 = scored 8aec5993 2.354x).
+- main = ad2116c (= agent2 6c6a87a code = scored 0339a5f6 2.364x).
 - Dispatch: decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per request, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full`; sliding + small -> Triton
   `_attn_split` + PDL merges.
@@ -98,9 +102,11 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- Nothing queued: main e8a1f73 = scored 8aec5993. Submit a new main only if its check beats 2.354.
+- Nothing queued: main ad2116c = scored 0339a5f6 (2.364x). Submit a new main only if its check beats 2.364.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s90: FP8 P@V in Triton _tile (verify 1 full +10 us), verify 1 full block_n 128 / block_n 32 st 12 / warps 8.
 
 - s89: native wgmma verify-1-sliding kernel (vsw: st.async / bulk DSMEM / L2 exchange); cross-CTA merge at verify
   volume = 16 KB/SM of DSMEM ~1.3 us, which kills any single-kernel verify sliding design.
