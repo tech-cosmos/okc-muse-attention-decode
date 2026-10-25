@@ -5043,3 +5043,46 @@ submitted: its check was 2.507x < board 2.542x and no checks left today.
 
 ### Budget (UTC day 2026-10-25)
 - s114: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 115 (unattended session 48, 2026-10-25 14:10 - ~14:30 UTC): judge profile is warm; verify 1 full knobs warm; push-all (no checks)
+
+Board 14:15Z: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450). Account: checks
+20/20 (0 left today), scored 8/10. No new "Ready to merge" (NV_HALF already merged in s114). **0 checks, 0 scored.**
+main code unchanged (5e3d586). Lead 14:10Z: the sandbox is deleted ~17:45Z; push all branches each session. Tools:
+tools/s115/ (profwarm.py = s101 prof.py without the flush; d1warm.py / cmp.py copied from s113).
+
+### The judge's per-kernel profile is (most likely) NOT L2-flushed: don't read its gap to the scored time as overhead
+Every judge profile has decode 1 full kernels summing to ~9.5-10.4 us vs scored 13.2-14.5 (gap ~3.6-3.9 us, in all 25
+saved profiles, red or _combine), while verify 1 full's gap is ~1.7, csl's 0.75, vtk's 1.06. H100 CUPTI, us:
+| kernel | H100 warm (no flush) | H100 cold (flush) | H200 judge profile |
+|---|---|---|---|
+| _gd_full (decode 1 full) | 8.10 | 11.23 | 8.2 |
+| _attn_split (verify 1 full) | 12.35 | 13.5-14.0 | 12.7 |
+| csl (decode 1 sliding) | 3.30 | 3.94 | 3.7 |
+The H200 profile matches the H100 WARM numbers (same clocks/L2) and the H100 warm->cold penalties (decode 1 full ~3.2,
+verify 1 full ~1.4, csl ~0.6) match the H200 profile->scored gaps (3.6, 1.7, 0.75). So the judge profile times kernels
+with warm L2 (whole 20 MB K/V resident); the scored run is cold. Nothing hidden in the decode 1 full graph. exp/hdiag3
+settles it: its `d1a` variant (= main's plan, after an explicit flush) vs main's own `_gd_full` in the same profile.
+
+### Verify 1 full plan knobs, cold vs warm (H100, tools/s115/d1warm.py, 5 rounds; warm column relative only)
+base (127 splits, block_n 64, stages 8) cold 17.63 / warm 16.62; warps 8 23.82 / 23.34; block_n 128 stages 6 18.64 /
+16.78; block_n 32 stages 12 20.06 / 19.25; splits 63 stages 8 20.61 / 19.63; hpp 2 27.14 / 25.25; splits 255 21.55 /
+20.42. Base wins in both regimes (warm = the consumer-chain regime the H200 is closer to), so none of these goes into
+the H200 diag. All outputs correct (cmp.py, rel <= 0.0013 vs base).
+
+### Decode 1 sliding re-read
+csl H100 cold 3.94 us CUPTI; s93's stamps (page table 1.0, K landed 2.07, ~1.2 us serial tail) still hold; every layout
+variant tried in s72-s109 ties or loses. No new lever found.
+
+### Housekeeping
+- Pushed exp/lzasm and exp/redv (were local-only). Committed the judge profiles (profiles/, 166 files, 4.9 MB) and
+  tools/s78 so they survive the sandbox deletion; snapshot of ~/COORD.md in notes/COORD-snapshot.md.
+
+### Next (after 00:00Z 2026-10-26, new sandbox)
+1. Check main (5e3d586 code = e64d3450 + agent2 NV_HALF): verify 16 sliding is the only changed shape (H200 11.63 vs
+   11.90 in 2d0bfdc6); submit if it beats 1481.9 us.
+2. Check exp/hdiag3 (diag, never submit): H200 cold kernel times per variant for decode 1 / verify 1 full and the gather
+   floors (hfloor, dense) for batch 1 and 32; port any plan variant beating `d1a` / `v1a` by > 0.3 us.
+
+### Budget (UTC day 2026-10-25)
+- s115: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.

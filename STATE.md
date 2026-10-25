@@ -1,18 +1,17 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~14:10 UTC (session 114 = unattended session 47 of the #1-push brief).
+Updated 2026-10-25 ~14:30 UTC (session 115 = unattended session 48 of the #1-push brief).
+
+**s115 (0 checks): the judge's per-kernel profile is WARM (no L2 flush): H200 profile ~= H100 warm CUPTI (decode 1 full
+8.2 vs 8.1, verify 1 full 12.7 vs 12.35, csl 3.7 vs 3.3); profile->scored gaps = cold penalties. Verify 1 full knobs
+(warps 8, BN 128/32, splits 63/255, hpp 2) lose cold AND warm. All branches pushed; profiles committed. NOTES s115.**
 
 **s114 (0 checks): physical-order decode full CLOSED on both routes: atomic-free global inversion (in-place slice sort
 + smem owner map) best 18.1 us H100 at decode 32 (p1 10.1 + map 8.0; gate <= 5); windowed L2 sweep (per-program
 window buckets + L2 prefetch-ahead) 325-455 vs random 246 (prefetch hints double DRAM traffic), window order alone
 -3% H100. NOTES s114.**
 
-**s113: decode 1 full memory-bound (H100 warm 8.2 / cold 14.0); FPIPE dead; exp/hdiag3 = FIRST check after 00:00Z.**
-
-**Earlier (NOTES s91-s112): s112 NV_HALF H200 win verify 16 sliding (agent2); s111 native pipelined verify full dead
-(exp/nvf); s110 Gluon pipelining dead (C7512); s109 csl w8/w1, gw at verify 1 full dead; s108 REDO stress clean; s107 FOLD
-dead; s103/s105/s106 red / LZ 10 / fix 1 on main (H200-verified in e64d3450); s100 vtk verify 1 sliding win, launch floor
-~2 us/kernel; s95 red decode 1 full; s91 csl.**
+**Earlier: NOTES s91-s114 (per-session summaries in the Dead-ends index below).**
 
 ## Board and best run
 
@@ -23,7 +22,6 @@ dead; s103/s105/s106 red / LZ 10 / fix 1 on main (H200-verified in e64d3450); s1
   fix 1 verify 1 full -0.27, red decode 16/32 full -1.9/-0.7 (full layers on the usual slow node). So main's s103/s105/s106
   changes are H200-verified; the queued 'check main 05efdde' item is done.
 
-- Previous: 8725ba7e 2.460x (main 1e4c80e); per-shape in NOTES s102.
 - H200 profile (7f45c5c6): verify 16/32 full `_gw_verify` 109.2 / 209.8 us + `_combine_bal` tail; decode 32 full
   `_gd_full` 162.5 (4.0 TB/s, near the gather floor). Verify full is consumer-compute-bound on the H200.
 
@@ -61,31 +59,27 @@ numbers: NOTES s69.)
    decode 16 full dbal, verify 1 sliding stages 3 tie). Per-shape judge noise ~+-2%: don't spend checks on ties.
    Measured ceilings (NOTES s74): bulk-copy row gathers 2.35 TB/s (worse than LSU 2.77); in-cluster verify-volume
    merge ~0.5-0.7 us DSMEM at batch 1 (native verify-1-sliding upside <= ~1%).
-0. (s73) One-shot native kernels (csl8 for decode 32 sliding, cfl for decode 1 full) LOSE on the H100: compute and
-   merges land after the last gather (decode 32: loads 12.1 -> 16.8 us; decode 1 full: loads 12.2 -> 19.5). Native
-   wins need a pipelined multi-tile loop like Triton/Gluon's, not one shot. NOTES session 73.
-0b. (s72) Cluster kernel follow-ups: batch 32 decode sliding (csl2 NC 8 needs register/load-order fixes); shave csl
-   (compute ~0.8, merge ~0.8, cluster launch ~0.45 us on H100). Verify sliding on mma.sync clusters LOST (7.6 vs 5.5 us
-   H100: 8x partial volume + emulated FP8 mma); would need wgmma + few key splits. NOTES session 72.
-
-1. Native verify-full kernel BUILT (session 71, branch exp/nverify 5bc0e6a, tools/s71/nverify.cu): correct, but H200
-   check 19485acf kernel 209.9/112.0 us vs Gluon 209.8/109.2 at verify 32/16 = tie/loss. Producer (gathers + FP8 V
-   transpose) and consumer contend for issue; see NOTES session 71 for the measured levers. Resume only with a
-   concrete way to cut producer instructions (now 4 LDSM + 16 PRMT + 4 STSM + 8 cp.async + 4 LDS per thread/tile).
-2. Sliding shapes: no cheap lever left in Triton (cluster merges dead, s70); a native sliding kernel would have to
-   beat `_attn_split` + PDL merge on the H200 (Codex's native sliding didn't).
+0. (s73, s72) one-shot native kernels lose (compute + merges land after the last gather); verify sliding on mma.sync
+   clusters lost (8x partial volume). Cluster kernel follow-ups mined out (s91-s109). NOTES s72-s73.
+1. Native verify-full kernels (s71 nverify, s111 nvf) tie/lose Gluon `_gw_verify`: resume only with a way to cut
+   producer instructions or fit a pipelined consumer at 2 CTAs/SM (NOTES s71, s110, s111).
+2. Sliding shapes in Triton: no cheap lever left (s70); batch 16/32 sliding = agent2's lane.
 3. Merge tail on verify full (~7 us on the H200 at verify 16/32 = ~0.8% overall at most).
 
-## Queued for checks
+## Queued for checks (exact; sandbox is deleted ~17:45Z 2026-10-25, everything is pushed to origin)
 
-- **FIRST after 00:00Z 2026-10-26: check main 5e3d586 (NV_HALF merged, s114); submit if < 1481.9 us. Then exp/hdiag3.**
-
-- **s113: use exp/hdiag3 (pushed; main f2b1c52 + diag, obsolete pairs dropped, verify 1 full in-flight variants added) instead of hdiag2.**
-- **s112 FIRST after 00:00Z 2026-10-26: check exp/hdiag2 98153b5 (diag) mainly for the `hfloor` batch-1 full floors on the H200 (decides whether decode/verify 1 full has 3-4 us of headroom).** NV_HALF verify 16 sliding is H200-verified (agent2 to list it in Ready to merge).
-
-- main's s103/s105/s106 changes are H200-verified inside e64d3450 (done).
+1. **FIRST after 00:00Z 2026-10-26: check main @ 5e3d586 code** (later main commits are notes only). Per shape vs
+   e64d3450 (scored 2.542x, 1481.9 us): only verify 16 sliding changed (agent2 NV_HALF, H200 11.63 vs 11.90 in
+   2d0bfdc6); verify 32 sliding uses NV_HALF too (tie 15.43 vs 15.42); all other shapes = e64d3450 code. Submit if the
+   check beats 1481.9 us (and tests pass).
+2. **exp/hdiag3 @ e147d8e (diag, NEVER submit)**: read the judge profile's per-variant kernel durations
+   (`d1*`/`v1*` `_gd_full` / `_attn_split` / `hfloor`, `d32*`/`v32*` floors), all after an explicit flush. Port any
+   decode 1 / verify 1 full variant beating `d1a` / `v1a` by > 0.3 us. Also compare main's unflushed `_gd_full` with
+   `d1a_gd_full` (confirms s115: profile = warm).
+3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s115: verify 1 full plan knobs (warps 8, BN 128 st 6, BN 32 st 12, splits 63/255, hpp 2) cold and warm.
 - s114: physical-order decode full: atomic-free multi-split inversion (18 us H100), windowed L2 sweep with prefetch hints
   (2x DRAM traffic), window-sorted order alone (-3% H100, ~-1.5% H200).
 - s113: FPIPE (hand-pipelined fixed-reference loop in Triton _attn_split: no wgmma overlap, +8 barriers/tile).
