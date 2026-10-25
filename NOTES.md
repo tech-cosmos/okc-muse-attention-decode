@@ -5031,8 +5031,14 @@ Physical-order decode full is closed unless someone finds an inversion that cost
 AND hides under the K/V stream. Full-layer headroom left: verify full consumer (structural only), batch-1 full (hdiag3
 tomorrow decides whether there are 3-4 us).
 
+### Merged agent2 7ba35f9 (NV_HALF nvs) into main = 5e3d586
+Listed in Ready to merge at 14:15Z; same submission.py as check 2d0bfdc6 (H200 verify 16 sliding 11.63 vs 11.90 WIN,
+verify 32 sliding tie). Tests 16/16; H100 bench 2.045 (shared GPU; s113 start 2.063, untouched shapes noisy). Not
+submitted: its check was 2.507x < board 2.542x and no checks left today.
+
 ### Next
-- FIRST after 00:00Z 2026-10-26: check exp/hdiag3 (s113). Then agent2's Ready to merge items.
+- FIRST after 00:00Z 2026-10-26: check main 5e3d586 (NV_HALF + e64d3450's code); submit if it beats 1481.9 us.
+  Then exp/hdiag3 (s113 diag; rebase onto main not needed: it only adds diag kernels).
 - Batch-1 per-us table (s107/s112) still points at decode/verify 1 sliding (1.5-1.8 %/us) as the best levers.
 
 ### Budget (UTC day 2026-10-25)

@@ -29,7 +29,7 @@ dead; s103/s105/s106 red / LZ 10 / fix 1 on main (H200-verified in e64d3450); s1
 
 ## Code state
 
-- main = f2b1c52 (= agent2 652f126 merged, SCORED e64d3450 2.542x) on top of 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
+- main = 5e3d586 = f2b1c52 + agent2 7ba35f9 NV_HALF (H200-verified per shape in check 2d0bfdc6; tests 16/16; unscored). f2b1c52 (= agent2 652f126 merged, SCORED e64d3450 2.542x) on top of 05efdde (1e4c80e + s103 batched red/dbal for decode 16/32 full + s105 LZ 10 verify full + s106 fix 1 verify 1 full + SPEC clamp; all unchecked). 1e4c80e = SCORED 8725ba7e 2.460x.
 - Dispatch: verify sliding B=1 -> native `vtk_verify` (s96); verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full` (batch 1: plan red, atomic merge + `_red_fin`); sliding + small -> Triton
   `_attn_split` + PDL merges.
@@ -77,6 +77,8 @@ numbers: NOTES s69.)
 3. Merge tail on verify full (~7 us on the H200 at verify 16/32 = ~0.8% overall at most).
 
 ## Queued for checks
+
+- **FIRST after 00:00Z 2026-10-26: check main 5e3d586 (NV_HALF merged, s114); submit if < 1481.9 us. Then exp/hdiag3.**
 
 - **s113: use exp/hdiag3 (pushed; main f2b1c52 + diag, obsolete pairs dropped, verify 1 full in-flight variants added) instead of hdiag2.**
 - **s112 FIRST after 00:00Z 2026-10-26: check exp/hdiag2 98153b5 (diag) mainly for the `hfloor` batch-1 full floors on the H200 (decides whether decode/verify 1 full has 3-4 us of headroom).** NV_HALF verify 16 sliding is H200-verified (agent2 to list it in Ready to merge).
