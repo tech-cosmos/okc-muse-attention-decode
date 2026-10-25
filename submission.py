@@ -389,6 +389,7 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
+LZ = int(__import__('os').environ.get('LZ', '1'))
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
@@ -645,6 +646,91 @@ if HAVE_GLUON:
         nseg = gl.where(end > start, b_end - b_first, 0)
         return idx, seqv, tiles, start, end, b_first, nseg
 
+    # Lazy-max softmax for one [64, 64] S tile of a consumer warpgroup (S_L layout: pack slot j of a thread is row
+    # r + 8 * ((j >> 1) & 1) of its quad's two rows; tools/s79/order.py). Operands: out p[32], m_new[32]; in s[32],
+    # m[32] (row maxima broadcast), scale[32] (broadcast). Each thread exponentiates against the running maxima
+    # (no row max, no rescale); since P >= 0, all its partial row sums <= 2^15 implies every P <= 2^15 (FP16-safe,
+    # same relative precision, no lost range). A warp where any thread fails (first tile: maxima -1e30 -> inf; a row
+    # grew by > 15 binades; NaN) recomputes its rows with the usual update (row max over the quad by shuffles), which
+    # is per-warp legal: every row's elements live in one quad. Exact either way.
+    def _lz_asm():
+        a = ["{", ".reg .f32 q<32>, sa, sb, na, nb, xa, xb, t;", ".reg .pred ok, all;",
+             "neg.f32 na, $96;", "neg.f32 nb, $98;"]
+        for j in range(32):
+            n = "nb" if j & 2 else "na"
+            a += [f"fma.rn.f32 q{j}, ${64 + j}, $128, {n};", f"ex2.approx.ftz.f32 q{j}, q{j};"]
+        ra = [j for j in range(32) if not j & 2]
+        rb = [j for j in range(32) if j & 2]
+        a += [f"add.f32 sa, q{ra[0]}, q{ra[1]};", f"add.f32 sb, q{rb[0]}, q{rb[1]};"]
+        a += [f"add.f32 sa, sa, q{j};" for j in ra[2:]] + [f"add.f32 sb, sb, q{j};" for j in rb[2:]]
+        a += ["setp.le.f32 ok, sa, 0f47000000;", "setp.le.and.f32 ok, sb, 0f47000000, ok;",
+              "vote.sync.all.pred all, ok, 0xffffffff;", "mov.f32 xa, $96;", "mov.f32 xb, $98;", "@all bra LZ_DONE;"]
+        a += [f"max.f32 xa, ${64 + ra[0]}, ${64 + ra[1]};", f"max.f32 xb, ${64 + rb[0]}, ${64 + rb[1]};"]
+        a += [f"max.f32 xa, xa, ${64 + j};" for j in ra[2:]] + [f"max.f32 xb, xb, ${64 + j};" for j in rb[2:]]
+        for o in (1, 2):
+            a += [f"shfl.sync.bfly.b32 t, xa, {o}, 0x1f, 0xffffffff;", "max.f32 xa, xa, t;",
+                  f"shfl.sync.bfly.b32 t, xb, {o}, 0x1f, 0xffffffff;", "max.f32 xb, xb, t;"]
+        a += ["mul.f32 xa, xa, $128;", "mul.f32 xb, xb, $128;", "max.f32 xa, xa, $96;", "max.f32 xb, xb, $98;",
+              "neg.f32 na, xa;", "neg.f32 nb, xb;"]
+        for j in range(32):
+            n = "nb" if j & 2 else "na"
+            a += [f"fma.rn.f32 q{j}, ${64 + j}, $128, {n};", f"ex2.approx.ftz.f32 q{j}, q{j};"]
+        a += ["LZ_DONE:"] + [f"mov.f32 ${j}, q{j};" for j in range(32)]
+        a += [f"mov.f32 ${32 + j}, {'xb' if j & 2 else 'xa'};" for j in range(32)] + ["}"]
+        return "\n".join(a)
+
+    def _lz_asm2():
+        # LZ 2: decide before exponentiating, from each thread's own row maxima (no shuffles): if every thread of
+        # the warp has max(s) * scale - m <= 15 on both rows (so P <= 2^15), exponentiate against the stale maxima;
+        # else the usual update for the warp's rows. The scores are dead once P is computed (no spills).
+        a = ["{", ".reg .f32 q<32>, na, nb, xa, xb, t, u<16>;", ".reg .pred ok, all;"]
+        ra = [j for j in range(32) if not j & 2]
+        rb = [j for j in range(32) if j & 2]
+        # Tree maxima (depth 4, not two 16-long chains).
+        for r, (rows, x) in enumerate(((ra, "xa"), (rb, "xb"))):
+            u = [f"${64 + j}" for j in rows]
+            k = 8 * r
+            while len(u) > 2:
+                nu = []
+                for i in range(0, len(u), 2):
+                    a.append(f"max.f32 u{k + i // 2}, {u[i]}, {u[i + 1]};")
+                    nu.append(f"u{k + i // 2}")
+                u = nu
+            a.append(f"max.f32 {x}, {u[0]}, {u[1]};")
+        a += ["fma.rn.f32 t, xa, $128, 0fC1700000;", "setp.le.f32 ok, t, $96;",
+              "fma.rn.f32 t, xb, $128, 0fC1700000;", "setp.le.and.f32 ok, t, $98, ok;",
+              "vote.sync.all.pred all, ok, 0xffffffff;", "@all bra LZ_FAST;"]
+        for o in (1, 2):
+            a += [f"shfl.sync.bfly.b32 t, xa, {o}, 0x1f, 0xffffffff;", "max.f32 xa, xa, t;",
+                  f"shfl.sync.bfly.b32 t, xb, {o}, 0x1f, 0xffffffff;", "max.f32 xb, xb, t;"]
+        a += ["mul.f32 xa, xa, $128;", "mul.f32 xb, xb, $128;", "max.f32 xa, xa, $96;", "max.f32 xb, xb, $98;",
+              "bra LZ_EXP;", "LZ_FAST:", "mov.f32 xa, $96;", "mov.f32 xb, $98;", "LZ_EXP:",
+              "neg.f32 na, xa;", "neg.f32 nb, xb;"]
+        for j in range(32):
+            n = "nb" if j & 2 else "na"
+            a += [f"fma.rn.f32 q{j}, ${64 + j}, $128, {n};", f"ex2.approx.ftz.f32 q{j}, q{j};"]
+        a += [f"mov.f32 ${j}, q{j};" for j in range(32)]
+        a += [f"mov.f32 ${32 + j}, {'xb' if j & 2 else 'xa'};" for j in range(32)] + ["}"]
+        return "\n".join(a)
+
+    def _lz_acc_asm():
+        # acc *= alpha (per row; same slot pattern in O_L), skipped when the whole warp has alpha == 1 (LZ 3).
+        a = ["{", ".reg .pred p, any;", "setp.neu.f32 p, $128, 0f3F800000;", "setp.neu.or.f32 p, $130, 0f3F800000, p;",
+             "vote.sync.any.pred any, p, 0xffffffff;"]
+        a += [f"mov.f32 ${j}, ${64 + j};" for j in range(64)] + ["@!any bra LZ_SKIP;"]
+        a += [f"mul.f32 ${j}, ${j}, {'$130' if j & 2 else '$128'};" for j in range(64)] + ["LZ_SKIP:", "}"]
+        return "\n".join(a)
+
+    LZ_ACC = gl.constexpr(_lz_acc_asm())
+    LZ_ACC_CON = gl.constexpr(",".join(["=f"] * 64 + ["f"] * 128))
+    LZ_ASM = gl.constexpr(_lz_asm())
+    LZ_ASM2 = gl.constexpr(_lz_asm2())
+    LZ_CON = gl.constexpr(",".join(["=f"] * 64 + ["f"] * 96))
+
+    @gluon.jit
+    def _gw_pick(a, b):
+        return a
+
     @gluon.jit
     def _gw_add(a, b):
         return a + b
@@ -705,7 +791,7 @@ if HAVE_GLUON:
     def _gw_consumer_bal(qkv_ptr, q_s, k_ring, vh, ready, empty, seq_ptr, pid, h, scale, pacc_ptr, pml_ptr,
                          HEAD: gl.constexpr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, L: gl.constexpr,
                          B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, NID: gl.constexpr, M: gl.constexpr,
-                         D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr):
+                         D: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr, LZ: gl.constexpr = 0):
         """_gw_consumer_cv (PEEL, LSUM) over the program's segments: each loads its request's queries and stores
         its partial at id p + b."""
         S_L: gl.constexpr = gl.NVMMADistributedLayout(version=[3, 0], warps_per_cta=[4, 1],
@@ -739,13 +825,26 @@ if HAVE_GLUON:
                 sc = warpgroup_mma_wait(0, deps=[s_tok])
                 if lo + (i + 1) * BN > hi:
                     sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
-                m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+                if LZ:
+                    p, me = gl.inline_asm_elementwise(
+                        LZ_ASM if LZ == 1 else LZ_ASM2, LZ_CON, [sc, gl.zeros([M, BN], gl.float32, S_L) + m_i[:, None],
+                                         gl.zeros([M, BN], gl.float32, S_L) + scale],
+                        dtype=(gl.float32, gl.float32), is_pure=True, pack=32)
+                    m_new = gl.reduce(me, 1, _gw_pick)
+                else:
+                    m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
+                    p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
                 alpha = gl.exp2(m_i - m_new)
-                p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
                 l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
                     gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
                 m_i = m_new
-                acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
+                if LZ >= 3:
+                    acc = gl.inline_asm_elementwise(
+                        LZ_ACC, LZ_ACC_CON, [acc, gl.zeros([M, D], gl.float32, O_L) +
+                                             gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]],
+                        dtype=gl.float32, is_pure=True, pack=64)
+                else:
+                    acc = acc * gl.convert_layout(alpha, gl.SliceLayout(1, O_L))[:, None]
                 p16 = gl.convert_layout(p.to(gl.float16), P_L)
                 a_tok = warpgroup_mma(p16, vh.index(s), acc, is_async=True)
                 acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
@@ -997,7 +1096,7 @@ if HAVE_GLUON:
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
                    R_PAD: gl.constexpr = 1, BAL: gl.constexpr = False, B: gl.constexpr = 1,
-                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1):
+                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, LZ: gl.constexpr = 0):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -1054,9 +1153,9 @@ if HAVE_GLUON:
         if BAL:
             gl.warp_specialize([
                 (_gw_consumer_bal, (qkv_ptr, q0, k_ring, vh0, ready, empty, seq_ptr, split, h, scale, pacc_ptr,
-                                    pml_ptr, 0, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS)),
+                                    pml_ptr, 0, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, LZ)),
                 (_gw_consumer_bal, (qkv_ptr, q1, k_ring, vh1, ready, empty, seq_ptr, split, h, scale, pacc_ptr,
-                                    pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS)),
+                                    pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, LZ)),
                 (_gw_producer_bal, (seq_ptr, pt_ptr, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready,
                                     empty, split, B, B_PAD, NP, MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW,
                                     LAG)),
@@ -1847,7 +1946,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=progs,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, num_warps=4, maxnreg=plan["maxnreg"],
+        LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, LZ=plan.get("lz", LZ), num_warps=4, maxnreg=plan["maxnreg"],
         launch_pdl=True)
     hb = plan.get("hb", 2)
     _combine_bal[(batch * length, hq // hb)](
