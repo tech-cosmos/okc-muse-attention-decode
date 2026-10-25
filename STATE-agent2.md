@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~16:10 UTC (agent2 session 20; s20 = nds S 4/5/6 probes dead; s19 = nds K-early barrier, H100 decode 32 -0.06..-0.14). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
+Updated 2026-10-25 ~16:50 UTC (agent2 session 21; s21 = nvs cl direct pushes, H100 verify 32 -0.13..-0.30; s20 = nds S probes dead). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
 
 ## Scope
 
@@ -18,7 +18,9 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Candidates
 
-- (s19) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/halfpfkr abc5f38** = halfpf 6a9a26a (below) + nds K-early
+- (s21) **FIRST CHECK after 00:00Z 2026-10-26: agent2-exp/cldir d5e1482** (or its tip) = halfpfkr abc5f38 + nvs cl direct
+  pushes (verify 32 sliding: H100 paired -0.30 (11/11), -0.13 (11/11) vs halfpfkr). tests 16/16. Compare per shape as below.
+- (s19) superseded by cldir: agent2-exp/halfpfkr abc5f38 = halfpf 6a9a26a (below) + nds K-early
   barrier (agent2 565c536: H100 decode 32 -0.14 (13/15) on halfpf). tests 16/16. Same per-shape comparison as below.
 - (s17) superseded by halfpfkr: agent2-exp/halfpf 6a9a26a = half e5f65ed (verify 32 cl, below) +
   pf 946a445 (page-table L2 prefetch in csl/nds: H100 decode 16 -0.11..-0.13, decode 32 -0.06..-0.24). tests 16/16.

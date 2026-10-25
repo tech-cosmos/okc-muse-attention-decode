@@ -798,3 +798,28 @@ not a lever for decode 32 (S 4 had also tied in s10). No code change.
 ### Next (unchanged)
 - First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpfkr abc5f38** (verify 32 sliding cl vs ~15.4 H200,
   decode 16 sliding pf vs 8.13, decode 32 sliding pf + kr vs 12.20). List only the winners in COORD Ready to merge.
+
+## Session 21 (2026-10-25 16:03 - ~16:50 UTC): nvs cl direct pushes = small H100 win at verify 32 (0 checks)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main 2af93cd
+(agent 1 s124 tools) into agent2; submission.py unchanged by it. halfpfkr abc5f38 already contains main's submission.py.
+
+### cl direct pushes (verify 32 sliding), agent2-exp/cldir d5e1482 (on halfpfkr abc5f38)
+s14's chain was: consumer 1 writes xo -> bar 4 (256) -> consumer 0 merges the halves -> its non-owner warps stage
+and bulk-copy 9 KB to the peer -> the peer's owners merge -> epilogue. New: in cl, EVERY consumer's non-owner warps
+(the rows the peer finishes) stage their unmerged o / m / l locally and bulk-copy them to the peer at once (consumer 0
+-> peer xo2, consumer 1 -> peer xo3, named bars 5 / 6 of 64; clbar expect_tx 2 x 9216). Consumer 1's owner warps hand
+their rows to consumer 0's owners via xo (bar 4, 128). Consumer 0's owners merge 4 parts (local half, xo2, xo3) and
+write the output. The push no longer waits on the in-CTA merge, and each half pushes as soon as it is done.
+Smem +18 KB (xo3; still 1 CTA/SM). Same FP32 math, just a different merge order.
+| H100 paired (tools/a2/vab.py, VAB_BASE = halfpfkr), verify 32 sliding | diff |
+|---|---|
+| run 1, 11 rounds | **-0.30 (11/11)** (15.70 -> 15.33) |
+| run 2, 11 rounds | **-0.13 (11/11)** (15.84 -> 15.71) |
+chk_nvs 7/7, tests 16/16. Verify 16 does not use cl (S 4 + combine), so it is unaffected.
+
+### Next
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/cldir d5e1482+** (= halfpfkr abc5f38 + cl direct pushes).
+  Per shape vs the H200: verify 32 sliding (cl) vs ~15.4, decode 16 sliding (pf) vs 8.13, decode 32 sliding (pf + kr)
+  vs 12.20. List only the winners in COORD Ready to merge (if verify 32 loses, fall back to NVS_CL_BATCH 9999).
+- Same "push before merge" idea elsewhere: wherever a merge chain stacks an in-CTA merge before a cross-CTA hand-off.
