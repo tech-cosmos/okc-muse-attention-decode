@@ -4205,3 +4205,110 @@ the geomean most: e.g. verify 1 at 4/9 us sliding/full would be 4.97x (+10% geom
 
 ### Budget (UTC day 2026-10-25)
 - s94: 0 checks, 0 scored. Account unchanged: checks 15/20 (5 left = agent2's), scored 6/10.
+
+## Session 95 (unattended session 28, 2026-10-25 06:41 - ~07:30 UTC): decode 1 full merge by FP32 atomics at a fixed reference max (WIN on H100)
+
+Board 06:41Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391). No COORD "Ready to merge" items.
+Account at start: checks 15/20 (agent2 4 of its 8 used, so 1 left for Claude), scored 6/10 (Claude's 6 used).
+
+### Idea: no global max needed if every split uses the SAME reference max
+FA-style split merges need the global row max, hence a second kernel (or a grid sync) that reads all S partials. But
+with a fixed, program-independent reference R (here R = 0 in the log2-scaled score units), every split can add
+`acc * exp2(m - R)` and `l * exp2(m - R)` into shared FP32 sums with atomics, and only a tiny finish (sum / l, RMSNorm,
+gate) remains. FP32 precision is scale-invariant, so this is exact (same rounding class as FA3's merge) as long as no
+split's max m is outside a safe range: m <= 100 (no overflow: acc <= l * 448, l <= keys * 2^m) and m >= -60 (a split
+whose terms would sink below FP32's normal range could matter only if it held the global max; then its exact partial
+is needed). Out-of-range splits store their normal FP32 partial and append their slot id to a list; the finish merges
+those exactly (online max-merge against the sums at m = 0). Scored data: scores are within about +-63 (q, k
+RMS-normed, qk_scale_factor 5.47, sm_scale 1/8, log2e), so the list is empty; tests with k_scale x40 exercise the
+list (hundreds of entries) and match main bit-for-bit in BF16. Values only steer which exact path a split takes
+(like LZ's inf redo), every key is still attended, partials stay FP32.
+
+### Measurements (H100, paired, us; tools/s95/red.py c|t, SH=<scored index>, Q=<q_len>)
+- First form, in-grid (exp/red first commit): adds + acq_rel arrival counter + last-arriver tail in _gd_full: 18.5-19.0
+  vs main 14.6 = dead. Breakdown (RED_DBG variants): adds only 12.8; + relaxed counter 13.3; + acq_rel counter 14.1;
+  + the tail 18.1+: the last arriver's reads queue behind the L2 atomic backlog (~2.5 us at v2 atomics, 262K ops),
+  and 511 acq_rel arrivals on one word cost ~1.3 us. NR 1 replica 22.8 (same-line contention), NR 8/16 worse in the
+  one-warp tail (more loads). Same wall as every in-grid merge before (s34/s36/s43/s50/s94).
+- **Final form (main 75081b1): adds in _gd_full (v4 atomics via a [1,4] blocked layout, 4 replicas by split % 4, l
+  in the mma slice layout, deduped), then the usual PDL grid boundary and ONE 4-warp `_red_fin` program that reads
+  16 KB (4 x [16, 64] + l) instead of 16 programs x 512 slots x 256 B.** decode 1 full 14.55 -> 13.85 (8/8 pairs over
+  two runs; bench 14.40 -> 13.66, geomean 2.004 -> 2.013). NR 2: 14.9, NR 8: 14.5, NR 16: 15.4; _red_fin 1 warp +1.0,
+  8 warps tie. Splits 767 tie, 383 +0.5, 255 +1.7: 511 stays.
+- Bug found on the way: in a multi-warp Triton finish, replicated words (l, the list count) are loaded by every
+  thread but zeroed by one: needs tl.debug_barrier() between the loads and the resets (else random wrong rows).
+- **Verify 1 full** (branch exp/redv: `_finish` atomics, `_red_fin_v` per (KV head, token), lists per finish
+  program): correct, H100 TIE (17.7-18.2 both): 2 x the atomic volume (127 x 2 heads x 128 threads x 8 v4 = 260K ops)
+  eats the merge saving. Fewer splits with red: 95 -> 20.6, 63 -> 22.5; 131 tie.
+- Batched full merge tails (H100, whole vs _combine_bal dropped): decode 16 full 0.2 us, decode 32 2.8, verify 16 3.8,
+  verify 32 4.1; each has >= 2x decode 1's atomic volume, so not ported (expect ties like verify 1).
+
+### H200 check
+- **check 257c10beab894aa1** (main 75081b1): 2.425x [2.389, 2.461], 16/16. **decode 1 full 13.53 us** (13582a1b 14.14,
+  08bf9391 14.17: -0.6 us, as on the H100); profile `_gd_full` 8.0 + `_red_fin` 1.7 (was 7.2 + `_combine` 3.1). The
+  overall number is a slow node: the untouched full layers all came in slow (decode 16/32 full 89.93 / 167.81 vs 86.72 /
+  161.72, verify 16/32 full 116.35 / 212.78 vs 112.78 / 207.54). Other shapes: decode 1 sliding 4.16, decode 16/32 sliding
+  7.68 / 13.82, verify 1 6.87 / 17.00, verify 16/32 sliding 12.21 / 15.35.
+- No submit (Claude's 6 for 2026-10-25 are used). **Queued: score main 75081b1 after 00:00Z** (check first if budget allows:
+  noise on the full layers is ~5% per run).
+
+### Also dead this session
+- `red.global` (inline asm, no return) instead of `atom` for the adds: tie.
+
+### Next
+- The fixed-reference trick only pays where the atomic volume is small next to the merge it replaces (decode 1 full:
+  131K v4 ops vs 2.9 us). Remaining decode 1 full exposure ~2.1 us over attention (adds ~1.1, second kernel ~1).
+- Ideas not tried: combine the reference trick with fewer, fatter partials where the atomic count would be lower
+  (e.g. verify 1 full at 2 rows per thread would still be 260K ops: no); a cluster-level DSMEM pre-sum before the atomics
+  (native only).
+
+### Budget (UTC day 2026-10-25)
+- s95: 1 check (257c10be), 0 scored. Account after: checks 16/20 (the 4 left are agent2's), scored 6/10.
+
+## Session 96 (unattended session 29, 2026-10-25 07:10 - ~07:55 UTC): vtk = verify 1 sliding on per-token csl clusters (WIN on H100)
+
+Board 07:10Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391). No COORD "Ready to merge" items.
+Account: checks 16/20 (the 4 left are agent2's), scored 6/10 (Claude's 6 used). **No checks this session.**
+
+### Idea: split verify 1 sliding by ROWS across clusters, not just keys
+Every earlier single-kernel verify-1-sliding design (s72 csv, s84 vsl, s89 vsw) put a KV head's 64 rows (8 tokens x 8
+heads) in one 16-CTA cluster, so each CTA pushed a 64-row FP32 partial (16 KB/SM of DSMEM ~1.3 us) and did 8x decode's
+compute. vtk instead launches **one 16-CTA cluster per (request, block token, KV head)**: 16 clusters x 16 CTAs = 256
+CTAs at batch 1, each exactly csl's decode layout (8 rows, 128 keys/CTA, 4 warps x 32 keys, mma.sync E4M3, st.async
+push to 8 owners). The 8 token-clusters of a head re-gather the same 1 MB of K/V (8 MB L2->SM, 1 MB DRAM). Token j's
+window [pos_j - 2047, pos_j] is indexed from its own base, so new tokens n <= j sit at window keys 2047 - j + n, all in
+CTA 15's last warp (K tile 3 rows 24 + g, V rows 24 + 2c + e); no extra causal mask (keys past pos_j don't exist in
+the window). That warp computes all 8 new tokens (norm, RoPE, quantize) into smem and swaps them into its fragments;
+cluster j writes token j's cache row (each (token, head) row written once). Code: tools/s96/vtk.cu, submission
+`vtk_verify` in the csl extension (`muse_csl_s96`), dispatch length 8, batch <= VTK_MAX_BATCH (1), window 2048.
+
+### The trap: the new-token warp (2.2 us of it, found by ablation + %globaltimer stamps + SASS)
+- First vtk: 7.4-7.9 us = main. Token-count scaling (launch only the first n token-clusters): 1/2/4/8 tokens 5.2/5.3/6.1/7.7.
+- Ablation (vtk2a, ABL 5 = no new-token block): -2.2 us. Stamps: CTA 15 warp 3 finished the block 1.5-2 us after the
+  gathers were issued, and it's the cluster's straggler.
+- Causes, in order of size: (1) **IEEE `/ kscale`, `/ vscale`** (3 per token): each compiles to a slow-path branch, so
+  the 8 token chains serialize in separate basic blocks; reciprocal multiplies (exact for the power-of-two scales:
+  1 and 1/64) fixed most. (2) **`if (n <= jt)` / `if (n == jt)` guards** in the unrolled loop: same effect; made the
+  loop branch-free (duplicate token jt for n > jt, write unread smem slots, select the cache row after the loop).
+  (3) the qkv/cos loads of the new tokens were sunk below the spec-check branch (SASS); predicated (ternary) loads keep
+  them in the first basic block (no time change by itself).
+- Final: **H100 verify 1 sliding 7.65-7.82 (main) -> 6.43-6.50 us (paired); bench 6.34; geomean 2.013 -> 2.036**; 1-token
+  launch = decode csl (5.4). Tests 16/16 + 10 extra batch-1 verify sliding cases through kernel_fn (ctx 10 edges,
+  2047 edges, page 64 + kv_scale, 100k + kv_scale) PASS; cache rows identical to main's.
+- vtk stamps (cold L2, from kernel start): gathers issued 1.3-1.8, compute done ~3.1, owners done 3.8 (max 4.35).
+
+### Dead / tied this session
+- vtk2a: 2 tokens per cluster (rows g / g + 8 of the m16 mma = tokens T0 / T0 + 1, 128 CTAs, 16 owners, token T0 + 1's
+  own key on CUDA cores): 8.1-8.6 us even after the fixes (1-pair launch 7.7 vs vtk's 5.4: not found why; dropped).
+- vtkp 8-CTA clusters x 8 warps (one CTA per SM, 8 partials per owner): 7.1-7.2 vs 6.5.
+- Reciprocal instead of IEEE divides in decode csl (1 new token): tie (decode 1 sliding 4.96 vs 5.06, decode 16 9.71 vs 9.70).
+
+### Next
+- **Check main (1e4c80e = vtk) at the next UTC day; submit if it beats 2.445.** Expected H200 verify 1 sliding 6.87 ->
+  ~5.7 us (~1.3-1.6 %/us = +1.5-2% overall) if it transfers like csl did.
+- Lesson for every native kernel here: no IEEE divides or guarded blocks on a straggler warp's path (grep the SASS for
+  BSSY/CALL around the new-token code). csl's decode new token is a single chain and doesn't pay it.
+- vtk remaining: page-table + gather trips ~2.3 us, compute ~0.5, push/owner ~0.7; csl-style shaves only.
+
+### Budget (UTC day 2026-10-25)
+- s96: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.

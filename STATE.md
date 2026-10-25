@@ -1,24 +1,18 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~07:45 UTC (session 94 = unattended session 27 of the #1-push brief).
+Updated 2026-10-25 ~07:55 UTC (session 96 = unattended session 29 of the #1-push brief).
 
-**s94 (no checks): verify 1 full on gw_verify: attention -0.7 us vs Triton but whole ties (_new_tokens 0.5, merge 2.6-3);
-fused in-grid merge (gfuse, exp/v1fuse) dead: barrier +1.8 + one-pass merge body 1.5 > separate merge. NOTES s94.**
+**s96: vtk = verify 1 sliding as csl clusters per (request, TOKEN, KV head) (256 CTAs; each cluster = csl's decode
+layout, new tokens at window keys 2047 - j + n in CTA 15's last warp, branch-free, no IEEE divides). H100 verify 1
+sliding 7.65-7.82 -> 6.43-6.50 us paired (bench geomean 2.013 -> 2.036). main 1e4c80e. NOT CHECKED (no checks left).
+Trap found: IEEE divides / guarded blocks on a straggler warp serialize its chains (+2.2 us). NOTES s96.**
 
-**s93: merged agent2 nvs (verify sliding B>=32 native) -> main 4e63331; check 13582a1b 2.465x (verify 32 sliding 15.14),
-scored 8abec5c6 2.385x (noisy full layers, board keeps 2.445).** Dead (H100): nvs at verify 1 sliding (8.5 vs 7.7 us),
-csl coalesced page-table + shuffles, csl nc gathers. csl stamps: 2 DRAM trips ~2.07 us + 1.2 us tail. NOTES s93.
+**s95: decode 1 full merge = FP32 atomic adds at a FIXED reference max 0 (4 replicas, v4 atomics) inside _gd_full + one
+4-warp `_red_fin` (reads 16 KB); out-of-range splits (m outside [-60, 100]) keep exact partials, listed and merged by
+the finish. H100 decode 1 full 14.55 -> 13.85 us (8/8), main 75081b1. H200 check 257c10be: decode 1 full 14.14 -> 13.53 us (overall 2.425x on a slow node). Dead: in-grid last-arriver
+form (+4), same at verify 1 full (exp/redv, tie: 2x atomic volume) and verify 1 sliding (+0.4).**
 
-**s92: native pipelined decode-1-full kernel (tools/s92/nfl.cu, exp/nfull): dead on the H100 (15.7 vs 14.6 us). NOTES s92.
-
-**s91: csl one 16-CTA cluster per (request, KV head), 4 warps/CTA (each SM gathers 16 KB, not 32): SCORED 08bf9391
-2.445x = NEW ACCOUNT BEST (main 9b14e27).** H200 decode 1 sliding 4.91 -> 4.17 (check) / 4.73 (scored), decode 16
-sliding 8.41 -> 7.63 / 7.70. csl stamps (tools/s91/cslstamp.py): page table 1.0 us, gathers 1.3, tail 1.6 of serial
-phases that don't shrink with fewer instructions (owner merge fast-math/tree, earlier cluster wait: ties). NOTES s91.
-
-**s90: merged agent2 maskif (mif + preq, verify 16/32 sliding) -> main ad2116c; SCORED 0339a5f6 2.364x = NEW ACCOUNT
-BEST.** Verify 1 full probes: compute-latency-bound in Triton (warm 14.2 vs cold 15.45 us; 6.2 us fixed + 0.111 us/1k
-keys; doubling warps/SM raises CPI 4.5 -> 7.1, IPC +15%); FP8 P@V in Triton dead (+10 us). NOTES s90.
+**s91: csl (decode sliding B<=16) SCORED 08bf9391 2.445x = account best (main 9b14e27). NOTES s91.**
 
 ## Board and best run
 
@@ -31,14 +25,15 @@ keys; doubling warps/SM raises CPI 4.5 -> 7.1, IPC +15%); FP8 P@V in Triton dead
 
 ## Code state
 
-- main = 4e63331 (check 13582a1b 2.465x, scored 8abec5c6 2.385x noisy; best scored still 08bf9391 2.445x = 9b14e27).
-- Dispatch: verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
-  to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full`; sliding + small -> Triton
+- main = 1e4c80e (= 75081b1 + s96 vtk for verify 1 sliding, unchecked). 75081b1 = 4e63331 + s95 red for decode 1 full. 4e63331: check 13582a1b 2.465x, scored 8abec5c6 2.385x noisy;
+  best scored still 08bf9391 2.445x = 9b14e27.
+- Dispatch: verify sliding B=1 -> native `vtk_verify` (s96); verify sliding B>=32 -> agent2's native nvs + _combine_hb; decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
+  to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full` (batch 1: plan red, atomic merge + `_red_fin`); sliding + small -> Triton
   `_attn_split` + PDL merges.
 
 ## Budget (UTC day 2026-10-25; API: `okc problems --json`)
 
-- 2026-10-25 after s93: checks 15/20, scored 6/10 (s93: check 13582a1b, submit 8abec5c6). Claude's 6 submits today are USED.
+- 2026-10-25 after s95: checks 16/20 (4 left = agent2's), scored 6/10. After s93: checks 15/20, scored 6/10 (s93: check 13582a1b, submit 8abec5c6). Claude's 6 submits today are USED.
 
 - Today's judge runs are listed in ~/COORD.md "Judge runs" and NOTES s85-s91. Agent2 keeps >= 8 checks/day (it has used 1).
 
@@ -85,11 +80,18 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- main 4e63331 checked 2.465x but scored 2.385x (noise). A re-score of main is reasonable next UTC day (00:00Z) if nothing
-  better is ready; its check beat 2.445.
+- **FIRST after 00:00Z 2026-10-26: check main 1e4c80e (vtk verify 1 sliding + s95 red decode 1 full); submit if > 2.445.**
+
+- (75081b1's decode 1 full -0.6 us H200 is included in 1e4c80e.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s96: vtk2a (2 tokens per cluster, 8.1+), vtkp 8-CTA x 8-warp clusters (7.1 vs 6.5), reciprocal divides in decode csl (tie).
+
+- s95: in-grid arrival counter + last-arriver tail (acq_rel arrivals ~1.3 us, tail waits on the L2 atomic queue);
+  atomic merge at verify 1 full (tie) / verify 1 sliding (+0.4); not ported to batched full (merge tails 0.2-4.1 us
+  H100 vs >= 2x the atomic volume).
 
 - s94: verify 1 full gfuse / one-pass in-grid merge (18.7 vs 17.9), gw non-bal at verify 1 full (whole tie).
 
