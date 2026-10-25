@@ -1,6 +1,12 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~03:50 UTC (session 85 = unattended session 18 of the #1-push brief).
+Updated 2026-10-25 ~04:20 UTC (session 86 = unattended session 19 of the #1-push brief).
+
+**s86: SCORED 8aec5993 2.354x = NEW ACCOUNT BEST (main e8a1f73, code 07a06b3).** Bisected s85's verify 1 sliding
+SPEC loss: SPEC alone (no pre 2) also lost on the H200 (diag 6e8ac91c: 9.24 us); the cause is the unexecuted
+out-of-line `noinline` redo copy (2x PTX). Loop form (one body in `while go:`, seq loop-carried) + pre 2: H100 -0.29,
+H200 check e1620b92 2.359x (verify 1 sliding 7.32), scored 8aec5993 2.354x (verify 1 sliding 6.91). `_gd_full` loop
+form loses +1.2 H100 (keeps noinline, which is fine in Gluon); verify 1 full SPEC +0.35 H100 (off). NOTES s86.
 
 **s85: SPEC on main (fcc6a51).** Batch 1, page 1: seq = page-table width - L (SGLang slices the table to the longest
 length), loads start at once, real seq_lens checked on device, everything redone on mismatch (bit-identical; never
@@ -31,8 +37,8 @@ at verify 32/16 full. s77 H200 per-kernel diag harness (renamed kernel copies in
 
 ## Board and best run
 
-- Board 2026-10-25 01:10Z (unchanged at 01:20): #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.350x (#21)** (scored
-  **9f8e594b**, main 4aa402b). Need ~+24% for #1. Table below is the older 7f45c5c6 run (NOTES s79 has 9f8e594b's).
+- Board 2026-10-25 04:15Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.354x (#26)** (scored
+  **8aec5993**, main e8a1f73; previous best 9f8e594b 2.350x). Need ~+24% for #1. Table below is the older 7f45c5c6 run (NOTES s79 has 9f8e594b's).
 - Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
 
 | load | sliding (x46) | full (x16) | load speedup |
@@ -58,7 +64,7 @@ at verify 32/16 full. s77 H200 per-kernel diag harness (renamed kernel copies in
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- 2026-10-25: checks 7/20 (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
+- 2026-10-25: checks 9/20 (s86: 6e8ac91c diag 2.302x, e1620b92 2.359x; scored 8aec5993 2.354x = 3/10 scored) (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
@@ -105,9 +111,12 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- main fcc6a51 (SPEC) checked 297d496a 2.347x (tie); re-check together with the next real change, submit if > 2.353.
+- Nothing queued: main e8a1f73 = scored 8aec5993. Submit a new main only if its check beats 2.354.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s86: noinline redo copy in Triton _attn_split (H200 +2 us cold), loop-form SPEC in Gluon _gd_full (+1.2 H100),
+  verify 1 full SPEC (+0.35 H100).
 
 - s85: SPEC in _attn_split for verify 1 sliding (H200 judge +2.4 us, unexplained) and verify 1 full (H100 +0.1..0.2).
 
