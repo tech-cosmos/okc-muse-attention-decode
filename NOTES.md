@@ -3969,3 +3969,61 @@ items (none yet). Tools: tools/s88/ (floor1.py, ngather.py, ovh.py, gd1.py = who
 ### Budget (UTC day 2026-10-25)
 
 No checks this session. Account: checks 9/20, scored 3/10 (agent2 gets >= 8 of the remaining 11 checks).
+
+## Session 89 (unattended session 22, 2026-10-25 04:23 - ~05:20 UTC): native wgmma verify-1-sliding kernel = dead (DSMEM merge wall)
+
+Board 04:23Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.354x (#27, 8aec5993). COORD "Ready to merge" empty
+(agent2 had nothing). Account at session start: checks 10/20, scored 3/10. **No checks used.** Tools: tools/s89/vsw.cu,
+vsw.py (`python tools/s89/vsw.py check|time|stamp`; env BULK=0 st.async pushes, 1 DSMEM bulk copies (default),
+2 L2 exchange).
+
+### What was built (brief item 1: "wgmma where rows allow" for verify 1 sliding)
+
+One kernel, one 16-CTA cluster per (request, KV head) (32 CTAs at batch 1), 384 threads. CTA rank p, warpgroup wg < 2
+covers window keys [128p + 64wg, +64) as ONE 64-key tile, single pass (no online rescale): Q (RMS norm, RoPE, E4M3)
+and K into SW64 smem from register gathers (LDG, csl-style load order, SPEC seq from the table width), V^T built in
+smem with 8 PRMT + 8 STS.32 per thread (key slots permuted to the P register layout, as nverify's !NV_TR path),
+S = m64n64k32 E4M3 wgmma, P = exp2(S - (m - 8)) in E4M3 (FA3's FP8 path), P@V as RS wgmma; warpgroup 2 of CTA 15
+runs the 8 new tokens (cache store, m64n8k32 QK, causal mask). The CTA's 2-3 warpgroup partials merge in smem, then
+each CTA sends one FP32 64-row partial to the 16 owner CTAs (4 rows each), which merge, RMS-normalize, gate, store.
+**Correct on 7 cases** (batch 1-5, ctx 10 edges, page 64, kv_scale, mixed; diff vs main 0.003-0.006).
+
+### Measured (H100, graph-timed like the judge, us; main verify 1 sliding 7.4-7.8)
+
+| variant | full | loads only | + compute (no push) | all CTAs done | push, no owner merge |
+|---|---|---|---|---|---|
+| per-warpgroup st.async pushes (33 partials/owner) | 9.1-9.5 | 4.0-5.1 | 5.8-6.4 | 6.6-6.9 | 8.3-8.9 |
+| + per-warpgroup DSMEM bulk copies | 8.9-9.3 | | | | |
+| + local smem merge first (16 partials/owner), bulk | **8.0-8.2** | 4.2-4.5 | 5.9-6.4 | 6.6-6.9 | 7.65-8.0 |
+| same, st.async from registers | 8.1-8.4 | | | | |
+| same, exchange through L2 (stores, release/acquire cluster barrier, ld.cg) | 13.2-13.4 | | | | |
+
+%globaltimer stamps (256 ns steps, cold L2, from kernel start): K/V landed + smem written 2.05-2.2, QK+softmax+PV
+done 3.33 (~1.0 us), local merge 3.6, push issued 3.84-4.1, **owners done 5.6-5.9** (1.5-1.8 us after the push).
+SPEC saves 0.1-0.4 here.
+
+**Why it's dead: DSMEM bandwidth.** Each CTA has to send (and each owner receive) one 64-row x 64-d FP32 partial,
+16 KB, whatever the split count (rows per CTA = 64 = one wgmma M tile per KV head). That takes ~1.3 us (~12 B/ns per SM)
+in a 16-CTA cluster. The s74 microbench (tools/s74/vmerge.py, rerun today) agrees: same volume, bulk copies, 2
+clusters = 4.2-4.3 vs 2.6 us launch floor. Fewer splits don't help (bytes per SM are set by the 64 rows), a tree
+reduce-scatter sends the same bytes, BF16 partials are banned, and the L2 exchange is far worse. Best case after
+shaving compute (1.0 -> ~0.6) and the pre-push work is ~7.0-7.3 vs main 7.6 on the H100, too small to spend a check.
+Main's split (Triton attention + PDL merge kernel) stays. With s72 csv and s84 vsl, that's the **third native
+verify-1-sliding single kernel to lose**; the in-kernel cross-CTA merge at verify volume (8x decode's) is the wall.
+
+### Side facts
+
+- csl's FP8 `mma.sync` m16n8k32 is emulated on sm_90a: SASS per kernel = 24 HMMA.16816.F32 + 77 F2FP.F16.E4M3.UNPACK_B
+  (cuobjdump at /usr/local/cuda-13.0/bin). Small; it is not csl's main cost.
+- The new-token warpgroup finishes its smem tile at ~1.5 us, well before the gathers (2.05), so it's off the chain.
+
+### Next
+
+- Verify 1 sliding: no single-kernel path while the merge needs 16 KB/SM of DSMEM. The only structural lever left
+  is cutting the second kernel's ~1.5-2 us fixed cost in main (fused last-program merges lost before: s36/s43/s50).
+- Decode 1 sliding (csl, 1.58 %/us): a stamp breakdown like this session's (tools/s89/vsw.py stamp) hasn't been done
+  for csl; s72's ablation split (compute ~0.8, merge ~0.8, cluster launch ~0.45) is the last one.
+
+### Budget (UTC day 2026-10-25)
+
+No checks this session. Account: checks 10/20, scored 3/10 (agent2 gets >= 8 of the remaining 10).
