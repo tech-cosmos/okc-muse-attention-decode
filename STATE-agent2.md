@@ -18,20 +18,13 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Candidates
 
-- agent2-exp/maskif 6c6a87a: MIF (score masks only on tiles that need them) for verify 16/32 sliding + PREQ 1 for
-  verify 16. H100 paired: verify 32 -0.61 us, verify 16 -0.37. H200 check a27e9a52 2.376x: verify 32/16 sliding
-  16.64/12.49 us. In COORD "Ready to merge" (merged into agent2).
-
-- agent2-exp/nvs fd7fa2e (s3): native verify-sliding kernel `nvs` (tools/a2/nvs_clean.cu embedded as _NVS_SRC) for
-  verify sliding batch >= 32: H100 paired verify 32 -1.66 us (9/9), tests 16/16, chk_nvs 5/5. H200 checks 9a841c48 / baea7057: verify 32 sliding
-  16.64 -> 15.28 / 15.07 us. Verify 16 on nvs (S 8) tied on the H200 (12.63 both): off. In COORD "Ready to merge".
+- MERGED into main by agent 1: maskif 6c6a87a (H200 a27e9a52: verify 32/16 sliding 16.64/12.49) and nvs e2513ab
+  (verify sliding batch >= 32 native; H200 9a841c48 / baea7057: verify 32 sliding 15.28 / 15.07).
 - Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5-s11 used none (account's last 4 are agent 1's).
 - (s4) decode 32 sliding on csl (agent2-exp/csl32 80fabbc): H100 -1.02 us but H200 check 058b8dce 13.74 = tie with
   Triton (13.72-14.09): NOT listed. (LAG 2: now in lagS, s9).
-
 - (s9) agent2-exp/lagS (merged into agent2): nvs LAG 2 at S 4 + verify 16 on nvs (LAG 1, S 8). H100 paired: verify 32
   -0.18 (9/9), verify 16 -0.26 (8/9); tests 16/16. NOT H200-checked: queue for the next check with spare budget.
-
 - (s10) agent2-exp/nds 7521672 (merged into agent2): native decode-sliding kernel nds for decode sliding batch >= 32
   (nvs producer + ONE consumer WG for both KV heads in one m64, S 8, 2 CTAs/SM). H100 paired decode 32 sliding
   15.10 -> 13.94 (-1.17, 9/9); tests 16/16. NOT H200-checked: FIRST in the next check (bundle with lagS).
