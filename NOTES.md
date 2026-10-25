@@ -4794,3 +4794,32 @@ Tests 16/16. H100 dry run (tools/s108/hd2_h100.log, CUPTI medians of 20, flushed
 
 ### Budget (UTC day 2026-10-25)
 - s108: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 109 (unattended session 42, 2026-10-25 11:22 - ~11:40 UTC): batch-1 probes, all dead (H100 only, no checks)
+
+Board 11:23Z unchanged (#1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.460x 8725ba7e). Account: checks 18/20 (2 left =
+agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.** main unchanged (05efdde code).
+
+### csl layout variants (decode 1/16 sliding; tools/s109/cslvar.py = s91's harness + VAR w8/w1, patches only the csl part)
+H100 paired graph timing, 11 rounds, all variants correct on the 5 cases:
+- **w8** (8 warps x 16 keys per CTA, same bytes per SM, half the loads per thread; QK n8 x 2, P@V k32 half zero):
+  decode 1 sliding 5.39 -> 5.47 (+0.08, 1/11), decode 16 9.66 -> 11.87 (+2.2: 256-thread CTAs, 32 KB premerge). Dead.
+- **w1** (1 warp per CTA, 4 chunks of 32 keys, no smem premerge / __syncthreads, each lane pushes straight to the
+  owners; tools/s109/csl_w1.cu): decode 1 sliding +1.74 (0/11), decode 16 +0.99. Dead.
+- So keys per warp 16 / 32 / 128 = +0.08 / base / +1.74: csl's 4 warps x 32 keys is the local optimum; the 0.25 us
+  premerge is cheaper than the extra per-thread load chain it would take to remove it.
+
+### Verify 1 full on the Gluon path again, now with LZ 10 (H100 bench.py sweep, main = 17.15 us)
+- gbal (_verify_bal, LZ 10): fill 264 progs 27-181 us (hb 2 merges up to 512 partials in one-warp programs);
+  fill False splits 66/132/264, hb 1 cw 4/8: 21.7-22.8. Profile (tools/s109/profp.py, flushed): `_gw_verify` 18.7 vs
+  `_attn_split` 16.7, plus `_new_tokens` 4.7. The gw kernel itself loses at batch 1.
+- non-bal gw (`_verify_gluon`): splits 132 hb 1 cw 4 18.9; 264 25.1; gfuse 32-239 (in-grid merge at 1 request). Dead.
+- (The H200 `v1gw` kernel time in exp/hdiag2 is still worth reading when that check runs, but don't expect a win.)
+
+### Next (unchanged)
+- After 00:00Z 2026-10-26: (1) check main 05efdde, submit if it beats 1531.2 us; (2) check exp/hdiag2 98153b5.
+- Batch-1 sliding natives: every layout variant tried (s72-s109) ties or loses; the remaining csl/vtk time is two
+  DRAM trips + launch + a ~1.2 us latency-bound tail.
+
+### Budget (UTC day 2026-10-25)
+- s109: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.

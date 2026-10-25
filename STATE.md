@@ -1,23 +1,14 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~11:45 UTC (session 108 = unattended session 41 of the #1-push brief).
+Updated 2026-10-25 ~11:40 UTC (session 109 = unattended session 42 of the #1-push brief).
 
-**s108: REDO stress of main (40 seeds x 6 verify shapes, judge order): 240/240 correct, no REDO. Built exp/hdiag2 98153b5
-(diag, never submit): exp/hdiag on current main + in-run paired variants of main's unverified changes. H100: decode 32
-full dense floor 209 vs random 234 us (-11%). 0 checks. NOTES s108.**
+**s109: csl w8 (8 warps x 16 keys) +0.08/+2.2 and w1 (1 warp x 128 keys, no premerge) +1.74/+0.99 at decode 1/16
+sliding: dead; gw/gbal at verify 1 full with LZ 10: 18.9-22 vs 17.15 us: dead. 0 checks. NOTES s109.**
 
-**s107: FOLD (Q prescaled + reference subtracted by an extra QK wgmma k-step, no FFMA in the verify-full loop) = dead:
-H100 all-L2 -2.56/-0.93 us but real +0.6/+0.7, H200 emu tie; rare unexplained REDO storm under emu. exp/fold. 0 checks. NOTES s107.**
-
-**s106: main 05efdde = d6cb195 + verify 1 full fixed-reference softmax in Triton (plan fix 1, exact _combine REDO; H100
-paired cold -0.29 us, warm -0.27) + SPEC OOB fix (batch-1 speculative gathers read row -1 when seq_lens < width - L;
-never on scored inputs; clamp, cost ~0). Dead: fixed ref in _gd_full (gather-bound), verify-full knob resweep. NOTES s106.**
-
-**s105: LZ 10 fixed-reference softmax in _gw_verify (verify 16/32 full; H100 all-L2 -13.5/-6.8 us, H200 UNVERIFIED;
-REDO ~17 ms if a row grows > 30 binades, max seen 23.2). NOTES s105.**
-
-**s104: LZ 4 gap = in-loop branches (s105 confirmed). s103: red on batched decode full (H100 -1.58/-1.09 us, on main, H200
-unverified). s102: submitted 8725ba7e 2.460x = account best; full layers bimodal across judge nodes. NOTES s102-s104.**
+**s104-s108 (NOTES s104-s108): s108 REDO stress of main 240/240 clean + exp/hdiag2 98153b5 built (paired H200 diag,
+never submit; H100 decode 32 full dense floor -11% vs random); s107 FOLD dead; s106 fix 1 verify 1 full + SPEC OOB clamp
+(on main); s105 LZ 10 verify 16/32 full (on main, H200 unverified); s104 LZ 4 gap = in-loop branches; s103 red on batched
+decode full (on main, H200 unverified); s102 submitted 8725ba7e 2.460x = account best.**
 
 **Earlier (details in NOTES s91-s101): s101 decoupled V ring in gbal = H200 tie/loss; s100 vtk H200 win (verify 1 sliding 6.8 -> 5.6), launch floor ~2 us/kernel;
 s99 physical-row order dead; s98/s97 vtk / nverify probes dead; s96 vtk built; s95 red (fixed-reference-max atomic
@@ -92,9 +83,9 @@ numbers: NOTES s69.)
   floors (random vs dense). Revert per shape what loses; port winners; then check main.**
   (main 1e4c80e was scored in s102: 8725ba7e 2.460x; don't resubmit it unchanged.)
 
-- Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s109: csl keys per warp 16 (w8) / 128 (w1, no premerge) vs 32; gw / gbal Gluon at verify 1 full even with LZ 10.
 - s107: FOLD (softmax scale/reference subtraction folded into the QK wgmma: extra k-step lengthens the chain).
 - s106: fixed reference in _gd_full (decode full gather-bound), at verify 16 sliding (+0.59), verify-full plan knobs under
   LZ 10, ones-column row sums (Gluon needs power-of-two N).
