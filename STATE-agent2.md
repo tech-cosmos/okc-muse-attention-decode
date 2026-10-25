@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~12:15 UTC (agent2 session 11).
+Updated 2026-10-25 ~12:50 UTC (agent2 session 12).
 
 ## Scope
 
@@ -12,26 +12,21 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 | shape | H200 us | H100 us | per-us value | path |
 |---|---|---|---|---|
 | decode 16 sliding | 8.19 | 9.60 | 0.42 %/us | native csl (16-CTA cluster/request) |
-| decode 32 sliding | 13.97 | 15.17 | 0.23 | Triton _attn_split (512 progs) + _combine_hb (agent2: nds 13.94 H100) |
-| verify 16 sliding | 12.75 | 14.27 | 0.31 | Triton (256 progs, 4 x 64-key tiles) + _combine_hb |
+| decode 32 sliding | 13.97 (nds: **12.20**) | 15.17 (nds 13.7) | 0.23 | Triton; agent2 652f126: nds + _combine_hb |
+| verify 16 sliding | 12.75 (nvs: **12.06**) | 14.27 (nvs 13.5) | 0.31 | Triton; agent2 652f126: nvs S 8 + _combine_hb |
 | verify 32 sliding | 17.72 | 18.96 | 0.18 | Triton (256 progs, 8 x 64-key tiles) + _combine_hb |
 
 ## Candidates
 
-- MERGED into main by agent 1: maskif 6c6a87a (H200 a27e9a52: verify 32/16 sliding 16.64/12.49) and nvs e2513ab
-  (verify sliding batch >= 32 native; H200 9a841c48 / baea7057: verify 32 sliding 15.28 / 15.07).
-- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5-s11 used none (account's last 4 are agent 1's).
-- (s4) decode 32 sliding on csl (agent2-exp/csl32 80fabbc): H100 -1.02 us but H200 check 058b8dce 13.74 = tie with
-  Triton (13.72-14.09): NOT listed. (LAG 2: now in lagS, s9).
-- (s9) agent2-exp/lagS (merged into agent2): nvs LAG 2 at S 4 + verify 16 on nvs (LAG 1, S 8). H100 paired: verify 32
-  -0.18 (9/9), verify 16 -0.26 (8/9); tests 16/16. NOT H200-checked: queue for the next check with spare budget.
-- (s10) agent2-exp/nds 7521672 (merged into agent2): native decode-sliding kernel nds for decode sliding batch >= 32
-  (nvs producer + ONE consumer WG for both KV heads in one m64, S 8, 2 CTAs/SM). H100 paired decode 32 sliding
-  15.10 -> 13.94 (-1.17, 9/9); tests 16/16. NOT H200-checked: FIRST in the next check (bundle with lagS).
+- (s12) READY TO MERGE (COORD): agent2 652f126 = nds (decode 32 sliding) + nvs verify 16; check 9249146d 2.527x:
+  decode 32 sliding 12.20, verify 16 sliding 12.06 (H200). LAG 2 at S 4 reverted (verify 32 15.41 = tie/loss).
+- Checks used by agent2 on 2026-10-25: 5 (+9249146d); account 19/20, the last one left to agent 1.
+- Earlier: maskif + nvs (verify 32) merged into main by agent 1; csl32 (s4) H200 tie, not listed.
 
 ## Ranked ideas
 
-00000. FIRST check after 00:00Z: nds + lagS bundle (agent2 = both merged; tests 16/16 at 2763525).
+00000. (s12) Nothing queued for checks. Idea: verify CTA per (request, KV head, half window), 2 consumer WGs merged in
+    smem (partials 4 -> 2 MB at verify 32, est. -0.5 us). H200 favors cp.async-ring designs by ~0.5 us vs H100.
 0000. (s11) merges are the wall (~2 us on the H100 for every split design: PDL release ~0.5 + post-wait partial
     reads ~1.2; last-CTA tails the same). Only csl-style small-CTA clusters hide it (decode 16). New structural ideas
     needed; nds NS 4 at decode 16 = kernel 8.6-8.9 (-1.2 vs NS 3) if a cheap merge ever appears.
@@ -41,6 +36,8 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+
+- s12: nds at decode 16 (+2.1..+2.5 vs csl), nds decode 32 NS 4 (+3.4, 1 CTA/SM) / S 16 (+3.1) / NS 2 (deadlock). NOTES-agent2 s12.
 
 - s11: nds fused last-CTA merge (tools/a2/nds_fm_dead.patch; best 14.05-14.19 vs 13.9 with fast math + acq_rel ticket
   + gate L2 prefetch), native PDL combine (nds_ncombine_tie.patch: tie at 4 d/thread), nds at decode 16 (NS 4 10.8 total;

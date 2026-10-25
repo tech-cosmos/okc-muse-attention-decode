@@ -541,3 +541,34 @@ S 8 1 CTA/SM: NS 4 kernel 8.62-8.94 (NS 3 was 9.8-10.7; NS 5 9.0-9.2) but + comb
   -1.2 us kernel at decode 16 vs NS 3: if a merge-free variant (one CTA per request, S 1, full window per CTA) could
   reach ~9 us... s7 says no-split gathers cap at ~8.3 us for B16 on H100: price nds at S 1 with NS 8 at decode 16
   (16 CTAs only: likely latency-bound, 32 tiles each).
+
+## Session 12 (2026-10-25 11:56 - ~12:50 UTC): nds + nvs-verify-16 WIN on the H200 (check 9249146d); listed
+
+Start: merged origin/main 069ee90 (agent 1 s109-s110) into agent2 (07d0de5); tests 16/16; H100 bench 2.038.
+Account 18/20 checks; human 08:10Z + agent 1 s101 left the last 2 to agent2 -> used 1, left 1 for agent 1.
+
+### Check 9249146d54844322 (agent2 07d0de5 = main 069ee90 + nds + nvs verify 16 + nvs LAG 2 at S 4): 2.527x
+[2.489, 2.565], 1490.3 us, 16/16 (the account's best check; it also carries main's own unchecked changes).
+| shape | H200 us | main's recent range | verdict |
+|---|---|---|---|
+| decode 32 sliding (nds) | **12.20** | 13.72-14.09 | WIN -1.7 (H100 said -1.17) |
+| verify 16 sliding (nvs S 8) | **12.06** | 12.49-12.75 | WIN -0.4..-0.7 (baea7057 had nvs16 at 12.63 = tie: noise or LAG/stage changes since) |
+| verify 32 sliding (nvs LAG 2) | 15.41 | 15.07-15.28 | tie/loss -> LAG 2 reverted (652f126) |
+| decode 16 sliding (csl, unchanged) | 8.13 | 7.63-8.41 | - |
+652f126 (LAG 1 at every S again; verify 32 = main's checked code): tests 16/16; listed in COORD "Ready to merge".
+Lesson: nds (cp.async ring, 2 CTAs/SM, 256 CTAs) gained MORE on the H200 than on the H100, while csl32 (register
+gathers, one-shot) lost its H100 win there: on the H200, ring designs with more bytes in flight per SM do relatively
+better than the H100 predicts, by ~0.5 us at batch 32.
+
+### Dead (H100, tools/a2/vab.py paired, 7 rounds)
+- nds at decode 16 (CSL off): S 8 12.19, S 16 11.81, S 8 NS 4 12.19 vs csl 9.71 (+2.1..+2.5, 0/7). Even with a
+  ~1.5 us H200 shift this loses.
+- nds decode 32 NS 4 (smem -> 1 CTA/SM) +3.36; S 16 (512 CTAs) +3.12; NS 2 deadlocks (LAG 1 needs >= 3 slots;
+  hung the GPU until killed).
+- vab.py now renames any muse_nvs_* build name (was hard-coded to a2s9).
+
+### Next
+- Tomorrow's checks (agent2 <= 8): nothing queued yet. The batch 16/32 sliding shapes now sit at 8.1/12.2/12.1/15.4 us
+  H200. Ideas with some value: (1) verify: CTA per (request, KV head, half window) with 2 consumer WGs merged in smem
+  (halves partial bytes 4 -> 2 MB at verify 32; est. -0.5 us); (2) decode 16 csl is DRAM/latency-bound (all-L2 6.2 vs
+  8.8 real, NOTES.md s75), no lever found.
