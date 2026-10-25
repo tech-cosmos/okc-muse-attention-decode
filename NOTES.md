@@ -5209,3 +5209,66 @@ is free, `{"splits": 505, "sep": 1, "ua": true}` is the variant to time.
 
 ### Budget (UTC day 2026-10-25)
 - s118: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 119 (unattended session 52, 2026-10-25 14:49 - ~15:00 UTC): batch-1 plan knobs (H100 refs for the diag); csl owner-merge trims re-tied (no checks)
+
+Board 14:50Z unchanged: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450, 1481.9 us).
+Account: checks 20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new (agent2 NV_HALF already on
+main). **0 checks, 0 scored. main code unchanged (ae1161c).** All local branches match origin (pushed).
+
+### H100 reference numbers for exp/hdiag4's batch-1 variants (tools/s118/ab.py, cold, paired, 9 rounds, median us)
+Use these to tell whether the H200 diag disagrees with the H100 (the H200 needs more bytes in flight per Little's law,
+so "more in flight loses on the H100" is not proof it loses on the H200):
+- decode 1 full: base (511 splits, BN 32, stages 2) 14.11 / 14.00; stages 3 14.46; stages 4 15.10; BN 64 stages 2
+  16.62; BN 16 stages 4 15.41; splits 1023 14.24; splits 255 16.24 (every variant 0/9 rounds vs base).
+- verify 1 full: base (127 splits, BN 64, stages 8) 17.78; stages 10 18.37; stages 12 18.82 (0/9).
+Reading rule for the diag stays: port a d1/v1 variant only if its H200 `_gd_full`/`_attn_split` beats `d1a`/`v1a` by > 0.3 us.
+
+### Dead
+- **Work stealing / dynamic tile grabs in `_gd_full` (decode 1 full), on paper:** s118's end spread is p50 9.19 -> max
+  10.05 us (~0.86 us, about one 32-key tile). An adaptive grab must happen late (when a program is known to be fast),
+  and then pays atomic trip + page-table trip + row trip (~3 x 0.6-0.7 us) before the stolen tile's rows land: more
+  than the spread it removes. Grabs issued early aren't adaptive (= static split). Not built.
+- **csl owner-merge trims on the current per-KV-head layout** (tools/s119/cslsig.py = s91's cslvar `sig`/`tree` patches
+  re-anchored, csl only, vtk untouched; 5/5 correctness cases pass): `sig` (gate sigmoid before the receive wait,
+  __fdividef/__frcp_rn instead of IEEE divides) decode 1 / 16 sliding -0.03 / -0.05 (9/15, 10/15) = tie; `sig,tree`
+  (+ tree max, 4 independent accumulators) +0.00 / +0.02 (5/15). Same as s91 on the old layout: the ~1.2 us tail after
+  P@V is DSMEM/smem latency + waiting for the slowest CTA, not ALU work. Instruction-level trims of csl's tail are closed.
+
+### Next (after 00:00Z 2026-10-26, new sandbox): unchanged from s118
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag4 @ 8b557ec (diag, never submit); compare its d1*/v1* kernel times with the H100 refs above.
+
+### Budget (UTC day 2026-10-25)
+- s119: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 120 (unattended session 53, 2026-10-25 14:56 - ~15:15 UTC): cluster placement probes; exp/hdiag5 (no checks)
+
+Board 14:56Z unchanged: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450, 1481.9 us).
+Account: checks 20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new. **0 checks, 0 scored. main code
+unchanged (ae1161c).** Tools: tools/s120/ (place.py, place256.py = %smid placement of csl/vtk-shaped 16-CTA cluster
+launches; uachk.py = d1ua variants vs reference).
+
+### Where the hardware puts the 16-CTA clusters (H100, probe kernel with csl's block/smem/cluster dims, 20-50 launches)
+- **csl at batch 1 (32 CTAs = 2 clusters): 32 distinct SMs, 1 CTA per SM in every launch.** So csl's per-SM gather bytes
+  are already the minimum (16 KB); "force 1 CTA/SM with dynamic smem" has nothing to fix. Dead.
+- **vtk (256 CTAs = 16 clusters): only 116 SMs used, max 3 CTAs on one SM, every launch** (16-CTA clusters must fit in a
+  GPC; the 16 SMs left over in partly-usable GPCs stay idle). This may be part of vtk's unexplained 4 -> 8 token cost
+  (+0.5 us, s97), but every fix I see is already dead: 8-CTA clusters (vtkp s96), 2 tokens per CTA/cluster (vtk2a
+  s96/s97, vtkp), cross-cluster merges. The H200's GPC floorsweeping may differ (unknown placement there).
+- Re-confirmed dead from the notes before building: `_red_fin` polling an arrival counter instead of the PDL grid wait
+  (s34 flag merge, exp/spin: release + poll loses to griddepcontrol.wait), polynomial exp2 in verify full (issue-bound).
+
+### exp/hdiag5 @ 840db1a (DIAG ONLY, NEVER submit) = exp/hdiag4 8b557ec + main 705d9d2 + exp/ua's UA switch
+Adds decode 1 full variants `d1ua505` ({"splits": 505, "sep": 1, "ua": true}) and `d1ua511` (511 + sep + ua) to hdiag4's
+list (s118's marginal exp/ua: H100 -0.15..-0.35, inconsistent). Variants correct vs reference on 3 seeds (tools/s120/
+uachk.py, max |diff| vs main <= 0.008), tests 16/16; diag shapes bench at ms (L2 flush per variant), as in earlier diag
+checks. **Supersedes hdiag4 as the second queued check** (same variants plus these two, and main's 16-warp `_red_fin`).
+Reading rule unchanged: port d1ua* only if its `_gd_full` beats `d1a_gd_full` by > 0.3 us in the profile.
+
+### Next (after 00:00Z 2026-10-26, new sandbox)
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag5 @ 840db1a (diag, never submit); compare d1*/v1*/d32*/v32* kernel times with s119's H100 refs.
+
+### Budget (UTC day 2026-10-25)
+- s120: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
