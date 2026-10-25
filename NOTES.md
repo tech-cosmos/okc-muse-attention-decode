@@ -5241,3 +5241,34 @@ Reading rule for the diag stays: port a d1/v1 variant only if its H200 `_gd_full
 
 ### Budget (UTC day 2026-10-25)
 - s119: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
+
+## Session 120 (unattended session 53, 2026-10-25 14:56 - ~15:15 UTC): cluster placement probes; exp/hdiag5 (no checks)
+
+Board 14:56Z unchanged: #1 pjmullin3 2.910x (1294.4 us), #2 2.844x, #3 2.710x; ours 2.542x rank 8 (e64d3450, 1481.9 us).
+Account: checks 20/20 (0 left today), scored 8/10. COORD "Ready to merge": nothing new. **0 checks, 0 scored. main code
+unchanged (ae1161c).** Tools: tools/s120/ (place.py, place256.py = %smid placement of csl/vtk-shaped 16-CTA cluster
+launches; uachk.py = d1ua variants vs reference).
+
+### Where the hardware puts the 16-CTA clusters (H100, probe kernel with csl's block/smem/cluster dims, 20-50 launches)
+- **csl at batch 1 (32 CTAs = 2 clusters): 32 distinct SMs, 1 CTA per SM in every launch.** So csl's per-SM gather bytes
+  are already the minimum (16 KB); "force 1 CTA/SM with dynamic smem" has nothing to fix. Dead.
+- **vtk (256 CTAs = 16 clusters): only 116 SMs used, max 3 CTAs on one SM, every launch** (16-CTA clusters must fit in a
+  GPC; the 16 SMs left over in partly-usable GPCs stay idle). This may be part of vtk's unexplained 4 -> 8 token cost
+  (+0.5 us, s97), but every fix I see is already dead: 8-CTA clusters (vtkp s96), 2 tokens per CTA/cluster (vtk2a
+  s96/s97, vtkp), cross-cluster merges. The H200's GPC floorsweeping may differ (unknown placement there).
+- Re-confirmed dead from the notes before building: `_red_fin` polling an arrival counter instead of the PDL grid wait
+  (s34 flag merge, exp/spin: release + poll loses to griddepcontrol.wait), polynomial exp2 in verify full (issue-bound).
+
+### exp/hdiag5 @ 840db1a (DIAG ONLY, NEVER submit) = exp/hdiag4 8b557ec + main 705d9d2 + exp/ua's UA switch
+Adds decode 1 full variants `d1ua505` ({"splits": 505, "sep": 1, "ua": true}) and `d1ua511` (511 + sep + ua) to hdiag4's
+list (s118's marginal exp/ua: H100 -0.15..-0.35, inconsistent). Variants correct vs reference on 3 seeds (tools/s120/
+uachk.py, max |diff| vs main <= 0.008), tests 16/16; diag shapes bench at ms (L2 flush per variant), as in earlier diag
+checks. **Supersedes hdiag4 as the second queued check** (same variants plus these two, and main's 16-warp `_red_fin`).
+Reading rule unchanged: port d1ua* only if its `_gd_full` beats `d1a_gd_full` by > 0.3 us in the profile.
+
+### Next (after 00:00Z 2026-10-26, new sandbox)
+1. Check main **ae1161c** code; submit if it beats 1481.9 us.
+2. Check exp/hdiag5 @ 840db1a (diag, never submit); compare d1*/v1*/d32*/v32* kernel times with s119's H100 refs.
+
+### Budget (UTC day 2026-10-25)
+- s120: 0 checks, 0 scored. Account: checks 20/20, scored 8/10.
