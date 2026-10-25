@@ -77,6 +77,9 @@ _CSL_SRC = r'''// Batch-1-style decode sliding attention as ONE kernel: per requ
 #include <cuda_bf16.h>
 #include <cuda_fp8.h>
 
+#ifndef CSL_SPEC
+#define CSL_SPEC 1
+#endif
 namespace csl {
 constexpr int HQ = 16, HKV = 2, D = 64, W = 2048, QKV_W = (2 * HQ + 2 * HKV) * D;
 
@@ -119,7 +122,7 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
                                               unsigned char* kc, unsigned char* vc, const int* __restrict__ pt,
                                               const int* __restrict__ seqs, const long* __restrict__ loc,
                                               const float* __restrict__ ks, const float* __restrict__ vs,
-                                              __nv_bfloat16* __restrict__ out, int MP, float qk_scale) {
+                                              __nv_bfloat16* __restrict__ out, int MP, float qk_scale, int spec) {
     __shared__ __align__(16) float racc[16][D];
     __shared__ __align__(16) float rml[16][2];
     __shared__ __align__(16) float lpart[2][4][8][D];
@@ -150,34 +153,44 @@ __global__ void __launch_bounds__(256) decode(const unsigned short* __restrict__
     const unsigned gw = *(const unsigned*)(qkv + (long)b * QKV_W + (HQ + 2 * HKV) * D + rank * D + 2 * lane);
     const long nloc = loc[b];
     const float kscale = *ks, vscale = *vs;
-    const int seq = seqs[b];
-    const float* csr = cs + (long)seq * D + 8 * c;
-    const float4 c0 = *(const float4*)csr, c1 = *(const float4*)(csr + 4);
-    const float4 s0 = *(const float4*)(csr + 32), s1 = *(const float4*)(csr + 36);
-    const float co = cs[(long)seq * D + lane], si = cs[(long)seq * D + 32 + lane];
-    const int base = seq - (W - 1);
-    const int w0 = rank * 128 + wk * 32;
+    // spec >= 0 (batch 1, page 1): SGLang slices the page table to the batch's longest length, so the window's
+    // page-table range is known from the table width: gather from it without waiting for seq_lens, then compare
+    // with the real length and redo the loads if it differs (never on SGLang's inputs; correct either way).
+    int seq = spec >= 0 ? spec : seqs[b];
+    const float* csr;
+    float4 c0, c1, s0, s1;
+    float co, si;
+    int base, w0, tmax;
     const int* ptr = pt + (long)b * MP;
-    const int tmax = max(seq - 1, 0);
-    // Keys of this thread: K rows 8j + g (j 0..3), V rows {2c, 2c+1, 8+2c, 9+2c, 16+2c, ...}.
     long kslot[4], vslot[8];
-#pragma unroll
-    for (int j = 0; j < 4; ++j) {
-        int t = min(max(base + w0 + 8 * j + g, 0), tmax);
-        kslot[j] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;
-    }
-#pragma unroll
-    for (int i = 0; i < 8; ++i) {
-        int k = 8 * (i >> 1) + 2 * c + (i & 1);
-        int t = min(max(base + w0 + k, 0), tmax);
-        vslot[i] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;
-    }
     uint4 kr[4];
     uint2 vr[8];
-#pragma unroll
-    for (int j = 0; j < 4; ++j) kr[j] = *(const uint4*)(kc + kslot[j] * (HKV * D) + h * D + 16 * c);
-#pragma unroll
-    for (int i = 0; i < 8; ++i) vr[i] = *(const uint2*)(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
+#define CSL_LOADS                                                                                              \
+    csr = cs + (long)seq * D + 8 * c;                                                                          \
+    c0 = *(const float4*)csr; c1 = *(const float4*)(csr + 4);                                                  \
+    s0 = *(const float4*)(csr + 32); s1 = *(const float4*)(csr + 36);                                          \
+    co = cs[(long)seq * D + lane]; si = cs[(long)seq * D + 32 + lane];                                         \
+    base = seq - (W - 1);                                                                                      \
+    w0 = rank * 128 + wk * 32;                                                                                 \
+    tmax = max(seq - 1, 0);                                                                                    \
+    /* Keys of this thread: K rows 8j + g (j 0..3), V rows {2c, 2c+1, 8+2c, 9+2c, 16+2c, ...}. */             \
+    _Pragma("unroll") for (int j = 0; j < 4; ++j) {                                                            \
+        int t = min(max(base + w0 + 8 * j + g, 0), tmax);                                                      \
+        kslot[j] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                           \
+    }                                                                                                          \
+    _Pragma("unroll") for (int i = 0; i < 8; ++i) {                                                            \
+        int k = 8 * (i >> 1) + 2 * c + (i & 1);                                                                \
+        int t = min(max(base + w0 + k, 0), tmax);                                                              \
+        vslot[i] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                           \
+    }                                                                                                          \
+    _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[j] = *(const uint4*)(kc + kslot[j] * (HKV * D) + h * D + 16 * c); \
+    _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[i] = *(const uint2*)(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
+    CSL_LOADS
+    if (spec >= 0) {
+        const int real = seqs[b];
+        if (real != seq) { seq = real; CSL_LOADS }
+    }
+#undef CSL_LOADS
     const float g0 = bf(gw & 0xffff), g1 = bf(gw >> 16);
     float x[16];
     {
@@ -339,6 +352,7 @@ void csl_decode(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Te
                 torch::Tensor seq, torch::Tensor loc, torch::Tensor ks, torch::Tensor vs, torch::Tensor out, int64_t page,
                 double qk_scale) {
     int batch = seq.size(0), mp = pt.size(1);
+    const int spec = (batch == 1 && page == 1 && CSL_SPEC) ? mp - 1 : -1;
     cudaLaunchConfig_t cfg = {};
     cfg.gridDim = dim3(16 * batch);
     cfg.blockDim = dim3(256);
@@ -350,7 +364,7 @@ void csl_decode(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Te
     cfg.attrs = at; cfg.numAttrs = 1;
 #define CSL_ARGS (const unsigned short*)qkv.data_ptr(), cs.data_ptr<float>(), (unsigned char*)kc.data_ptr(), \
     (unsigned char*)vc.data_ptr(), pt.data_ptr<int>(), seq.data_ptr<int>(), loc.data_ptr<long>(), ks.data_ptr<float>(), \
-    vs.data_ptr<float>(), (__nv_bfloat16*)out.data_ptr(), mp, (float)qk_scale
+    vs.data_ptr<float>(), (__nv_bfloat16*)out.data_ptr(), mp, (float)qk_scale, spec
     if (page == 1) {
         static bool set = false;
         if (!set) { cudaFuncSetAttribute(csl::decode<1>, cudaFuncAttributeNonPortableClusterSizeAllowed, 1); set = true; }
@@ -366,7 +380,7 @@ void csl_decode(torch::Tensor qkv, torch::Tensor cs, torch::Tensor kc, torch::Te
 '''
 try:
     _CSL = _load_inline(
-        name="muse_csl_s72",
+        name="muse_csl_s85",
         cpp_sources="void csl_decode(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                     "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, int64_t, double);",
         cuda_sources=_CSL_SRC, functions=["csl_decode"],
@@ -854,7 +868,7 @@ if HAVE_GLUON:
     # less work per key (H100, all reads from L2: decode 16/32 full 84/157 -> 69/132 us), which pays where
     # per-SM bandwidth is higher (tools/emu.py: 137/261 -> 132/249 us; H100 itself: a tie).
     @gluon.jit
-    def _gd_full(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
+    def _gd_full_body(seq_in, SEQ_IN: gl.constexpr, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
                  cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
                  MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
@@ -903,7 +917,10 @@ if HAVE_GLUON:
         BL: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [1, 1], [1, 0])
         SH: gl.constexpr = gl.SwizzledSharedLayout(16, 1, 8, [1, 0])
 
-        seq = gl.load(seq_ptr + b)
+        if SEQ_IN:
+            seq = seq_in
+        else:
+            seq = gl.load(seq_ptr + b)
         # Each request's cached keys (sliding layers: the last WINDOW - 1) in S equal tile-aligned chunks.
         if WINDOW > 0:
             base = gl.maximum(seq - (WINDOW - 1), 0)
@@ -1079,6 +1096,27 @@ if HAVE_GLUON:
                      mask=q_ok)
             gl.store(pml_ptr + pn * 2, sn)
             gl.store(pml_ptr + pn * 2 + 1, gl.full([M], 1.0, gl.float32, gl.SliceLayout(1, BL)))
+
+    # The rare redo path of _gd_full's SPEC, out of line.
+    _gd_full_redo = gluon.jit(noinline=True)(_gd_full_body.fn)
+
+    @gluon.jit
+    def _gd_full(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
+                 cs_ptr, HQ: gl.constexpr, HKV: gl.constexpr, G: gl.constexpr, D: gl.constexpr, PAGE: gl.constexpr,
+                 MAX_PAGES: gl.constexpr, S: gl.constexpr, BN: gl.constexpr, NS: gl.constexpr,
+                 TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
+                 SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True,
+                 BAL: gl.constexpr = False, B: gl.constexpr = 1, B_PAD: gl.constexpr = 32, NP: gl.constexpr = 1,
+                 NID: gl.constexpr = 1, SPEC: gl.constexpr = 0):
+        # SPEC > 0 (batch 1, page 1): seq = table width - 1 known from the shape (SGLang slices the page table to the
+        # batch's longest length); start on it, redo with the real length if it differs (as in _attn_split).
+        if SPEC > 0:
+            real = gl.load(seq_ptr + gl.program_id(1))
+            _gd_full_body(SPEC, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
+            if real != SPEC:
+                _gd_full_redo(real, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
+        else:
+            _gd_full_body(0, False, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
 
     @gluon.jit
     def _gw_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
@@ -1319,7 +1357,7 @@ def _range(split, b, seq, pt_ptr, WINDOW: tl.constexpr, BALANCE: tl.constexpr, S
 
 
 @triton.jit
-def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr,
+def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr,
                 pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale,
                 HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr, G: tl.constexpr, L: tl.constexpr,
                 MG: tl.constexpr, M_PAD: tl.constexpr, L_PAD: tl.constexpr, D: tl.constexpr,
@@ -1352,7 +1390,10 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         PF_N: tl.constexpr = triton.next_power_of_2(CHUNK // PAGE // 32 + 2)
         pf_p = tl.minimum(split * CHUNK // PAGE + tl.arange(0, PF_N) * 32, MAX_PAGES - 1)
         pf = tl.sum(tl.load(pt_ptr + b.to(tl.int64) * MAX_PAGES + pf_p), 0)
-    seq = tl.load(seq_ptr + b)
+    if SEQ_IN:
+        seq = seq_in
+    else:
+        seq = tl.load(seq_ptr + b)
     c = tl.arange(0, C)
     if PRE > 0:
         # L2 prefetch of the K/V rows of the split's first PRE tiles, issued before the query norm (and RoPE), so
@@ -1452,6 +1493,33 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
             _norm_gate_store(o / tl.where(r_ok, denom, 1.0)[:, None] * tl.load(vs_ptr), qkv_ptr, out_ptr,
                              b * L + j, (hp0 + hp) * G + rr % G, c, q_ok, HQ, HKV, D)
             tl.atomic_xchg(cnt, 0)
+
+
+# The rare redo path of _attn_split's SPEC, out of line so it doesn't disturb the hot path's code.
+_attn_body_redo = triton.jit(noinline=True)(_attn_body.fn)
+
+
+@triton.jit
+def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr,
+                pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale,
+                HQ: tl.constexpr, HKV: tl.constexpr, HPP: tl.constexpr, G: tl.constexpr, L: tl.constexpr,
+                MG: tl.constexpr, M_PAD: tl.constexpr, L_PAD: tl.constexpr, D: tl.constexpr,
+                PAGE: tl.constexpr, MAX_PAGES: tl.constexpr, WINDOW: tl.constexpr, ROPE: tl.constexpr,
+                S: tl.constexpr, CHUNK: tl.constexpr, BLOCK_N: tl.constexpr, STAGES: tl.constexpr,
+                FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
+                DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
+                BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
+                PRE: tl.constexpr = 0, SPEC: tl.constexpr = 0):
+    """Kernel wrapper of _attn_body. SPEC > 0 (batch 1, page 1, shapes only): SGLang slices the page table to the
+    batch's longest length, so seq = width - L is known before the seq_lens load lands; run on it at once (the
+    page-table and cos/sin loads skip one DRAM trip) and redo the split with the real length if it differs."""
+    if SPEC > 0:
+        real = tl.load(seq_ptr + tl.program_id(1))
+        _attn_body(SPEC, True, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE)
+        if real != SPEC:
+            _attn_body_redo(real, True, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE)
+    else:
+        _attn_body(0, False, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE)
 
 
 @triton.jit
@@ -1707,7 +1775,11 @@ def _plan(cfg, max_pages, device):
             # Batched sizes lose with tsep (+0.6-2.7 us).
             tiny = heads <= 4
             return dict(splits=splits, block_n=64, warps=4, stages=2 if tiny else (5 if length > 1 else 3),
-                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny)
+                        hpp=1, fuse=False, qk8=True, hb=2, sb=splits, cw=1, pdt=pdt, tsep=tiny,
+                        # spec (batch 1): seq from the table width, with pre 2 so the page-table and first-tile
+                        # prefetches go out before the query norm. H100 paired verify 1 sliding -0.30 us (12/13, 11/13);
+                        # spec alone ties, pre 2 alone -0.08, spec with an inlined redo body +0.24.
+                        **({"spec": True, "pre": 2} if tiny and batch == 1 else {}))
         # Large batches: smaller, deeply pipelined programs.
         # (hpp 2 for batched sliding decode, e405425/6fb74be/652aafe, won on the H100 but lost on the H200: scored
         # 56fca423 decode 16/32 sliding 10.3/14.3 -> 11.1/15.4 us vs abd67ae2. Reverted 2026-10-24.)
@@ -1725,7 +1797,8 @@ def _plan(cfg, max_pages, device):
         # Batch-1 decode full on the Gluon one-warp kernel: 511 key splits + the new token's slot (512 BF16
         # partials, about 4 per SM), merged in one pass by 8-warp programs. H100 17.5 -> 15.7 us (attention
         # alone 15.3 -> 12.4, near the 11.5 us gather floor; the 512-way merge costs 3.2 us vs 2.2).
-        return dict(gdec=True, splits=511, block_n=32, stages=2, pdt="f32", csb=512, cw=8)
+        return dict(gdec=True, splits=511, block_n=32, stages=2, pdt="f32", csb=512, cw=8,
+                    spec=True)  # seq from the table width (see _gd_full): H100 paired -0.59 us (13/13)
     if heads <= (2 if length == 1 else 4):
         # (Session 18's hpp 2 / block_n 64 for decode 1 full won on the H100, 18.0 -> 17.4 us, but lost on the
         # H200: check f3e099c1 decode 1 full 15.2 -> 17.6 us.)
@@ -1840,7 +1913,9 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
         FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
         PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"),
-        PRE=0 if dual else plan.get("pre", 0), num_warps=plan["warps"],
+        PRE=0 if dual else plan.get("pre", 0),
+        SPEC=max_pages - length if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 and not fuse else 0,
+        num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
     if fuse:
         return out
@@ -1992,7 +2067,8 @@ def _decode_gluon(data, cfg, plan):
         HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
         BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
         ROPE=bool(cfg["rope_theta"]), SEP=sep, Q16=plan.get("q16", True),
-        KST=plan.get("kst", True), num_warps=1)
+        KST=plan.get("kst", True),
+        SPEC=page_table.shape[1] - 1 if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 else 0, num_warps=1)
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch, hq // hb)](
