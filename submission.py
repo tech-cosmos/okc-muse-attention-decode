@@ -389,7 +389,7 @@ _COUNTERS = {}
 DOT_DTYPE = tl.float16
 # Programmatic dependent launch of the merge kernel (off in the CPU interpreter).
 USE_PDL = True
-LZ = 3  # _gw_verify softmax: 3 = exact per-warp lazy max (session 79), 0 = per-tile row max + rescale
+LZ = 4  # _gw_verify softmax: 3 = exact per-warp lazy max (session 79), 0 = per-tile row max + rescale
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
@@ -713,6 +713,56 @@ if HAVE_GLUON:
         a += [f"mul.f32 ${j}, ${j}, {'$130' if j & 2 else '$128'};" for j in range(64)] + ["LZ_SKIP:", "}"]
         return "\n".join(a)
 
+    def _lz_asm4(peel):
+        # LZ 4 (no row max on the hot path): exponentiate against the running maxima, then check each thread's
+        # partial row sums (computed anyway: they feed l, kept per thread and quad-summed once per segment). If every
+        # thread of the warp has both sums <= 2^15 (so every P <= 2^15: FP16-safe), keep the maxima; else, per row,
+        # take the quad's largest partial sum S and, if S > 2^15, raise the row's maximum by the integer k with
+        # S * 2^-k in [2^14, 2^15) and scale its P and sums by exactly 2^-k (same values as exponentiating against
+        # the raised maximum, up to FTZ of P < 2^-126). If S is inf (a row grew by >= 128 binades: P lost), the row's
+        # maximum becomes +inf, which sticks (later P = 0) and makes the consumer redo the segment exactly.
+        # peel: the segment's first tile (maxima -1e30), the usual exact update from the row maxima.
+        # Operands: out p[32], m_new[32], lsum[32]; in s[32], m[32] (broadcast), scale[32] (broadcast).
+        ra = [j for j in range(32) if not j & 2]
+        rb = [j for j in range(32) if j & 2]
+        a = ["{", ".reg .f32 q<32>, na, nb, sa, sb, xa, xb, t, fa, fb, ma, mb;", ".reg .b32 e;",
+             ".reg .pred ok, all, fin;", "mov.f32 ma, $128;", "mov.f32 mb, $130;"]
+        if peel:
+            a += [f"max.f32 xa, ${96 + ra[0]}, ${96 + ra[1]};", f"max.f32 xb, ${96 + rb[0]}, ${96 + rb[1]};"]
+            a += [f"max.f32 xa, xa, ${96 + j};" for j in ra[2:]] + [f"max.f32 xb, xb, ${96 + j};" for j in rb[2:]]
+            for o in (1, 2):
+                a += [f"shfl.sync.bfly.b32 t, xa, {o}, 0x1f, 0xffffffff;", "max.f32 xa, xa, t;",
+                      f"shfl.sync.bfly.b32 t, xb, {o}, 0x1f, 0xffffffff;", "max.f32 xb, xb, t;"]
+            a += ["mul.f32 xa, xa, $160;", "mul.f32 xb, xb, $160;", "max.f32 ma, xa, ma;", "max.f32 mb, xb, mb;"]
+        a += ["neg.f32 na, ma;", "neg.f32 nb, mb;"]
+        for j in range(32):
+            n = "nb" if j & 2 else "na"
+            a += [f"fma.rn.f32 q{j}, ${96 + j}, $160, {n};", f"ex2.approx.ftz.f32 q{j}, q{j};"]
+        a += [f"add.f32 sa, q{ra[0]}, q{ra[1]};", f"add.f32 sb, q{rb[0]}, q{rb[1]};"]
+        a += [f"add.f32 sa, sa, q{j};" for j in ra[2:]] + [f"add.f32 sb, sb, q{j};" for j in rb[2:]]
+        if not peel:
+            a += ["setp.le.f32 ok, sa, 0f47000000;", "setp.le.and.f32 ok, sb, 0f47000000, ok;",
+                  "vote.sync.all.pred all, ok, 0xffffffff;", "@all bra LZ4_DONE;"]
+            for x, f, m, sm in (("xa", "fa", "ma", "sa"), ("xb", "fb", "mb", "sb")):
+                lb = "LZ4_" + x
+                a += [f"mov.f32 {x}, {sm};"]
+                for o in (1, 2):
+                    a += [f"shfl.sync.bfly.b32 t, {x}, {o}, 0x1f, 0xffffffff;", f"max.f32 {x}, {x}, t;"]
+                a += [f"mov.f32 {f}, 0f3F800000;", f"setp.le.f32 ok, {x}, 0f47000000;", f"@ok bra {lb}_OK;",
+                      f"setp.lt.f32 fin, {x}, 0f7F800000;", f"@!fin bra {lb}_BAD;",
+                      f"mov.b32 e, {x};", "shr.u32 e, e, 23;", "sub.s32 e, e, 141;", "cvt.rn.f32.s32 t, e;",
+                      f"add.f32 {m}, {m}, t;", "sub.s32 e, 127, e;", "shl.b32 e, e, 23;", f"mov.b32 {f}, e;",
+                      f"bra {lb}_OK;", f"{lb}_BAD:", f"mov.f32 {m}, 0f7F800000;", f"{lb}_OK:"]
+            a += [f"mul.f32 q{j}, q{j}, {'fb' if j & 2 else 'fa'};" for j in range(32)]
+            a += ["mul.f32 sa, sa, fa;", "mul.f32 sb, sb, fb;", "LZ4_DONE:"]
+        a += [f"mov.f32 ${j}, q{j};" for j in range(32)]
+        a += [f"mov.f32 ${32 + j}, {'mb' if j & 2 else 'ma'};" for j in range(32)]
+        a += [f"mov.f32 ${64 + j}, {'sb' if j & 2 else 'sa'};" for j in range(32)] + ["}"]
+        return "\n".join(a)
+
+    LZ_ASM4 = gl.constexpr(_lz_asm4(False))
+    LZ_ASM4P = gl.constexpr(_lz_asm4(True))
+    LZ_CON4 = gl.constexpr(",".join(["=f"] * 96 + ["f"] * 96))
     LZ_ACC = gl.constexpr(_lz_acc_asm())
     LZ_ACC_CON = gl.constexpr(",".join(["=f"] * 64 + ["f"] * 128))
     LZ_ASM = gl.constexpr(_lz_asm())
@@ -809,6 +859,7 @@ if HAVE_GLUON:
             m_i = gl.full([M], -1.0e30, gl.float32, layout=gl.SliceLayout(1, S_L))
             acc = gl.zeros([M, D], gl.float32, layout=O_L)
             l8 = gl.sum(gl.reshape(gl.zeros([M, BN], gl.float32, S_L), [M, BN // 8, 8]), 1)
+            l4 = gl.zeros([M], gl.float32, layout=gl.SliceLayout(1, S_L))
             for i in range(ntiles):
                 s = (it + i) % NS
                 mbarrier.wait(ready.index(s), ((it + i) // NS) & 1)
@@ -817,7 +868,19 @@ if HAVE_GLUON:
                 sc = warpgroup_mma_wait(0, deps=[s_tok])
                 if lo + (i + 1) * BN > hi:
                     sc = gl.where((lo + i * BN + n_s < hi)[None, :], sc, float("-inf"))
-                if LZ:
+                if LZ == 4:
+                    mb_ = gl.zeros([M, BN], gl.float32, S_L) + m_i[:, None]
+                    sb_ = gl.zeros([M, BN], gl.float32, S_L) + scale
+                    if i == 0:
+                        p, me, ls = gl.inline_asm_elementwise(LZ_ASM4P, LZ_CON4, [sc, mb_, sb_],
+                                                              dtype=(gl.float32, gl.float32, gl.float32),
+                                                              is_pure=True, pack=32)
+                    else:
+                        p, me, ls = gl.inline_asm_elementwise(LZ_ASM4, LZ_CON4, [sc, mb_, sb_],
+                                                              dtype=(gl.float32, gl.float32, gl.float32),
+                                                              is_pure=True, pack=32)
+                    m_new = gl.reduce(me, 1, _gw_pick)
+                elif LZ:
                     p, me = gl.inline_asm_elementwise(
                         LZ_ASM if LZ == 1 else LZ_ASM2, LZ_CON, [sc, gl.zeros([M, BN], gl.float32, S_L) + m_i[:, None],
                                          gl.zeros([M, BN], gl.float32, S_L) + scale],
@@ -827,8 +890,12 @@ if HAVE_GLUON:
                     m_new = gl.maximum(m_i, gl.max(sc, 1) * scale)
                     p = gl.exp2(gl.fma(sc, scale, -m_new[:, None]))
                 alpha = gl.exp2(m_i - m_new)
-                l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
-                    gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
+                if LZ == 4:
+                    # (Each thread's own partial row sums: the pick-first reduce emits no shuffles.)
+                    l4 = l4 * alpha + gl.reduce(ls, 1, _gw_pick)
+                else:
+                    l8 = l8 * gl.convert_layout(alpha, gl.SliceLayout(1, l8.type.layout))[:, None] + \
+                        gl.sum(gl.reshape(p, [M, BN // 8, 8]), 1)
                 m_i = m_new
                 if LZ >= 3:
                     acc = gl.inline_asm_elementwise(
@@ -842,7 +909,12 @@ if HAVE_GLUON:
                 acc, p16 = warpgroup_mma_wait(0, deps=[a_tok, p16])
                 mbarrier.arrive(empty.index(s))
             it += ntiles
-            l_i = gl.convert_layout(gl.sum(l8, 1), gl.SliceLayout(1, S_L))
+            if LZ == 4:
+                # Quad-sum the per-thread partials: one slot (column 2 * (lane % 4)) per thread and row.
+                l_i = gl.sum(gl.where(((n_s < 8) & (n_s % 2 == 0))[None, :],
+                                      gl.zeros([M, BN], gl.float32, S_L) + l4[:, None], 0.0), 1)
+            else:
+                l_i = gl.convert_layout(gl.sum(l8, 1), gl.SliceLayout(1, S_L))
             _gw_store(pacc_ptr, pml_ptr, 0, h + HEAD, pid + b, m_i, l_i, acc, HKV, NID, M, D, gl.SliceLayout(1, S_L),
                       O_L)
 
