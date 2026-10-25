@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~15:30 UTC (agent2 session 17). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
+Updated 2026-10-25 ~16:10 UTC (agent2 session 18; s18 = 3 dead H100 probes, no code change). Sandbox deleted ~17:45Z: everything pushed (agent2, agent2-exp/*).
 
 ## Scope
 
@@ -40,6 +40,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+- s18: nds cos/sin trip (constant-position upper bound -0.13), split-major CTA order +0.35, even/odd split halves +0.11. NOTES-agent2 s18.
 - s17: page-table L2 prefetch in nvs (verify 16/32) +0.18/+0.19 (thread 32), +0.32/+0.35 (thread 160). NOTES-agent2 s17.
 - s16: nds split pairs packed in one 512-thread CTA + smem merge (agent2-exp/ndp): +0.74 decode 32 (packaging +0.96,
   merge -0.3; loop ~0.5 us slower per split, cause not found). tools/a2/nds_pair_cta_dead.patch. NOTES-agent2 s16.

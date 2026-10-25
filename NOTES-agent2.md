@@ -734,3 +734,20 @@ H100 bench decode 16/32 sliding 9.52/13.42, verify 16/32 sliding 13.14/15.87.
   sliding (pf) vs 12.20. List only the shapes that win (pf can be dropped per kernel: delete the A2 prefetch block).
 - Same trick elsewhere: agent 1's batched full layers (_gd_full / _gw_verify) read seq -> page table too, but
   their page-table reads are long streams (not on a single chain); probably nothing there.
+
+## Session 18 (2026-10-25 15:12 - ~16:10 UTC): decode 32 head-chain / CTA-order probes, all dead (0 checks)
+
+Start: account 20/20 checks used today, sandbox deleted ~17:45Z: **0 checks**, H100 only. Merged origin/main 28ba08b
+(agent 1 s119/s120 tools) into agent2; submission.py unchanged.
+
+H100 paired (tools/a2/vab.py, 9 rounds), decode 32 sliding (nds), timing-only probes:
+| variant | diff vs nds |
+|---|---|
+| constant RoPE position (removes the seq -> cos/sin trip; also makes that row L2-hot) | -0.13 (7/9): upper bound of a cos/sin L2 prefetch (~3 MB span at ctx 80K): not worth bytes or a check |
+| split-major CTA order (request = blockIdx % B) | **+0.35 (1/9)** |
+| even splits in grid half 0, odd in half 1 (pair partners = same request) | +0.11 (1/9) |
+So the request-major order (blockIdx / S = request) is best and the consumer's cos/sin trip is not on the
+critical path (the producer chain seq -> page table -> rows is). No change shipped.
+
+### Next (unchanged)
+- First agent2 check after 00:00Z 2026-10-26: **agent2-exp/halfpf 6a9a26a** (verify 32 cl; decode 16/32 pf).
