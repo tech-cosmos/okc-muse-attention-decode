@@ -4726,3 +4726,36 @@ full; spec.py: batch-1 inputs with seq_lens < table width).
 
 ### Budget (UTC day 2026-10-25)
 - s106: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.
+
+## Session 107 (unattended session 40, 2026-10-25 10:36 - ~11:10 UTC): FOLD (FFMA-free verify-full scores) = dead (no checks)
+
+Board 10:37Z unchanged (#1 pjmullin3 2.910x, #2 2.844x, #3 2.710x; ours 2.460x 8725ba7e). Account: checks 18/20 (2 left =
+agent2's), scored 7/10. No new "Ready to merge". **0 checks, 0 scored.** main unchanged (05efdde code). Branch **exp/fold**
+(pushed, not merged).
+
+Per-us sensitivity, recomputed from 8725ba7e (overall % per us = per-load % / 6): decode 1 sliding 1.79, verify 1 sliding
+1.48, decode 1 full 0.62, verify 1 full 0.52, decode 16 sliding 0.43 / full 0.15, verify 16 sliding 0.32 / full 0.11,
+decode 32 sliding 0.23 / full 0.08, verify 32 sliding 0.19 / full 0.065.
+
+### FOLD in `_gw_consumer_bal` (LZ 10 loop): s*scale - m done by the tensor core
+- Q quantized as fp8(rmsnorm(x) * scale) (scale = qk_scale * k_scale ~= 0.987 on scored data, so same E4M3 range use;
+  only when config kv_scale == 1); after the LZ_PK exact tiles the reference m is rounded to m_hi + m_lo (both E4M3,
+  clamped to +-448; acc/l8 rescaled once to the rounded m) and subtracted by one extra wgmma k-step per tile:
+  [-m_hi, -m_lo, 0...] (smem [64, 32] per consumer) x a constant ones tile ([BN, 32], cols 0-1 = 1). Loop is then
+  P = exp2(S) with no FFMA. Correct (verify 32 full rel err 2.94e-2 vs 2.88e-2; 6 seeds x 2 shapes pass).
+- H100 paired (tools/s106/abl3.py, 9 rounds): **all-L2 verify 32/16 full -2.56 / -0.93 us (9/9), real +0.61 / +0.70
+  (0/9)**. H200 emulation (tools/emu.py 40): verify 16 full 146.34 vs 146.03-146.42, verify 32 275.0 vs 274.1-274.7 =
+  tie/loss. Smem 113.2 KB vs 106.8 KB per CTA (still 2 CTAs/SM).
+- **Unexplained hazard:** in 2 of 4 tools/emu.py processes with fold (filters 'verify' and 'verify 16', i.e. after the
+  sliding shape ran in the same process) verify 16/32 full took ~18 ms = the _combine_bal REDO cold path (some row's
+  partial m = +inf); not reproducible standalone (92-SM plan with/without spinner, 8 graph replays, 0 inf rows).
+  Never seen with the base kernel. Not chased further since the upside is a tie.
+- Verdict: dead. The extra wgmma lengthens the QK -> softmax -> P@V chain (ring slots free later) by about what the 32
+  FFMA/thread/tile save; consistent with s69's P@ones loss. Don't retry MMA-side folding of softmax ops on Hopper.
+
+### Next (unchanged from s106)
+- FIRST check after 00:00Z 2026-10-26: main (05efdde code): red decode 16/32 full + LZ 10 verify 16/32 full + fix 1
+  verify 1 full + SPEC clamp. Submit if it beats 1531.2 us. Per-shape fallbacks as in STATE.md.
+
+### Budget (UTC day 2026-10-25)
+- s107: 0 checks, 0 scored. Account: checks 18/20, scored 7/10.

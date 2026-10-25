@@ -1,6 +1,9 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~10:45 UTC (session 106 = unattended session 39 of the #1-push brief).
+Updated 2026-10-25 ~11:10 UTC (session 107 = unattended session 40 of the #1-push brief).
+
+**s107: FOLD (Q prescaled + reference subtracted by an extra QK wgmma k-step, no FFMA in the verify-full loop) = dead:
+H100 all-L2 -2.56/-0.93 us but real +0.6/+0.7, H200 emu tie; rare unexplained REDO storm under emu. exp/fold. 0 checks. NOTES s107.**
 
 **s106: main 05efdde = d6cb195 + verify 1 full fixed-reference softmax in Triton (plan fix 1, exact _combine REDO; H100
 paired cold -0.29 us, warm -0.27) + SPEC OOB fix (batch-1 speculative gathers read row -1 when seq_lens < width - L;
@@ -87,6 +90,7 @@ numbers: NOTES s69.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+- s107: FOLD (softmax scale/reference subtraction folded into the QK wgmma: extra k-step lengthens the chain).
 - s106: fixed reference in _gd_full (decode full gather-bound), at verify 16 sliding (+0.59), verify-full plan knobs under
   LZ 10, ones-column row sums (Gluon needs power-of-two N).
 - s105: any in-loop vote/branch in the verify-full softmax (lz9 +1.9 even with no fallbacks taken); zero-headroom fixed
