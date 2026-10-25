@@ -1,6 +1,14 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-24 ~23:50 UTC (session 77 = unattended session 10 of the #1-push brief).
+Updated 2026-10-25 ~00:50 UTC (session 78 = unattended session 11 of the #1-push brief).
+
+**s78: lazy-max softmax for verify full = the biggest verify-full lever measured.** Exponentiate against the running
+maxima with no per-tile row max/rescale; exact iff every thread's partial row sums stay <= 2^T (P >= 0), else the
+usual update. H200 diag check c5888ee5 (renamed _gw_verify copies): verify 32/16 full base 204-206/105-106 us, no-max
+ceiling (no fallback, INCORRECT) **178.3/89.8**, consumer-only 172 -> 146. Exact Gluon version (gl.max WG reduce per
+tile) 209.6/109.0 = loses: Gluon's tensor->scalar reduce costs ~20-30 us. Native nvl (exp/nvlazy) exact but 222 vs
+197 all-L2 H100 (consumer spills at 104 regs). Open problem: exact at ~no cost (NOTES s78 Next). FP16 P only (FP8 P
+with offset 0 loses FA3's range).
 
 **s77: H200 per-kernel diagnostics** (branch exp/h200diag, tools/s77/README.md): extra renamed kernel copies in a
 check are timed by the judge's profile, so ONE check measures ~10 variants on the real H200, paired. Verify 32 full
@@ -43,7 +51,7 @@ numbers. A kernel launch costs ~2 us, each extra kernel ~1 us even with PDL (NOT
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
 
-- Account: checks 20/20 used (s77: 4 diagnostics), scored 9/10 used at the end of 2026-10-24 (s76: check dea06af0 = USE_GSLIDE re-test,
+- 2026-10-25: checks 1/20 (c5888ee5 diag), scored 1/10 (8774bdfc main 2.312x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
   00:00 UTC: 20 checks / 10 scored on 2026-10-25. Claude may use all account checks (human, a084e9c).
 
@@ -64,6 +72,9 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
   PDL merge kernel (-1.6 us at 16 splits; -0.45 at 4). Pulling via map_shared_rank loads costs ~+1 us (latency).
 
 ## Ranked ideas
+
+0000. (s78) Exact lazy max in the verify-full consumer at ~no cost: -27/-16 us H200 ceiling (verify 32/16 full) =
+   ~+3% overall. Branches exp/lazymax (Gluon SPEC variants), exp/lazydiag (diag harness), exp/nvlazy (native). NOTES s78.
 
 000. (s75) Verify sliding is consumer-chain-bound, not DRAM-bound (H100 all-L2 attention verify 32/16 sliding 13.4/9.1 vs
    real 16.5/11.2 us; Triton ~1.8 64-key tiles/us/SM vs Gluon gw 2.9 on verify full). gw_verify itself loses at
@@ -91,7 +102,8 @@ Measured on H100, verify 32 full sizes (tools/s69, tools/s54/abl2.py ablations o
 
 ## Queued for checks
 
-- (s77) First check of 2026-10-25: exp/h200diag variant sweep of nverify macros + `_gw_verify` constexprs (NOTES s77
+- (s78) DONE differently: check c5888ee5 = lazy-max diag. The s77 knob sweep is still unrun (low value).
+- (s77) [old] exp/h200diag variant sweep of nverify macros + `_gw_verify` constexprs (NOTES s77
   Next 1). Then score main c9b3242 once (human-approved).
 
 - (s76) USE_GSLIDE now ties on the H200 (dea06af0): don't re-check it.

@@ -3394,3 +3394,67 @@ fallback for growth > 126 (ex2 overflow) to stay correct for all inputs.
 
 This session: 4 checks (7f0733008d9d4064, c3c16ec6d4f848b9, 364740e41acd4e66, 772b5adc659d47b3; all diagnostics),
 0 scored. Account at the 00:00 UTC reset: 20/20 checks, 9/10 scored.
+
+## Session 78 (unattended session 11, 2026-10-24 23:30 - 2026-10-25 ~00:50 UTC): lazy-max softmax for verify full
+
+Board 23:30Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.343x (#20). Human direction: verify full.
+
+### Idea: no per-tile row max at all (exact)
+
+Exponentiate each tile against the running maxima m (no max reduction, no alpha, no acc rescale). Since P >= 0,
+"every thread's partial row sums <= 2^T" implies every P <= 2^T, so the fast path is exact (online softmax with a
+stale offset; FP16 P up to 2^15 is safe). Otherwise (first tile: m = -1e30 -> inf sums; growth > T; inf/NaN) do
+the usual update. In FP16 P the stale offset costs no precision. (With FP8 P, offset 0 loses up to 8 binades of
+small-weight range vs FA3's offset 8 -> microbench error 2.72e-2 vs 2.40e-2: do NOT combine lazy max with E4M3 P.)
+
+### H200 (check c5888ee5c0da4249, DIAGNOSTIC on exp/lazydiag, flushed renamed copies of _gw_verify, us)
+
+| variant | verify 32 | verify 16 |
+|---|---|---|
+| base copies | 204.4 / 205.9 | 106.0 / 105.1 |
+| SPEC 1 exact (Gluon WG-wide gl.max reduce per tile, recompute S via wgmma on fallback) | 209.6 | 109.0 |
+| SPEC 2 never fall back (INCORRECT ceiling) | **178.3** | **89.8** |
+| SPEC 3 fall back on the first tile only (INCORRECT; uniform scalar branch) | 188.5 | 98.3 |
+| consumer only (ABL 3), base -> SPEC 2 | 172.4 -> 146.3 | 86.8 -> 73.7 |
+
+=> On the H200 the combined kernel tracks the consumer: dropping max + rescale is worth -27 / -16 us (-13%/-15%),
+~+3% overall if made exact at ~no cost. Biggest verify-full lever measured so far.
+
+H100 all-L2 verify 32 full (tools/s54/abl2.py): base 198, SPEC 2 170.6, SPEC 3 178, SPEC 1 205 (threshold 2^8;
+2^15: 196.6; 1e38: 196.5 -> the gl.max reduction itself costs ~18-26 us: Gluon lowers it to 5 shuffles + smem +
+2 bar.sync per tile on the critical chain). Keeping S live for the fallback spilled (352 B, 2x slower): recompute S
+by re-issuing the QK wgmma from the K tile still in the ring instead. SPEC 5 (decision deferred to the next tile,
+reduction overlapped with P@V, i==0 branch inside the loop): 221 (worse). Gluon has no cheap way to branch on a
+per-warp value (any tensor -> scalar is a cross-warp reduce); `continue` is unsupported in Gluon loops.
+
+### Native (tools/s78)
+
+- Consumer-only microbench tools/s78/clazy.cu (s77 cspec + SPEC=2 = no max, per-warp __all_sync vote on partial
+  sums <= 256): FP16 P 162.9 -> 137.5 us (unpipelined 138.8, 108 regs), error 2.2e-4 (base 2.0e-4); FP8 P 164 ->
+  128.9 but loses precision (above).
+- tools/s78/nvl.cu (branch exp/nvlazy, in submission.py behind USE_NVL): s71 nverify with the FP16 lazy consumer,
+  producer converts V FP8 -> FP16 (cvt.rn.f16x2.e4m3x2, explicit ld/st.shared) instead of the FP8 transpose,
+  unpipelined consumer, exact per-warp fallback (full update from S kept live). Correct (tools/s71/chk.py 6/6), but
+  H100 verify 32 full real 265 vs 259, all-L2 222 vs 197 (Gluon). Ablations (all-L2): gathers only 95, producer
+  only 125, consumers only (no producer, LAZY 0) 191 vs microbench 163: the in-kernel consumer spills 4 P regs per
+  tile at the 104-reg setmaxnreg cap (needs 108). setmaxnreg can only redistribute the launch allocation (80/thread
+  at 2 CTAs/SM): producer 48 + consumers 104 DEADLOCKS (hung kernel); 32/104 is the only split.
+- Gotchas: NV_ABL=3 in nvl/nverify also idles the consumers (ABL >= 2): it is "gathers only", not "no convert".
+  Generic pointers into smem compile to LD.E/ST.E: use ld/st.shared asm.
+
+### Next (ranked)
+
+1. Make the Gluon lazy max exact at ~SPEC-2 cost. Options: (a) peel the first tile out of the loop (SPEC 3's i==0
+   branch cost ~10 us in-loop) and find a reduction-free safety check; e.g. a per-tile WG-uniform bound from data the
+   producer already has, or bar.red.or.pred via inline asm if a scalar can be produced without Gluon's reduce;
+   (b) FA4-style: deferred renorm decided by a reduce that overlaps P@V, but measured 221 here (re-test without the
+   in-loop i==0 branch). Precision: FP16 P, threshold <= 2^15 is exact.
+2. Native nvl: consumer register diet (drop S live: recompute S for the rare fallback with a WG-uniform bar.red.or
+   + re-issued wgmma, or 1 CTA/SM with more regs) so it reaches the microbench's 138; then the producer overlap.
+3. Diag harness note: the check's profile is written to the worktree's profiles/; copy it before removing a worktree.
+
+### Budget (UTC day 2026-10-25)
+
+Checks: 1 (c5888ee5, diagnostic). Scored: main submit (see Judge runs / below).
+Scored run of main (human-approved, kernel c9b3242 = csl decode sliding): **8774bdfc614f4fb9 2.312x** (board best stays
+2.343x). Account 2026-10-25 after this session: checks 1/20, scored 1/10.
