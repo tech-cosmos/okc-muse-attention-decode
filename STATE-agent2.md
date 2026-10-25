@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~13:05 UTC (agent2 session 13).
+Updated 2026-10-25 ~14:10 UTC (agent2 session 14).
 
 ## Scope
 
@@ -18,7 +18,12 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Candidates
 
-- (s13) QUEUED for agent2's first check after 00:00Z: agent2-exp/half 0ae2b8a = nvs NV_HALF (CTA per (request,
+- (s14) QUEUED (first agent2 check after 00:00Z, replaces 0ae2b8a): agent2-exp/half **52b41bd** = NV_HALF (verify 16,
+  S 4 + combine) + **cl** at verify 32 (2-CTA clusters, symmetric 9 KB cp.async.bulk DSMEM exchange, in-kernel
+  merge/norm/gate, no _combine_hb): H100 paired vs NV_HALF+combine -0.29..-0.86 (3 runs, all rounds); NV_HALF vs 652f126
+  verify 16 -0.48, verify 32 -0.27. tests 16/16, bench 2.063. NOTES-agent2 s14.
+
+- (s13, superseded by 52b41bd) agent2-exp/half 0ae2b8a = nvs NV_HALF (CTA per (request,
   KV head, split), 2 WGs = 2 halves merged in smem, partials halved) + NS 5 LAG 2: H100 paired vs 652f126 verify 16
   sliding -0.48 (9/9), verify 32 -0.27 (9/9); tests 16/16. Not in Ready to merge until checked. NOTES-agent2 s13.
 
@@ -29,6 +34,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Ranked ideas
 
+000000. (s14) DSMEM bulk exchange removes the merge launch where S 2 fits (verify 32 done); look for more S-2 places.
 00000. (s13) built as NV_HALF (above). Next: same half split for nds (decode 32), est. <= 0.3 us.
 0000. (s11) merges are the wall (~2 us on the H100 for every split design: PDL release ~0.5 + post-wait partial
     reads ~1.2; last-CTA tails the same). Only csl-style small-CTA clusters hide it (decode 16). New structural ideas
@@ -39,6 +45,9 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+
+- s14: cl at verify 16 (S 2, 64 CTAs) +1.86; cl push by st.shared::cluster + per-thread/per-warp release arrives
+  (+1.3 / +0.46 vs bulk); IEEE div in epilogues (~1.4 us at 128 threads: use __fdividef). NOTES-agent2 s14.
 
 - s12: nds at decode 16 (+2.1..+2.5 vs csl), nds decode 32 NS 4 (+3.4, 1 CTA/SM) / S 16 (+3.1) / NS 2 (deadlock). NOTES-agent2 s12.
 
