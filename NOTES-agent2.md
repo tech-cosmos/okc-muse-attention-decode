@@ -491,3 +491,53 @@ unclustered, 2 cluster barriers +0.9, remote-load merge +1.7. CL 8: 19.8-21.5 (p
    separate launch, without clusters: e.g. per-request ticket + last-CTA merge (dead for nvs at 64 rows/head, but
    nds partials are 8x smaller: 32 KB per request at S 8). Price on the H100 against the 2 us.
 2. nds kernel itself: 12.0 vs 10.2 floor: try PFD / staging tweaks as on nvs (small).
+
+## Session 11 (2026-10-25 11:23 - ~12:10 UTC): nds merge alternatives (all DEAD); nds at decode 16 re-priced
+
+Start: merged origin/main (agent 1 s106-s108: batch-1/full only) into agent2. Account 18/20 checks used, 2 left =
+agent 1's (AGENT2.md: leave >= 4) -> **0 checks**. Branch agent2-exp/ndsfm (notes + dead patch only).
+All H100, tools/a2/nds.py time, decode 32 sliding, S 8, NS 3, __maxnreg__ 96 (= the agent2 nds config); "total" =
+nds + merge, "kernel" = nds alone. Reference this session: main (agent2 kernel_fn, nds + _combine_hb) 13.6-14.0,
+harness nds + _combine_hb 13.86-14.08, nds kernel alone 11.94-12.19 (combine exposure ~1.9 us).
+(Harness gotcha: `CNT.setdefault(B, torch.zeros(...))` evaluates torch.zeros every call = an extra memset node in the
+graph, +1 us. Build such buffers once.)
+
+### Fused last-CTA merge in nds (NDS_FM, tools/a2/nds_fm_dead.patch on tools/a2/nds.cu; nds.py needs a trailing
+### int32 [B] counter tensor arg, built once): DEAD, best +0.2..+0.4 us
+Per-request int32 ticket (self-resetting), last split's consumer WG (128 threads, thread = query head x 8 d, all 8
+splits' loads issued at once, no spills) does _combine_hb's math + RMS norm + gate. Correct (nds.py check 8/8).
+| variant | total |
+|---|---|
+| first build (threadfence + atomicAdd, merger threadfence, IEEE div/expf) | 15.20 |
+| + gate row prefetch.global.L2 at consumer start (the gate input is cold) | 14.93 |
+| + atom.add.acq_rel.gpu, no writer/merger __threadfence (bar.sync carries the acquire) | 14.66-14.78 |
+| + fast math (__frcp_rn, __fdividef, ex2 sigmoid, * 1/HD) | **14.05-14.19** |
+| gate cp.async'd to smem at start instead of the L2 prefetch | 14.35-14.48 |
+Ablations (kernel): ticket only, no merge 12.8 (+0.7 over 12.1; fences removed doesn't change it); merge math with
+no partial loads 13.4-13.7; partial loads ~+0.6. Lesson (as nvs s4): a 4-warp tail is latency-bound per dependent
+instruction; IEEE div/expf alone cost ~0.6 us. Floor of this design ~ kernel + 2 us = the separate combine.
+
+### Native PDL combine (ndsc, tools/a2/nds_ncombine_tie.patch: cudaLaunchKernelEx + programmatic serialization,
+### gate + sigmoid before griddepcontrol.wait, same fast math): TIE with Triton, not worth a dispatch change
+8 d per thread (128 threads per request): 14.43-14.66 in any CTA size. 4 d per thread (ndsc4, 256 threads per
+request): CTA 32 14.35-14.45, CTA 64/128/256 13.92-14.29 = Triton _combine_hb (256 x 1 warp) 13.9. Check 8/8.
+Ablation of the merge exposure (total over nds alone 12.1): PDL wait only +0.55 (without PDL +1.9); + m/l loads
++0.75; + the 1 MB of FP32 partials +1.75; + math ~+0.1. So the combine's cost is the post-wait L2 read of the partials
+(~1 us for 1 MB: latency, not bandwidth) + PDL release ~0.5; nothing left to trim in the combine itself.
+
+### nds at decode 16 re-priced (still loses to csl 9.4-9.7 H100)
+S 8 1 CTA/SM: NS 4 kernel 8.62-8.94 (NS 3 was 9.8-10.7; NS 5 9.0-9.2) but + combine 10.82-11.20 total. S 16 NS 3
+11.07-11.52. With the in-cluster merge (tools/a2/nds_cl_dead.cu): S 8 CL 8 NS 4 16.4-16.7, S 16 CL 16 15.3-15.5
+(big-smem CTAs in 8/16-CTA clusters place badly). So for decode 16 an nds-like kernel would need a merge costing
+< ~0.5 us exposed; neither a launch (~2.2) nor a last-CTA merge (~2) nor clusters does that.
+
+### Takeaways / next
+- Merging is the wall for split kernels at this size on the H100: ~2 us whether by PDL combine or in-kernel tail
+  (PDL release ~0.5 + post-wait partial reads ~1.2). vtk (agent 1's verify-1 cluster kernel) at verify 16: 42.3 vs
+  13.15 us (VTK_MAX_BATCH 16, 16 waves): dead.
+  csl (one 16-CTA cluster of small CTAs per (request, KV head)) is the only design that hides it (decode 16).
+- Next check (after 00:00Z): nds + lagS bundle as queued (decode 32 sliding nds, verify 16/32 LAG/nvs).
+- Ideas left: (1) a csl-style small-CTA cluster kernel for decode 32 sliding was H200-tied (s4 csl32); (2) nds NS 4 is
+  -1.2 us kernel at decode 16 vs NS 3: if a merge-free variant (one CTA per request, S 1, full window per CTA) could
+  reach ~9 us... s7 says no-split gathers cap at ~8.3 us for B16 on H100: price nds at S 1 with NS 8 at decode 16
+  (16 CTAs only: likely latency-bound, 32 tiles each).

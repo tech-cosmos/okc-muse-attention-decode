@@ -1,6 +1,6 @@
 # STATE-agent2 (short picture; NOTES-agent2.md is the log)
 
-Updated 2026-10-25 ~11:25 UTC (agent2 session 10).
+Updated 2026-10-25 ~12:15 UTC (agent2 session 11).
 
 ## Scope
 
@@ -25,7 +25,7 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 - agent2-exp/nvs fd7fa2e (s3): native verify-sliding kernel `nvs` (tools/a2/nvs_clean.cu embedded as _NVS_SRC) for
   verify sliding batch >= 32: H100 paired verify 32 -1.66 us (9/9), tests 16/16, chk_nvs 5/5. H200 checks 9a841c48 / baea7057: verify 32 sliding
   16.64 -> 15.28 / 15.07 us. Verify 16 on nvs (S 8) tied on the H200 (12.63 both): off. In COORD "Ready to merge".
-- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5-s9 used none (account's last 4 are agent 1's).
+- Checks used by agent2 on 2026-10-25: 4 (a27e9a52, 9a841c48, baea7057, 058b8dce); s5-s11 used none (account's last 4 are agent 1's).
 - (s4) decode 32 sliding on csl (agent2-exp/csl32 80fabbc): H100 -1.02 us but H200 check 058b8dce 13.74 = tie with
   Triton (13.72-14.09): NOT listed. (LAG 2: now in lagS, s9).
 
@@ -38,14 +38,20 @@ Checks: <= 8/day for agent2, leave >= 4 of the account's 20 for agent 1.
 
 ## Ranked ideas
 
-00000. (s10) nds's combine is ~2 us of its 14 (kernel 12.0, floor ~10.2): price a non-cluster last-CTA merge (nds
-    partials are 32 KB/request). In-cluster DSMEM merges are dead (s10: +1.3..+5.6 us).
+00000. FIRST check after 00:00Z: nds + lagS bundle (agent2 = both merged; tests 16/16 at 2763525).
+0000. (s11) merges are the wall (~2 us on the H100 for every split design: PDL release ~0.5 + post-wait partial
+    reads ~1.2; last-CTA tails the same). Only csl-style small-CTA clusters hide it (decode 16). New structural ideas
+    needed; nds NS 4 at decode 16 = kernel 8.6-8.9 (-1.2 vs NS 3) if a cheap merge ever appears.
 
 0000. (s8-s9) nvs (verify) is consumer-bound; consumer trims exhausted (BN2, lazy rescale, QK prefetch dead).
 1. nvs follow-ups (small): direct page-table loads into producer registers; uniform descriptors hoisted.
 
 
 ## Dead ends (agent2; agent 1's are in STATE.md / NOTES.md)
+
+- s11: nds fused last-CTA merge (tools/a2/nds_fm_dead.patch; best 14.05-14.19 vs 13.9 with fast math + acq_rel ticket
+  + gate L2 prefetch), native PDL combine (nds_ncombine_tie.patch: tie at 4 d/thread), nds at decode 16 (NS 4 10.8 total;
+  CL 8/16 15.3-16.7), vtk at verify 16 (42 us). NOTES-agent2 s11.
 
 - s10: nds in-cluster merge (CL 4 pull 16.5 / push 15.5 vs 14.2 us; CL 8 ~20; cluster launch alone +0.9), nds LAG 2
   (NS 3 deadlock, NS 4 tie), NS 6, combine HB/warps, nds for decode 16 (10.4-11.0 vs csl 9.3). NOTES-agent2 s10.
