@@ -1248,6 +1248,11 @@ LZ = 3  # _gw_verify softmax: 3 = exact per-warp lazy max (session 79), 0 = per-
 MERGE1 = True  # one-pass merges issue the accumulator loads before the max reduction
 USE_GDEC = True  # decode full layers at batch * hkv > 2 on the Gluon kernel (_gd_full)
 USE_GSLIDE = False  # batched sliding decode on _gd_full too (H100 win, H200 loss)
+# s103: plan red (in-grid FP32 atomic merge, s95) on batched decode full too, with BNR replicas per request (H100
+# paired vs _combine / _combine_bal: decode 16 full -0.94, decode 32 full -1.18 us, 8/8; BNR 2 -0.02 / -0.70,
+# 4 +0.75 / -0.65, 8 +3.4 / +1.1: fewer distinct atomic lines win here, unlike batch 1's 511-way contention).
+BRED = True
+BNR = 1
 USE_GD1 = True  # decode full at batch * hkv == 2 on _gd_full too (511 splits, 8-warp one-pass merge); unchecked on H200
 USE_GBAL = True  # verify full from 16 KV head pairs: balanced splits over the whole batch (_gw_bal); unchecked on H200
 # Split partials' accumulator dtype (plan key pdt). FP32 only: SGLang's FA3 keeps its split partials in
@@ -1275,11 +1280,11 @@ def _counters(n, device, tag=""):
     return buf
 
 
-def _red_buf(n, device):
+def _red_buf(n, device, tag="red"):
     """Zeroed FP32 sums for plan red's in-grid merge; each call leaves them zeroed again."""
-    buf = _COUNTERS.get((device, "red"))
+    buf = _COUNTERS.get((device, tag))
     if buf is None or buf.numel() < n:
-        buf = _COUNTERS[(device, "red")] = torch.zeros(n, dtype=torch.float32, device=device)
+        buf = _COUNTERS[(device, tag)] = torch.zeros(n, dtype=torch.float32, device=device)
     return buf
 
 
@@ -1724,7 +1729,7 @@ if HAVE_GLUON:
                  SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True,
                  BAL: gl.constexpr = False, B: gl.constexpr = 1, B_PAD: gl.constexpr = 32, NP: gl.constexpr = 1,
                  NID: gl.constexpr = 1, RED: gl.constexpr = False, red_ptr=None, rcnt_ptr=None, out_ptr=None,
-                 NR: gl.constexpr = 4, epi=True):
+                 NR: gl.constexpr = 4, epi=True, RCW: gl.constexpr = 0):
         h = gl.program_id(2) * 2
         if BAL:
             # Length-proportional splits (plan dbal, full layers): the NP programs of a KV head pair go to the
@@ -1913,6 +1918,16 @@ if HAVE_GLUON:
             bad = (l_i > 0.0) & ((m_i > 100.0) | (m_i < -60.0))
             flg = gl.max(bad.to(gl.int32), 0) > 0
             keyp = keyp & flg
+            # Batched (s103): request b's sums and out-of-range list (RCW words) at its own offsets; listed entries
+            # are partial slots (BAL: ids).
+            red_ptr = red_ptr + b * (NR * M * (D + 1))
+            rcnt_ptr = rcnt_ptr + b * RCW
+            if BAL:
+                kid = pid + b
+                nid_new = NP + B + b
+            else:
+                kid = split
+                nid_new = S
         if TPV:
             dd = gl.arange(0, D, layout=gl.SliceLayout(1, MMA))
             gg = gl.arange(0, G, layout=gl.SliceLayout(0, MMA))
@@ -1958,7 +1973,7 @@ if HAVE_GLUON:
                 if epi:
                     nbad = gl.max(((sn > 100.0) | (sn < -60.0)).to(gl.int32), 0) > 0
                     if nbad:
-                        gl.store(rcnt_ptr + 2 + gl.atomic_add(rcnt_ptr + 1, 1, sem="relaxed", scope="gpu"), S)
+                        gl.store(rcnt_ptr + 2 + gl.atomic_add(rcnt_ptr + 1, 1, sem="relaxed", scope="gpu"), nid_new)
                     else:
                         fn = gl.exp2(sn)
                         nrep = (split + 1) % NR
@@ -1968,10 +1983,10 @@ if HAVE_GLUON:
                                       scope="gpu")
         if RED:
             if epi:
-                _gd_red_add(acc, m_i, l_i, flg, split, red_ptr, rcnt_ptr, M, D, NR)
+                _gd_red_add(acc, m_i, l_i, flg, split, kid, red_ptr, rcnt_ptr, M, D, NR)
 
     @gluon.jit
-    def _gd_red_add(acc, m_i, l_i, flg, split, red_ptr, rcnt_ptr, M: gl.constexpr, D: gl.constexpr,
+    def _gd_red_add(acc, m_i, l_i, flg, split, kid, red_ptr, rcnt_ptr, M: gl.constexpr, D: gl.constexpr,
                     NR: gl.constexpr):
         """plan red: add this program's partial (acc [M, D], m, l in the mma layout) into replica split % NR of the
         sums at reference max 0, or, if its max is out of range (flg), list it (its partial is stored) for _red_fin."""
@@ -1980,7 +1995,7 @@ if HAVE_GLUON:
         ro = gl.arange(0, M, layout=gl.SliceLayout(1, MMA))
         rep = split % NR
         if flg:
-            gl.store(rcnt_ptr + 2 + gl.atomic_add(rcnt_ptr + 1, 1, sem="relaxed", scope="gpu"), split)
+            gl.store(rcnt_ptr + 2 + gl.atomic_add(rcnt_ptr + 1, 1, sem="relaxed", scope="gpu"), kid)
         else:
             f = gl.where(l_i > 0.0, gl.exp2(m_i), 0.0)
             # 4 consecutive floats per thread: v4 atomics, half the L2 atomic operations of the mma layout's pairs.
@@ -2001,16 +2016,16 @@ if HAVE_GLUON:
                  SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True,
                  BAL: gl.constexpr = False, B: gl.constexpr = 1, B_PAD: gl.constexpr = 32, NP: gl.constexpr = 1,
                  NID: gl.constexpr = 1, SPEC: gl.constexpr = 0, RED: gl.constexpr = False, red_ptr=None,
-                 rcnt_ptr=None, out_ptr=None, NR: gl.constexpr = 4):
+                 rcnt_ptr=None, out_ptr=None, NR: gl.constexpr = 4, RCW: gl.constexpr = 0):
         # SPEC > 0 (batch 1, page 1): seq = table width - 1 known from the shape (SGLang slices the page table to the
         # batch's longest length); start on it, redo with the real length if it differs (as in _attn_split).
         if SPEC > 0:
             real = gl.load(seq_ptr + gl.program_id(1))
-            _gd_full_body(SPEC, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, real == SPEC)
+            _gd_full_body(SPEC, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, real == SPEC, RCW)
             if real != SPEC:
-                _gd_full_redo(real, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, True)
+                _gd_full_redo(real, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, True, RCW)
         else:
-            _gd_full_body(0, False, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, True)
+            _gd_full_body(0, False, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, RED, red_ptr, rcnt_ptr, out_ptr, NR, True, RCW)
 
     @gluon.jit
     def _gw_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
@@ -2784,8 +2799,9 @@ def _plan(cfg, max_pages, device):
                 # -3.5/-3.5/-3.7/+0.5 us, all-L2 -6.6/-7.5/-16.6/-14.5; on the bench's data decode 32 full real +0.4,
                 # all-L2 -4.9 (the H200 sits between). Batch 4-16 lose (real +0.8..+3.2).
                 return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="f32", dbal=True, dprogs=2048 // hkv,
-                            hb=1, sb=64, cw=2)
-            return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="f32", **({"cw": 1} if splits < 128 else {}))
+                            hb=1, sb=64, cw=2, red=BRED)
+            return dict(gdec=True, splits=splits, block_n=32, stages=2, pdt="f32", red=BRED,
+                        **({"cw": 1} if splits < 128 else {}))
         # Many small one-warp programs with deep pipelines keep the most scattered row reads in flight.
         return dict(splits=max(8, 2048 // heads), block_n=16, warps=1, stages=5 if heads <= 32 else 6, hpp=2,
                     fuse=False, qk8=True, pdt="f32")
@@ -2825,11 +2841,18 @@ def _plan(cfg, max_pages, device):
 
 @triton.jit
 def _red_fin(qkv_ptr, red_ptr, rcnt_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, HQ: tl.constexpr, HKV: tl.constexpr,
-             G: tl.constexpr, D: tl.constexpr, M: tl.constexpr, S: tl.constexpr, NR: tl.constexpr):
-    """plan red's merge (batch 1, one KV head pair, M = 2 G rows = query heads): the NR replicas of the sums at
-    reference max 0, merged exactly with any listed out-of-range partials (slot ids in rcnt[2:]); then RMSNorm and
-    sigmoid(gate). Leaves the sums and the list count zeroed for the next call."""
+             G: tl.constexpr, D: tl.constexpr, M: tl.constexpr, S: tl.constexpr, NR: tl.constexpr,
+             SL: tl.constexpr = 0, RCW: tl.constexpr = 0, BAL: tl.constexpr = False):
+    """plan red's merge (one KV head pair, M = 2 G rows = query heads; program b = request b): the NR replicas of
+    the sums at reference max 0, merged exactly with any listed out-of-range partials (slot ids in rcnt[2:]); then
+    RMSNorm and sigmoid(gate). Leaves the sums and the list count zeroed for the next call. Batched (s103): request
+    b's sums at b * NR * M * (D + 1), its list at b * RCW, partial slots per head SL (S + 1, or NID with BAL)."""
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
+    b = tl.program_id(0)
+    red_ptr += b * (NR * M * (D + 1))
+    rcnt_ptr += b * RCW
+    qkv_ptr += b * QKV_W
+    out_ptr += b * (HQ * D)
     r = tl.arange(0, M)
     d = tl.arange(0, D)
     col = r[:, None] * D + d[None, :]
@@ -2850,7 +2873,12 @@ def _red_fin(qkv_ptr, red_ptr, rcnt_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, HQ:
     m = tl.where(l > 0.0, 0.0, -1.0e30)
     for i in range(nf):
         s = tl.load(rcnt_ptr + 2 + i)
-        prow = ((r // G) * (S + 1) + s) * G + r % G
+        if SL == 0:
+            prow = ((r // G) * (S + 1) + s) * G + r % G
+        elif BAL:
+            prow = ((r // G) * SL + s) * G + r % G
+        else:
+            prow = ((b * HKV + r // G) * SL + s) * G + r % G
         lp = tl.load(pml_ptr + prow * 2 + 1)
         mp = tl.where(lp > 0.0, tl.load(pml_ptr + prow * 2), -1.0e30)
         ap = tl.load(pacc_ptr + prow[:, None] * D + d[None, :]).to(tl.float32)
@@ -3054,6 +3082,26 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
     return out
 
 
+def _red_bufs(batch, group, d, sl, device):
+    """plan red's sums and out-of-range lists (batch 1 keeps its s95 buffers; batched ones are per batch size)."""
+    if batch == 1:
+        return _red_buf(4 * 2 * group * (d + 1), device), _counters(sl + 3, device, "r"), 0
+    rcw = sl + 2
+    return (_red_buf(batch * BNR * 2 * group * (d + 1), device, f"red{batch}"),
+            _counters(batch * rcw, device, f"r{batch}"), rcw)
+
+
+def _red_args(batch, group, d, sl, device, out):
+    red, rcnt, rcw = _red_bufs(batch, group, d, sl, device)
+    return dict(RED=True, red_ptr=red, rcnt_ptr=rcnt, out_ptr=out, NR=4 if batch == 1 else BNR, RCW=rcw)
+
+
+def _red_launch(qkv, pacc, pml, data, out, batch, hq, hkv, group, d, splits, sl, bal):
+    red, rcnt, rcw = _red_bufs(batch, group, d, sl, qkv.device)
+    _red_fin[(batch,)](qkv, red, rcnt, pacc, pml, data["v_scale"], out, HQ=hq, HKV=hkv, G=group, D=d, M=2 * group,
+                       S=splits, NR=4 if batch == 1 else BNR, SL=0 if batch == 1 else sl, RCW=rcw, BAL=bal, num_warps=4, launch_pdl=True)
+
+
 def _decode_gluon(data, cfg, plan):
     batch, hq, hkv, d = cfg["batch"], cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
     group = hq // hkv
@@ -3062,6 +3110,7 @@ def _decode_gluon(data, cfg, plan):
     page_table = data["page_table"]
     splits = plan["splits"]
     s = splits + 1
+    red = plan.get("red", False) and hkv == 2
     if plan.get("dbal"):
         # Length-proportional splits: the plan's splits * batch programs per KV head pair (or as many as fit, 8 per
         # SM), shared out by request length; merged by _combine_bal.
@@ -3078,7 +3127,10 @@ def _decode_gluon(data, cfg, plan):
             HQ=hq, HKV=hkv, G=group, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=splits,
             BN=plan["block_n"], NS=plan["stages"], WINDOW=cfg["window"], ROPE=bool(cfg["rope_theta"]),
             Q16=plan.get("q16", True), KST=plan.get("kst", True), BAL=True, B=batch, B_PAD=b_pad, NP=progs, NID=nid,
-            num_warps=1)
+            **(_red_args(batch, group, d, nid, device, out) if red else {}), num_warps=1)
+        if red:
+            _red_launch(qkv, pacc, pml, data, out, batch, hq, hkv, group, d, splits, nid, True)
+            return out
         hb = plan.get("hb", 2)
         _combine_bal[(batch, hq // hb)](
             qkv, data["seq_lens"], pacc, pml, data["v_scale"], out,
@@ -3090,7 +3142,6 @@ def _decode_gluon(data, cfg, plan):
     pml = torch.empty((batch, hkv, s, group, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, 1, hq * d), dtype=torch.bfloat16, device=device)
     sep = plan.get("sep", False)
-    red = plan.get("red", False) and batch == 1 and hkv == 2
     _gd_full[(splits + sep, batch, hkv // 2)](
         qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table, data["seq_lens"],
         data["cache_loc"], pacc, pml, cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
@@ -3100,12 +3151,9 @@ def _decode_gluon(data, cfg, plan):
         ROPE=bool(cfg["rope_theta"]), SEP=sep, Q16=plan.get("q16", True),
         KST=plan.get("kst", True),
         SPEC=page_table.shape[1] - 1 if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 else 0,
-        **(dict(RED=True, red_ptr=_red_buf(4 * 2 * group * (d + 1), device), rcnt_ptr=_counters(s + 3, device, "r"),
-                out_ptr=out, NR=4) if red else {}), num_warps=1)
+        **(_red_args(batch, group, d, s, device, out) if red else {}), num_warps=1)
     if red:
-        _red_fin[(1,)](qkv, _red_buf(1, device), _counters(1, device, "r"), pacc, pml, data["v_scale"], out,
-                       HQ=hq, HKV=hkv, G=group, D=d, M=2 * group, S=splits, NR=4, num_warps=4,
-                       launch_pdl=True)
+        _red_launch(qkv, pacc, pml, data, out, batch, hq, hkv, group, d, splits, s, False)
         return out
     hb = plan.get("hb", 1)
     if hb > 1:
