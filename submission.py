@@ -3111,6 +3111,38 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
             and hkv == 2 and d == 64 and cfg["page_size"] == 1 and cfg["rope_theta"]:
         return _verify_nvs(data, cfg)
     plan = _plan(cfg, max_pages, device)
+    out = _run_plan(data, cfg, plan)
+    key = ("decode" if length == 1 else "verify", batch, "sliding" if cfg["window"] else "full")
+    if key in _DIAG and device.type == "cuda":
+        # H200 diagnostics only (branch exp/hdiag, never submitted): the same path with plan overrides, each
+        # variant's kernels renamed (the judge's profile times them by name), each after an L2 flush.
+        for name, ov in _DIAG[key]:
+            _diag_flush(device)
+            saved = {k: globals()[k] for k in _DIAG_KERNELS}
+            try:
+                for k, deco in _DIAG_KERNELS.items():
+                    globals()[k] = _renamed(saved[k], name + k, deco())
+                if ov == "floor":
+                    _diag_floor(data, 2, 0)
+                elif ov == "floor4":
+                    _diag_floor(data, 4, 0)
+                elif ov == "dense":
+                    _diag_floor(data, 2, 1)
+                else:
+                    _run_plan(data, cfg, {**plan, **ov})
+            finally:
+                globals().update(saved)
+    return out
+
+
+def _run_plan(data, cfg, plan):
+    batch, length = cfg["batch"], cfg["q_len"]
+    hq, hkv, d = cfg["num_q_heads"], cfg["num_kv_heads"], cfg["head_dim"]
+    group = hq // hkv
+    qkv = data["qkv"]
+    device = qkv.device
+    page_table = data["page_table"]
+    max_pages = page_table.shape[1]
     if plan.get("gluon"):
         return _verify_gluon(data, cfg, plan)
     if plan.get("gdec"):
@@ -3348,3 +3380,97 @@ def _decode_gluon(data, cfg, plan):
         SB=plan.get("csb", min(128, triton.next_power_of_2(s))), ONE=MERGE1, PDL=USE_PDL,
         num_warps=plan.get("cw", 4 if s > 32 else 2), launch_pdl=USE_PDL)
     return out
+
+
+# ---- H200 diagnostics (exp/hdiag only, never submitted): (variant name, plan overrides); each after an L2 flush ----
+_DIAG = {
+    ("decode", 1, "full"): [("d1a", {}), ("d1s3", {"stages": 3}), ("d1s4", {"stages": 4}),
+                            ("d1p1023", {"splits": 1023, "csb": 1024}), ("d1p255", {"splits": 255, "csb": 256}),
+                            ("d1p255s4", {"splits": 255, "csb": 256, "stages": 4}),
+                            ("d1b16s4", {"block_n": 16, "stages": 4}), ("d1p255b64", {"splits": 255, "csb": 256, "block_n": 64}),
+                            ("d1b", {}), ("d1fl2", "floor"), ("d1fl4", "floor4"), ("d1dense", "dense")],
+    ("verify", 1, "full"): [("v1a", {}), ("v1s6", {"stages": 6}), ("v1s12", {"stages": 12}),
+                            ("v1p63", {"splits": 63}), ("v1p255", {"splits": 255}),
+                            ("v1b128", {"block_n": 128, "stages": 4}), ("v1b", {}), ("v1fl2", "floor"),
+                            ("v1dense", "dense")],
+    ("decode", 32, "full"): [("d32a", {}), ("d32s3", {"stages": 3}), ("d32s4", {"stages": 4}),
+                             ("d32p768", {"dprogs": 768}), ("d32p1536", {"dprogs": 1536}), ("d32b", {}),
+                             ("d32fl2", "floor"), ("d32dense", "dense")],
+    ("decode", 16, "full"): [("d16a", {}), ("d16s3", {"stages": 3}), ("d16p127", {"splits": 127}),
+                             ("d16dbal", {"dbal": True, "dprogs": 1024, "hb": 1, "sb": 64, "cw": 2}), ("d16b", {})],
+}
+_DIAG_KERNELS = {"_gd_full": lambda: gluon.jit, "_red_fin": lambda: triton.jit, "_attn_split": lambda: triton.jit,
+                 "_combine": lambda: triton.jit, "_combine_bal": lambda: triton.jit}
+_DFLUSH = {}
+_RENAMED = {}
+
+
+def _diag_flush(device):
+    if device not in _DFLUSH:
+        _DFLUSH[device] = (torch.zeros(256 << 20, dtype=torch.int64, device=device),
+                           torch.empty(1, dtype=torch.int64, device=device))
+    buf, sink = _DFLUSH[device]
+    torch.sum(buf, 0, out=sink[0])
+
+
+def _renamed(jitfn, name, deco):
+    """A copy of a @triton.jit / @gluon.jit kernel compiled under another name (profiles list kernels by name)."""
+    if name not in _RENAMED:
+        import types
+        f = jitfn.fn
+        g = types.FunctionType(f.__code__, f.__globals__, name, f.__defaults__, f.__closure__)
+        g.__qualname__ = name
+        g.__kwdefaults__ = f.__kwdefaults__
+        g.__annotations__ = dict(f.__annotations__)
+        g.__module__ = f.__module__
+        _RENAMED[name] = deco(g)
+    return _RENAMED[name]
+
+
+_FLOOR_SRC = r"""
+#include <torch/extension.h>
+#include <c10/cuda/CUDAStream.h>
+// Gather floor (diag): every 16-B chunk of the rows of all requests' K and V (128-B rows), R rows per 8-lane
+// group, page-table entries first, then all loads in flight. dense: rows 0.. instead of the page table.
+template <int R, int DENSE>
+__global__ void __launch_bounds__(256) hfloor(const uint4* kc, const uint4* vc, const int* pt, const int* seq, int mp,
+                                              int nb, uint4* out) {
+    const int t = blockIdx.x * blockDim.x + threadIdx.x;
+    const int c = t & 7, g0 = (t >> 3) * R;
+    const int b = g0 / mp, r0 = g0 % mp;
+    if (b >= nb) return;
+    const int n = seq[b];
+    int rows[R];
+#pragma unroll
+    for (int i = 0; i < R; ++i) { int r = min(r0 + i, n - 1); rows[i] = DENSE ? b * mp + r : pt[(long)b * mp + r]; }
+    uint4 a = make_uint4(0, 0, 0, 0);
+    uint4 kv[2 * R];
+#pragma unroll
+    for (int i = 0; i < R; ++i) { kv[2 * i] = kc[(long)rows[i] * 8 + c]; kv[2 * i + 1] = vc[(long)rows[i] * 8 + c]; }
+#pragma unroll
+    for (int i = 0; i < 2 * R; ++i) { a.x ^= kv[i].x; a.y ^= kv[i].y; a.z ^= kv[i].z; a.w ^= kv[i].w; }
+    if (r0 < n && a.x == 0x12345678u) out[t & 1023] = a;
+}
+void hfloor_run(torch::Tensor kc, torch::Tensor vc, torch::Tensor pt, torch::Tensor seq, int64_t r, int64_t dense,
+                torch::Tensor out) {
+    auto st = c10::cuda::getCurrentCUDAStream();
+    const int nb = pt.size(0), mp = pt.size(1);
+    long th = (long)nb * mp / r * 8;
+    int grid = (th + 255) / 256;
+#define HL(R, DN) if (r == R && dense == DN) hfloor<R, DN><<<grid, 256, 0, st>>>((const uint4*)kc.data_ptr(), \
+        (const uint4*)vc.data_ptr(), pt.data_ptr<int>(), seq.data_ptr<int>(), mp, nb, (uint4*)out.data_ptr());
+    HL(2, 0) HL(4, 0) HL(2, 1)
+}
+"""
+_FLOOR = []
+
+
+def _diag_floor(data, r, dense):
+    if not _FLOOR:
+        _FLOOR.append(_load_inline(
+            name="hdiag_floor", cpp_sources="void hfloor_run(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
+            "int64_t, int64_t, torch::Tensor);", cuda_sources=_FLOOR_SRC, functions=["hfloor_run"],
+            extra_cuda_cflags=["-O3", "-gencode=arch=compute_90a,code=sm_90a"]))
+        _FLOOR.append(torch.empty(1024 * 4, dtype=torch.int32, device=data["qkv"].device))
+    pt = data["page_table"]
+    _FLOOR[0].hfloor_run(data["k_cache"], data["v_cache"], pt, data["seq_lens"], r, dense, _FLOOR[1])
