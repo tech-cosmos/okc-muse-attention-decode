@@ -5,10 +5,10 @@ sys.path.insert(0, "/home/daytona/repo/tools"); sys.path.insert(0, "/home/dayton
 import bench, reference, submission
 from torch.utils.cpp_extension import load_inline
 SRC = os.environ.get("SRC", "/home/daytona/repo/tools/s96/vtk.cu")
-m = load_inline(name="s96_vtk_" + os.path.basename(SRC).split(".")[0] + "_" + os.environ.get("ABL", "0"), cpp_sources="void vtk_verify(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
+m = load_inline(name="s96_vtk_" + os.path.basename(SRC).split(".")[0] + "_" + os.environ.get("ABL", "0") + os.environ.get("VNC", "") + os.environ.get("VNW", ""), cpp_sources="void vtk_verify(torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, "
                 "torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, int64_t, double, int64_t, int64_t);",
                 cuda_sources=open(SRC).read(), functions=["vtk_verify"],
-                extra_cuda_cflags=["-gencode=arch=compute_90a,code=sm_90a", "-O3", "-DABL=" + os.environ.get("ABL", "0")], verbose=False)
+                extra_cuda_cflags=["-gencode=arch=compute_90a,code=sm_90a", "-O3", "-DABL=" + os.environ.get("ABL", "0")] + [f"-D{k}={os.environ[k]}" for k in ("VNC", "VNW") if k in os.environ], verbose=False)
 
 def run(data, spec=1, ntok=0):
     cfg = data["config"]
