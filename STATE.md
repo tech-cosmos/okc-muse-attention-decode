@@ -1,6 +1,6 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~16:15 UTC (session 125 = unattended session 58). **s125 (0 checks): NT_AFTER on main 410dcb6 = `_new_tokens` launched after `_gw_verify` (gbal): H100 verify 16/32 full -2.43/-1.87 us (11/11); gbal end spread measured (slowest program 6-12 us after the median: dynamic-tail build is next, NOTES s125).** **s124 (0 checks): no extra graph nodes in any shape; 16-CTA cluster CTAs all start within 0.1 us (vtk launch rate not the issue); NOTES s124.** **s123 (0 checks): pre-reset sanity of main ae1161c: tests 16/16, H100 bench 2.053; `_red_fin` counter-spin merge priced dead (NOTES s123).** **s122 (0 checks): tensor vs MUFU pipe-overlap
+Updated 2026-10-25 ~16:15 UTC (session 125 = unattended session 58). **s125 (0 checks): NT_AFTER on main 410dcb6 = `_new_tokens` launched after `_gw_verify` (gbal): H100 verify 16/32 full -2.43/-1.87 us (11/11); gbal end spread measured (slowest program 6-12 us after the median); dynamic tail built (exp/dtail) and loses as is.** **s124 (0 checks): no extra graph nodes in any shape; 16-CTA cluster CTAs all start within 0.1 us (vtk launch rate not the issue); NOTES s124.** **s123 (0 checks): pre-reset sanity of main ae1161c: tests 16/16, H100 bench 2.053; `_red_fin` counter-spin merge priced dead (NOTES s123).** **s122 (0 checks): tensor vs MUFU pipe-overlap
 microbench (tools/s122/tm.cu): wgmma and MUFU/FFMA from different WGs overlap (10-24% mutual slowdown), so the
 verify-full consumer gap is chain scheduling, not a HW pipe limit; NOTES s122. s121 (0 checks): verify 1 full on agent2's nvs
 (exp/nvsf) DEAD: H100 cold +0.9 us (warm -0.6). s120: exp/hdiag5 @ 840db1a replaces hdiag4 as queued check 2.**
@@ -39,7 +39,7 @@ numbers: NOTES s69.)
 
 ## Ranked ideas
 
-00000000. (s125: NEXT BUILD) dynamic tail for gbal verify full (NOTES s125 design): H100 est. -3..-4 / -8..-10 us at verify 16/32 full.
+00000000. (s125) dynamic tail for gbal verify full: BUILT on exp/dtail, LOSES +5..+18 us (per-chunk serial DRAM chain). Revive only with next-chunk grab-ahead + query prefetch (NOTES s125). The target (slowest program 6-12 us after the median) is still there.
 
 0000000. (s111: DEAD) native pipelined verify-full kernel (exp/nvf, NOTES s110-s111).
 000000. (s114: CLOSED) physical-order decode full: inversion >= 18 us H100 (s84, s114), windowed L2 sweep dead (s114).
@@ -76,7 +76,7 @@ numbers: NOTES s69.)
 3. agent2's own queue (STATE-agent2.md): agent2-exp/half 52b41bd (nvs cl, verify 32 sliding) is agent2's first check.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
-- s125: static gbal range weights by program id (exp/wramp: +1.5..+24 us; the tail is per-replay random).
+- s125: dynamic tail as built (exp/dtail, +5..+18 us), static gbal range weights by program id (exp/wramp: +1.5..+24 us; the tail is per-replay random).
 - s124: extra graph nodes (none in any shape), cluster launch-rate spread (<= 0.1 us, tools/s124).
 - s122: "MUFU and tensor serialize in HW" (they overlap; tools/s122/tm.cu).
 - s121: nvs (native verify-sliding, NV_HALF/0, S 32-128, NS 5-7) at verify 1 full: cold +0.9..+6 us (exp/nvsf).

@@ -5418,7 +5418,24 @@ Shares weighted 1 + WK/1024 (1 - 2p/P) (low ids get more): H100 WK 12/24/128/256
 +1.5/+1.9/+6.9/+12.3, verify 32 full +2.1/+2.2/+11.6/+23.7 us. The id gradient is smaller than the per-replay noise, so
 extra work on low ids makes them the new tail. Only dynamic assignment can remove the random tail.
 
-### Next build (priced from the stamps): dynamic tail for gbal verify full
+### Dynamic tail for gbal verify full: BUILT, LOSES as is (exp/dtail, pushed; plan key `dt` = (NCB, CH), default off)
+Built as designed (below): each request's last NCB x CH tiles become chunks; programs' producers grab chunk ids from
+a per-shape counter (`_counters` tag dt{batch}.{progs}.{ncb}; k = old % (B NCB + P), no reset) and pass them to the
+consumers through a 2-slot global ring + mbarriers (cready/cempty); `_gw_cseg` / `_gw_pseg` are the per-segment
+consumer / producer bodies; `_combine_bal` merges ids P + B + b NCB + j. Correct (relative error = dt 0's at ctx 80K and
+3K, bit-identical repeats). Also FLAT = one producer tile stream across segments (no per-segment ring drain).
+H100 paired vs dt 0 (verify 16 / 32 full, us): non-flat [8,2] +5.3 / +6.0, [16,2] +7.5 / +13.5; FLAT [8,2] +9.5 / +10.4,
+[16,2] +11.5 / +18.3, [16,1] +12.3 / +17.7, [2,8] +10.3 / -, [1,16] +13.9 / -. FLAT at dt 0 = main's time (132.5).
+Stamps (tools/s125/gwstamp2.py, env DT): with [8,2] the WHOLE end distribution moves +5..+10 (min 121 -> 131.6, p50
+130.8 -> 136.5, max 139 -> 143); 147 programs grab only the stop, 106 one chunk, 11 two; first grabs 122-136 us.
+Reading: every chunk pays a serial DRAM chain (consumer query reload from qkv, evicted from L2 by then; producer
+page-table trip, then the gather trip), ~3+ us, that a 3-tile ring cannot hide for 2-tile chunks, while bigger chunks
+bring the coarse tail back. To revive: grab the NEXT chunk id when starting the current one (and load its page-table
+entries + L2-prefetch its queries then), so a chunk's latency overlaps the previous chunk; or keep queries for all
+requests in smem (16 x 8 KB too big: only feasible with chunks restricted to the program's own requests).
+Main is unchanged by this (410dcb6 = NT_AFTER only).
+
+### (Original design notes) dynamic tail for gbal verify full
 Expected H100 gain ~3-4 us at verify 16 full, ~8-10 at verify 32 full (max end - mean end minus chunk overhead).
 Design: per request, the last NCB x CH tiles form a dynamic pool (chunks never span requests: chunk k = request
 k // NCB, tiles [max(tiles_b - NCB CH, 0) + (k % NCB) CH, +CH) clipped); the static gbal partition runs over the
