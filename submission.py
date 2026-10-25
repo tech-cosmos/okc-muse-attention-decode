@@ -177,12 +177,12 @@ __global__ void __launch_bounds__(128) decode(const unsigned short* __restrict__
     /* Keys of this thread: K rows 8j + g (j 0..3), V rows {2c, 2c+1, 8+2c, 9+2c, 16+2c, ...}. */             \
     _Pragma("unroll") for (int j = 0; j < 4; ++j) {                                                            \
         int t = min(max(base + w0 + 8 * j + g, 0), tmax);                                                      \
-        kslot[j] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                           \
+        kslot[j] = PAGE == 1 ? (long)max(ptr[t], 0) : (long)max(ptr[t / PAGE], 0) * PAGE + t % PAGE;           \
     }                                                                                                          \
     _Pragma("unroll") for (int i = 0; i < 8; ++i) {                                                            \
         int k = 8 * (i >> 1) + 2 * c + (i & 1);                                                                \
         int t = min(max(base + w0 + k, 0), tmax);                                                              \
-        vslot[i] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                           \
+        vslot[i] = PAGE == 1 ? (long)max(ptr[t], 0) : (long)max(ptr[t / PAGE], 0) * PAGE + t % PAGE;           \
     }                                                                                                          \
     _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[j] = *(const uint4*)(kc + kslot[j] * (HKV * D) + h * D + 16 * c); \
     _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[i] = *(const uint2*)(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
@@ -491,12 +491,12 @@ __global__ void __launch_bounds__(128) verify(const unsigned short* __restrict__
     /* Keys of this thread: K rows 8j + g (j 0..3), V rows {2c, 2c+1, 8+2c, 9+2c, 16+2c, ...}. */             \
     _Pragma("unroll") for (int j = 0; j < 4; ++j) {                                                            \
         int t = min(max(base + w0 + 8 * j + g, 0), tmax);                                                      \
-        kslot[j] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                           \
+        kslot[j] = PAGE == 1 ? (long)max(ptr[t], 0) : (long)max(ptr[t / PAGE], 0) * PAGE + t % PAGE;           \
     }                                                                                                          \
     _Pragma("unroll") for (int i = 0; i < 8; ++i) {                                                            \
         int k = 8 * (i >> 1) + 2 * c + (i & 1);                                                                \
         int t = min(max(base + w0 + k, 0), tmax);                                                              \
-        vslot[i] = PAGE == 1 ? (long)ptr[t] : (long)ptr[t / PAGE] * PAGE + t % PAGE;                           \
+        vslot[i] = PAGE == 1 ? (long)max(ptr[t], 0) : (long)max(ptr[t / PAGE], 0) * PAGE + t % PAGE;           \
     }                                                                                                          \
     _Pragma("unroll") for (int j = 0; j < 4; ++j) kr[j] = *(const uint4*)(kc + kslot[j] * (HKV * D) + h * D + 16 * c); \
     _Pragma("unroll") for (int i = 0; i < 8; ++i) vr[i] = *(const uint2*)(vc + vslot[i] * (HKV * D) + h * D + 8 * g);
@@ -1845,12 +1845,16 @@ if HAVE_GLUON:
             t = lo + j * BN + n_g
             ok = t < hi
             pg = gl.load(pt_row + t // PAGE, mask=ok, other=0)
+            if SEQ_IN:
+                pg = gl.maximum(pg, 0)  # speculative length: entries past the real one are -1
             off = ((pg.to(gl.int64) * PAGE + t % PAGE) * ROW_W)[:, None] + c_g[None, :]
             cp.async_copy_global_to_shared(k_ring.index(j), kbase + off, mask=ok[:, None] & all_c)
             cp.async_copy_global_to_shared(v_ring.index(j), vbase + off, mask=ok[:, None] & all_c)
             cp.commit_group()
         t = lo + (NS - 1) * BN + n_g
         pg = gl.load(pt_row + t // PAGE, mask=t < hi, other=0)
+        if SEQ_IN:
+            pg = gl.maximum(pg, 0)  # speculative length: entries past the real one are -1
 
         # Block-diagonal queries: row r is query head (h + r // G) * G + r % G, nonzero only in its own KV head's
         # D columns. RMSNorm, then E4M3.
@@ -1906,6 +1910,8 @@ if HAVE_GLUON:
             cp.commit_group()
             t = t + BN
             pg = gl.load(pt_row + t // PAGE, mask=t < hi, other=0)
+            if SEQ_IN:
+                pg = gl.maximum(pg, 0)  # speculative length: entries past the real one are -1
             cp.wait_group(NS - 1)
             gl.barrier()
             s = i % NS
@@ -2251,7 +2257,8 @@ def _norm_rope(ptr, off, ok, c, pos, cs_ptr, ROPE: tl.constexpr, D: tl.constexpr
 @triton.jit
 def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, MASKED: tl.constexpr,
           PAGE: tl.constexpr, ROW_W: tl.constexpr, D: tl.constexpr, WINDOW: tl.constexpr, QK8: tl.constexpr,
-          DOT: tl.constexpr, MIF: tl.constexpr = False, need=False, FIXED: tl.constexpr = False):
+          DOT: tl.constexpr, MIF: tl.constexpr = False, need=False, FIXED: tl.constexpr = False,
+          CL: tl.constexpr = False):
     """One tile of cached keys at positions t through the online softmax. MASKED: some t >= hi.
     MIF (with MASKED): the score masks run only if the runtime scalar `need` says this tile has masked keys."""
     if MASKED:
@@ -2261,6 +2268,8 @@ def _tile(t, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0, M
     else:
         t_ld = t
     page = tl.load(pt_row + t_ld // PAGE)
+    if CL:
+        page = tl.maximum(page, 0)  # SPEC's speculative length: entries past the real one are -1
     row = (page.to(tl.int64) * PAGE + t_ld % PAGE) * ROW_W + hp0 * D
     k = tl.load(kc_ptr + row[:, None] + c[None, :])
     v = tl.load(vc_ptr + row[:, None] + c[None, :])
@@ -2407,7 +2416,7 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
         # tile instead of the prefetch (decode sliding +1..+2.5 us).
         lo, hi, pt_row, n = _range(split, b, seq, pt_ptr, WINDOW, BALANCE, S, BLOCK_N, CHUNK, MAX_PAGES)
         t0 = tl.maximum(tl.minimum(lo + tl.arange(0, PRE * BLOCK_N), hi - 1), 0)
-        row0 = (tl.load(pt_row + t0 // PAGE).to(tl.int64) * PAGE + t0 % PAGE) * ROW_W + hp0 * D
+        row0 = (tl.maximum(tl.load(pt_row + t0 // PAGE), 0).to(tl.int64) * PAGE + t0 % PAGE) * ROW_W + hp0 * D
         tl.inline_asm_elementwise("prefetch.global.L2 [$1];\n\tprefetch.global.L2 [$2];\n\tmov.u32 $0, 0;", "=r,l,l",
                                   [kc_ptr + row0, vc_ptr + row0], dtype=tl.int32, is_pure=False, pack=1)
     r = tl.arange(0, M_PAD)
@@ -2424,7 +2433,7 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
         qx, qxp, qcos, qsin = _norm_rope_ld(qkv_ptr, q_off, q_ok, c, pos, cs_ptr, ROPE, D)
         lo, hi, pt_row, n = _range(split, b, seq, pt_ptr, WINDOW, BALANCE, S, BLOCK_N, CHUNK, MAX_PAGES)
         t0 = tl.maximum(tl.minimum(lo + tl.arange(0, PREQ * BLOCK_N), hi - 1), 0)
-        row0 = (tl.load(pt_row + t0 // PAGE).to(tl.int64) * PAGE + t0 % PAGE) * ROW_W + hp0 * D
+        row0 = (tl.maximum(tl.load(pt_row + t0 // PAGE), 0).to(tl.int64) * PAGE + t0 % PAGE) * ROW_W + hp0 * D
         tl.inline_asm_elementwise("prefetch.global.L2 [$1];\n\tprefetch.global.L2 [$2];\n\tmov.u32 $0, 0;", "=r,l,l",
                                   [kc_ptr + row0, vc_ptr + row0], dtype=tl.int32, is_pure=False, pack=1)
         q = _norm_rope_fin(qx, qxp, qcos, qsin, c, ROPE, D, HPP)
@@ -2468,7 +2477,7 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
         for fs in tl.range(lo, tl.minimum(lo + FIX * BLOCK_N, hi), BLOCK_N, num_stages=1):
             ft = fs + n
             fld = tl.minimum(ft, hi - 1)
-            frow = (tl.load(pt_row + fld // PAGE).to(tl.int64) * PAGE + fld % PAGE) * ROW_W + hp0 * D
+            frow = (tl.maximum(tl.load(pt_row + fld // PAGE), 0).to(tl.int64) * PAGE + fld % PAGE) * ROW_W + hp0 * D
             fk = tl.load(kc_ptr + frow[:, None] + c[None, :])
             fsc = tl.dot(q, tl.trans(fk if QK8 else fk.to(DOT)))
             fsc = tl.where((ft < hi)[None, :], fsc, float("-inf"))
@@ -2485,18 +2494,18 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
         full_end = lo
     for start in tl.range(lo, full_end, BLOCK_N, num_stages=STAGES):
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              False, PAGE, ROW_W, D, WIN, QK8, DOT, FIXED=FXD)
+                              False, PAGE, ROW_W, D, WIN, QK8, DOT, FIXED=FXD, CL=SEQ_IN)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
-                                 False, PAGE, ROW_W, D, WIN, QK8, DOT)
+                                 False, PAGE, ROW_W, D, WIN, QK8, DOT, CL=SEQ_IN)
     for start in tl.range(full_end, hi, BLOCK_N, num_stages=STAGES):
         # MIF: one loop, masks only on the tiles that need them (window start for verify rows, or past hi).
         need = (start + BLOCK_N > hi) | (start <= seq + (L - 1) - WIN) if WIN > 0 else start + BLOCK_N > hi
         m_i, l_i, acc = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q, pos, c, m_i, l_i, acc, scale, hp0,
-                              True, PAGE, ROW_W, D, WIN, QK8, DOT, MIF, need, FIXED=FXD)
+                              True, PAGE, ROW_W, D, WIN, QK8, DOT, MIF, need, FIXED=FXD, CL=SEQ_IN)
         if DUAL:
             m1, l1, acc1 = _tile(start + n, hi, pt_row, kc_ptr, vc_ptr, q1, pos, c, m1, l1, acc1, scale, hp0 + 1,
-                                 True, PAGE, ROW_W, D, WIN, QK8, DOT, MIF, need)
+                                 True, PAGE, ROW_W, D, WIN, QK8, DOT, MIF, need, CL=SEQ_IN)
 
     if PF:
         m_i += tl.where(pf == -7, 1.0, 0.0) * 0.0
