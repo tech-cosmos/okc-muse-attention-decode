@@ -21,15 +21,6 @@ FP16 mma.sync, owner-row st.async merge) correct (10x lower error than main) but
 (globaltimer stamps). (2) Physical-order decode full gate: bucketing 2.59M page-table entries by physical window =
 42+ us H100 (page-table read alone ~7; contended global atomics dominate) vs the <= ~5 us gate. NOTES s84.
 
-**s83: TV (V FP8->FP16 convert as an identity FP8 wgmma with f16 acc, P via smem; exp/tv) = correct but dead**: H100
-verify 32 full real +3.7, all-L2 +47 us (consumer gains an exposed wgmma + 2 WG barriers + fence per tile). Decode 1
-full merge knobs (cw/csb/splits) = noise. Brief now (e76a294): batch-1 first; next = native verify-1-sliding cluster
-kernel (NOTES s83 Next). No checks used.
-
-**s82: three probes, all dead (no checks).** F2FP doesn't share the MUFU pipe (tools/s82/pipe.cu); verify 1 full on
-`_gw_verify` ties Triton at 127 splits and loses above 132; verify 32 full at 1 CTA/SM (BN 64 or 128) loses 12-37%.
-New per-us sensitivity table in NOTES s82: decode/verify 1 sliding are worth 1.6/1.3 %/us, verify 32 full 0.064 %/us.
-
 **s76-s81 (one line each; NOTES has the detail):** s81 LZ 4 FMNMX-free lazy max = H200 tie (f4199324). s80 H200
 bandwidth: decode 32 full bytes dense 144.7 / sorted 148.4 / random ~164 us (`_gd_full` at the random ceiling).
 s79 LZ 3 exact per-warp lazy max (on main, scored 9f8e594b 2.350x = best). s78 lazy-max softmax ceiling -27/-16 us
