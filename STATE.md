@@ -22,16 +22,7 @@ exchange is far worse (13.2). Third native verify-1-sliding kernel to lose (s72,
 mask (-16% loop instructions, tie). Since 04:09Z agent2 (~/repo2) owns batch 16/32 sliding and gets >= 8 checks/day;
 merge its COORD "Ready to merge" wins. NOTES s88.
 
-**s87:** plan knobs, `_gd_full` ptpf, gbal K/V L2 prefetch-ahead: all dead on H100 (NOTES s87).
-
-**s86: SCORED 8aec5993 2.354x (then best) (main e8a1f73, code 07a06b3).** Bisected s85's verify 1 sliding
-SPEC loss: SPEC alone (no pre 2) also lost on the H200 (diag 6e8ac91c: 9.24 us); the cause is the unexecuted
-out-of-line `noinline` redo copy (2x PTX). Loop form (one body in `while go:`, seq loop-carried) + pre 2: H100 -0.29,
-H200 check e1620b92 2.359x (verify 1 sliding 7.32), scored 8aec5993 2.354x (verify 1 sliding 6.91). `_gd_full` loop
-form loses +1.2 H100 (keeps noinline, which is fine in Gluon); verify 1 full SPEC +0.35 H100 (off). NOTES s86.
-
-**s76-s85 (NOTES has the detail):** s85 SPEC (batch-1 seq from table width, on main); s84 native vsl lost, bucketing
-gate failed; s80 H200 decode 32 full bytes dense 144.7 / random ~164 us; s79 LZ 3 lazy max (on main); s77 diag harness.
+**s76-s87:** see NOTES (s86 SPEC loop form, s85 SPEC, s84 native vsl lost, s80 H200 dense/random bytes, s79 LZ 3).
 
 ## Board and best run
 
