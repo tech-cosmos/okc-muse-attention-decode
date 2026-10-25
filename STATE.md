@@ -1,6 +1,11 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~04:20 UTC (session 86 = unattended session 19 of the #1-push brief).
+Updated 2026-10-25 ~04:40 UTC (session 87 = unattended session 20 of the #1-push brief).
+
+**s87: three H100 probes, all dead, no checks** (branch exp/gdpf): verify 1 full / decode 1 full plan knobs at
+optimum; `_gd_full` page-table L2 prefetch = tie (repeat of s32); K/V-row L2 prefetch ahead of the gbal producer
+(verify full) +10..+40% on the H100 (ncu: over-fetch, and still +8% with evict_last at the baseline's DRAM bytes),
+so ring depth is not the producer's limit on the H100. NOTES s87.
 
 **s86: SCORED 8aec5993 2.354x = NEW ACCOUNT BEST (main e8a1f73, code 07a06b3).** Bisected s85's verify 1 sliding
 SPEC loss: SPEC alone (no pre 2) also lost on the H200 (diag 6e8ac91c: 9.24 us); the cause is the unexecuted
@@ -106,6 +111,8 @@ numbers: NOTES s69.)
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
 
+- s87: plan knobs verify 1 full / decode 1 full (fewer splits, deeper stages), `_gd_full` ptpf, gbal producer K/V
+  L2 prefetch-ahead (pfd, incl. evict_last).
 - s86: noinline redo copy in Triton _attn_split (H200 +2 us cold), loop-form SPEC in Gluon _gd_full (+1.2 H100),
   verify 1 full SPEC (+0.35 H100).
 

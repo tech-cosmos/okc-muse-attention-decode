@@ -3888,3 +3888,37 @@ Board 03:25Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.350x (#24).
 2. Cheap: the H200 judge punishes code that looks free on the H100 (noinline copy here, hpp 2 earlier). Before any
    check, compare register count / PTX size against main (tools: /tmp-style script in NOTES s86, n_regs/asm on
    `kernel.device_caches`).
+
+## Session 87 (unattended session 20, 2026-10-25 03:57 - ~04:40 UTC): three H100 probes, all dead (no checks)
+
+Board 03:57Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.354x (8aec5993). Branch **exp/gdpf** (pushed,
+diag only, never merge): plan keys `ptpf` (_gd_full) and `pfd` (gbal producer).
+
+- **Verify 1 full plan knobs** (H100 bench, base 17.82 us): warps 8 25.5, warps 8 + BN 128/stages 4 / splits 63 /
+  stages 6 all ~25.3-25.5, warps 2 24.0, warps 2 + splits 255 25.5, BN 32 stages 12 21.2. The plan is at its optimum.
+  (Why the kernel is ~12.8 us on the H200 vs the ~5.5 us gather floor: ~2 four-warp programs per SM, ~10 serial
+  64-key tiles each, every tile a latency-bound softmax chain; more programs means 8x decode's merge volume.
+  Splitting query rows across programs instead (one token = _gd_full's 16-row layout) would multiply the L2 reads
+  by 8: 160 MB, not worth building.)
+- **Decode 1 full, fewer splits + deeper pipeline** (base 14.61): splits 511 stages 3 15.55; 255 / stages 3/4/6
+  16.4/16.9/18.5; 383/3 and 127/8 worse (25.0). More stages lose even with the same splits.
+- **`ptpf`: L2 prefetch of the split's page-table lines in `_gd_full`** (one line per lane before the prologue):
+  decode 1 full 8 lines -0.26 in one sweep, then +0.25 in a repeat (noise); decode 16 full 32 lines +0.6. Dead; it
+  repeats s?? (NOTES line ~1715: the same prefetch tied then). Grep "prefetch" in NOTES before trying prefetches.
+- **`pfd`: K/V-row L2 prefetch PFD tiles ahead in `_gw_producer_bal`** (verify 16/32 full; hypothesis: the 3-stage
+  smem ring holds only ~64 KB in flight per SM, so consumer stalls drain the DRAM pipe = the H200's ~38 us overlap
+  loss). H100: verify 32 full 255.3 -> 280.9 / 342.1 / 454.0 us (pfd 2/4/8), verify 16 135.3 -> 175.1 (pfd 4);
+  with the page entry loaded an iteration earlier, no better (269/344/431). ncu verify 16 full: DRAM read 336 -> 442
+  MB at pfd 4 (only 30% of L2 lookups hit: prefetched lines evicted before use); `prefetch.global.L2::evict_last`
+  removes the over-fetch (338 MB, 48% hits) yet pfd 2 is still 148.6 vs 136.9 us. So refilling the ring is not the
+  producer's limit on the H100, and the prefetches only add cost. SASS: CCTL.E.PF2, no spills. Dead (H100; the H200's
+  overlap loss stays unexplained, but this lever loses 10% on the H100, so not worth a check).
+
+### Next
+
+Nothing cheap left that I can see in plans/prefetch. The big levers stay the multi-session ones in STATE (verify
+full consumer latency at >= 16 warps/SM; physical-order full layers). No checks used this session.
+
+### Budget (UTC day 2026-10-25)
+
+Checks 9/20, scored 3/10 (unchanged).
