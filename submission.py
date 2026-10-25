@@ -757,9 +757,12 @@ if HAVE_GLUON:
     def _gw_producer_bal(seq_ptr, pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, p,
                          B: gl.constexpr, B_PAD: gl.constexpr, P: gl.constexpr, MAX_PAGES: gl.constexpr,
                          PAGE: gl.constexpr, ROW_W: gl.constexpr, BN: gl.constexpr, C: gl.constexpr,
-                         D: gl.constexpr, NS: gl.constexpr, PW: gl.constexpr, LAG: gl.constexpr):
+                         D: gl.constexpr, NS: gl.constexpr, PW: gl.constexpr, LAG: gl.constexpr,
+                         PFD: gl.constexpr = 0):
         """_gw_producer_cv over the program's segments (the ring position carries across them)."""
         GLY: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [PW, 1], [1, 0])
+        PFL: gl.constexpr = gl.BlockedLayout([1], [32], [PW], [0])
+        n_f = gl.arange(0, BN, layout=PFL)
         VL: gl.constexpr = gl.BlockedLayout([1, 8], [4, 8], [PW, 1], [1, 0])
         n_g = gl.arange(0, BN, layout=gl.SliceLayout(1, GLY))
         c_g = gl.arange(0, C, layout=gl.SliceLayout(0, GLY))
@@ -771,12 +774,23 @@ if HAVE_GLUON:
             pt_row = pt_ptr + b.to(gl.int64) * MAX_PAGES
             t = gl.maximum(gl.minimum(lo + n_g, hi - 1), 0)
             pg = gl.load(pt_row + t // PAGE)
+            tf = gl.maximum(gl.minimum(lo + PFD * BN + n_f, hi - 1), 0)
+            pgf = gl.load(pt_row + tf // PAGE, mask=PFD > 0, other=0)
             for i in range(ntiles + LAG):
                 if i < ntiles:
                     s = (it + i) % NS
                     off = ((pg.to(gl.int64) * PAGE + t % PAGE) * ROW_W)[:, None] + c_g[None, :]
                     t = gl.maximum(gl.minimum(lo + (i + 1) * BN + n_g, hi - 1), 0)
                     pg = gl.load(pt_row + t // PAGE)
+                    if PFD > 0:
+                        # L2 prefetch of tile i + PFD's K and V rows (page entries loaded an iteration earlier):
+                        # DRAM runs ahead of the (smem-bound) ring.
+                        rf = (pgf.to(gl.int64) * PAGE + tf % PAGE) * ROW_W
+                        tf = gl.maximum(gl.minimum(lo + (i + PFD + 1) * BN + n_f, hi - 1), 0)
+                        pgf = gl.load(pt_row + tf // PAGE)
+                        gl.inline_asm_elementwise("prefetch.global.L2::evict_last [$1];\n\tprefetch.global.L2::evict_last [$2];\n\tmov.u32 $0, 0;",
+                                                  "=r,l,l", [kbase + rf, vbase + rf], dtype=gl.int32, is_pure=False,
+                                                  pack=1)
                     mbarrier.wait(empty.index(s), (((it + i) // NS) & 1) ^ 1)
                     cp.async_copy_global_to_shared(k_ring.index(s), kbase + off)
                     cp.async_copy_global_to_shared(v_ring.index(s), vbase + off)
@@ -874,7 +888,7 @@ if HAVE_GLUON:
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
                  SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True,
                  BAL: gl.constexpr = False, B: gl.constexpr = 1, B_PAD: gl.constexpr = 32, NP: gl.constexpr = 1,
-                 NID: gl.constexpr = 1):
+                 NID: gl.constexpr = 1, PTPF: gl.constexpr = 0):
         h = gl.program_id(2) * 2
         if BAL:
             # Length-proportional splits (plan dbal, full layers): the NP programs of a KV head pair go to the
@@ -931,6 +945,13 @@ if HAVE_GLUON:
         hi = gl.minimum(lo + chunk, seq)
         ntiles = gl.cdiv(gl.maximum(hi - lo, 0), BN)
         pt_row = pt_ptr + b.to(gl.int64) * MAX_PAGES
+        if PTPF > 0:
+            # L2 prefetch of the split's page-table lines (PTPF lines of 32 entries, one per lane), so the loop's
+            # one-tile-ahead page loads hit L2 instead of each paying a DRAM trip.
+            LP: gl.constexpr = gl.BlockedLayout([1], [32], [1], [0])
+            tp = gl.maximum(gl.minimum(lo + gl.arange(0, PTPF, layout=LP) * (32 * PAGE), hi - 1), 0)
+            gl.inline_asm_elementwise("prefetch.global.L2 [$1];\n\tmov.u32 $0, 0;", "=r,l", [pt_row + tp // PAGE],
+                                      dtype=gl.int32, is_pure=False, pack=1)
         kbase = kc_ptr + h * D
         vbase = vc_ptr + h * D
         k_ring = gl.allocate_shared_memory(gl.float8e4nv, [NS, BN, C], SH)
@@ -1107,16 +1128,16 @@ if HAVE_GLUON:
                  TPV: gl.constexpr = False, WINDOW: gl.constexpr = 0, ROPE: gl.constexpr = False,
                  SEP: gl.constexpr = False, Q16: gl.constexpr = True, KST: gl.constexpr = True,
                  BAL: gl.constexpr = False, B: gl.constexpr = 1, B_PAD: gl.constexpr = 32, NP: gl.constexpr = 1,
-                 NID: gl.constexpr = 1, SPEC: gl.constexpr = 0):
+                 NID: gl.constexpr = 1, SPEC: gl.constexpr = 0, PTPF: gl.constexpr = 0):
         # SPEC > 0 (batch 1, page 1): seq = table width - 1 known from the shape (SGLang slices the page table to the
         # batch's longest length); start on it, redo with the real length if it differs (as in _attn_split).
         if SPEC > 0:
             real = gl.load(seq_ptr + gl.program_id(1))
-            _gd_full_body(SPEC, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
+            _gd_full_body(SPEC, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, PTPF)
             if real != SPEC:
-                _gd_full_redo(real, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
+                _gd_full_redo(real, True, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, PTPF)
         else:
-            _gd_full_body(0, False, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID)
+            _gd_full_body(0, False, qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale, cs_ptr, HQ, HKV, G, D, PAGE, MAX_PAGES, S, BN, NS, TPV, WINDOW, ROPE, SEP, Q16, KST, BAL, B, B_PAD, NP, NID, PTPF)
 
     @gluon.jit
     def _gw_verify(qkv_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, qk_scale,
@@ -1126,7 +1147,8 @@ if HAVE_GLUON:
                    LAG: gl.constexpr = 0, PEEL: gl.constexpr = False, LSUM: gl.constexpr = False,
                    FUSE: gl.constexpr = False, cnt_ptr=None, out_ptr=None, RS: gl.constexpr = 1,
                    R_PAD: gl.constexpr = 1, BAL: gl.constexpr = False, B: gl.constexpr = 1,
-                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, LZ: gl.constexpr = 0):
+                   B_PAD: gl.constexpr = 1, NID: gl.constexpr = 1, NP: gl.constexpr = 1, LZ: gl.constexpr = 0,
+                   PFD: gl.constexpr = 0):
         M: gl.constexpr = L * G
         C: gl.constexpr = 2 * D
         split = gl.program_id(0)
@@ -1188,7 +1210,7 @@ if HAVE_GLUON:
                                     pml_ptr, 1, HQ, HKV, G, L, B, B_PAD, NP, NID, M, D, BN, NS, LZ)),
                 (_gw_producer_bal, (seq_ptr, pt_ptr, kc_ptr + h * D, vc_ptr + h * D, k_ring, v_ring, vh0, vh1, ready,
                                     empty, split, B, B_PAD, NP, MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW,
-                                    LAG)),
+                                    LAG, PFD)),
             ], [4, PW], [CREGS, PREGS])
         elif LAG:
             gl.warp_specialize([
@@ -2017,7 +2039,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         data["cache_loc"], pacc, pml, qk_scale,
         HQ=hq, HKV=hkv, G=group, L=length, D=d, PAGE=cfg["page_size"], MAX_PAGES=page_table.shape[1], S=progs,
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
-        LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, LZ=plan.get("lz", LZ), num_warps=4, maxnreg=plan["maxnreg"],
+        LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, LZ=plan.get("lz", LZ), PFD=plan.get("pfd", 0), num_warps=4, maxnreg=plan["maxnreg"],
         launch_pdl=True)
     hb = plan.get("hb", 2)
     _combine_bal[(batch * length, hq // hb)](
@@ -2072,7 +2094,8 @@ def _decode_gluon(data, cfg, plan):
         BN=plan["block_n"], NS=plan["stages"], TPV=plan.get("tpv", False), WINDOW=cfg["window"],
         ROPE=bool(cfg["rope_theta"]), SEP=sep, Q16=plan.get("q16", True),
         KST=plan.get("kst", True),
-        SPEC=page_table.shape[1] - 1 if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 else 0, num_warps=1)
+        SPEC=page_table.shape[1] - 1 if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 else 0,
+        PTPF=plan.get("ptpf", 0), num_warps=1)
     hb = plan.get("hb", 1)
     if hb > 1:
         _combine_hb[(batch, hq // hb)](
