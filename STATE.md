@@ -1,6 +1,11 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~05:30 UTC (session 90 = unattended session 23 of the #1-push brief).
+Updated 2026-10-25 ~05:50 UTC (session 91 = unattended session 24 of the #1-push brief).
+
+**s91: csl one 16-CTA cluster per (request, KV head), 4 warps/CTA (each SM gathers 16 KB, not 32): SCORED 08bf9391
+2.445x = NEW ACCOUNT BEST (main 9b14e27).** H200 decode 1 sliding 4.91 -> 4.17 (check) / 4.73 (scored), decode 16
+sliding 8.41 -> 7.63 / 7.70. csl stamps (tools/s91/cslstamp.py): page table 1.0 us, gathers 1.3, tail 1.6 of serial
+phases that don't shrink with fewer instructions (owner merge fast-math/tree, earlier cluster wait: ties). NOTES s91.
 
 **s90: merged agent2 maskif (mif + preq, verify 16/32 sliding) -> main ad2116c; SCORED 0339a5f6 2.364x = NEW ACCOUNT
 BEST.** Verify 1 full probes: compute-latency-bound in Triton (warm 14.2 vs cold 15.45 us; 6.2 us fixed + 0.111 us/1k
@@ -30,8 +35,8 @@ gate failed; s80 H200 decode 32 full bytes dense 144.7 / random ~164 us; s79 LZ 
 
 ## Board and best run
 
-- Board 2026-10-25 05:25Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.364x (#22)** (scored
-  **0339a5f6**, main ad2116c; previous 8aec5993 2.354x). Need ~+23% for #1. Table below is the older 7f45c5c6 run (NOTES s90 has 0339a5f6's).
+- Board 2026-10-25 05:45Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; **ours 2.445x** (scored
+  **08bf9391**, main 9b14e27; previous 0339a5f6 2.364x). Need ~+23% for #1. Table below is the older 7f45c5c6 run (NOTES s90 has 0339a5f6's).
 - Per-shape H200 (7f45c5c6, us, ours / SGLang / speedup):
 
 | load | sliding (x46) | full (x16) | load speedup |
@@ -48,12 +53,14 @@ gate failed; s80 H200 decode 32 full bytes dense 144.7 / random ~164 us; s79 LZ 
 
 ## Code state
 
-- main = ad2116c (= agent2 6c6a87a code = scored 0339a5f6 2.364x).
-- Dispatch: decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per request, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
+- main = 9b14e27 (= scored 08bf9391 2.445x; csl cluster per KV head on top of ad2116c).
+- Dispatch: decode sliding B<=16 -> native `_CSL` (one 16-CTA cluster per (request, KV head), 4 warps/CTA, DSMEM st.async merge); verify full B*Hkv>4 -> Gluon `_gw_verify` gbal (warp-specialized: 1 producer WG gathers + converts V
   to FP16, 2 consumer WGs = one per KV head, 2 CTAs/SM); decode full -> Gluon `_gd_full`; sliding + small -> Triton
   `_attn_split` + PDL merges.
 
 ## Budget (UTC day 2026-10-24; API: `okc problems --json`)
+
+- 2026-10-25 after s91: checks 11/20, scored 5/10 (s91: check 750924a0, submit 08bf9391).
 
 - 2026-10-25: checks 10/20 at s89 start (s89 used none; agent2 gets >= 8 of the rest); earlier: checks 9/20 (s86: 6e8ac91c diag 2.302x, e1620b92 2.359x; scored 8aec5993 2.354x = 3/10 scored) (s85: f51b8c4b 2.300x, 297d496a 2.347x; c5888ee5 diag, 577c5b9d 2.353x, 50c3fc4d + 025c8861 bandwidth diags, f4199324 LZ 4 2.349x tie), scored 2/10 (8774bdfc 2.312x, 9f8e594b 2.350x). Older 2026-10-24 notes below.
   2.328x, decode 32 sliding 13.27 vs 13.42 us = tie, not merged). Resets at
@@ -102,9 +109,12 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- Nothing queued: main ad2116c = scored 0339a5f6 (2.364x). Submit a new main only if its check beats 2.364.
+- Nothing queued: main 9b14e27 = scored 08bf9391 (2.445x). Submit a new main only if its check beats 2.445.
+- Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s91: csl owner merge fast reciprocal/sigmoid-early/tree reductions, cluster wait after QK (H100 ties); not i-fetch.
 
 - s90: FP8 P@V in Triton _tile (verify 1 full +10 us), verify 1 full block_n 128 / block_n 32 st 12 / warps 8.
 
