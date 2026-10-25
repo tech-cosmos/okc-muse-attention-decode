@@ -1920,8 +1920,9 @@ if HAVE_GLUON:
             keyp = keyp & flg
             # Batched (s103): request b's sums and out-of-range list (RCW words) at its own offsets; listed entries
             # are partial slots (BAL: ids).
-            red_ptr = red_ptr + b * (NR * M * (D + 1))
-            rcnt_ptr = rcnt_ptr + b * RCW
+            if RCW > 0:
+                red_ptr = red_ptr + b * (NR * M * (D + 1))
+                rcnt_ptr = rcnt_ptr + b * RCW
             if BAL:
                 kid = pid + b
                 nid_new = NP + B + b
@@ -2791,7 +2792,9 @@ def _plan(cfg, max_pages, device):
             # -1.7/-1.7; 256-512 slots lose 0.7-1.0 us). Likely residency: 8 attention programs at 242 registers
             # leave an SM 2048 registers for PDL-launched merge programs (capping the merge's registers loses).
             splits = max(4, 2048 // heads - 1)
-            if heads >= 48 and 2048 // hkv >= 8 * batch:
+            # s103: with plan red's merge (no _combine_bal), dbal wins at batch 16 too: H100 paired decode 16 full
+            # -1.54 us (10/10) vs equal splits + red (dprogs 768: -0.63 more at 16 but +3.5 at 32; 512/1536 lose).
+            if heads >= (32 if BRED else 48) and 2048 // hkv >= 8 * batch:
                 # dbal: 2048 / hkv programs per KV head pair shared out in proportion to the requests' lengths (the
                 # agentic lengths differ by up to 15%, and equal splits per request leave the longest ones setting
                 # the time), merged by _combine_bal (one head, 64 slots per 2-warp program: its 2-head 32-slot form
@@ -2849,10 +2852,11 @@ def _red_fin(qkv_ptr, red_ptr, rcnt_ptr, pacc_ptr, pml_ptr, vs_ptr, out_ptr, HQ:
     b's sums at b * NR * M * (D + 1), its list at b * RCW, partial slots per head SL (S + 1, or NID with BAL)."""
     QKV_W: tl.constexpr = (2 * HQ + 2 * HKV) * D
     b = tl.program_id(0)
-    red_ptr += b * (NR * M * (D + 1))
-    rcnt_ptr += b * RCW
-    qkv_ptr += b * QKV_W
-    out_ptr += b * (HQ * D)
+    if RCW > 0:
+        red_ptr += b * (NR * M * (D + 1))
+        rcnt_ptr += b * RCW
+        qkv_ptr += b * QKV_W
+        out_ptr += b * (HQ * D)
     r = tl.arange(0, M)
     d = tl.arange(0, D)
     col = r[:, None] * D + d[None, :]
