@@ -3795,3 +3795,57 @@ different inversion (none known).
 ### Budget (UTC day 2026-10-25)
 
 Checks 5/20 (unchanged), scored 2/10.
+
+## Session 85 (unattended session 18, 2026-10-25 02:50 - ~03:50 UTC): batch-1 speculative seq from the page-table width (merged)
+
+Board 02:55Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.350x (#21). Brief: batch-1 first.
+
+### Gather floors (tools/s85/sgather.py, H100 graph-timed, same seq -> page table -> 128-B row chain as the kernels)
+
+Bare gather of the window's K+V rows: decode 1/16/32 sliding **3.6 / 6.9 / 10.1 us** vs main 5.95 / 10.1 / 15.3
+(H100 kernel profile tools/s85/prof.py: decode 32 `_attn_split` 13.05, merge ends 13.3; verify 32 15.5/16.9).
+Batch 32's gather is at the random-row rate (6.5 us for 16.7 MB = 2.6 TB/s past the ~3.6 us chain). Batch 1's gather
+is pure chain latency, and **dropping the seq_lens trip (page-table range from a constant) cuts it 3.65 -> 3.17**.
+
+### SPEC: seq from the page-table width (batch 1, page 1; shapes only, verified on device)
+
+SGLang's FA3 backend slices the page table to the batch's longest length (`req_to_token[req_pool_indices,
+:max_seq_len_k]`; FA3 also gets `max_seqlen_k` from the host), and the judge's generator builds it the same way
+(reference.py: `max_pages = (longest + q_len + page - 1) // page`). So at batch 1 with page 1, seq = width - L. The
+kernels start the page-table/cos-sin/K/V loads on that constant at once, load the real seq_lens alongside, and if
+the two differ they **redo everything with the real length** (output then is bit-identical to main; checked by
+tools/s85/fallback.py with tables padded by 1/7/3000 columns, all 4 batch-1 kinds). Correctness never depends on the
+guess; it only skips one DRAM trip when the guess holds.
+- csl (decode 1 sliding): `spec` kernel arg, `CSL_LOADS` macro redone on mismatch. H100 paired -0.29..-0.34 us
+  (7/7, 11/11, 13/13); decode 16 sliding (spec off, code reshuffled) -0.2 (11/11).
+- `_gd_full` (decode 1 full): kernel = wrapper over `_gd_full_body(seq_in, SEQ_IN, ...)`, redo through
+  `gluon.jit(noinline=True)` (out of line). H100 paired -0.26..-0.59 (11/11, 13/13). Plan re-sweep with spec
+  (splits 255-1023, stages 3): the current plan (511 splits, stages 2) stays best.
+- `_attn_split` got the same wrapper (`_attn_body`, `_attn_body_redo` noinline, constexpr SPEC). Verify 1 sliding:
+  SPEC alone ties (its query hop is critical, not the seq hop), SPEC with an inlined redo body +0.24, pre 2 alone
+  -0.08, **SPEC + pre 2 -0.30 H100 (12/13, 11/13), but the H200 check f51b8c4b judged it 9.55 us vs ~7.2** while
+  its profiled kernels were unchanged (3.7 + 1.8). Not understood (redo path taken on the judge's timed inputs? the
+  noinline call?). Off on main (plan has no spec); verify 1 full SPEC +0.1..0.2 H100: off too.
+
+### H200 checks
+
+- **f51b8c4b** (exp/spec 48dd64e, spec in all three): **2.300x** [2.265, 2.334]. decode 1 sliding **4.75** (was
+  5.43), decode 1 full **13.98** (was 14.73), verify 1 sliding **9.55** (was 7.19: the loss above). Rest noise.
+- **297d496a** (16adf33 = verify 1 sliding spec off): **2.347x** [2.311, 2.382] = tie with 9f8e594b's 2.350. decode 1
+  sliding 5.18, decode 1 full 14.43, verify 1 sliding 7.26; noise elsewhere (verify 16 full 115.0, verify 16 sliding
+  12.95). Not submitted (rule: beat 2.353). Merged to main as a per-shape win (both checks: decode 1 sliding -0.25 /
+  -0.68, decode 1 full -0.3 / -0.75 us).
+
+### Next
+
+1. Find out why verify 1 sliding SPEC + pre 2 loses on the H200 judge only (diag check: SPEC without the redo body,
+   i.e. constant seq, and pre 2 alone, as separate renamed kernels per the s77 harness). If it's the redo path, the
+   judge's verify inputs may not have width = seq + 8; print shapes/seq in a check log (shapes and seq are fine to
+   print outside the timed call? No: only print config/shapes, never tensor values in kernel_fn).
+2. Batch-1 chains, now that seq is off the decode paths: csl is ~2.7 us above its 3.2 us gather floor on the H100
+   (compute ~0.8, cluster merge ~0.8, cluster launch ~0.45 per s72).
+3. Batched sliding: decode 32 sliding is ~5 us above the gather floor on the H100 (13.05 attn + merge vs 10.1).
+
+### Budget (UTC day 2026-10-25)
+
+Checks 7/20 (+ f51b8c4b, 297d496a), scored 2/10.
