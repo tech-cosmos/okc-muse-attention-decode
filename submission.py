@@ -393,6 +393,8 @@ CSL_MAX_BATCH = 16  # decode sliding up to this batch on the cluster kernel (H10
 
 RMS_EPS = 1e-5
 LOG2E = 1.4426950408889634
+import os as _os
+CL_ABL = tl.constexpr(int(_os.environ.get("CL_ABL", "0")))  # agent2 ablation: 1 launch only, 2 + barrier
 ROPE_POSITIONS = 1 << 21
 _ROPE = {}
 _SMS = {}
@@ -432,6 +434,28 @@ def _counters(n, device, tag=""):
     if buf is None or buf.numel() < n:
         buf = _COUNTERS[(device, tag)] = torch.zeros(max(n, 4096), dtype=torch.int32, device=device)
     return buf
+
+
+def _launch_cl(kern, grid, cl):
+    """kern[grid], or with cl > 1 as clusters of cl consecutive programs along x (grid[0] % cl == 0). The kernel is
+    compiled as usual (program_id is %ctaid); its launch metadata's CTA count (the launcher's cluster size, which
+    multiplies grid x) is set to cl. Only kernels specialized for clusters (CL=True) take this path, so the
+    patched compiled kernel is never launched without clusters."""
+    if cl <= 1 or _os.environ.get("CL_NOCL"):
+        return kern[grid]
+
+    def run(*args, **kw):
+        k = kern.warmup(*args, grid=grid, **kw)
+        k._init_handles()
+        nw, _, shared = k.packed_metadata
+        cl2 = int(_os.environ.get("CL_N", cl))
+        pad = int(_os.environ.get("CL_SMEM", "0"))
+        if pad:
+            shared = max(shared, pad)
+            triton.runtime.driver.active.utils.cuOccupancyMaxActiveClusters(k.function, shared, cl2)
+        k.packed_metadata = (nw, cl2, shared)
+        kern[(grid[0] // cl2, grid[1], grid[2])](*args, **kw)
+    return run
 
 
 def _num_sms(device):
@@ -1406,7 +1430,7 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
                 BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
-                PRE: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0):
+                PRE: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0, CL: tl.constexpr = False):
     """One program: a split of request b's context for HPP adjacent KV heads, which share each
     cache row's contiguous HPP*D bytes. Queries are block-diagonal [HPP*MG, HPP*D] (row r is KV
     head hp = r // MG of the pair, and holds values only in that head's D columns), so one
@@ -1522,6 +1546,36 @@ def _attn_body(seq_in, SEQ_IN: tl.constexpr, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks
     if DUAL:
         _finish(split, b, j, m1, l1, acc1, hp0 + 1, hp, rr, r_ok, q_ok, c, pacc_ptr, pml_ptr, HKV, MG, D, S, SEP)
 
+    if CL and CL_ABL == 3:
+        smid = tl.inline_asm_elementwise("mov.u32 $0, %smid;", "=r,r", [split], dtype=tl.int32, is_pure=False, pack=1)
+        cta = (tl.program_id(2) * tl.num_programs(1) + b) * S + split
+        tl.store(out_ptr.to(tl.pointer_type(tl.int32)) + cta, smid)
+    if CL and CL_ABL == 2:
+        tl.inline_asm_elementwise("barrier.cluster.arrive.release.aligned;\n\tbarrier.cluster.wait.acquire.aligned;\n\tmov.u32 $0, 0;", "=r,r", [split], dtype=tl.int32, is_pure=False, pack=1)
+    if CL and CL_ABL == 0:
+        # CL: the S splits of (b, hp0) run as one S-CTA cluster (see _launch_cl). After a cluster barrier (release /
+        # acquire: the partial stores above are visible cluster-wide) each CTA merges its slice of MG / S rows from
+        # L2 and writes them: no merge kernel.
+        RS: tl.constexpr = MG // S
+        mr = split * RS + tl.arange(0, RS)
+        mtok = b * L + mr // G
+        d = tl.arange(0, D)
+        mcol = (hp0 * G + mr % G)[:, None] * D + d[None, :]
+        gate = tl.load(qkv_ptr + mtok[:, None] * QKV_W + (HQ + 2 * HKV) * D + mcol).to(tl.float32)
+        bar = tl.inline_asm_elementwise(
+            "barrier.cluster.arrive.release.aligned;\n\tbarrier.cluster.wait.acquire.aligned;\n\tmov.u32 $0, 0;",
+            "=r,r", [split], dtype=tl.int32, is_pure=False, pack=1)
+        si = tl.arange(0, S)
+        at = ((b * HKV + hp0) * S + si)[:, None] * MG + mr[None, :] + bar  # [S, RS]; bar orders the loads
+        m = tl.load(pml_ptr + at * 2, cache_modifier=".cg")
+        l = tl.load(pml_ptr + at * 2 + 1, cache_modifier=".cg")
+        a = tl.load(pacc_ptr + at[:, :, None] * D + d[None, None, :], cache_modifier=".cg").to(tl.float32)
+        m_max = tl.max(m, 0)
+        w = tl.exp2(m - m_max[None, :])
+        o = tl.sum(w[:, :, None] * a, 0) / tl.sum(w * l, 0)[:, None] * tl.load(vs_ptr)
+        o = o * tl.rsqrt(tl.sum(o * o, 1) / D + 1e-5)[:, None]
+        tl.store(out_ptr + mtok[:, None] * HQ * D + mcol, (o * tl.sigmoid(gate)).to(tl.bfloat16))
+
     if FUSE:
         # The last of this (request, head pair)'s S programs to finish merges the partials and
         # writes the output, then resets the counter for the next call.
@@ -1562,7 +1616,8 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
                 FUSE: tl.constexpr, S_PAD: tl.constexpr, QK8: tl.constexpr, PDL: tl.constexpr,
                 DOT: tl.constexpr, PEEL: tl.constexpr = False, DUAL: tl.constexpr = False,
                 BALANCE: tl.constexpr = False, SEP: tl.constexpr = False, PF: tl.constexpr = False,
-                PRE: tl.constexpr = 0, SPEC: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0):
+                PRE: tl.constexpr = 0, SPEC: tl.constexpr = 0, MIF: tl.constexpr = False, PREQ: tl.constexpr = 0,
+                CL: tl.constexpr = False):
     """Kernel wrapper of _attn_body. SPEC > 0 (batch 1, page 1, shapes only): SGLang slices the page table to the
     batch's longest length, so seq = width - L is known before the seq_lens load lands; run on it at once (the
     page-table and cos/sin loads skip one DRAM trip) and redo the split with the real length if it differs."""
@@ -1573,11 +1628,11 @@ def _attn_split(qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr
         seq = tl.full([], SPEC, tl.int32)
         go = True
         while go:
-            _attn_body(seq, True, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ)
+            _attn_body(seq, True, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ, CL)
             go = real != seq
             seq = real
     else:
-        _attn_body(0, False, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ)
+        _attn_body(0, False, qkv_ptr, cs_ptr, kc_ptr, vc_ptr, ks_ptr, vs_ptr, pt_ptr, seq_ptr, loc_ptr, pacc_ptr, pml_ptr, cnt_ptr, out_ptr, qk_scale, HQ, HKV, HPP, G, L, MG, M_PAD, L_PAD, D, PAGE, MAX_PAGES, WINDOW, ROPE, S, CHUNK, BLOCK_N, STAGES, FUSE, S_PAD, QK8, PDL, DOT, PEEL, DUAL, BALANCE, SEP, PF, PRE, MIF, PREQ, CL)
 
 
 @triton.jit
@@ -1965,20 +2020,23 @@ def kernel_fn(data: Inputs) -> torch.Tensor:
     pacc = torch.empty((batch, hkv, splits + sep, rows, d), dtype=_PDT[plan.get("pdt", "f32")], device=device)
     pml = torch.empty((batch, hkv, splits + sep, rows, 2), dtype=torch.float32, device=device)
     out = torch.empty((batch, length, hq * d), dtype=torch.bfloat16, device=device)
-    _attn_split[(splits + sep, batch, hkv // (2 if dual else hpp))](
+    cl = bool(plan.get("cl")) and not fuse and not sep and not dual and hpp == 1 and splits in (2, 4, 8) \
+        and rows % splits == 0 and plan.get("pdt", "f32") == "f32"
+    _launch_cl(_attn_split, (splits + sep, batch, hkv // (2 if dual else hpp)), splits if cl else 1)(
         qkv, cs, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], page_table,
         data["seq_lens"], data["cache_loc"], pacc, pml, _counters(batch * hkv, device), out,
         cfg["sm_scale"] * cfg["qk_scale_factor"] * LOG2E,
         HQ=hq, HKV=hkv, HPP=hpp, G=group, L=length, MG=rows, M_PAD=max(16, triton.next_power_of_2(hpp * rows)),
         L_PAD=max(16, triton.next_power_of_2(length)), D=d, PAGE=cfg["page_size"], MAX_PAGES=max_pages,
         WINDOW=cfg["window"], ROPE=rope, S=splits, CHUNK=chunk, BLOCK_N=block_n, STAGES=plan["stages"],
-        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse, DOT=DOT_DTYPE, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
+        FUSE=fuse, S_PAD=triton.next_power_of_2(splits), QK8=plan["qk8"], PDL=USE_PDL and not fuse and not cl,
+        DOT=DOT_DTYPE, CL=cl, PEEL=plan.get("peel", False), DUAL=dual, BALANCE=plan.get("balance", False), SEP=bool(sep),
         PF=bool(plan.get("pf")) and not cfg["window"] and not plan.get("balance"),
         PRE=0 if dual else plan.get("pre", 0), MIF=bool(plan.get("mif")), PREQ=0 if dual else plan.get("preq", 0),
         SPEC=max_pages - length if plan.get("spec") and batch == 1 and cfg["page_size"] == 1 and not fuse else 0,
         num_warps=plan["warps"],
         **({"maxnreg": plan["maxnreg"]} if plan.get("maxnreg") else {}))
-    if fuse:
+    if fuse or cl:
         return out
     splits += sep
     hb = plan.get("hb", 1) if group % plan.get("hb", 1) == 0 else 1
