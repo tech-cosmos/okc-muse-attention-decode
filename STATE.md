@@ -34,7 +34,6 @@ merge) for decode 1 full (H200 -0.6 us); s91 csl scored 08bf9391 2.445x.**
 
 - 2026-10-25 after s103: checks 18/20 (2 left = agent2's), scored 7/10 (8725ba7e from the lead agent's reserve). s103: 0/0.
 
-
 - Today's judge runs are listed in ~/COORD.md "Judge runs" and NOTES s85-s91. Agent2 keeps >= 8 checks/day (it has used 1).
 
 ## Current direction
@@ -89,7 +88,6 @@ numbers: NOTES s69.)
   `_attn_split` / `hfloor` durations from the profile; port per-shape plan winners to main, then check main.**
   (main 1e4c80e was scored in s102: 8725ba7e 2.460x; don't resubmit it unchanged.)
 
-- (75081b1's decode 1 full -0.6 us H200 is included in 1e4c80e.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
