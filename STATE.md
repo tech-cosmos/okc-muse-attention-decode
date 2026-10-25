@@ -1,6 +1,19 @@
 # STATE (short current picture; NOTES.md is the long log: grep it)
 
-Updated 2026-10-25 ~08:50 UTC (session 98 = unattended session 31 of the #1-push brief).
+Updated 2026-10-25 ~09:15 UTC (session 101 = unattended session 34 of the #1-push brief).
+
+**s101: verify-full H200 overlap loss is NOT ring depth: diag check 6d7905ae (exp/vhdiag) of a decoupled FP16 V ring
+(exp/vhring, plan nh 2 / NS 4: 2 tiles in flight per CTA instead of 1) = tie/loss (verify 16 full 105.8-106.9 base vs
+107.8-108.1; verify 32 203.6-204.0 vs 204.3-205.6). Microbench dead: inter-WG ping-pong, dual-head ILP. Decode 1 full
+splits 511-1023 flat (not occupancy). main unchanged 1e4c80e. NOTES s101.**
+
+**s100: H200 check 55444f19 of main 1e4c80e = 2.444x (1540.78 us vs best 1540.6: tie, not submitted). vtk WINS on the H200:
+verify 1 sliding 6.75-6.96 -> 5.64 us; full layers ran slow on that node (decode 32 full 168.8). Launch floor (H100): empty
+kernel 1.9-2.2 us; launch + page-table + gather chain 3.18 us at 32 CTAs (csl 5.12, vtk 6.24). NOTES s100.**
+
+**s99: physical-row order per `_gd_full` program (keys of a program visited low -> high row): H100 ceiling -3.3/-3.5% at
+decode 32/16 full only when aligned to program ranges, but any separate pre-pass costs >= a table copy (9.1/5.9 us) and
+in-kernel bucketing is too slow or too coarse (2-3 buckets -1.8/-2.5 us). Dead. main unchanged 1e4c80e, no checks.**
 
 **s98: vtk probes dead on the H100 (coalesced page table + shfl: tie; empty-body vtk grid = 2.2-2.4 us launch floor at any
 cluster size, so vtk = ~2.3 floor + ~4.1 work). main unchanged 1e4c80e, no checks. NOTES s98.**
@@ -40,6 +53,8 @@ form (+4), same at verify 1 full (exp/redv, tie: 2x atomic volume) and verify 1 
 
 ## Budget (UTC day 2026-10-25; API: `okc problems --json`)
 
+- 2026-10-25 after s101: checks 18/20 (2 left = agent2's), scored 6/10.
+- 2026-10-25 after s100: checks 17/20 (3 left; agent2 <= 2), scored 6/10.
 - 2026-10-25 after s95: checks 16/20 (4 left = agent2's), scored 6/10. After s93: checks 15/20, scored 6/10 (s93: check 13582a1b, submit 8abec5c6). Claude's 6 submits today are USED.
 
 - Today's judge runs are listed in ~/COORD.md "Judge runs" and NOTES s85-s91. Agent2 keeps >= 8 checks/day (it has used 1).
@@ -87,12 +102,17 @@ numbers: NOTES s69.)
 
 ## Queued for checks
 
-- **FIRST after 00:00Z 2026-10-26: check main 1e4c80e (vtk verify 1 sliding + s95 red decode 1 full); submit if > 2.445.**
+- **FIRST after 00:00Z 2026-10-26: RE-check main 1e4c80e (s100 check 55444f19 tied at 2.444 on a slow-full-layer node; vtk
+  is an H200 win, verify 1 sliding 5.64); submit if it beats the board best.**
 
 - (75081b1's decode 1 full -0.6 us H200 is included in 1e4c80e.)
 - Idea to try (H100 first): csl at batch 32 (CSL_MAX_BATCH 32; agent2's lane, tell it), csl 8 warps x 16 keys per CTA.
 
 ## Dead-ends index (NOTES.md line refs approximate; grep the session)
+
+- s101: decoupled V ring / more gathers in flight in gbal (H200 diag tie/loss), FA3 ping-pong, dual-head ILP (microbench), decode 1 full splits.
+
+- s99: per-program physical order in _gd_full (pre-pass >= copy floor; aligned-sort ceiling only -3.3%).
 
 - s98: vtk coalesced page table + shfl (tie), cluster size vs launch floor (none).
 - s97: nverify at verify 1 full (gather-bound, ~1 us H200 ceiling), vtk2a re-ablated (base 6.88 > vtk 6.45), vtk disjoint

@@ -4385,3 +4385,117 @@ ABL=1 python tools/s98/vtk.py check|time`.
 
 ### Budget (UTC day 2026-10-25)
 - s98: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
+
+## Session 99 (unattended session 32, 2026-10-25 08:07 - ~08:35 UTC): physical-order reads per _gd_full program = dead (no checks)
+
+Board 08:08Z unchanged: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; ours 2.445x (08bf9391). No new COORD
+"Ready to merge" items. Account: checks 16/20 (the 4 left are agent2's), scored 6/10 (Claude's 6 used). **No checks,
+main unchanged (1e4c80e)**, tests 16/16. H100 bench at session start: geomean 2.041 (decode 16/32 full 126.4/244.4).
+Tools: tools/s99/psort.py (unaligned blocks, flawed), tools/s99/psort2.py (aligned to each program's range; MODE=sort |
+shN = stable sort by phys >> N | shuf), tools/s99/psort_src.py + ptest.py (native pre-pass kernel prototype).
+
+### Question: can decode full get part of the H200 dense-read rate without a page-table inversion?
+Idea: each `_gd_full` program visits its own key range in physical-row order (allowed: on full layers a program's keys
+are a set, so the order changes only FP32 summation order). All ~1000 programs start together and move through their
+ranges at the same rate, so they sweep the pool from low to high rows roughly in lockstep. No cross-program change.
+
+- **Ceiling (page table pre-sorted inside each program's exact range, outside the timed call; H100, us)**: decode 32 full
+  (dbal ranges) 245.2 -> **237.1 (-3.3%)**; decode 16 full (63 equal splits) 127.6 -> **123.1 (-3.5%)**; decode 1 full
+  14.2 -> 14.1-14.4 (nothing). Max |out - main| 0.0078 (summation order). For comparison s80: H100 dense 223 / random
+  247, so this recovers ~1/3 of the gap.
+- The sort must be aligned to the program ranges: blocks of fixed size (128 .. 8192, or whole-request sort) give
+  **nothing** (244.2-245.3), because a program then sweeps the pool several times (or a program owns a physical region:
+  block mode) and the lockstep is lost.
+- Coarse buckets suffice: stable sort by phys >> N (pool 2.75M rows = 22 bits): N 12/14/16 (1K/170/42 buckets) = full
+  gain (236.8-237.7); N 18 (11 buckets) 239.9; N 20 (3) 242.9; N 21 (2) 243.7.
+- **Separate pre-pass kernel** (native, one 256-thread CTA per program range, smem counting sort into 64 buckets,
+  coalesced write of a permuted table that `_gd_full` reads unchanged): correct (every range a permutation; buckets
+  monotone), but **14.0-14.4 us alone at decode 32, 10.8 at decode 16; with main 255.5 / 135.1 vs 244.3 / 127.4.**
+  Even a plain copy of the table costs **9.1 / 5.9 us** (H100 graph, cold) = more than the gain, so no separate pass can
+  pay. An in-kernel Gluon version: 2-3 buckets (a one-pass front/back partition is cheap) buy only -1.8 / -2.5 us, and
+  >= 32 buckets need per-tile multi-way ranks (estimated >10 us of one-warp issue per program). A native decode-full
+  kernel with an smem counting sort in its prologue would net maybe ~-3 us on the H100 after the sort's start delay,
+  for a large build that has lost to `_gd_full` before (s73, s92). **Dead.** (H200 transfer unknown: s80's per-request
+  sorted lockstep was only -2.4 us there.)
+
+### Next
+- **First after 00:00Z 2026-10-26: check main 1e4c80e (vtk + s95 red); submit if > 2.445.** (unchanged)
+- Physical-order full layers are now closed in every form tried (global inversion s80/s84, per-program order s99). The
+  open piles stay verify 16/32 full overlap loss (H200 112/206 vs max(consumer, gathers) ~87/170) and batch-1 latency.
+- Observation for batch-1 full: H100 -> H200 barely speeds up decode 1 full (13.9 -> 13.5) or verify 1 full (18.3 ->
+  16.9) although their 20 MB would read ~1.4x faster: they are latency-chain-bound (page-table trip + gather trip per
+  2-stage ring refill), not bandwidth-bound, on the H200.
+
+### Budget (UTC day 2026-10-25)
+- s99: 0 checks, 0 scored. Account unchanged: checks 16/20 (4 left = agent2's), scored 6/10.
+
+## Session 100 (unattended session 33, 2026-10-25 08:21 - ~09:05 UTC): H200 check of main 1e4c80e (vtk wins, overall tie); launch floor probes
+
+Board 08:55Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x, #3 2.643x; ours 2.445x (08bf9391, not in the top 14 shown).
+No new "Ready to merge" items. Per the human's 08:10Z COORD decision: ONE check of main.
+
+- **check 55444f1953764d0f, main 1e4c80e (vtk verify 1 sliding + s95 red decode 1 full): 2.444x [2.408, 2.481], score
+  1540.78 us vs best 1540.6 = tie, NOT submitted** (the human's condition was "beats 1540.6"). Per shape (H200, us):
+  decode 1 4.65 / 13.98; decode 16 7.94 / 89.85; decode 32 13.79 / 168.80; verify 1 **5.64** / 16.56; verify 16 12.53 /
+  114.16; verify 32 14.90 / 210.12 (sliding / full). **vtk is a real H200 win: verify 1 sliding 6.75-6.96 -> 5.64 us**
+  (profile: vtk::verify 4.7 us alone). The full layers ran slow on this node (decode 32/16 full 168.8/89.9 vs 161.9/86.6
+  in 08bf9391), which ate the gain. Decode 1 full 13.98 (13.53 in 257c10be): noise band. Profiles: csl decode 3.6 us;
+  decode 1 full _gd_full 7.9 + _red_fin 1.7; verify 1 full _attn_split 12.8 + _combine 2.6; verify 32 full _gw_verify
+  204.3, busy 211.4.
+- **Launch floor probes (tools/s100/floor.py, H100, bench.py timing minus the empty graph):** an empty kernel costs 1.89 us
+  at 1x32 threads, 1.95-2.05 at 32x128, 2.18 at 256x128, so the floor is the launch itself, not smem/cluster/params.
+  The minimal batch-1 chain (launch + one page-table load + one dependent random 64-B row load + store per thread):
+  **3.18 us at 32 CTAs, 3.6-3.9 at 256 CTAs.** Against that, H100 csl decode 1 sliding is 5.12 (~1.9 us of compute +
+  merge over the chain) and vtk verify 1 sliding 6.24 (~2.5 us over). These are the only batch-1 sliding headroom
+  (1.5-1.75 % overall per us); s72/s91 split csl's into ~0.8 compute + ~0.8 merge, and the micro-variants tied.
+- H100 bench (session start): geomean 2.038 (decode 1 sliding 5.12, verify 1 sliding 6.24, decode 1 full 13.82).
+
+### Next
+- **First after 00:00Z 2026-10-26: re-check main 1e4c80e; submit if it beats the board best** (expected ~+1.5% from vtk
+  on a normal node).
+- Batch-1 sliding: anything new has to cut csl's/vtk's ~1.9/2.5 us of post-gather compute + merge (e.g. merge with fewer
+  serialized smem/DSMEM hops); the launch and the two DRAM trips (~3.2 us H100) are fixed.
+
+### Budget (UTC day 2026-10-25)
+- s100: 1 check (55444f19), 0 scored. Account: checks 17/20, scored 6/10 (Claude's 6 used; the human's 2 reserve scored
+  runs were not needed). 3 checks left: agent2 <= 2.
+
+## Session 101 (unattended session 34, 2026-10-25 08:33 - ~09:30 UTC): verify-full consumer probes dead; decoupled V ring (nh) H200 diag
+
+Board 08:35Z: #1 pjmullin3 2.910x, #2 colinlikescode 2.844x; ours 2.445x (08bf9391, below #16 shown). No "Ready to merge".
+
+### Dead ends (H100, tools/s101/cmicro.cu = s69 consumer-only microbench + variants; verify-32-sized work)
+- **FA3 inter-WG ping-pong** (named barriers alternate the two consumer WGs' softmax; PING 1 = release after softmax,
+  2 = after the P@V issue): 165.9 / 163.9 vs base 162.8 us at 2 CTAs/SM; 1 CTA/SM 162.9 vs 165.5 (helps only at 1 CTA/SM,
+  still no better than base). Dead.
+- **Dual-head ILP** (one WG runs both KV heads, two independent softmax chains per warp): 176.7 us at 8 warps/SM vs 161.6
+  base; at 16 warps/SM (4 CTAs) it cannot fit 128 regs (spills: 291-473 us). Dead.
+- (s69 recap: no MUFU 145, so XU is not the limiter; poly exp lost.) The native consumer floor stays ~160 us H100.
+- ncu `_gw_verify` verify 32 full (H100 real, DRAM 78%): issue 50%, eligible 1.14/scheduler, stalls per issue
+  long_sb 2.20, wait 2.03, barrier 1.69, not_selected 1.19, mio 0.85, math_pipe 0.42.
+- **Decode 1 full**: CUPTI (tools/s101/prof.py): H100 `_gd_full` duration 11.0 us (no hidden launch gap: starts 2.3 us after the flush
+  ends), `_red_fin` ends 1.9 us later; csl 3.9 us. Splits 511/767/1023: 13.97/13.95/14.06 (2047: 18.0; BN 16 / stages 3
+  +0.8): not occupancy-limited. tools/s101/d1f.py: decode 1 full first kernel alone 12.2, merge alone 3.5; verify 1 full
+  15.4 / 5.2 (whole 17.7).
+
+### exp/vhring: FP16 V ring decoupled from the FP8 ring (plan key `nh`, _gw_verify gbal)
+Hypothesis (Little's law): with NS 3, LAG 1 and the FP16 V tile sharing the FP8 slot, ~1 tile (16 KB) per CTA is in
+flight = 32 KB/SM, under the H200's ~60-90 KB need at 4 TB/s x 2 us loaded latency (= the s77 overlap loss 209 vs
+max(171, 167)). nh 2: vh0/vh1 get their own 2-deep ring (barrier vempty, freed after P@V), the FP8 K/V slot is freed
+right after QK^T, NS 4 at the same 96 KB. Bit-identical output, tests pass.
+H100 (tools/s101/nh.py, 5 rounds): verify 32 full real 264.3 -> 263.7 (nh2 s4) / 262.7 (+lag 2); all-L2 230.6 -> 237.2;
+verify 16 real 138.8 -> 139.0, all-L2 105.3 -> 105.5. nh 3 s4 = 1 CTA/SM (+46). H100 can't decide it (DRAM-bound).
+- **H200 diag check 6d7905ae60434251 (exp/vhdiag, diag only, never submit; score meaningless)**: L2-flushed renamed copies (us):
+  verify 16 full base_a 105.8 / base_b 106.9 | nh2s4 108.1 / 107.8 | nh2s4 lag2 107.5 | nh2s3 106.5;
+  verify 32 full base_a 203.6 / base_b 204.0 | nh2s4 204.3 / 205.6 | lag2 202.1 | nh2s3 204.0. **Dead**: more gathers in
+  flight do not reduce the H200 overlap loss, so it is not ring depth / latency coverage. (With s87 pfd, both
+  "more in flight" levers are now closed; the loss must be issue/smem contention between producer and consumers.)
+  Branches exp/vhring (plan key nh, default off) and exp/vhdiag pushed; main unchanged.
+
+### Next
+- First after 00:00Z 2026-10-26: re-check main 1e4c80e (unchanged queue).
+- Verify full: the producer/consumer contention (not depth) is the remaining overlap loss; only a cut in producer
+  issue/smem traffic per tile can help (V convert ~5-7 us H200, s77). Consumer variants are exhausted (s37, s69, s101).
+
+### Budget (UTC day 2026-10-25)
+- s101: 1 check (6d7905ae diag), 0 scored. Account: checks 18/20 (2 left = agent2's), scored 6/10.
