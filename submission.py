@@ -2273,6 +2273,7 @@ if HAVE_GLUON:
         a += [f"mul.f32 ${j}, ${j}, {'$130' if j & 2 else '$128'};" for j in range(64)] + ["LZ_SKIP:", "}"]
         return "\n".join(a)
 
+    FLAT = gl.constexpr(True)  # flattened gbal producer (s125)
     DT_NR = gl.constexpr(2)  # dynamic tail: chunk-id ring slots
     LZ_PK = gl.constexpr(4)  # LZ 10: exact tiles per segment
     LZ_DELTA = gl.constexpr(14.0)  # LZ 10: FP16 headroom (binades)
@@ -2321,31 +2322,99 @@ if HAVE_GLUON:
                          dcnt_ptr=None):
         """_gw_producer_cv over the program's segments (the ring position carries across them)."""
         idx, seqv, tiles, start, end, b_first, nseg = _gw_bal(seq_ptr, p, B, B_PAD, P, BN, PW, NCB * CH)
-        it = 0
-        for sg in range(nseg):
-            b = b_first + sg
-            lo, hi, ntiles = _gw_seg(idx, seqv, tiles, start, end, b, BN)
-            _gw_pseg(pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, b, lo, hi, ntiles, it,
-                     MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW, LAG)
-            it += ntiles
-        if NCB > 0:
-            # Dynamic tail: grab chunk ids until the pool is empty. Each call takes exactly B NCB + P grabs (every
-            # program fails once), so the counter never needs a reset: chunk = old % (B NCB + P).
+        if FLAT:
+            # One tile stream across segments (s125): the ring stays full over segment changes (a per-segment
+            # drain cost ~3.5 us per dynamic chunk: grab + page-table + gather trips with an empty ring).
+            GLY: gl.constexpr = gl.BlockedLayout([1, 16], [4, 8], [PW, 1], [1, 0])
+            VL: gl.constexpr = gl.BlockedLayout([1, 8], [4, 8], [PW, 1], [1, 0])
+            n_g = gl.arange(0, BN, layout=gl.SliceLayout(1, GLY))
+            c_g = gl.arange(0, C, layout=gl.SliceLayout(0, GLY))
+            sg = 0
             c = 0
-            k = 0
-            while k < B * NCB:
-                cs = c % DT_NR
-                mbarrier.wait(cempty.index(cs), ((c // DT_NR) & 1) ^ 1)
-                k = gl.atomic_add(dcnt_ptr, 1, sem="relaxed", scope="gpu") % (B * NCB + P)
-                gl.store(dslot_ptr + cs, k)
-                gl.barrier()
-                mbarrier.arrive(cready.index(cs))
-                c += 1
-                if k < B * NCB:
-                    b, lo, hi, ntiles = _gw_chunk(idx, seqv, k, NCB, CH, BN)
-                    _gw_pseg(pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, b, lo, hi, ntiles, it,
-                             MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW, LAG)
-                    it += ntiles
+            live = 1
+            nt = 0
+            i = 0
+            b = 0
+            lo = 0
+            hi = 0
+            it = 0
+            n = 0
+            t = n_g * 0
+            pg = gl.load(pt_ptr + t, mask=t < 0, other=0)
+            while (live != 0) | (n - LAG < it):
+                while (live != 0) & (i == nt):
+                    if sg < nseg:
+                        b = b_first + sg
+                        lo, hi, nt = _gw_seg(idx, seqv, tiles, start, end, b, BN)
+                        sg += 1
+                    elif NCB > 0:
+                        cs = c % DT_NR
+                        mbarrier.wait(cempty.index(cs), ((c // DT_NR) & 1) ^ 1)
+                        k = gl.atomic_add(dcnt_ptr, 1, sem="relaxed", scope="gpu") % (B * NCB + P)
+                        gl.store(dslot_ptr + cs, k)
+                        gl.barrier()
+                        mbarrier.arrive(cready.index(cs))
+                        if c == 0:
+                            gl.store(dslot_ptr + DT_NR + 1, gl.inline_asm_elementwise("mov.u32 $0, %globaltimer_lo;", "=r", [], dtype=gl.int32, is_pure=False, pack=1))
+                        c += 1
+                        gl.store(dslot_ptr + DT_NR, c)
+                        if k < B * NCB:
+                            b, lo, hi, nt = _gw_chunk(idx, seqv, k, NCB, CH, BN)
+                        else:
+                            live = 0
+                    else:
+                        live = 0
+                    i = 0
+                    if live != 0:
+                        t = gl.maximum(gl.minimum(lo + n_g, hi - 1), 0)
+                        pg = gl.load(pt_ptr + b.to(gl.int64) * MAX_PAGES + t // PAGE)
+                if live != 0:
+                    s = it % NS
+                    off = ((pg.to(gl.int64) * PAGE + t % PAGE) * ROW_W)[:, None] + c_g[None, :]
+                    t = gl.maximum(gl.minimum(lo + (i + 1) * BN + n_g, hi - 1), 0)
+                    pg = gl.load(pt_ptr + b.to(gl.int64) * MAX_PAGES + t // PAGE, mask=i + 1 < nt, other=0)
+                    mbarrier.wait(empty.index(s), ((it // NS) & 1) ^ 1)
+                    cp.async_copy_global_to_shared(k_ring.index(s), kbase + off)
+                    cp.async_copy_global_to_shared(v_ring.index(s), vbase + off)
+                    it += 1
+                    i += 1
+                cp.commit_group()
+                if (n >= LAG) & (n - LAG < it):
+                    sj = (n - LAG) % NS
+                    cp.wait_group(LAG)
+                    gl.barrier()
+                    vt = v_ring.index(sj)
+                    vh0.index(sj).store(vt.slice(0, D, 1).load(VL).to(gl.float16))
+                    vh1.index(sj).store(vt.slice(D, D, 1).load(VL).to(gl.float16))
+                    fence_async_shared()
+                    mbarrier.arrive(ready.index(sj))
+                n += 1
+        else:
+            it = 0
+            for sg in range(nseg):
+                b = b_first + sg
+                lo, hi, ntiles = _gw_seg(idx, seqv, tiles, start, end, b, BN)
+                _gw_pseg(pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, b, lo, hi, ntiles, it,
+                         MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW, LAG)
+                it += ntiles
+            if NCB > 0:
+                # Dynamic tail: grab chunk ids until the pool is empty. Each call takes exactly B NCB + P grabs (every
+                # program fails once), so the counter never needs a reset: chunk = old % (B NCB + P).
+                c = 0
+                k = 0
+                while k < B * NCB:
+                    cs = c % DT_NR
+                    mbarrier.wait(cempty.index(cs), ((c // DT_NR) & 1) ^ 1)
+                    k = gl.atomic_add(dcnt_ptr, 1, sem="relaxed", scope="gpu") % (B * NCB + P)
+                    gl.store(dslot_ptr + cs, k)
+                    gl.barrier()
+                    mbarrier.arrive(cready.index(cs))
+                    c += 1
+                    if k < B * NCB:
+                        b, lo, hi, ntiles = _gw_chunk(idx, seqv, k, NCB, CH, BN)
+                        _gw_pseg(pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, b, lo, hi, ntiles, it,
+                                 MAX_PAGES, PAGE, ROW_W, BN, C, D, NS, PW, LAG)
+                        it += ntiles
 
     @gluon.jit
     def _gw_pseg(pt_ptr, kbase, vbase, k_ring, v_ring, vh0, vh1, ready, empty, b, lo, hi, ntiles, it,
@@ -2891,7 +2960,7 @@ if HAVE_GLUON:
             mbarrier.init(cready.index(j), count=1)
             mbarrier.init(cempty.index(j), count=2)
         if NCB > 0:
-            dslot = dslot_ptr + (gl.program_id(2) * NP + split) * DT_NR
+            dslot = dslot_ptr + (gl.program_id(2) * NP + split) * (DT_NR + 2)
             dcnt = dcnt_ptr + gl.program_id(2) * 32
         else:
             dslot = dslot_ptr
@@ -4074,7 +4143,7 @@ def _verify_bal(data, cfg, plan, out, qk_scale):
         BN=plan["block_n"], NS=plan["stages"], PW=plan["pw"], PREGS=plan["pregs"], CREGS=plan["cregs"],
         LAG=plan.get("lag", 1), BAL=True, B=batch, B_PAD=b_pad, NID=nid, NP=progs, LZ=plan.get("lz", LZ), num_warps=4, maxnreg=plan["maxnreg"],
         NCB=ncb, CH=ch, dcnt_ptr=_counters(32 * (hkv // 2), device, f"dt{batch}.{progs}.{ncb}"),
-        dslot_ptr=_counters(2 * progs * (hkv // 2), device, "dts"), launch_pdl=True)
+        dslot_ptr=_counters(4 * progs * (hkv // 2), device, "dts"), launch_pdl=True)
     if nta:
         _new_tokens[(batch, hkv)](
             qkv, data["k_cache"], data["v_cache"], data["k_scale"], data["v_scale"], data["seq_lens"], data["cache_loc"],
