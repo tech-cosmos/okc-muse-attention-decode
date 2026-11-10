@@ -1,0 +1,81 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0b0d10; --win:#13161b; --bar:#1b1f26; --line:#262b33; --dim:#5d6672; --txt:#d7dce2;
+          --green:#4ade80; --gdim:#1f3a2a; --gray:#3a414b; --gold:#f5c542; --cyan:#7dd3fc; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { width:1600px; height:900px; background:radial-gradient(1200px 600px at 50% 0%, #17202a 0%, var(--bg) 70%);
+         font-family:'JetBrains Mono', ui-monospace, monospace; color:var(--txt);
+         display:flex; align-items:center; justify-content:center; }
+  .win { width:1440px; background:var(--win); border:1px solid var(--line); border-radius:14px;
+         box-shadow:0 40px 120px rgba(0,0,0,.6); overflow:hidden; }
+  .top { height:44px; background:var(--bar); display:flex; align-items:center; padding:0 18px; position:relative; border-bottom:1px solid var(--line); }
+  .dot { width:13px; height:13px; border-radius:50%; margin-right:9px; }
+  .top .t { position:absolute; left:0; right:0; text-align:center; color:var(--dim); font-size:15px; }
+  .body { padding:34px 48px 38px; font-size:21px; }
+  .p { color:var(--green); font-weight:700; }
+  .sub { color:var(--dim); margin:8px 0 28px; }
+  .sub b { color:var(--green); font-weight:500; }
+  .hdr, .row { display:grid; grid-template-columns:300px 560px 150px 150px 170px; align-items:center; }
+  .hdr { color:var(--dim); font-size:16px; letter-spacing:.06em; padding-bottom:10px; border-bottom:1px solid var(--line); }
+  .row { height:62px; }
+  .track { position:relative; height:20px; display:flex; gap:3px; }
+  .seg { flex:1; border-radius:2px; background:#1c2129; }
+  .seg.g { background:var(--gray); } .seg.w { background:var(--green); }
+  .one { position:absolute; top:-8px; bottom:-8px; width:2px; background:#8a94a3; }
+  .top1 { position:absolute; top:-8px; bottom:-8px; width:2px; background:var(--gold); opacity:.8; }
+  .scale { position:relative; height:18px; font-size:13px; color:var(--dim); }
+  .scale span { position:absolute; transform:translateX(-50%); }
+  .x { color:var(--green); font-weight:700; }
+  .lead { color:var(--dim); font-size:18px; }
+  .rank { justify-self:start; border:1.5px solid var(--gold); color:var(--gold); border-radius:7px; padding:4px 14px; font-weight:700; }
+  .rank small { color:#a8892c; font-weight:400; font-size:15px; }
+  hr { border:0; border-top:1px solid var(--line); margin:22px 0 22px; }
+  .k { color:var(--dim); }
+  .y { color:var(--gold); font-weight:700; }
+  .c { color:var(--cyan); }
+  .line { margin:6px 0; }
+  .sq { display:inline-block; width:15px; height:15px; background:var(--green); border-radius:3px; margin-left:6px; vertical-align:-1px; }
+  .cur { display:inline-block; width:12px; height:24px; background:var(--txt); vertical-align:-4px; margin-left:8px; }
+  .legend { font-size:14px; color:var(--dim); margin-top:10px; }
+  .legend i { display:inline-block; width:2px; height:14px; vertical-align:-2px; margin:0 6px 0 14px; }
+</style></head>
+<body>
+<div class="win">
+  <div class="top"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+    <div class="t">h200 — okc — tech-cosmos — {{DATE}}</div></div>
+  <div class="body">
+    <div><span class="p">h200 $</span> okc leaderboard</div>
+    <div class="sub"><b>✓</b> {{N}} problems on the board · H200 · timed against SGLang · still running</div>
+
+    <div class="hdr"><div>PROBLEM</div><div>SPEEDUP vs SGLang</div><div>OURS</div><div>#1</div><div>RANK</div></div>
+    <div class="scale" style="margin-left:300px;width:560px;margin-top:6px">
+      <span style="left:0%">0</span><span style="left:33.3%">1.0x</span><span style="left:66.6%">2.0x</span><span style="left:100%">3.0x</span>
+    </div>
+    <div id="rows"></div>
+
+    <hr>
+    <div class="line"><span class="k">overall rank:</span> <span class="y">#{{RANK}}</span> <span class="k">of {{TOTAL}}</span></div>
+    <div class="line"><span class="k">every kernel faster than sglang:</span> <span class="x">{{FASTER}}/{{N}}</span> {{SQUARES}}</div>
+    <div class="line"><span class="k">swarm:</span> <span class="c">Claude Opus 5.5 agents</span> <span class="k">· {{RUNS}} judged runs · sandboxes by</span> <span class="c">Daytona</span></div>
+    <div class="line" style="margin-top:14px"><span class="p">h200 $</span><span class="cur"></span></div>
+  </div>
+</div>
+<script>
+  const rows = {{ROWS}};
+  const N = 45, MAX = 3.0;
+  document.getElementById('rows').innerHTML = rows.map(([n, s, t, r]) => {
+    let segs = '';
+    for (let i = 0; i < N; i++) {
+      const v = (i + 1) / N * MAX;
+      segs += `<div class="seg ${v <= s ? (v <= 1.0 ? 'g' : 'w') : ''}"></div>`;
+    }
+    return `<div class="row"><div>${n}</div>
+      <div class="track">${segs}<div class="one" style="left:33.3%"></div><div class="top1" style="left:${t/MAX*100}%"></div></div>
+      <div class="x" style="padding-left:24px">${s.toFixed(3)}x</div>
+      <div class="lead" style="padding-left:24px">${t.toFixed(3)}x</div>
+      <div class="rank">#${r}</div></div>`;
+  }).join('') + `<div class="legend" style="margin-left:300px"><i style="background:#8a94a3"></i>SGLang (1.0x)<i style="background:#f5c542"></i>current #1</div>`;
+</script>
+</body></html>
