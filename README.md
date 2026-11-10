@@ -4,6 +4,9 @@ Our entry for the Open Kernel Challenge problem `muse_attention_decode`: one dec
 8-token verify block) of gated grouped-query attention over a paged FP8 KV cache, timed against
 SGLang's kernel on an H200 under CUDA-graph replay.
 
+The later work on the other decode-step problems (whole decode layer, MoE, BF16 projection) is in
+[okc-muse-kernels](https://github.com/tech-cosmos/okc-muse-kernels).
+
 Almost all of the code and notes here were written by coding agents (Claude Code and Codex) running
 unattended in an H100 sandbox, steered through `CLAUDE.md`, `CODEX.md` and a shared coordination
 file. The repo is published as it was at the end of that work, including the agents' logs and the
